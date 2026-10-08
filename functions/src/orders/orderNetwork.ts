@@ -1,4 +1,3 @@
-'use strict';
 // Per-network (IP) rules for queued orders. INTERNAL MODULE — not exported
 // through functions/src/index.js, same pattern as tradeGuards.
 //
@@ -18,33 +17,55 @@
 // network key on a world-readable order would tell anyone which accounts share
 // a connection.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { sumDirectionalImpact, impactDirectionOf } = require('../shared/helpers');
-const { assertIpAccountCap } = require('../trading/tradeGuards');
-const { buildIpTrackingUpdate } = require('../trading/tradeState');
+import { sumDirectionalImpact, impactDirectionOf } from '../shared/impact';
+import type { ActionHistory, ImpactEntry } from '../shared/impact';
+import type { https } from 'firebase-functions';
+
+type CallableContext = https.CallableContext;
+
+/** A queued order's connection, as a fill reads it. */
+export interface OrderNetwork {
+  key: string;
+  ref: admin.firestore.DocumentReference;
+  tickerTradeHistory: Record<string, ActionHistory | undefined>;
+  recentTraders: Record<string, number>;
+}
+import { assertIpAccountCap } from '../trading/tradeGuards';
+import { buildIpTrackingUpdate } from '../trading/tradeState';
 
 /** The ipTracking doc id for this request's connection, or null. Same key executeTrade uses. */
-const networkKeyOf = (context) => {
+export const networkKeyOf = (context: CallableContext | null | undefined): string | null => {
   const ip = context?.rawRequest?.ip;
   return ip ? ip.replace(/[.:/]/g, '_') : null;
 };
 
-const ipRef = (key) => db.collection('ipTracking').doc(key);
-const originRef = (orderId) => db.collection('orderOrigins').doc(orderId);
+const ipRef = (key: string) => db.collection('ipTracking').doc(key);
+const originRef = (orderId: string) => db.collection('orderOrigins').doc(orderId);
 
 /**
  * At placement. A BUY takes one of the connection's hourly slots, and is refused
  * with executeTrade's own error if the connection is already full. Exits never
  * take a slot, the same as trading. Returns the network key (or null).
  */
-async function claimNetworkForOrder({ context, uid, isBuy, now = Date.now() }) {
+export async function claimNetworkForOrder({
+  context,
+  uid,
+  isBuy,
+  now = Date.now(),
+}: {
+  context: CallableContext;
+  uid: string;
+  isBuy: boolean;
+  now?: number;
+}): Promise<string | null> {
   const key = networkKeyOf(context);
   if (!key || !isBuy) return key;
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(ipRef(key));
-    const recentTraders = snap.exists ? snap.data().recentTraders || {} : {};
+    const recentTraders = snap.exists ? snap.data()!.recentTraders || {} : {};
     assertIpAccountCap({ ip: key, uid, action: 'buy', ipRecentTraders: recentTraders, now });
     tx.set(ipRef(key), { recentTraders: { [uid]: now } }, { merge: true });
   });
@@ -52,7 +73,7 @@ async function claimNetworkForOrder({ context, uid, isBuy, now = Date.now() }) {
 }
 
 /** Remember which connection placed a limit order, for its fill. */
-const recordOrderOrigin = (orderId, { uid, key }) =>
+export const recordOrderOrigin = (orderId: string, { uid, key }: { uid: string; key: string | null }) =>
   key ? originRef(orderId).set({ uid, ipKey: key, createdAt: Date.now() }) : Promise.resolve();
 
 /**
@@ -60,12 +81,15 @@ const recordOrderOrigin = (orderId, { uid, key }) =>
  * null for an order placed before this existed (or with no known connection),
  * which then fills on the per-account rules alone.
  */
-async function readOrderNetwork(transaction, orderId) {
+export async function readOrderNetwork(
+  transaction: admin.firestore.Transaction,
+  orderId: string,
+): Promise<OrderNetwork | null> {
   const originSnap = await transaction.get(originRef(orderId));
-  const key = originSnap.exists ? originSnap.data().ipKey : null;
+  const key: string | null = originSnap.exists ? originSnap.data()!.ipKey : null;
   if (!key) return null;
   const snap = await transaction.get(ipRef(key));
-  const data = snap.exists ? snap.data() : {};
+  const data = (snap.exists ? snap.data() : {}) as Partial<OrderNetwork>;
   return {
     key,
     ref: ipRef(key),
@@ -75,16 +99,34 @@ async function readOrderNetwork(transaction, orderId) {
 }
 
 /** Allowance the whole connection has spent on this ticker in this action's direction. */
-const networkImpactSpent = (net, ticker, action, now) =>
+export const networkImpactSpent = (net: OrderNetwork | null, ticker: string, action: string, now: number) =>
   net ? sumDirectionalImpact(net.tickerTradeHistory[ticker], now)[impactDirectionOf(action)] : 0;
 
 /** The accounts-per-connection rule, re-checked at fill time. Buys only. */
-const assertNetworkSlot = (net, uid, action, now) => {
+export const assertNetworkSlot = (net: OrderNetwork | null, uid: string, action: string, now: number) => {
   if (net) assertIpAccountCap({ ip: net.key, uid, action, ipRecentTraders: net.recentTraders, now });
 };
 
 /** WRITE phase: add the fill to the connection's shared history, as executeTrade does. */
-const writeNetworkFill = (transaction, net, { ticker, action, entry, trailingEntries, uid, now }) => {
+export const writeNetworkFill = (
+  transaction: admin.firestore.Transaction,
+  net: OrderNetwork | null,
+  {
+    ticker,
+    action,
+    entry,
+    trailingEntries,
+    uid,
+    now,
+  }: {
+    ticker: string;
+    action: string;
+    entry: ImpactEntry;
+    trailingEntries?: unknown;
+    uid: string;
+    now: number;
+  },
+) => {
   if (!net) return;
   transaction.set(
     net.ref,
@@ -100,14 +142,4 @@ const writeNetworkFill = (transaction, net, { ticker, action, entry, trailingEnt
     }),
     { merge: true },
   );
-};
-
-module.exports = {
-  networkKeyOf,
-  claimNetworkForOrder,
-  recordOrderOrigin,
-  readOrderNetwork,
-  networkImpactSpent,
-  assertNetworkSlot,
-  writeNetworkFill,
 };

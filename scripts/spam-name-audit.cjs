@@ -308,12 +308,12 @@ async function main() {
   // Read the list as text. Requiring helpers.js would pull in functions/'s own
   // copy of firebase-admin, which is a different module instance from this
   // script's and has no initialized app.
-  const helpersSrc = fs.readFileSync(path.join(__dirname, '..', 'functions', 'src', 'shared', 'usernames.js'), 'utf8');
+  const helpersSrc = fs.readFileSync(path.join(__dirname, '..', 'functions', 'src', 'shared', 'usernames.ts'), 'utf8');
   const block = helpersSrc.match(/const PROTECTED_PLAYER_NAMES = \[([\s\S]*?)\];/);
   const PROTECTED_PLAYER_NAMES = block ? [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : [];
   if (!PROTECTED_PLAYER_NAMES.length) {
     console.log(
-      '\nCould not read PROTECTED_PLAYER_NAMES from functions/src/shared/usernames.js - skipping coverage check.\n',
+      '\nCould not read PROTECTED_PLAYER_NAMES from functions/src/shared/usernames.ts - skipping coverage check.\n',
     );
     return;
   }
@@ -328,7 +328,7 @@ async function main() {
   console.log('='.repeat(78));
   if (missing.length) {
     console.log('\nTOP-25 PLAYERS NOT COVERED BY THE SIGNUP FILTER\n');
-    console.log('  Add these to PROTECTED_PLAYER_NAMES in functions/src/shared/usernames.js (lowercase,');
+    console.log('  Add these to PROTECTED_PLAYER_NAMES in functions/src/shared/usernames.ts (lowercase,');
     console.log('  letters and digits only), then redeploy createUser and changeDisplayName:\n');
     for (const u of missing) {
       console.log(

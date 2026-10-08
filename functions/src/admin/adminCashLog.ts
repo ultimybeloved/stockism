@@ -1,4 +1,3 @@
-'use strict';
 // Read side of the admin cash audit log.
 //
 // adminSetCash has been writing an `adminCashLog` entry for every balance change
@@ -7,11 +6,11 @@
 //
 // Write path lives in adminOps.js. Keep it that way: this file must stay a
 // read-only view, so a bug here can never move anyone's money.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const { ADMIN_UID, ADMIN_CASH_LOG_PAGE_MAX } = require('../shared/constants');
+import { ADMIN_UID, ADMIN_CASH_LOG_PAGE_MAX } from '../shared/constants';
 
 /**
  * Admin-only: the most recent cash adjustments, newest first.
@@ -21,7 +20,7 @@ const { ADMIN_UID, ADMIN_CASH_LOG_PAGE_MAX } = require('../shared/constants');
  * ordered read needs no composite index, and the panel filters the page it
  * already has. Add a real query here only if this ever stops fitting.
  */
-exports.adminListCashLog = cf().https.onCall(async (data, context) => {
+export const adminListCashLog = cf().https.onCall(async (data: { limit?: unknown } | undefined, context) => {
   requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');

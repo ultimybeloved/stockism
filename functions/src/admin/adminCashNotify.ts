@@ -1,4 +1,3 @@
-'use strict';
 // Internal module for adminOps.js — tells a player when an admin has put money
 // in their account.
 //
@@ -15,10 +14,13 @@
 // The player-facing text is deliberately GENERIC. The memo on the log entry is
 // an internal note ("comp for my mistake", "alt refund") and must never be shown
 // to the player, so the amount is the only thing that crosses over.
-const { writeNotification, sendDiscordDM } = require('../shared/helpers');
+import { writeNotification } from '../shared/notifications';
+import { sendDiscordDM } from '../shared/discordApi';
+import type { UserData } from '../shared/types';
 
 // Two decimals with thousands separators, so $12500 reads as $12,500.00.
-const money = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (n: number) =>
+  `$${Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /**
  * Notify a player that cash was added to their account. Bell plus a Discord DM
@@ -30,12 +32,15 @@ const money = (n) => `$${Number(n).toLocaleString('en-US', { minimumFractionDigi
  * Fail-soft throughout: the money has already landed by the time this runs, and
  * a notification that fails must never roll back or fail the grant itself.
  *
- * @param {string} uid - Firestore user id
- * @param {Object} userData - the user doc, read before the update
- * @param {number} delta - change in cash; anything <= 0 is ignored
- * @returns {{ notified: boolean, dmSent: boolean }}
+ * @param uid - Firestore user id
+ * @param userData - the user doc, read before the update
+ * @param delta - change in cash; anything <= 0 is ignored
  */
-async function notifyCashGrant(uid, userData, delta) {
+export async function notifyCashGrant(
+  uid: string,
+  userData: UserData | null | undefined,
+  delta: unknown,
+): Promise<{ notified: boolean; dmSent: boolean }> {
   const amount = Number(delta);
   if (!amount || !isFinite(amount) || amount <= 0) return { notified: false, dmSent: false };
 
@@ -61,5 +66,3 @@ async function notifyCashGrant(uid, userData, delta) {
 
   return { notified: true, dmSent };
 }
-
-module.exports = { notifyCashGrant };

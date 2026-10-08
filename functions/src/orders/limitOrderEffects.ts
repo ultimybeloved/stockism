@@ -1,4 +1,3 @@
-'use strict';
 // Post-commit side effects for a limit-order fill or cancel. INTERNAL MODULE —
 // not exported through functions/src/index.js, same pattern as tradeEffects.
 //
@@ -6,11 +5,12 @@
 // throw into the fill path: the trade is already done, and a failed feed write
 // must not look like a failed trade.
 
-const { writeNotification, writeFeedEntry } = require('../shared/helpers');
-const { updateCrewMissionProgress } = require('../crews/crewMissionProgress');
+import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import type { LimitOrder } from '../shared/types';
+import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 
 /** "Stop Loss" / "BUY limit order" — one label, used by both notifications. */
-const orderLabel = (order, { capitalized = false } = {}) => {
+const orderLabel = (order: LimitOrder, { capitalized = false } = {}) => {
   if (order.type === 'STOP_LOSS') return capitalized ? 'Stop Loss' : 'Stop loss';
   return capitalized ? `${order.type} Limit Order` : `${order.type} limit order`;
 };
@@ -19,7 +19,7 @@ const orderLabel = (order, { capitalized = false } = {}) => {
  * Tell the user their order was canceled. A silently vanished stop loss leaves
  * them thinking they're still protected.
  */
-const notifyCanceled = async (order, orderId, reason) => {
+export const notifyCanceled = async (order: LimitOrder, orderId: string, reason: string) => {
   const label = orderLabel(order, { capitalized: true });
   await writeNotification(order.userId, {
     type: 'trade',
@@ -34,7 +34,7 @@ const notifyCanceled = async (order, orderId, reason) => {
  * Orders live 90 days, which is long enough that a stop loss quietly reaching
  * its expiry is exactly the case where the owner has stopped thinking about it.
  */
-const notifyExpired = async (order, orderId) => {
+export const notifyExpired = async (order: LimitOrder, orderId: string) => {
   const label = orderLabel(order, { capitalized: true });
   await writeNotification(order.userId, {
     type: 'trade',
@@ -48,7 +48,17 @@ const notifyExpired = async (order, orderId) => {
  * Everything that happens once a fill is committed: the user's notification,
  * crew mission credit, and the public feed entry.
  */
-const publishFill = async (order, orderId, { fillShares, executedPrice, tradeValue, displayName, crew }) => {
+export const publishFill = async (
+  order: LimitOrder,
+  orderId: string,
+  {
+    fillShares,
+    executedPrice,
+    tradeValue,
+    displayName,
+    crew,
+  }: { fillShares: number; executedPrice: number; tradeValue: number; displayName: string; crew?: string | null },
+) => {
   const label = orderLabel(order);
   await writeNotification(order.userId, {
     type: 'trade',
@@ -85,5 +95,3 @@ const publishFill = async (order, orderId, { fillShares, executedPrice, tradeVal
     message,
   });
 };
-
-module.exports = { notifyCanceled, notifyExpired, publishFill };

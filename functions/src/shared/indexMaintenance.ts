@@ -1,4 +1,3 @@
-'use strict';
 // Market-index maintenance: the equal-weight index of every non-ETF character,
 // and the divisor that keeps it honest when the roster changes.
 //
@@ -22,37 +21,61 @@
 //
 // Mirror of the value maths in src/utils/marketIndex.ts — keep both in sync.
 
-const { CHARACTERS } = require('./characters');
-const { INDEX_BASE_VALUE } = require('./constants');
+import { CHARACTERS } from './characters';
+import { INDEX_BASE_VALUE } from './constants';
+
+/** One index constituent: ticker and its basePrice when it joined. */
+export interface Constituent {
+  t: string;
+  b: number;
+}
+
+/** What the daily job stores on market/indexHistory. */
+export interface StoredIndex {
+  divisor?: number;
+  constituents?: Constituent[];
+  [field: string]: unknown;
+}
+
+type Prices = Record<string, number | null | undefined> | null | undefined;
 
 /**
  * Today's constituents. Each carries its own basePrice so the OLD sum stays
  * computable even for a character that has since left the roster entirely and
  * is no longer in CHARACTER_MAP.
  */
-const indexConstituents = () =>
+export const indexConstituents = (): Constituent[] =>
   CHARACTERS.filter((c) => !c.isETF && c.basePrice > 0).map((c) => ({ t: c.ticker, b: c.basePrice }));
 
 /** A missing price reads as "at base" (ratio 1), same fallback the chart uses. */
-const sumRatios = (prices, constituents) =>
-  (constituents || []).reduce((sum, entry) => {
+export const sumRatios = (prices: Prices, constituents: (Constituent | null | undefined)[] | null | undefined) =>
+  (constituents || []).reduce((sum: number, entry) => {
     const base = entry?.b;
-    if (!(base > 0)) return sum;
+    if (!entry || base === undefined || !(base > 0)) return sum;
     const price = prices?.[entry.t];
     return sum + (price != null ? price : base) / base;
   }, 0);
 
-const sameConstituents = (a, b) => {
+export const sameConstituents = (a: unknown, b: unknown) => {
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-  const seen = new Set(a.map((x) => x?.t));
-  return b.every((x) => seen.has(x?.t));
+  const seen = new Set((a as (Constituent | null)[]).map((x) => x?.t));
+  return (b as (Constituent | null)[]).every((x) => seen.has(x?.t));
 };
 
 /**
  * The divisor to use now, given whatever was stored last time.
- * @returns {{divisor: number, adjusted: boolean, reason: string}}
  */
-const reconcileDivisor = ({ prices, constituents, stored, lastIndexValue }) => {
+export const reconcileDivisor = ({
+  prices,
+  constituents,
+  stored,
+  lastIndexValue,
+}: {
+  prices: Prices;
+  constituents: Constituent[];
+  stored: StoredIndex | null | undefined;
+  lastIndexValue?: number | null;
+}): { divisor: number; adjusted: boolean; reason: string } => {
   const currentSum = sumRatios(prices, constituents);
   const storedDivisor = stored?.divisor;
   const storedConstituents = stored?.constituents;
@@ -61,8 +84,13 @@ const reconcileDivisor = ({ prices, constituents, stored, lastIndexValue }) => {
   // value already on the chart, so the series doesn't step on the day this ships.
   // (With the old count-based formula that works out to count / base value, so
   // the handover is exact rather than approximate.)
-  if (!(storedDivisor > 0) || !Array.isArray(storedConstituents) || !storedConstituents.length) {
-    if (lastIndexValue > 0 && currentSum > 0) {
+  if (
+    storedDivisor === undefined ||
+    !(storedDivisor > 0) ||
+    !Array.isArray(storedConstituents) ||
+    !storedConstituents.length
+  ) {
+    if (lastIndexValue != null && lastIndexValue > 0 && currentSum > 0) {
       return { divisor: currentSum / lastIndexValue, adjusted: true, reason: 'bootstrap-continuous' };
     }
     return {
@@ -90,7 +118,7 @@ const reconcileDivisor = ({ prices, constituents, stored, lastIndexValue }) => {
   };
 };
 
-const computeIndexValue = (prices, constituents, divisor) =>
+export const computeIndexValue = (prices: Prices, constituents: Constituent[], divisor: number) =>
   divisor > 0 ? sumRatios(prices, constituents) / divisor : INDEX_BASE_VALUE;
 
 /**
@@ -98,18 +126,14 @@ const computeIndexValue = (prices, constituents, divisor) =>
  * last stored on market/indexHistory. Before one has ever been stored, today's
  * roster and the count-based divisor stand in.
  */
-const indexFromStored = (prices, stored) => {
+export const indexFromStored = (prices: Prices, stored: StoredIndex | null | undefined) => {
   const constituents =
-    Array.isArray(stored?.constituents) && stored.constituents.length ? stored.constituents : indexConstituents();
-  const divisor = stored?.divisor > 0 ? stored.divisor : (constituents.length || 1) / INDEX_BASE_VALUE;
+    stored && Array.isArray(stored.constituents) && stored.constituents.length
+      ? stored.constituents
+      : indexConstituents();
+  const divisor =
+    stored?.divisor !== undefined && stored.divisor > 0
+      ? stored.divisor
+      : (constituents.length || 1) / INDEX_BASE_VALUE;
   return computeIndexValue(prices, constituents, divisor);
-};
-
-module.exports = {
-  indexConstituents,
-  sumRatios,
-  sameConstituents,
-  reconcileDivisor,
-  computeIndexValue,
-  indexFromStored,
 };

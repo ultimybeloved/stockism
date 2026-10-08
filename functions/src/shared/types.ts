@@ -40,6 +40,8 @@ export interface ShortPosition {
   margin?: number;
   costBasis?: number;
   system?: string;
+  entryPrice?: number;
+  openedAt?: unknown;
   [field: string]: unknown;
 }
 
@@ -81,6 +83,7 @@ export interface UserData {
   lastCheckin?: StoredTime;
   isBot?: boolean;
   isBanned?: boolean;
+  isBankrupt?: boolean;
   requiresDiscordLink?: boolean;
   discordId?: string | null;
   crew?: string | null;

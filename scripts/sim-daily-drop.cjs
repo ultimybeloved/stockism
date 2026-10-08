@@ -68,7 +68,7 @@ const money = (n) => '$' + n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 (async () => {
   const { prices, launched } = await fetchLiveMarket();
-  const { rollDailyStock } = require(path.join(ROOT, 'functions/src/discord/dailyDropRoll.js'));
+  const { rollDailyStock } = require(path.join(ROOT, 'functions/src/discord/dailyDropRoll'));
 
   const values = [];
   let jackpotTotal = 0,

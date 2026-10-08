@@ -10,7 +10,7 @@
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { countIpAccounts } = require('../functions/src/users/ipCap.js');
+const { countIpAccounts } = require('../functions/src/users/ipCap');
 
 const PROJECT_ID = 'stockism-abb28';
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';

@@ -1,4 +1,3 @@
-'use strict';
 // Keeping repeat coordinators out of Platinum and Diamond.
 //
 // Coordinated-pressure alerts (coordDetection.js) are leads, not verdicts: a
@@ -10,27 +9,43 @@
 //
 // The mark lives on the user doc, which only the player and the admin can read,
 // so the public board never shows who was excluded.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
-const { ADMIN_UID } = require('../shared/constants');
-const { toMs } = require('../shared/helpers');
+import { ADMIN_UID } from '../shared/constants';
+import { toMs } from '../shared/activity';
+
+/** market/season, the fields these admin tools read. */
+interface SeasonDoc {
+  id: string;
+  status?: string;
+  startedAt?: number;
+}
+
+/** One player as the flags report builds them. */
+interface FlaggedPlayer {
+  uid: string;
+  name: string;
+  flags: number;
+  tickers: Set<string>;
+  partners: Map<string, number>;
+}
 
 const seasonRef = () => db.collection('market').doc('season');
 
-const requireAdmin = (context) => {
+const requireAdmin = (context: functions.https.CallableContext) => {
   requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
   }
 };
 
-const activeSeason = async () => {
+const activeSeason = async (): Promise<SeasonDoc> => {
   const snap = await seasonRef().get();
-  const season = snap.exists ? snap.data() : null;
+  const season = snap.exists ? (snap.data() as SeasonDoc) : null;
   if (!season || season.status !== 'active') {
     throw new functions.https.HttpsError('failed-precondition', 'No season is running');
   }
@@ -42,7 +57,7 @@ const activeSeason = async () => {
  * most-flagged first, with who they were flagged alongside and whether they're
  * already excluded.
  */
-exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
+export const getSeasonCoordFlags = cf().https.onCall(async (_data: unknown, context) => {
   requireAdmin(context);
   const season = await activeSeason();
   const since = season.startedAt || 0;
@@ -51,11 +66,11 @@ exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
   // index. There are only ever a handful of these alerts a day.
   const snap = await db.collection('watchlist_alerts').where('type', '==', 'coordinated_pressure').get();
 
-  const players = new Map();
+  const players = new Map<string, FlaggedPlayer>();
   snap.forEach((doc) => {
     const a = doc.data();
     if (toMs(a.timestamp) < since) return;
-    const uids = a.participantUIDs || [];
+    const uids: string[] = a.participantUIDs || [];
     uids.forEach((uid, i) => {
       if (!players.has(uid)) {
         players.set(uid, {
@@ -66,7 +81,7 @@ exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
           partners: new Map(),
         });
       }
-      const p = players.get(uid);
+      const p = players.get(uid)!;
       p.flags++;
       if (a.ticker) p.tickers.add(a.ticker);
       uids.forEach((other, j) => {
@@ -82,7 +97,7 @@ exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
     ? await db.getAll(...rows.map((p) => db.collection('users').doc(p.uid)), { fieldMask: ['seasonTopTierExclusion'] })
     : [];
   const excluded = new Set(
-    userDocs.filter((d) => d.exists && d.data().seasonTopTierExclusion?.seasonId === season.id).map((d) => d.id),
+    userDocs.filter((d) => d.exists && d.data()!.seasonTopTierExclusion?.seasonId === season.id).map((d) => d.id),
   );
 
   return {
@@ -102,26 +117,28 @@ exports.getSeasonCoordFlags = cf().https.onCall(async (data, context) => {
 });
 
 /** Exclude a player from Platinum and Diamond for the running season, or undo it. */
-exports.setSeasonTopTierExclusion = cf().https.onCall(async (data, context) => {
-  requireAdmin(context);
-  const { uid, excluded } = data || {};
-  if (!uid || typeof uid !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'uid is required');
-  }
-  const season = await activeSeason();
+export const setSeasonTopTierExclusion = cf().https.onCall(
+  async (data: { uid?: unknown; excluded?: unknown } | null, context) => {
+    requireAdmin(context);
+    const { uid, excluded } = data || {};
+    if (!uid || typeof uid !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'uid is required');
+    }
+    const season = await activeSeason();
 
-  const userRef = db.collection('users').doc(uid);
-  const userDoc = await userRef.get();
-  if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
+    const userRef = db.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
 
-  await userRef.update({
-    seasonTopTierExclusion: excluded ? { seasonId: season.id, at: Date.now() } : FieldValue.delete(),
-  });
-  // The cached board would keep projecting their old tier until it expired.
-  await db.collection('leaderboard').doc('season').delete();
+    await userRef.update({
+      seasonTopTierExclusion: excluded ? { seasonId: season.id, at: Date.now() } : FieldValue.delete(),
+    });
+    // The cached board would keep projecting their old tier until it expired.
+    await db.collection('leaderboard').doc('season').delete();
 
-  console.log(
-    `SEASON EXCLUSION: ${uid} ${excluded ? 'excluded from' : 'restored to'} Platinum/Diamond in ${season.id}`,
-  );
-  return { success: true, uid, excluded: !!excluded };
-});
+    console.log(
+      `SEASON EXCLUSION: ${uid} ${excluded ? 'excluded from' : 'restored to'} Platinum/Diamond in ${season.id}`,
+    );
+    return { success: true, uid, excluded: !!excluded };
+  },
+);

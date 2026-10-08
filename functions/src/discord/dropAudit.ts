@@ -1,16 +1,16 @@
-'use strict';
 // Daily-drop auditing. Split out of discordAdmin.js when that file approached
 // its 600-line limit; auditing a player's drop claims has nothing to do with
 // the ticker-rollback recovery tooling it used to sit beside.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ADMIN_UID } = require('../shared/constants');
+import { ADMIN_UID, DISCORD_EPOCH_MS, TWENTY_FOUR_HOURS_MS } from '../shared/constants';
+import type { UserData } from '../shared/types';
 
-exports.auditUserDrops = cf().https.onCall(async (data, context) => {
+export const auditUserDrops = cf().https.onCall(async (data: { uid?: string; username?: string }, context) => {
   requireAppCheck(context);
   if (!context.auth || context.auth.uid !== ADMIN_UID) {
     throw new functions.https.HttpsError('permission-denied', 'Admin only');
@@ -22,22 +22,22 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
   }
 
   // Find user
-  let userSnap;
+  let userSnap: admin.firestore.DocumentSnapshot;
   if (uid) {
     userSnap = await db.collection('users').doc(uid).get();
     if (!userSnap.exists) throw new functions.https.HttpsError('not-found', 'User not found');
   } else {
     const q = await db.collection('users').where('displayName', '==', username).limit(1).get();
     if (q.empty) throw new functions.https.HttpsError('not-found', 'User not found');
-    userSnap = q.docs[0];
+    userSnap = q.docs[0]!;
   }
 
-  const userData = userSnap.data();
+  const userData = userSnap.data() as UserData & { claimedDailyStockMessages?: string[]; displayName?: string };
   const userId = userSnap.id;
   const claimedMessages = userData.claimedDailyStockMessages || [];
 
   // Extract timestamps from Discord snowflake IDs
-  const DISCORD_EPOCH = 1420070400000n;
+  const DISCORD_EPOCH = BigInt(DISCORD_EPOCH_MS);
   const claimTimestamps = claimedMessages
     .map((id) => {
       try {
@@ -48,18 +48,18 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
         return null;
       }
     })
-    .filter(Boolean)
+    .filter((ms): ms is number => Boolean(ms))
     .sort((a, b) => a - b);
 
   // Calculate expected claims (1 per day since first claim)
-  const firstClaim = claimTimestamps.length > 0 ? claimTimestamps[0] : null;
+  const firstClaim = claimTimestamps[0] ?? null;
   const now = Date.now();
-  const daysSinceFirst = firstClaim ? Math.floor((now - firstClaim) / (24 * 60 * 60 * 1000)) + 1 : 0;
+  const daysSinceFirst = firstClaim ? Math.floor((now - firstClaim) / TWENTY_FOUR_HOURS_MS) + 1 : 0;
 
   // Get market prices
   const marketSnap = await db.collection('market').doc('current').get();
   const marketData = marketSnap.data() || {};
-  const prices = marketData.prices || {};
+  const prices: Record<string, number> = marketData.prices || {};
 
   // Get ALL trades for this user
   const tradesSnap = await db.collection('trades').where('uid', '==', userId).get();
@@ -67,7 +67,7 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
 
   // Calculate gifted shares per ticker
   const holdings = userData.holdings || {};
-  const giftedSharesByTicker = {};
+  const giftedSharesByTicker: Record<string, { shares: number; price: number; value: number }> = {};
   let totalGiftedValue = 0;
 
   for (const [ticker, held] of Object.entries(holdings)) {
@@ -87,9 +87,9 @@ exports.auditUserDrops = cf().https.onCall(async (data, context) => {
   totalGiftedValue = Math.round(totalGiftedValue * 100) / 100;
 
   // Claim frequency analysis — group claims by day
-  const claimsByDay = {};
+  const claimsByDay: Record<string, number> = {};
   for (const ts of claimTimestamps) {
-    const day = new Date(ts).toISOString().split('T')[0];
+    const day = new Date(ts).toISOString().split('T')[0]!;
     claimsByDay[day] = (claimsByDay[day] || 0) + 1;
   }
 

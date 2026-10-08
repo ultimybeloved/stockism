@@ -1,4 +1,3 @@
-'use strict';
 // What the coordination scan DOES about a cluster, as opposed to finding one.
 //
 // INTERNAL MODULE — required by coordDetection.js, never listed in
@@ -20,12 +19,15 @@
 // Anything heavier (Platinum/Diamond exclusion, removing profits) is the
 // admin's call, in seasonExclusions.js and coordReview.js.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { COORD_ALL_IN_SHARE, COORD_ALL_IN_BORROWED, WASH_RULE_COOLDOWN_MS } = require('../shared/constants');
+import { COORD_ALL_IN_SHARE, COORD_ALL_IN_BORROWED, WASH_RULE_COOLDOWN_MS } from '../shared/constants';
+import type { Cluster } from './coordClustering';
+import type { UserData } from '../shared/types';
 
-const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts : ts.toMillis ? ts.toMillis() : 0);
+const toMs = (ts: admin.firestore.Timestamp | number | undefined) =>
+  !ts ? 0 : typeof ts === 'number' ? ts : ts.toMillis ? ts.toMillis() : 0;
 
 /**
  * Stamp the buy-back and short blocks on every participant of every tight
@@ -33,10 +35,10 @@ const toMs = (ts) => (!ts ? 0 : typeof ts === 'number' ? ts : ts.toMillis ? ts.t
  * not just fresh clusters, so someone who joins a cluster after it was first
  * reported is still caught. Only ever moves a stamp later, never earlier.
  *
- * @returns {Promise<Array<{uid, ticker}>>} who was newly blocked
+ * @returns who was newly blocked
  */
-async function applyGroupBlocks(clusters, now = Date.now()) {
-  const wanted = [];
+export async function applyGroupBlocks(clusters: Cluster[], now = Date.now()) {
+  const wanted: { uid: string; ticker: string; at: number }[] = [];
   for (const c of clusters) {
     if (c.direction !== 'down' || !c.tight) continue;
     c.uids.forEach((uid, i) => {
@@ -48,14 +50,14 @@ async function applyGroupBlocks(clusters, now = Date.now()) {
 
   const refs = [...new Set(wanted.map((w) => w.uid))].map((uid) => db.collection('users').doc(uid));
   const docs = await db.getAll(...refs, { fieldMask: ['lastHeavySell', 'lastHeavyExit'] });
-  const byUid = new Map(docs.filter((d) => d.exists).map((d) => [d.id, d.data()]));
+  const byUid = new Map(docs.filter((d) => d.exists).map((d) => [d.id, d.data() as UserData]));
 
-  const blocked = [];
+  const blocked: { uid: string; ticker: string }[] = [];
   const batch = db.batch();
   for (const { uid, ticker, at } of wanted) {
     const u = byUid.get(uid);
     if (!u) continue;
-    const update = {};
+    const update: Record<string, admin.firestore.Timestamp> = {};
     const stamp = admin.firestore.Timestamp.fromMillis(at);
     if (toMs(u.lastHeavySell?.[ticker]) < at) update[`lastHeavySell.${ticker}`] = stamp;
     if (toMs(u.lastHeavyExit?.[ticker]) < at) update[`lastHeavyExit.${ticker}`] = stamp;
@@ -71,28 +73,28 @@ async function applyGroupBlocks(clusters, now = Date.now()) {
  * For each upward cluster, the participants who are all in on that stock with
  * borrowed money. Mutates each cluster with `allIn: [{ uid, share, borrowed }]`.
  */
-async function markAllIn(clusters, prices) {
+export async function markAllIn(clusters: Cluster[], prices: Record<string, number> | null | undefined) {
   const ups = clusters.filter((c) => c.direction === 'up');
   if (!ups.length) return;
   const refs = [...new Set(ups.flatMap((c) => c.uids))].map((uid) => db.collection('users').doc(uid));
   const docs = await db.getAll(...refs, { fieldMask: ['holdings', 'marginUsed', 'portfolioValue'] });
-  const byUid = new Map(docs.filter((d) => d.exists).map((d) => [d.id, d.data()]));
+  const byUid = new Map(docs.filter((d) => d.exists).map((d) => [d.id, d.data() as UserData]));
 
   for (const c of ups) {
     c.allIn = [];
     for (const uid of c.uids) {
       const u = byUid.get(uid);
       if (!u) continue;
-      const values = Object.entries(u.holdings || {}).map(([t, sh]) => [t, (Number(sh) || 0) * (prices?.[t] || 0)]);
+      const values = Object.entries(u.holdings || {}).map(
+        ([t, sh]) => [t, (Number(sh) || 0) * (prices?.[t] || 0)] as const,
+      );
       const total = values.reduce((s, [, v]) => s + v, 0);
       const inIt = values.find(([t]) => t === c.ticker)?.[1] || 0;
       const share = total > 0 ? inIt / total : 0;
-      const borrowed = (u.portfolioValue || 0) > 0 ? (u.marginUsed || 0) / u.portfolioValue : 0;
+      const borrowed = (u.portfolioValue || 0) > 0 ? (u.marginUsed || 0) / u.portfolioValue! : 0;
       if (share >= COORD_ALL_IN_SHARE && borrowed >= COORD_ALL_IN_BORROWED) {
         c.allIn.push({ uid, share: Math.round(share * 100) / 100, borrowed: Math.round(borrowed * 100) / 100 });
       }
     }
   }
 }
-
-module.exports = { applyGroupBlocks, markAllIn };

@@ -1,11 +1,9 @@
-'use strict';
 // Username rules: profanity, banned and protected names, targeted harassment.
 
-const admin = require('firebase-admin');
-const functions = require('firebase-functions');
+import * as functions from 'firebase-functions';
 
 // Banned usernames (impersonation prevention)
-const BANNED_NAMES = [
+export const BANNED_NAMES = [
   'admin',
   'administrator',
   'mod',
@@ -30,7 +28,7 @@ const BANNED_NAMES = [
 ];
 
 // Profanity filter
-const PROFANITY_LIST = [
+export const PROFANITY_LIST = [
   // Profanity
   'fuck',
   'shit',
@@ -132,7 +130,7 @@ const PROFANITY_LIST = [
 // Store entries already normalized: lowercase, letters and digits only.
 // Keep it current when the top of the board changes — scripts/spam-name-audit.cjs
 // prints a reminder listing any top-25 player missing from here.
-const PROTECTED_PLAYER_NAMES = [
+export const PROTECTED_PLAYER_NAMES = [
   // Repeatedly targeted (the 2026-08-21 purge was 17 accounts aimed at these).
   'stitch',
   'callmebot',
@@ -222,10 +220,9 @@ const MIN_PROTECTED_NAME_LENGTH = 4;
 /**
  * Both readings of a name: plain, and with leetspeak folded back to letters.
  * Checking both means StchFingers and St1tchF1ngers are the same to us.
- * @param {string} name
- * @returns {string[]} - Normalized forms, deduped
+ * @returns Normalized forms, deduped
  */
-function nameForms(name) {
+function nameForms(name: unknown): string[] {
   const plain = String(name || '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
@@ -247,10 +244,9 @@ function nameForms(name) {
  * word), an insult alone is fine (the profanity filter already judges those on
  * their own merits). Only the combination is targeted harassment.
  *
- * @param {string} username - Raw display name as typed
- * @returns {boolean}
+ * @param username - Raw display name as typed
  */
-function isTargetedHarassment(username) {
+export function isTargetedHarassment(username: unknown): boolean {
   const forms = nameForms(username);
   if (!forms[0]) return false;
 
@@ -267,10 +263,10 @@ function isTargetedHarassment(username) {
 
 /**
  * Normalize text for profanity detection (remove special chars, numbers that look like letters)
- * @param {string} text - Text to normalize
- * @returns {string} - Normalized text
+ * @param text - Text to normalize
+ * @returns Normalized text
  */
-function normalizeProfanity(text) {
+export function normalizeProfanity(text: string): string {
   return text
     .toLowerCase()
     .replace(/0/g, 'o')
@@ -289,10 +285,10 @@ function normalizeProfanity(text) {
 
 /**
  * Checks if text contains profanity
- * @param {string} text - Text to check
- * @returns {boolean} - True if profanity detected
+ * @param text - Text to check
+ * @returns True if profanity detected
  */
-function containsProfanity(text) {
+export function containsProfanity(text: string | null | undefined): boolean {
   if (!text) return false;
 
   const normalized = normalizeProfanity(text);
@@ -316,10 +312,10 @@ function containsProfanity(text) {
 
 /**
  * Checks if a username is banned (handles leetspeak variations).
- * @param {string} username - Lowercase username to check
- * @returns {boolean} - True if banned
+ * @param username - Lowercase username to check
+ * @returns True if banned
  */
-function isBannedUsername(username) {
+export function isBannedUsername(username: string): boolean {
   // Normalize leetspeak and variations
   const normalized = username
     .replace(/[0]/g, 'o')
@@ -351,9 +347,9 @@ function isBannedUsername(username) {
  * Caller passes the already-trimmed name. Does NOT check uniqueness, bans, or
  * profanity — those stay at the call sites.
  * Mirror of validateUsername in src/utils/username.ts — keep both in sync.
- * @param {string} name - Trimmed display name
+ * @param name - Trimmed display name
  */
-function validateUsernameFormat(name) {
+export function validateUsernameFormat(name: string) {
   if (name.length < 3) {
     throw new functions.https.HttpsError('invalid-argument', 'Username must be at least 3 characters.');
   }
@@ -379,14 +375,3 @@ function validateUsernameFormat(name) {
     );
   }
 }
-
-module.exports = {
-  BANNED_NAMES,
-  PROFANITY_LIST,
-  PROTECTED_PLAYER_NAMES,
-  isTargetedHarassment,
-  normalizeProfanity,
-  containsProfanity,
-  isBannedUsername,
-  validateUsernameFormat,
-};

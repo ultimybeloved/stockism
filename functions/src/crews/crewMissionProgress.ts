@@ -1,4 +1,3 @@
-'use strict';
 // Crew mission progress tracking — the write path called after a fill.
 //
 // Internal module: NOT registered in functions/src/index.js. It lives here because
@@ -13,12 +12,12 @@
 // daily/weekly personal missions. They have always differed. Do not "unify" them
 // — it would silently move crew week boundaries and orphan in-progress missions.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { CREW_MEMBERS } = require('../shared/constants');
+import { CREW_MEMBERS } from '../shared/constants';
 
-const getWeekId = (now = new Date()) => {
+export const getWeekId = (now = new Date()) => {
   const d = new Date(now);
   const day = d.getUTCDay();
   const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
@@ -31,7 +30,14 @@ const getWeekId = (now = new Date()) => {
  * Fire-and-forget — called from executeTrade after the main transaction completes.
  * Updates aggregate crew mission counters for the given trade action.
  */
-const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, totalCost) => {
+export const updateCrewMissionProgress = async (
+  crew: string | null | undefined,
+  uid: string,
+  action: string,
+  amount: number,
+  ticker: string,
+  totalCost: number,
+) => {
   if (!crew) return;
   try {
     // The buy/sell/volume crew goals only count trades of the crew's OWN
@@ -44,7 +50,7 @@ const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, tota
 
     // Per-user counters (not booleans) so claims can require a real personal
     // contribution.
-    const update = {
+    const update: Record<string, unknown> = {
       tradeVolume: admin.firestore.FieldValue.increment(totalCost),
       [`contributorsVolume.${uid}`]: admin.firestore.FieldValue.increment(totalCost),
     };
@@ -60,8 +66,6 @@ const updateCrewMissionProgress = async (crew, uid, action, amount, ticker, tota
     await ref.set({ crew, weekId }, { merge: true });
     await ref.update(update);
   } catch (err) {
-    console.error('updateCrewMissionProgress error:', err.message);
+    console.error('updateCrewMissionProgress error:', (err as Error).message);
   }
 };
-
-module.exports = { getWeekId, updateCrewMissionProgress };

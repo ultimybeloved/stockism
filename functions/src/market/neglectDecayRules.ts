@@ -1,19 +1,20 @@
-'use strict';
 // The neglect-decay decision, split from the scheduled function so every skip
 // reason is testable without an emulator.
 //
 // INTERNAL MODULE — required directly by neglectDecay.js and deliberately
 // absent from servicePaths.js. It exports no Cloud Functions.
-const {
+import {
   NEGLECT_WINDOW_MS,
   NEGLECT_DECAY_DAILY_RATE,
   NEGLECT_SHORT_INTEREST_THRESHOLD,
   ADMIN_PRICE_PROTECTION_MS,
   MIN_PRICE,
-} = require('../shared/constants');
-const { isPriceProtected, isTickerPaused, neglectFloorPrice } = require('../shared/helpers');
-
-const round2 = (n) => Math.round(n * 100) / 100;
+} from '../shared/constants';
+import { isPriceProtected, neglectFloorPrice } from '../shared/marketData';
+import { isTickerPaused } from '../shared/impact';
+import { round2 } from '../shared/money';
+import type { Character } from '../shared/characters';
+import type { PricePoint } from '../shared/types';
 
 /**
  * Decide one ticker's fate. Returns the new price, or null to leave it alone.
@@ -21,7 +22,7 @@ const round2 = (n) => Math.round(n * 100) / 100;
  * Split out from the scheduled function so every skip reason is testable
  * without an emulator.
  */
-const decayTarget = ({
+export const decayTarget = ({
   character,
   price,
   stats,
@@ -30,7 +31,16 @@ const decayTarget = ({
   now,
   trackingStartedAt,
   haltedTickers,
-}) => {
+}: {
+  character: Character;
+  price: number;
+  stats: { lastTradedAt?: number; trades?: number } | null | undefined;
+  shortInterest: Record<string, number | undefined>;
+  priceHistory: Record<string, PricePoint[] | undefined> | null | undefined;
+  now: number;
+  trackingStartedAt?: number | null;
+  haltedTickers: Record<string, { resumeAt?: number } | undefined> | null | undefined;
+}): number | null => {
   if (character.isETF) return null;
   if (!(price > 0)) return null;
 
@@ -65,5 +75,3 @@ const decayTarget = ({
   // same number every day forever.
   return target < price ? target : null;
 };
-
-module.exports = { decayTarget };

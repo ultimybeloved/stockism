@@ -1,5 +1,3 @@
-'use strict';
-
 // Folding a finished chapter review down to one price point per stock.
 //
 // Owns two Cloud Functions; the work itself lives in reviewChanges.js, which is
@@ -11,17 +9,17 @@
 // It has to land before the 20:55 lock and the 20:56 opening auction, or the
 // review would appear on the chart AFTER the fills that were priced off it.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ADMIN_UID, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE } = require('../shared/constants');
-const { reportError } = require('../shared/helpers');
-const { writeReviewChanges, collapseReviewWindow } = require('./reviewChanges');
+import { ADMIN_UID, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE } from '../shared/constants';
+import { reportError } from '../shared/sentry';
+import { writeReviewChanges, collapseReviewWindow } from './reviewChanges';
 
 // The halt window for a given moment's date, in UTC.
-const haltWindowFor = (when) => {
+const haltWindowFor = (when: Date) => {
   const dayStart = Date.UTC(when.getUTCFullYear(), when.getUTCMonth(), when.getUTCDate());
   return {
     haltStart: dayStart + WEEKLY_HALT_START_MINUTE * 60 * 1000,
@@ -49,11 +47,11 @@ const mostRecentHaltWindow = () => {
  * Re-running writeReviewChanges here also picks up anything adjusted after the
  * 20:30 recap posted.
  */
-const finalizeReview = async ({ haltStart, haltEnd }) => {
+const finalizeReview = async ({ haltStart, haltEnd }: { haltStart: number; haltEnd: number }) => {
   // The pre-halt snapshot is usually deleted by the recap before this runs; it
   // is only a fallback for a stock with no surviving pre-window point anyway.
   const snapshotSnap = await db.collection('market').doc('preHaltSnapshot').get();
-  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data().prices || {} : {};
+  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data()!.prices || {} : {};
 
   const payload = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices, includeArchive: true });
   const { tidied, folded } = await collapseReviewWindow({ haltStart, haltEnd });
@@ -63,7 +61,7 @@ const finalizeReview = async ({ haltStart, haltEnd }) => {
 /**
  * Thursday 20:54 UTC, six minutes before the market reopens.
  */
-exports.collapseReviewHistory = cf({ timeoutSeconds: 300 })
+export const collapseReviewHistory = cf({ timeoutSeconds: 300 })
   .pubsub.schedule('54 20 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -86,12 +84,14 @@ exports.collapseReviewHistory = cf({ timeoutSeconds: 300 })
  * Admin re-run, for a failed scheduled pass. Idempotent: a stock already folded
  * to one point has nothing left to fold.
  */
-exports.triggerCollapseReviewHistory = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const triggerCollapseReviewHistory = cf({ timeoutSeconds: 300 }).https.onCall(
+  async (_data: unknown, context) => {
+    requireAppCheck(context);
+    if (!context.auth || context.auth.uid !== ADMIN_UID) {
+      throw new functions.https.HttpsError('permission-denied', 'Admin only');
+    }
 
-  const result = await finalizeReview(mostRecentHaltWindow());
-  return { success: true, ...result };
-});
+    const result = await finalizeReview(mostRecentHaltWindow());
+    return { success: true, ...result };
+  },
+);

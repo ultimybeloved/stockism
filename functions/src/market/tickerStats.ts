@@ -1,4 +1,3 @@
-'use strict';
 // All-time high/low sweep.
 //
 // This is its own schedule rather than a few lines bolted onto an existing
@@ -16,13 +15,14 @@
 // hour is not captured. That is the accepted trade: the alternative is reading
 // the stats back inside the trade transaction, and executeTrade is not a place
 // to add reads.
-const { cf } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import { cf } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { buildExtremeUpdates, recordHeartbeat } = require('../shared/helpers');
+import { buildExtremeUpdates } from '../shared/marketData';
+import { recordHeartbeat } from '../shared/activity';
 
-exports.recordPriceExtremes = cf()
+export const recordPriceExtremes = cf()
   .pubsub.schedule('20 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -34,7 +34,7 @@ exports.recordPriceExtremes = cf()
         return null;
       }
 
-      const data = snap.data();
+      const data = snap.data()!;
       const updates = buildExtremeUpdates(data.prices || {}, data.ath || {}, data.atl || {});
 
       const moved = Object.keys(updates).length;

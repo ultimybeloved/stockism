@@ -1,4 +1,3 @@
-'use strict';
 // Hard billing killswitch — the only thing that guarantees a hard dollar ceiling.
 //
 // A Cloud Billing budget publishes spend updates to the 'billing-killswitch'
@@ -13,13 +12,13 @@
 //   2. Point a Billing budget's notifications at that topic.
 //   3. Grant this project's App Engine service account permission to disable
 //      billing (Project Billing Manager on the project + billing account).
-const functions = require('firebase-functions');
-const { CloudBillingClient } = require('@google-cloud/billing');
+import * as functions from 'firebase-functions';
+import { CloudBillingClient } from '@google-cloud/billing';
 
 const billing = new CloudBillingClient();
 const PROJECT_NAME = `projects/${process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT}`;
 
-exports.billingKillswitch = functions.pubsub.topic('billing-killswitch').onPublish(async (message) => {
+export const billingKillswitch = functions.pubsub.topic('billing-killswitch').onPublish(async (message) => {
   const data = (message && message.json) || {};
   const cost = data.costAmount;
   const budget = data.budgetAmount;

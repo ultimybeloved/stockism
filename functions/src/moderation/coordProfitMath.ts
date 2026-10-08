@@ -1,26 +1,49 @@
-'use strict';
 // The arithmetic behind coordReview.js: what one flagged push made a player,
 // and where their account would stand if it were taken back. Pure functions.
 //
 // INTERNAL MODULE — required by coordReview.js, never listed in servicePaths.js.
-const { COORD_PROFIT_WINDOW_MS } = require('../shared/constants');
-const { round2 } = require('../shared/helpers');
+import { COORD_PROFIT_WINDOW_MS, ONE_WEEK_MS } from '../shared/constants';
+import { round2 } from '../shared/money';
+import type { UserData } from '../shared/types';
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+export const WEEK_MS = ONE_WEEK_MS;
+
+/** A flagged push as coordReview reads it from the alert. */
+export interface PushAlert {
+  ticker?: string;
+  day?: string;
+  startedAt?: number;
+}
+
+/** Merged flagged pushes on one stock. */
+export interface PushWindow {
+  ticker: string;
+  start: number;
+  end: number;
+  days: (string | undefined)[];
+}
+
+/** One of the player's trades, reduced to what the math needs. */
+export interface ProfitTrade {
+  ts: number;
+  action: string;
+  shares: number;
+  value: number;
+}
 
 /** Flagged pushes on each stock, merged where their windows overlap. */
-const pushWindows = (alerts) => {
-  const byTicker = new Map();
+export const pushWindows = (alerts: PushAlert[]): PushWindow[] => {
+  const byTicker = new Map<string, Omit<PushWindow, 'ticker'>[]>();
   for (const a of alerts) {
     const start = a.startedAt || Date.parse(`${a.day}T00:00:00Z`);
     if (!a.ticker || !start) continue;
     if (!byTicker.has(a.ticker)) byTicker.set(a.ticker, []);
-    byTicker.get(a.ticker).push({ start, end: start + COORD_PROFIT_WINDOW_MS, days: [a.day] });
+    byTicker.get(a.ticker)!.push({ start, end: start + COORD_PROFIT_WINDOW_MS, days: [a.day] });
   }
-  const out = [];
+  const out: PushWindow[] = [];
   for (const [ticker, list] of byTicker) {
     list.sort((x, y) => x.start - y.start);
-    let cur = null;
+    let cur: PushWindow | null = null;
     for (const w of list) {
       if (cur && w.start <= cur.end) {
         cur.end = Math.max(cur.end, w.end);
@@ -36,9 +59,13 @@ const pushWindows = (alerts) => {
 };
 
 /** Profit from one window of one player's trades on one stock. Pure. */
-const windowProfit = (trades, { start, end }, priceNow) => {
+export const windowProfit = (
+  trades: ProfitTrade[],
+  { start, end }: { start: number; end: number },
+  priceNow: number,
+) => {
   const inside = trades.filter((t) => t.ts >= start && t.ts <= end);
-  const sum = (action) =>
+  const sum = (action: string) =>
     inside
       .filter((t) => t.action === action)
       .reduce((acc, t) => ({ sh: acc.sh + t.shares, v: acc.v + t.value }), { sh: 0, v: 0 });
@@ -62,7 +89,7 @@ const windowProfit = (trades, { start, end }, priceNow) => {
     }
   }
 
-  const avg = (x) => (x.sh > 0 ? x.v / x.sh : 0);
+  const avg = (x: { sh: number; v: number }) => (x.sh > 0 ? x.v / x.sh : 0);
   const longMatched = Math.min(buy.sh, sell.sh);
   const shortMatched = Math.min(short.sh, cover.sh);
   const lockedIn = longMatched * (avg(sell) - avg(buy)) + shortMatched * (avg(short) - avg(cover));
@@ -87,13 +114,18 @@ const windowProfit = (trades, { start, end }, priceNow) => {
  * doesn't move and the honest holders of the stock lose nothing. A forced sale
  * of the same value would dump it on them. Shares are valued at today's price.
  */
-const planRemoval = (u, amount, prices, preferTickers = []) => {
+export const planRemoval = (
+  u: UserData,
+  amount: number,
+  prices: Record<string, number | undefined>,
+  preferTickers: string[] = [],
+) => {
   let left = amount;
-  const shares = [];
+  const shares: { ticker: string; shares: number; value: number; closes: boolean }[] = [];
   const holdings = u.holdings || {};
   const others = Object.keys(holdings)
     .filter((t) => !preferTickers.includes(t))
-    .sort((a, b) => holdings[b] * (prices[b] || 0) - holdings[a] * (prices[a] || 0));
+    .sort((a, b) => holdings[b]! * (prices[b] || 0) - holdings[a]! * (prices[a] || 0));
   for (const ticker of [...preferTickers, ...others]) {
     if (left <= 0.005) break;
     const held = Number(holdings[ticker]) || 0;
@@ -124,5 +156,3 @@ const planRemoval = (u, amount, prices, preferTickers = []) => {
     equityRatioAfter: Math.round(ratio * 1000) / 1000,
   };
 };
-
-module.exports = { pushWindows, windowProfit, planRemoval, WEEK_MS };
