@@ -3,7 +3,7 @@
 import { FieldValue } from 'firebase-admin/firestore';
 import { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS } from './characters';
 import { MIN_EXIT_SHARES, EXIT_SHARE_DECIMALS } from './constants';
-import type { Cohort, UserData } from './types';
+import type { Cohort, CohortLot, UserData } from './types';
 
 // Cohort bookkeeping helpers. `cohort = { eligible: N, pending: [{shares, availableAt}] }`
 // Pending = purchase lots. A lot pays nothing until availableAt (the 10-day
@@ -56,10 +56,13 @@ export const decrementCohort = (cohort: Cohort | null, shares: number): Cohort |
 // Fold fully matured pending lots (held past the top loyalty rung) into
 // eligible. Lots between the hold gate and full maturity stay pending so their
 // age keeps driving the ladder multiplier.
-export const graduateCohort = (cohort: Cohort | null | undefined, now: number): Cohort => {
+export const graduateCohort = (
+  cohort: Cohort | null | undefined,
+  now: number,
+): Cohort & { eligible: number; pending: CohortLot[] } => {
   if (!cohort) return { eligible: 0, pending: [] };
   let eligible = cohort.eligible || 0;
-  const stillPending: NonNullable<Cohort['pending']> = [];
+  const stillPending: CohortLot[] = [];
   for (const p of cohort.pending || []) {
     const acquiredAt = (p.availableAt || 0) - DIVIDEND_HOLD_MS;
     if (now - acquiredAt >= DIVIDEND_MATURE_MS) eligible += p.shares || 0;

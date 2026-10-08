@@ -1,26 +1,24 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../shared/characters');
-const { isWeeklyTradingHalt, ADMIN_UID } = require('../shared/constants');
-const { sendDiscordMessage, writeNotification, priceHistoryRef, recordHeartbeat } = require('../shared/helpers');
+import { CHARACTERS } from '../shared/characters';
+import { isWeeklyTradingHalt, TWENTY_FOUR_HOURS_MS } from '../shared/constants';
+import { sendDiscordMessage } from '../shared/discordApi';
+import { writeNotification } from '../shared/notifications';
+import { priceHistoryRef } from '../shared/marketData';
+import { recordHeartbeat } from '../shared/activity';
 
 // ─── Discord Alert Triggers ──────────────────────────────────────────────────
 
 /**
  * IPO Announcement - Called when a new IPO is created
  */
-exports.ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
+export const ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
   // Only the admin panel creates IPOs, so only the admin may announce one —
   // otherwise any user could post fake official announcements through the bot.
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+  requireAdmin(context, 'Admin only.');
 
   const { ticker, characterName, ipoPrice, postIpoPrice, startsAt, endsAt, totalShares, maxPerUser } = data;
   const startsImmediately = !startsAt || startsAt <= Date.now() + 60000;
@@ -59,10 +57,10 @@ exports.ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
  * Price Threshold Alert - Runs every 6 hours
  * Alerts when stocks cross significant 24h thresholds (3%, 5%, 10%)
  */
-exports.priceThresholdAlert = cf()
+export const priceThresholdAlert = cf()
   .pubsub.schedule('0 */6 * * *')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
       console.log('Skipping price threshold alerts — weekly trading halt active');
       return null;
@@ -73,20 +71,20 @@ exports.priceThresholdAlert = cf()
       const marketSnap = await marketRef.get();
       if (!marketSnap.exists) return null;
 
-      const marketData = marketSnap.data();
+      const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
         console.log('Skipping price threshold alerts — emergency halt active');
         return null;
       }
 
-      const prices = marketData.prices || {};
+      const prices: Record<string, number> = marketData.prices || {};
       const histSnap = await priceHistoryRef().get();
       const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
       const alertedThresholds = marketData.alertedThresholds || {};
 
       const now = Date.now();
-      const dayAgo = now - 24 * 60 * 60 * 1000;
-      const newAlerts = [];
+      const dayAgo = now - TWENTY_FOUR_HOURS_MS;
+      const newAlerts: { ticker: string; price: number; price24hAgo: number; change: number; alertKey: string }[] = [];
       const updatedAlertedThresholds = { ...alertedThresholds };
 
       Object.entries(prices).forEach(([ticker, currentPrice]) => {
@@ -168,7 +166,7 @@ const NOTEWORTHY_ACHIEVEMENTS = {
   MISSION_100: { name: 'Mission Legend', description: 'Complete 100 daily missions' },
 };
 
-exports.achievementAlert = cf().https.onCall(async (data, context) => {
+export const achievementAlert = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -176,7 +174,7 @@ exports.achievementAlert = cf().https.onCall(async (data, context) => {
 
   const { achievementId } = data;
 
-  const noteworthy = NOTEWORTHY_ACHIEVEMENTS[achievementId];
+  const noteworthy = NOTEWORTHY_ACHIEVEMENTS[achievementId as keyof typeof NOTEWORTHY_ACHIEVEMENTS];
   if (!noteworthy) {
     return { success: true, alerted: false };
   }
@@ -184,7 +182,7 @@ exports.achievementAlert = cf().https.onCall(async (data, context) => {
   try {
     const userDoc = await db.collection('users').doc(context.auth.uid).get();
     if (!userDoc.exists) return { success: true, alerted: false };
-    const achievements = userDoc.data().achievements || [];
+    const achievements = userDoc.data()!.achievements || [];
     if (!achievements.includes(achievementId)) {
       console.log(`Achievement alert rejected: ${context.auth.uid} doesn't have ${achievementId}`);
       return { success: true, alerted: false };
@@ -212,7 +210,7 @@ exports.achievementAlert = cf().https.onCall(async (data, context) => {
  * Create a price alert for a ticker
  * Max 10 active alerts per user
  */
-exports.createPriceAlert = cf().https.onCall(async (data, context) => {
+export const createPriceAlert = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -261,7 +259,7 @@ exports.createPriceAlert = cf().https.onCall(async (data, context) => {
 /**
  * Delete a price alert
  */
-exports.deletePriceAlert = cf().https.onCall(async (data, context) => {
+export const deletePriceAlert = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -281,14 +279,14 @@ exports.deletePriceAlert = cf().https.onCall(async (data, context) => {
 /**
  * Check price alerts - every 30 minutes
  */
-exports.checkPriceAlerts = cf()
+export const checkPriceAlerts = cf()
   .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async () => {
     try {
       const marketSnap = await db.collection('market').doc('current').get();
       if (!marketSnap.exists) return null;
-      const prices = marketSnap.data().prices || {};
+      const prices: Record<string, number> = marketSnap.data()!.prices || {};
 
       // Collection-group query reads only the untriggered alert docs
       // themselves, instead of scanning every user doc plus one subcollection
@@ -306,7 +304,7 @@ exports.checkPriceAlerts = cf()
         if (alert.direction === 'below' && currentPrice <= alert.targetPrice) shouldTrigger = true;
 
         if (shouldTrigger) {
-          const uid = alertDoc.ref.parent.parent.id;
+          const uid = alertDoc.ref.parent.parent!.id;
           await alertDoc.ref.update({ triggered: true });
           await writeNotification(uid, {
             type: 'alert',

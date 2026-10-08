@@ -1,4 +1,3 @@
-'use strict';
 // Market data backup, restore and retention. Split out of admin.js when it
 // passed the 600-line limit.
 //
@@ -6,13 +5,16 @@
 // destructive call in the codebase after the liquidation scanners. Everything
 // here is admin-triggered; monthlyPermanentBackup is the one scheduled job.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ADMIN_UID, BACKUP_TOP_USERS } = require('../shared/constants');
-const { priceHistoryRef, remapAliasedKeys, recordHeartbeat, reportError } = require('../shared/helpers');
+import { BACKUP_TOP_USERS } from '../shared/constants';
+import { priceHistoryRef } from '../shared/marketData';
+import { remapAliasedKeys } from '../shared/roster';
+import { recordHeartbeat } from '../shared/activity';
+import { reportError } from '../shared/sentry';
 
 /**
  * The top players' portfolios, for the leaderboard backups.
@@ -56,14 +58,14 @@ const topUserBackups = async () => {
  * Automated Backup System
  * Runs every 24 hours to back up critical market data
  */
-exports.backupMarketData = cf()
+export const backupMarketData = cf()
   .pubsub.schedule('every 24 hours')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       const bucket = admin.storage().bucket();
       const timestamp = new Date().toISOString();
       const dateStr = timestamp.split('T')[0]; // YYYY-MM-DD
-      const timeStr = timestamp.split('T')[1].split('.')[0].replace(/:/g, '-'); // HH-MM-SS
+      const timeStr = timestamp.split('T')[1]!.split('.')[0]!.replace(/:/g, '-'); // HH-MM-SS
 
       console.log(`Starting backup at ${timestamp}`);
 
@@ -72,7 +74,7 @@ exports.backupMarketData = cf()
       const marketSnap = await marketRef.get();
 
       if (marketSnap.exists) {
-        const marketData = marketSnap.data();
+        const marketData = marketSnap.data()!;
         const histSnap = await priceHistoryRef().get();
         const marketBackup = {
           timestamp,
@@ -128,7 +130,7 @@ exports.backupMarketData = cf()
       let deletedCount = 0;
       for (const file of [...marketFiles, ...userFiles]) {
         const [metadata] = await file.getMetadata();
-        const fileDate = new Date(metadata.timeCreated);
+        const fileDate = new Date(metadata.timeCreated as string);
 
         if (fileDate < sevenDaysAgo) {
           await file.delete();
@@ -149,18 +151,14 @@ exports.backupMarketData = cf()
 /**
  * Manual Backup - Admin can trigger this from Admin Panel
  */
-exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  // Check admin permission
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can trigger manual backups.');
-  }
+export const triggerManualBackup = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Only admin can trigger manual backups.');
 
   try {
     const bucket = admin.storage().bucket();
     const timestamp = new Date().toISOString();
     const dateStr = timestamp.split('T')[0];
-    const timeStr = timestamp.split('T')[1].split('.')[0].replace(/:/g, '-');
+    const timeStr = timestamp.split('T')[1]!.split('.')[0]!.replace(/:/g, '-');
 
     // Backup market data
     const marketRef = db.collection('market').doc('current');
@@ -170,7 +168,7 @@ exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
       throw new Error('Market data not found');
     }
 
-    const marketData = marketSnap.data();
+    const marketData = marketSnap.data()!;
     const histSnap = await priceHistoryRef().get();
     const marketBackup = {
       timestamp,
@@ -181,7 +179,7 @@ exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
       metadata: {
         backupDate: timestamp,
         totalTickers: Object.keys(marketData.prices || {}).length,
-        triggeredBy: context.auth.uid,
+        triggeredBy: context.auth!.uid,
       },
     };
 
@@ -191,7 +189,7 @@ exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
       metadata: {
         backupType: 'manual_market',
         timestamp,
-        triggeredBy: context.auth.uid,
+        triggeredBy: context.auth!.uid,
       },
     });
 
@@ -203,19 +201,15 @@ exports.triggerManualBackup = cf().https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error('Error in manual backup:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to create manual backup: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Failed to create manual backup: ' + (error as Error).message);
   }
 });
 
 /**
  * List Available Backups - Admin can see all available backups
  */
-exports.listBackups = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  // Check admin permission
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can list backups.');
-  }
+export const listBackups = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Only admin can list backups.');
 
   try {
     const bucket = admin.storage().bucket();
@@ -236,7 +230,7 @@ exports.listBackups = cf().https.onCall(async (data, context) => {
     }
 
     // Sort by date (newest first)
-    backups.sort((a, b) => new Date(b.created) - new Date(a.created));
+    backups.sort((a, b) => new Date(b.created as string).getTime() - new Date(a.created as string).getTime());
 
     return {
       success: true,
@@ -245,16 +239,12 @@ exports.listBackups = cf().https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error('Error listing backups:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to list backups: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Failed to list backups: ' + (error as Error).message);
   }
 });
 
-exports.restoreBackup = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  // Check admin permission
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can restore backups.');
-  }
+export const restoreBackup = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Only admin can restore backups.');
 
   const { backupName } = data;
 
@@ -282,13 +272,13 @@ exports.restoreBackup = cf().https.onCall(async (data, context) => {
     // retired name back and drop the current one, leaving a stock priced under
     // a name no player can see. That is how the DOTS orphan happened.
     const aliasSnap = await db.collection('market').doc('current').get();
-    const aliases = aliasSnap.exists ? aliasSnap.data().tickerAliases || {} : {};
+    const aliases = aliasSnap.exists ? aliasSnap.data()!.tickerAliases || {} : {};
     const restored = remapAliasedKeys(backupData.priceHistory, aliases);
     const remapped = Object.keys(aliases).filter((t) => backupData.priceHistory?.[t] !== undefined);
     if (remapped.length) {
       console.log(`Backup predates ${remapped.length} rename(s), remapped: ${remapped.join(', ')}`);
     }
-    await priceHistoryRef().set(restored);
+    await priceHistoryRef().set(restored!);
 
     console.log('✅ Price history restored successfully!');
 
@@ -300,7 +290,7 @@ exports.restoreBackup = cf().https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error('Error restoring backup:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to restore backup: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Failed to restore backup: ' + (error as Error).message);
   }
 });
 
@@ -309,10 +299,10 @@ exports.restoreBackup = cf().https.onCall(async (data, context) => {
  * Runs at midnight UTC on the 1st of every month
  * Keeps one permanent snapshot per month for historical records
  */
-exports.monthlyPermanentBackup = cf()
+export const monthlyPermanentBackup = cf()
   .pubsub.schedule('0 0 1 * *')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       const bucket = admin.storage().bucket();
       const now = new Date();
@@ -328,7 +318,7 @@ exports.monthlyPermanentBackup = cf()
       const marketSnap = await marketRef.get();
 
       if (marketSnap.exists) {
-        const marketData = marketSnap.data();
+        const marketData = marketSnap.data()!;
         const histSnap = await priceHistoryRef().get();
         const marketBackup = {
           timestamp,

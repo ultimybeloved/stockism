@@ -1,5 +1,3 @@
-'use strict';
-
 // Crew head Discord roles. Internal module — required directly by
 // marketWeekly.js and deliberately NOT listed in servicePaths.js (it exports
 // no Cloud Functions).
@@ -10,11 +8,12 @@
 // (tracked in admin/discordCrewRoles) so it never needs the privileged Guild
 // Members intent to list who has what.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { discordApi, reportError, sendDiscordMessage } = require('../shared/helpers');
-const {
+import { discordApi, sendDiscordMessage } from '../shared/discordApi';
+import { reportError } from '../shared/sentry';
+import {
   CREWS,
   DISCORD_GUILD_ID,
   CREW_HEAD_ROLE_IDS,
@@ -22,7 +21,35 @@ const {
   DISCORD_ROLE_CALL_SPACING_MS,
   DISCORD_ROLE_SYNC_BUDGET_MS,
   DISCORD_ROLE_RETRY_MAX_MS,
-} = require('../shared/constants');
+} from '../shared/constants';
+
+/** A role assignment the bot made and is tracking. */
+interface Holder {
+  discordId: string;
+  uid: string;
+  roleId: string;
+  displayName: string | null;
+  assignedAt: number;
+}
+
+/** A role from GET /guilds/{id}/roles, the fields the preflight reads. */
+interface GuildRole {
+  id: string;
+  name: string;
+  position: number;
+  tags?: { bot_id?: string };
+}
+
+interface RoleCallResult {
+  ok: boolean;
+  done?: boolean;
+  fatal?: boolean;
+  notFound?: boolean;
+  code?: unknown;
+  detail?: string;
+}
+
+const ROLE_IDS: Record<string, string | undefined> = CREW_HEAD_ROLE_IDS;
 
 const STATE_DOC = () => db.collection('admin').doc('discordCrewRoles');
 
@@ -31,18 +58,19 @@ const UNKNOWN_MEMBER = 10007;
 const UNKNOWN_ROLE = 10011;
 const UNKNOWN_GUILD = 10004;
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const crewIds = () => Object.keys(CREWS);
-const validId = (id) => typeof id === 'string' && DISCORD_SNOWFLAKE_PATTERN.test(id);
-const crewName = (crewId) => (CREWS[crewId] && CREWS[crewId].name) || crewId;
+const validId = (id: unknown): id is string => typeof id === 'string' && DISCORD_SNOWFLAKE_PATTERN.test(id);
+const crewName = (crewId: string) => (CREWS as Record<string, { name?: string }>)[crewId]?.name || crewId;
 
-const memberRolePath = (discordId, roleId) => `/guilds/${DISCORD_GUILD_ID}/members/${discordId}/roles/${roleId}`;
+const memberRolePath = (discordId: string, roleId: string) =>
+  `/guilds/${DISCORD_GUILD_ID}/members/${discordId}/roles/${roleId}`;
 
 /** True when nothing is configured yet, so the whole feature no-ops. */
 function isConfigured() {
   if (!process.env.DISCORD_BOT_TOKEN) return false;
   if (!validId(DISCORD_GUILD_ID)) return false;
-  return crewIds().some((id) => validId(CREW_HEAD_ROLE_IDS[id]));
+  return crewIds().some((id) => validId(ROLE_IDS[id]));
 }
 
 /**
@@ -53,17 +81,17 @@ function isConfigured() {
  *
  * Uses GET /guilds/{id}/roles, which needs no privileged intent.
  */
-async function preflightCrewRoles() {
+export async function preflightCrewRoles() {
   if (!isConfigured()) {
     return { configured: false, problems: ['Guild ID or crew role IDs are not set yet.'] };
   }
 
-  const problems = [];
+  const problems: string[] = [];
   let res;
   try {
     res = await discordApi('get', `/guilds/${DISCORD_GUILD_ID}/roles`);
   } catch (err) {
-    return { configured: true, ok: false, problems: [`Could not reach Discord: ${err.message}`] };
+    return { configured: true, ok: false, problems: [`Could not reach Discord: ${(err as Error).message}`] };
   }
 
   if (res.status !== 200) {
@@ -75,7 +103,7 @@ async function preflightCrewRoles() {
     };
   }
 
-  const roles = Array.isArray(res.data) ? res.data : [];
+  const roles: GuildRole[] = Array.isArray(res.data) ? res.data : [];
   const byId = new Map(roles.map((r) => [r.id, r]));
 
   // The bot's own managed role carries tags.bot_id. Its position is the
@@ -87,7 +115,7 @@ async function preflightCrewRoles() {
   }
 
   for (const crewId of crewIds()) {
-    const roleId = CREW_HEAD_ROLE_IDS[crewId];
+    const roleId = ROLE_IDS[crewId];
     if (!roleId) continue;
     if (!validId(roleId)) {
       problems.push(`${crewName(crewId)}: role ID "${roleId}" is not a valid Discord ID. Re-copy it.`);
@@ -105,7 +133,7 @@ async function preflightCrewRoles() {
     }
   }
 
-  const configuredCount = crewIds().filter((id) => validId(CREW_HEAD_ROLE_IDS[id])).length;
+  const configuredCount = crewIds().filter((id) => validId(ROLE_IDS[id])).length;
   return { configured: true, ok: problems.length === 0, configuredCount, problems };
 }
 
@@ -117,7 +145,12 @@ async function preflightCrewRoles() {
  *           (removing a role from someone who already lost it / a dead role)
  *   fatal - every remaining call will fail the same way, so stop the run
  */
-async function roleCall(method, discordId, roleId, reason) {
+async function roleCall(
+  method: 'put' | 'delete',
+  discordId: string,
+  roleId: string,
+  reason: string,
+): Promise<RoleCallResult> {
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
     try {
@@ -128,7 +161,7 @@ async function roleCall(method, discordId, roleId, reason) {
         await sleep(DISCORD_ROLE_CALL_SPACING_MS);
         continue;
       }
-      return { ok: false, detail: `network error: ${err.message}` };
+      return { ok: false, detail: `network error: ${(err as Error).message}` };
     }
 
     if (res.status === 204 || res.status === 201 || res.status === 200) return { ok: true };
@@ -148,8 +181,9 @@ async function roleCall(method, discordId, roleId, reason) {
     }
 
     if (res.status === 429) {
-      const retryMs = Math.round(((res.data && res.data.retry_after) || 1) * 1000);
-      const global = (res.data && res.data.global) || res.headers?.['x-ratelimit-scope'] === 'global';
+      const retryMs = Math.round((((res.data && res.data.retry_after) as number) || 1) * 1000);
+      const headers = 'headers' in res ? res.headers : undefined;
+      const global = (res.data && res.data.global) || headers?.['x-ratelimit-scope'] === 'global';
       if (global) return { ok: false, fatal: true, detail: 'globally rate limited' };
       if (attempt === 0 && retryMs <= DISCORD_ROLE_RETRY_MAX_MS) {
         await sleep(retryMs);
@@ -180,7 +214,17 @@ async function roleCall(method, discordId, roleId, reason) {
  * @param {string} opts.weekId
  * @param {boolean} opts.dryRun     plan only: no Discord calls, no writes
  */
-async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, dryRun = false } = {}) {
+export async function syncCrewHeadRoles({
+  heads = {},
+  discordIds = {},
+  weekId = null,
+  dryRun = false,
+}: {
+  heads?: Record<string, { uid: string; displayName?: string | null } | null>;
+  discordIds?: Record<string, string | null>;
+  weekId?: string | null;
+  dryRun?: boolean;
+} = {}) {
   try {
     if (!isConfigured()) {
       console.log('Crew head roles: not configured, skipping');
@@ -192,12 +236,18 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
     // A different guild means every stored assignment refers to a server we no
     // longer act on. Drop them rather than firing DELETEs into the void.
     const stale = prev.guildId && prev.guildId !== DISCORD_GUILD_ID;
-    const prevHolders = stale ? {} : prev.holders || {};
+    const prevHolders: Record<string, Holder | null> = stale ? {} : prev.holders || {};
 
-    const holders = {};
-    const pending = {};
-    const problems = [];
-    const plan = [];
+    const holders: Record<string, Holder | null> = {};
+    const pending: Record<string, { uid: string; reason: string }> = {};
+    const problems: string[] = [];
+    const plan: {
+      crewId: string;
+      op: 'put' | 'delete';
+      discordId: string;
+      roleId: string;
+      head?: { uid: string; displayName?: string | null };
+    }[] = [];
     let added = 0,
       removed = 0,
       skipped = 0,
@@ -206,7 +256,7 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
 
     // Plan first, so a dry run reports exactly what a real run would do.
     for (const crewId of crewIds()) {
-      const roleId = CREW_HEAD_ROLE_IDS[crewId];
+      const roleId = ROLE_IDS[crewId];
       const held = prevHolders[crewId] || null;
 
       if (!roleId) {
@@ -235,7 +285,7 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
       if (discordId) {
         // Re-asserted even when unchanged: PUT is idempotent, and it silently
         // repairs a role somebody removed by hand during the week.
-        plan.push({ crewId, op: 'put', discordId, roleId, head });
+        plan.push({ crewId, op: 'put', discordId, roleId, head: head! });
       }
       holders[crewId] = held;
     }
@@ -282,16 +332,16 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
       if (result.ok) {
         holders[step.crewId] = {
           discordId: step.discordId,
-          uid: step.head.uid,
+          uid: step.head!.uid,
           roleId: step.roleId,
-          displayName: step.head.displayName || null,
+          displayName: step.head!.displayName || null,
           assignedAt: Date.now(),
         };
         added++;
       } else if (result.notFound) {
         // Normal and expected: the head simply isn't in the Discord server.
         // Must not page anyone every Monday.
-        pending[step.crewId] = { uid: step.head.uid, reason: 'not-in-server' };
+        pending[step.crewId] = { uid: step.head!.uid, reason: 'not-in-server' };
         holders[step.crewId] = null;
         skipped++;
         console.log(`Crew head roles: ${crewName(step.crewId)} head is not in the server`);
@@ -339,8 +389,6 @@ async function syncCrewHeadRoles({ heads = {}, discordIds = {}, weekId = null, d
     return { configured: true, ...lastRun };
   } catch (err) {
     reportError(err, { where: 'syncCrewHeadRoles' });
-    return { configured: true, failed: true, error: err.message };
+    return { configured: true, failed: true, error: (err as Error).message };
   }
 }
-
-module.exports = { syncCrewHeadRoles, preflightCrewRoles };

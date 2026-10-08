@@ -1,14 +1,13 @@
-'use strict';
 // Direct admin actions on players and the market: bans, price-cliff repair,
 // and bot creation. The backup/restore tooling is in adminBackups.js.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ADMIN_UID } = require('../shared/constants');
-const { sendDiscordMessage, priceHistoryRef } = require('../shared/helpers');
+import { sendDiscordMessage } from '../shared/discordApi';
+import { priceHistoryRef } from '../shared/marketData';
 
 /**
  * Cancel every open order a banned user left on the books.
@@ -22,7 +21,7 @@ const { sendDiscordMessage, priceHistoryRef } = require('../shared/helpers');
  * @param {string} userId - Banned user's ID
  * @returns {Promise<{limit: number, preMarket: number}>} counts cancelled
  */
-const cancelOpenOrders = async (userId) => {
+const cancelOpenOrders = async (userId: string) => {
   const counts = { limit: 0, preMarket: 0 };
   const stamp = admin.firestore.FieldValue.serverTimestamp();
 
@@ -57,12 +56,8 @@ const cancelOpenOrders = async (userId) => {
  * @param {number} rollbackCash - Cash amount to reset to (default: 1000)
  * @param {string} reason - Reason for ban
  */
-exports.banUser = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  // Verify admin
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can ban users.');
-  }
+export const banUser = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Only admin can ban users.');
 
   const { userId, rollbackCash = 1000, reason } = data;
 
@@ -78,7 +73,7 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('not-found', 'User not found.');
     }
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     const displayName = userData.displayName;
 
     // Create ban record
@@ -86,7 +81,7 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       uid: userId,
       displayName,
       bannedAt: admin.firestore.FieldValue.serverTimestamp(),
-      bannedBy: context.auth.uid,
+      bannedBy: context.auth!.uid,
       reason,
       originalCash: userData.cash,
       originalPortfolio: userData.portfolioValue,
@@ -161,7 +156,7 @@ exports.banUser = cf().https.onCall(async (data, context) => {
       throw error;
     }
     console.error('Ban user error:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to ban user: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Failed to ban user: ' + (error as Error).message);
   }
 });
 
@@ -169,12 +164,8 @@ exports.banUser = cf().https.onCall(async (data, context) => {
  * Fix Base Price Cliffs - Removes first data point if >2% jump to second
  * Admin only - fixes chart artifacts from data loss
  */
-exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  // Check admin permission
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can fix price cliffs.');
-  }
+export const fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Only admin can fix price cliffs.');
 
   try {
     const histRef = priceHistoryRef();
@@ -188,7 +179,7 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
 
     let tickersFixed = 0;
     let tickersSkipped = 0;
-    const updates = {};
+    const updates: Record<string, unknown[]> = {};
     const fixedTickers = [];
 
     for (const [ticker, history] of Object.entries(priceHistory)) {
@@ -239,16 +230,12 @@ exports.fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error('Error fixing base price cliffs:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to fix price cliffs: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Failed to fix price cliffs: ' + (error as Error).message);
   }
 });
 
-exports.createBots = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  // Verify admin
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can create bots.');
-  }
+export const createBots = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Only admin can create bots.');
 
   const BOT_PROFILES = [
     { name: 'Momentum Mike', personality: 'momentum', cash: 2500 },
@@ -332,7 +319,7 @@ exports.createBots = cf().https.onCall(async (data, context) => {
     };
   } catch (error) {
     console.error('Error creating bots:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to create bots: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Failed to create bots: ' + (error as Error).message);
   }
 });
 

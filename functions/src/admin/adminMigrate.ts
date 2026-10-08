@@ -1,4 +1,3 @@
-'use strict';
 // Ticker and roster migrations, split out of adminOps.js when it passed the
 // 600-line limit.
 //
@@ -6,15 +5,14 @@
 // ticker across every collection, and seeding prices for newly added characters.
 // Both are run once, by hand, after src/characters.ts changes and npm run
 // sync:chars — see the "adding characters" playbook.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const { CHARACTERS } = require('../shared/characters');
-const { ADMIN_UID } = require('../shared/constants');
-const { appendPriceHistory } = require('../shared/helpers');
-const { runPreflight, countDryRun, runRename, PHASES } = require('../market/tickerRename');
-const split = require('../market/stockSplit');
+import { CHARACTERS } from '../shared/characters';
+import { appendPriceHistory } from '../shared/marketData';
+import { runPreflight, countDryRun, runRename, PHASES } from '../market/tickerRename';
+import * as split from '../market/stockSplit';
 
 /**
  * Rename a ticker across live Firestore data.
@@ -35,11 +33,8 @@ const split = require('../market/stockSplit');
  * still in the roster with no price and re-seed it at base price, which
  * creates a duplicate stock at the wrong price.
  */
-exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { oldTicker, newTicker } = data || {};
   // `dryRun` is the old boolean argument, kept working so a stale client can
@@ -98,7 +93,7 @@ exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(a
     }
   }
 
-  return runRename({ old, nw, mode, uid: context.auth.uid });
+  return runRename({ old, nw, mode, uid: context.auth!.uid });
 });
 
 /**
@@ -109,11 +104,8 @@ exports.renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(a
  * reopens it. ORDER: halt, add splitFactor to src/characters.ts, sync:chars,
  * deploy functions, then run this — see "Splitting a Stock" in CLAUDE.md.
  */
-exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
+  requireAdmin(context);
   const mode = data?.mode || 'dryRun';
   if (!['dryRun', 'execute', 'resume', 'abort'].includes(mode)) {
     throw new functions.https.HttpsError('invalid-argument', 'Unknown mode');
@@ -153,7 +145,7 @@ exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(asy
       throw new functions.https.HttpsError('failed-precondition', `Preflight failed: ${failed}`);
     }
   }
-  return split.runSplit({ ticker, ratio, mode, uid: context.auth.uid });
+  return split.runSplit({ ticker, ratio, mode, uid: context.auth!.uid });
 });
 
 /**
@@ -161,11 +153,8 @@ exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(asy
  * live price in Firestore yet. Skips IPO characters. Safe to run multiple
  * times — only writes missing entries.
  */
-exports.initNewCharacterPrices = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const initNewCharacterPrices = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const marketRef = db.collection('market').doc('current');
   const marketSnap = await marketRef.get();
@@ -173,10 +162,10 @@ exports.initNewCharacterPrices = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('not-found', 'Market document not found');
   }
 
-  const prices = marketSnap.data().prices || {};
+  const prices = marketSnap.data()!.prices || {};
   const now = Date.now();
-  const updates = {};
-  const historyPoints = {};
+  const updates: Record<string, number> = {};
+  const historyPoints: Record<string, { timestamp: number; price: number; source: string }> = {};
   const initialized = [];
 
   for (const c of CHARACTERS) {

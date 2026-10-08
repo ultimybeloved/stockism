@@ -1,24 +1,22 @@
-'use strict';
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
-const {
-  ADMIN_UID,
-  ONE_WEEK_MS,
-  TWENTY_FOUR_HOURS_MS,
-  MARGIN_INTEREST_RATE,
-  PRICE_HISTORY_LIVE_MAX,
-} = require('../shared/constants');
-const { priceHistoryRef, writeNotification, recordHeartbeat, reportError } = require('../shared/helpers');
-const { seasonMarginUpdate } = require('../season/seasonTiers');
-const {
+import { ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } from '../shared/constants';
+import { priceHistoryRef } from '../shared/marketData';
+import { writeNotification } from '../shared/notifications';
+import { recordHeartbeat } from '../shared/activity';
+import { reportError } from '../shared/sentry';
+import { seasonMarginUpdate } from '../season/seasonTiers';
+import {
   loyaltyTierFor,
   LOYALTY_TIER_LABEL,
   dividendMultiplierForAgeMs,
   exitDiscountForAgeMs,
-} = require('../shared/characters');
+} from '../shared/characters';
+import type { PricePoint, UserData } from '../shared/types';
+
+type TierUpgrade = { ticker: string; tier: number; shares: number };
 
 // ─── Loyalty tier-up detection ───────────────────────────────────────────────
 
@@ -29,12 +27,12 @@ const {
  * Tier drops (sold the old shares, rebought fresh) are recorded silently so the
  * player can be congratulated again when they climb back.
  */
-const diffLoyaltyTiers = (userData, now) => {
+const diffLoyaltyTiers = (userData: UserData, now: number) => {
   const holdings = userData.holdings || {};
   const cohorts = userData.holdingCohorts || {};
-  const previous = userData.loyaltyTierNotified;
-  const current = {};
-  const upgrades = [];
+  const previous = userData.loyaltyTierNotified as Record<string, number> | undefined;
+  const current: Record<string, number> = {};
+  const upgrades: TierUpgrade[] = [];
 
   for (const [ticker, shares] of Object.entries(holdings)) {
     if (!(shares > 0)) continue;
@@ -57,16 +55,15 @@ const diffLoyaltyTiers = (userData, now) => {
   return { current, upgrades: previous ? upgrades : [], changed };
 };
 
-const buildLoyaltyNotification = (upgrades) => {
-  const day = 24 * 60 * 60 * 1000;
-  const reward = (tier) => {
-    const mult = dividendMultiplierForAgeMs(tier * day);
-    const off = Math.round(exitDiscountForAgeMs(tier * day) * 100);
+const buildLoyaltyNotification = (upgrades: TierUpgrade[]) => {
+  const reward = (tier: number) => {
+    const mult = dividendMultiplierForAgeMs(tier * TWENTY_FOUR_HOURS_MS);
+    const off = Math.round(exitDiscountForAgeMs(tier * TWENTY_FOUR_HOURS_MS) * 100);
     return { mult, off };
   };
 
   if (upgrades.length === 1) {
-    const { ticker, tier, shares } = upgrades[0];
+    const { ticker, tier, shares } = upgrades[0]!;
     const { mult, off } = reward(tier);
     return {
       type: 'loyalty',
@@ -76,7 +73,7 @@ const buildLoyaltyNotification = (upgrades) => {
     };
   }
 
-  const tiers = {};
+  const tiers: Record<string, number> = {};
   for (const u of upgrades) tiers[u.ticker] = u.tier;
   return {
     type: 'loyalty',
@@ -88,7 +85,7 @@ const buildLoyaltyNotification = (upgrades) => {
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
-async function doArchivePriceHistory(ticker = null) {
+async function doArchivePriceHistory(ticker: string | null = null) {
   // Per-ticker cap on the LIVE doc. The real constraint is the whole
   // document's ~40k index-entry limit shared by all tickers — see the
   // constant's comment. Was 1000, which let the doc grow until Firestore
@@ -122,10 +119,10 @@ async function doArchivePriceHistory(ticker = null) {
   // run was in flight — the points were not in the archive either, because the
   // archive only received the OLD ones. arrayRemove commutes with the appends,
   // so a concurrent trade's point survives.
-  const liveRemovals = {};
+  const liveRemovals: Record<string, PricePoint[]> = {};
 
   for (const t of tickersToArchive) {
-    const history = priceHistory[t] || [];
+    const history: PricePoint[] = priceHistory[t] || [];
 
     if (history.length > MAX_HISTORY_SIZE) {
       const toArchive = history.slice(0, history.length - MAX_HISTORY_SIZE);
@@ -133,10 +130,10 @@ async function doArchivePriceHistory(ticker = null) {
 
       const archiveRef = marketRef.collection('price_history').doc(t);
       const archiveSnap = await archiveRef.get();
-      const existingArchive = archiveSnap.exists ? archiveSnap.data().history || [] : [];
+      const existingArchive = archiveSnap.exists ? archiveSnap.data()!.history || [] : [];
 
       await archiveRef.set({
-        history: [...existingArchive, ...toArchive].sort((a, b) => a.timestamp - b.timestamp),
+        history: [...existingArchive, ...toArchive].sort((a: PricePoint, b: PricePoint) => a.timestamp - b.timestamp),
         lastUpdated: FieldValue.serverTimestamp(),
       });
 
@@ -152,7 +149,7 @@ async function doArchivePriceHistory(ticker = null) {
     const CHUNK = 250;
     const longest = Math.max(...Object.values(liveRemovals).map((pts) => pts.length));
     for (let start = 0; start < longest; start += CHUNK) {
-      const update = {};
+      const update: Record<string, FieldValue> = {};
       for (const [t, pts] of Object.entries(liveRemovals)) {
         const slice = pts.slice(start, start + CHUNK);
         if (slice.length) update[t] = FieldValue.arrayRemove(...slice);
@@ -173,10 +170,10 @@ async function doCleanupAlertedThresholds() {
     return { success: false, error: 'Market document not found' };
   }
 
-  const marketData = marketSnap.data();
-  const alertedThresholds = marketData.alertedThresholds || {};
+  const marketData = marketSnap.data()!;
+  const alertedThresholds: Record<string, number> = marketData.alertedThresholds || {};
   const now = Date.now();
-  const updates = {};
+  const updates: Record<string, FieldValue> = {};
   let cleanedCount = 0;
 
   for (const [key, timestamp] of Object.entries(alertedThresholds)) {
@@ -196,18 +193,15 @@ async function doCleanupAlertedThresholds() {
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
-exports.archivePriceHistory = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
+export const archivePriceHistory = cf().https.onCall(async (data, context) => {
   // Admin-only: prevents unauthorized users from modifying market data
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+  requireAdmin(context, 'Admin only.');
 
   try {
     return await doArchivePriceHistory(data.ticker || null);
   } catch (error) {
     console.error('Archive error:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 });
 
@@ -216,10 +210,10 @@ exports.archivePriceHistory = cf().https.onCall(async (data, context) => {
 // only be doing the same job a few hours early.
 
 // Scheduled function: Auto-archive every 24 hours
-exports.scheduledArchiving = cf()
+export const scheduledArchiving = cf()
   .pubsub.schedule('every 24 hours')
   .timeZone('America/New_York')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     console.log('Running scheduled archiving...');
 
     // This is what keeps the live chart doc under Firestore's size limit. When
@@ -248,10 +242,10 @@ exports.scheduledArchiving = cf()
  * Runs every 24 hours to recalculate and update all users' portfolio values
  * Ensures leaderboards and rankings reflect current market prices
  */
-exports.syncAllPortfolios = cf()
+export const syncAllPortfolios = cf()
   .pubsub.schedule('every 24 hours')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       console.log('Starting portfolio sync for all users...');
       const startTime = Date.now();
@@ -265,8 +259,8 @@ exports.syncAllPortfolios = cf()
         return { success: false, error: 'Market data missing' };
       }
 
-      const marketData = marketSnap.data();
-      const prices = marketData.prices || {};
+      const marketData = marketSnap.data()!;
+      const prices: Record<string, number> = marketData.prices || {};
 
       // Get all users
       const usersSnapshot = await db.collection('users').get();
@@ -281,7 +275,7 @@ exports.syncAllPortfolios = cf()
 
       for (const userDoc of usersSnapshot.docs) {
         try {
-          const userData = userDoc.data();
+          const userData = userDoc.data() as UserData;
           const userId = userDoc.id;
 
           // Calculate holdings value
@@ -319,7 +313,7 @@ exports.syncAllPortfolios = cf()
           let marginInterest = 0;
           const marginUsed = userData.marginUsed || 0;
           if (userData.marginEnabled && marginUsed > 0) {
-            const lastCharge = userData.lastMarginInterestCharge || 0;
+            const lastCharge = (userData.lastMarginInterestCharge as number) || 0;
             if (startTime - lastCharge >= TWENTY_FOUR_HOURS_MS) {
               marginInterest = marginUsed * MARGIN_INTEREST_RATE;
             }
@@ -338,7 +332,7 @@ exports.syncAllPortfolios = cf()
 
           if (isDifferent || loyalty.changed) {
             const userRef = db.collection('users').doc(userId);
-            const updateFields = {
+            const updateFields: Record<string, unknown> = {
               portfolioValue: portfolioValue,
               lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
             };
@@ -408,7 +402,7 @@ exports.syncAllPortfolios = cf()
       return result;
     } catch (error) {
       reportError(error, { where: 'syncAllPortfolios' });
-      return { success: false, error: error.message };
+      return { success: false, error: (error as Error).message };
     }
   });
 
