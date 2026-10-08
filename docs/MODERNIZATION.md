@@ -56,9 +56,13 @@ their public profile and the leaderboard.
    still ran `npm --prefix functions run lint`, a script Phase 1 removed, which
    would have failed every deploy; it runs `npm run lint:functions` now.
    Nothing is deployed yet: production runs the old layout until step 7.
-2. Split `helpers.js` (2,091 lines) and `constants.js` (1,199 lines) into topic
-   modules under `functions/src/shared/`, keeping a temporary barrel so imports
-   don't all change at once.
+2. ~~Split helpers and constants~~ **Done 2026-10-08.** `helpers.js` (2,331
+   lines) is 14 topic modules in `functions/src/shared/` plus a re-exporting
+   `helpers.js`; `constants.js` is 18 topic files in `shared/constants/` plus
+   `index.js`. Every export kept its exact value and source. Callers still
+   import through the barrels; moving them to the topic modules can happen
+   file by file during the TypeScript conversion. `indexMaintenance.js` moved
+   to `shared/` too, since shared code needs it.
 3. TypeScript build: `functions/src/**/*.ts` → `tsc` → `functions/lib/`,
    `main: lib/index.js`, build in the `firebase.json` predeploy hook. Emulator
    suites import the built output or run through `tsx`.

@@ -338,7 +338,7 @@ Hard limits that exist because this codebase was untangled from a set of god fil
 | `functions/src/<domain>/` | 600 lines |
 | `functions/src/index.js` | 15 lines, entry point only |
 
-Shared values live in exactly one place: price and portfolio math in `src/utils/calculations.ts`, theme strings in `src/utils/theme.ts`, backend economy numbers in `functions/src/shared/constants.js`, character and crew data in `src/characters.ts` and `src/crews.ts`. See `CLAUDE.md` for the full rules.
+Shared values live in exactly one place: price and portfolio math in `src/utils/calculations.ts`, theme strings in `src/utils/theme.ts`, backend economy numbers in `functions/src/shared/constants/`, character and crew data in `src/characters.ts` and `src/crews.ts`. See `CLAUDE.md` for the full rules.
 
 ---
 

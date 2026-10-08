@@ -7,7 +7,7 @@
  * Runs the REAL roll (functions/src/discord/dailyDropRoll.js) against live
  * production prices, so it can never drift from what players actually get.
  * Use it after adding characters or changing any DAILY_DROP_* weight in
- * functions/src/shared/constants.js.
+ * functions/src/shared/constants/.
  *
  *   node scripts/sim-daily-drop.cjs [rolls]
  *

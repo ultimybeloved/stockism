@@ -2,7 +2,7 @@
 // Market-index maintenance: the equal-weight index of every non-ETF character,
 // and the divisor that keeps it honest when the roster changes.
 //
-// INTERNAL MODULE — required by market.js, never exported through index.js.
+// INTERNAL MODULE — required by market/market.js and shared/marketData.js; never in a services.js.
 //
 // The index is sum(price / basePrice) across its constituents, divided by a
 // divisor. At genesis every ratio is 1 and the divisor is picked so the index
@@ -22,8 +22,8 @@
 //
 // Mirror of the value maths in src/utils/marketIndex.js — keep both in sync.
 
-const { CHARACTERS } = require('../shared/characters');
-const { INDEX_BASE_VALUE } = require('../shared/constants');
+const { CHARACTERS } = require('./characters');
+const { INDEX_BASE_VALUE } = require('./constants');
 
 /**
  * Today's constituents. Each carries its own basePrice so the OLD sum stays

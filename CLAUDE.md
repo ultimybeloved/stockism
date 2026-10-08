@@ -70,8 +70,8 @@ You are the **sole developer** of this codebase. The user (Darth YG) is a non-te
 Run `npm run check:functions` before any `firebase deploy`. It exits non-zero and prints what to fix if any check fails:
 
 1. **Environment** — `functions/.env` must exist with every required key filled in (`scripts/check-env.cjs` owns the list). Also runs standalone as `npm run check:env`.
-2. **Export purity** — `functions/src/index.js` must export only real Cloud Functions. Service files sometimes export an internal helper so a sibling service or an emulator test can drive it; those must not reach index.js. Shared helpers go in `functions/src/shared/helpers.js` or an internal module index.js doesn't require.
-3. **Constants imports** — every service file must import everything it uses from `functions/src/shared/constants.js`. A missing import throws in production on whichever code path touches it.
+2. **Export purity** — `functions/src/index.js` must export only real Cloud Functions. Service files sometimes export an internal helper so a sibling service or an emulator test can drive it; those must not reach index.js. Shared helpers go in a `functions/src/shared/` module or an internal module no `services.js` lists.
+3. **Constants imports** — every service file must import everything it uses from `functions/src/shared/constants/`. A missing import throws in production on whichever code path touches it.
 
 Silent success = clean.
 
@@ -182,13 +182,14 @@ If a new feature would push a file past its limit, **split the file first, then 
 - Backend vitest files sit beside the module they test (`functions/src/season/seasonTiers.test.js`)
 - Never add Cloud Function logic directly to `functions/src/index.js`
 
-**Shared constants** (`functions/src/shared/constants.js`)
-- All numeric economy values live here: spread percentages, interest rates, time windows, cash amounts
-- If you are writing a number like `0.005`, `10000`, `86400000`, or `7 * 24 * 60 * 60 * 1000` inline in a service file, stop — add a named constant to `functions/src/shared/constants.js` first
+**Shared constants** (`functions/src/shared/constants/`)
+- All numeric economy values live here, one file per topic (`market`, `margin`, `economy`, `seasons`, `discord`, ...). `require('../shared/constants')` loads the folder's `index.js`, which gathers them all
+- If you are writing a number like `0.005`, `10000`, `86400000`, or `7 * 24 * 60 * 60 * 1000` inline in a service file, stop — add a named constant to the right topic file in `functions/src/shared/constants/` first
 
-**Shared helpers** (`functions/src/shared/helpers.js`)
-- Utility functions used by multiple service files go here
-- Never copy-paste a helper from one service file to another — move it to helpers.js
+**Shared helpers** (`functions/src/shared/`)
+- Utility functions used by multiple service files live in topic modules: `impact.js` (price impact, wash rule, circuit breaker), `cohorts.js` (dividend lot ledger), `tradeRecords.js`, `marketData.js`, `equity.js`, `usernames.js`, `accountGuards.js`, `discordApi.js`, `notifications.js`, `activity.js`, ...
+- `helpers.js` re-exports all of them so existing `require('../shared/helpers')` calls keep working; new code can require the topic module directly
+- Never copy-paste a helper from one service file to another — move it to the right shared module
 
 **Every lane that fills an order** (executeTrade, `limitOrderFill`, the pre-market
 auction in `marketOrders`, `marketOpenStopLoss`, the liquidations in
@@ -216,7 +217,7 @@ preference and survives on purpose.
 - `src/characters.ts` and `src/crews.ts` are the **only files you ever edit**. Never touch `functions/src/shared/characters.js` or `functions/src/shared/crews.js` directly — both are generated.
 - After editing either source file, run `npm run check:data` (validates ETF weights, crew rosters, and ticker references — silent success = clean) then `npm run sync:chars`, which overwrites both `functions/` copies automatically.
 - Commit source and generated files together, then deploy functions. If you forget the sync, users get "Invalid ticker" errors for new characters, and new crew members are invisible to missions and crew bots (this exact bug shipped in June 2026 when the backend crew list was still hand-copied).
-- Crew rosters, mission definitions/rewards, and crew mission contribution minimums all live in `src/crews.ts`; `functions/src/shared/constants.js` derives `CREW_MEMBERS` and re-exports the mission values from the synced copy.
+- Crew rosters, mission definitions/rewards, and crew mission contribution minimums all live in `src/crews.ts`; `functions/src/shared/constants/` derives `CREW_MEMBERS` and re-exports the mission values from the synced copy.
 
 ### The Anti-Patterns That Created the Original Mess
 
@@ -300,8 +301,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/<domain>/services.js` | The files in that domain that declare Cloud Functions. Never list internal modules |
 | `functions/src/serviceLoader.js` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
 | `functions/src/shared/sentry.js` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
-| `functions/src/shared/constants.js` | All backend economy constants — add new ones here |
-| `functions/src/shared/helpers.js` | Shared utility functions used by multiple services |
+| `functions/src/shared/constants/` | All backend economy constants, one file per topic — add new ones to the right topic |
+| `functions/src/shared/helpers.js` | Re-exports the shared topic modules beside it (impact, cohorts, equity, usernames, ...) |
 | `functions/src/shared/characters.js` | **Generated file** — never edit directly, always via `npm run sync:chars` |
 | `functions/src/market/botTrader.js` | Bot trading scheduler |
 | `functions/src/trading/trading.js` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
@@ -480,7 +481,7 @@ These are known gaps that were evaluated and deliberately left alone. Don't reop
 
 The market halts every **Thursday 13:00–21:00 UTC** for chapter review. This is enforced in:
 - Frontend: `src/utils/marketHours.ts` (`isWeeklyHalt()`)
-- Backend: `functions/src/shared/constants.js` (`WEEKLY_HALT_DAY`, `WEEKLY_HALT_START_HOUR`, `WEEKLY_HALT_END_HOUR`)
+- Backend: `functions/src/shared/constants/` (`WEEKLY_HALT_DAY`, `WEEKLY_HALT_START_HOUR`, `WEEKLY_HALT_END_HOUR`)
 
 Manual halts can also be triggered by an admin via the admin panel, which sets `marketData.marketHalted` in Firestore. Both halt types block all trades.
 
@@ -493,5 +494,5 @@ Pre-market timeline inside the Thursday halt: orders queue 20:30–20:55 UTC (`p
 - **`activeUserData` vs `userData`** in App.tsx: `userData` is the logged-in user's Firestore doc. `activeUserData` is derived from it with fallbacks. Always use `activeUserData` when reading holdings/shorts/cohorts, not `userData` directly.
 - **`colorBlindMode`**: Not stored directly in context — derive it everywhere as `const colorBlindMode = userData?.colorBlindMode || false`. It affects green/red color choices throughout the UI.
 - **Guest mode**: `isGuest` flag is true when a user is browsing without an account. Most write operations and modals should be gated behind `!isGuest`.
-- **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.ts`. The backend uses `calculateMarginalImpact` in `functions/src/shared/helpers.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
+- **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.ts`. The backend uses `calculateMarginalImpact` in `functions/src/shared/impact.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
 - **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF entries are identified by `isETF: true` in `src/characters.ts` (there is no `type` field).

@@ -12,7 +12,7 @@ const {
   reconcileDivisor,
   computeIndexValue,
 } = require('./indexMaintenance');
-const { INDEX_BASE_VALUE } = require('../shared/constants');
+const { INDEX_BASE_VALUE } = require('./constants');
 
 // A small synthetic roster keeps the arithmetic checkable by hand.
 const roster = (n, base = 10) => Array.from({ length: n }, (_, i) => ({ t: `T${i}`, b: base }));
@@ -157,7 +157,7 @@ describe('the real roster', () => {
     const c = indexConstituents();
     expect(c.length).toBeGreaterThan(100);
     expect(c.every((x) => x.b > 0)).toBe(true);
-    const { CHARACTERS } = require('../shared/characters');
+    const { CHARACTERS } = require('./characters');
     const etfTickers = new Set(CHARACTERS.filter((x) => x.isETF).map((x) => x.ticker));
     expect(c.some((x) => etfTickers.has(x.t))).toBe(false);
   });

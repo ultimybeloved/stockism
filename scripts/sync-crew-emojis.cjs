@@ -1,7 +1,7 @@
 'use strict';
 
 // Finds the crew emojis in Discord and writes their IDs into CREW_EMOJIS in
-// functions/src/shared/constants.js, which helpers.crewEmoji() reads.
+// functions/src/shared/constants/discord.js, which helpers.crewEmoji() reads.
 //
 //   npm run discord:emojis                        # show what the bot can see
 //   node scripts/sync-crew-emojis.cjs --all       # ...and list every emoji available to it
@@ -32,7 +32,7 @@ const { readEnv, readBotToken, discord, getApp } = require('./discord-api.cjs');
 
 const ROOT = path.join(__dirname, '..');
 const { CREWS } = require('./lib/sharedSource.cjs').load('crews');
-const CONSTANTS_PATH = path.join(ROOT, 'functions', 'src', 'shared', 'constants.js');
+const CONSTANTS_PATH = path.join(ROOT, 'functions', 'src', 'shared', 'constants', 'discord.js');
 
 // Discord caps an emoji image at 256 KB. The crew icons are ~15-35 KB, so this
 // is a guard against someone dropping a full-resolution art file in later.
@@ -89,7 +89,7 @@ function pickEmoji(crew, sources) {
 function readCurrentMap() {
   const src = fs.readFileSync(CONSTANTS_PATH, 'utf8');
   const block = src.match(/const CREW_EMOJIS = \{([\s\S]*?)\n\};/);
-  if (!block) throw new Error('Could not find the CREW_EMOJIS block in functions/src/shared/constants.js');
+  if (!block) throw new Error('Could not find the CREW_EMOJIS block in functions/src/shared/constants/discord.js');
   const map = {};
   block[1].split('\n').forEach((line) => {
     const m = line.match(/^\s*([A-Z_]+):\s*'(.*)',?\s*$/);
@@ -120,7 +120,7 @@ function writeMap(resolved) {
     return;
   }
   fs.writeFileSync(CONSTANTS_PATH, next);
-  console.log(`Wrote CREW_EMOJIS into functions/src/shared/constants.js (deploy functions to take effect).`);
+  console.log(`Wrote CREW_EMOJIS into functions/src/shared/constants/discord.js (deploy functions to take effect).`);
 }
 
 async function main() {
@@ -206,8 +206,8 @@ async function main() {
     const changed = Object.keys(resolved).some((id) => resolved[id] !== (current[id] || ''));
     console.log(
       changed
-        ? 'Re-run with --write to put these IDs into functions/src/shared/constants.js.'
-        : 'functions/src/shared/constants.js is already up to date.',
+        ? 'Re-run with --write to put these IDs into functions/src/shared/constants/discord.js.'
+        : 'functions/src/shared/constants/discord.js is already up to date.',
     );
   }
 }

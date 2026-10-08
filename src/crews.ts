@@ -584,7 +584,7 @@ export const getCrewMultiplier = (
 // ============================================
 
 // Portfolio share (cash + holdings) taken when leaving or switching crews.
-// Single source of truth for backend (via functions/src/shared/constants.js) and all
+// Single source of truth for backend (via functions/src/shared/constants/) and all
 // frontend warning text. Was 0.15 until 2026-07-19; lowered alongside the
 // crew overhaul so players can migrate to underdog crews.
 export const CREW_SWITCH_PENALTY = 0.05;

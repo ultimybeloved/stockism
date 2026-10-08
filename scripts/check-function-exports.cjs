@@ -88,7 +88,7 @@ if (unscannable.length > 0) {
 
 // --- 2. Constants imports ---------------------------------------------------
 
-const constantNames = Object.keys(require(path.join(SRC_DIR, 'shared', 'constants.js')));
+const constantNames = Object.keys(require(path.join(SRC_DIR, 'shared', 'constants')));
 
 // Counted separately from `problems` so a failure in an earlier check does not
 // hide whether this one actually passed.
@@ -109,7 +109,7 @@ const stripNonCode = (src) =>
 // constant used in it but never imported would only surface as a ReferenceError
 // on whichever path touched it — and in writeFeedEntry that path is inside a
 // try/catch, so feed entries would have stopped appearing with nothing logged.
-const CONSTANTS_SCAN = sourceFiles().filter(([, label]) => !['shared/constants.js', 'index.js'].includes(label));
+const CONSTANTS_SCAN = sourceFiles().filter(([, label]) => !['shared/constants/index.js', 'index.js'].includes(label));
 
 CONSTANTS_SCAN.forEach(([file, label]) => {
   const raw = fs.readFileSync(file, 'utf8');

@@ -37,7 +37,7 @@ const {
   recordDailyCloses,
 } = require('../shared/helpers');
 const { writeReviewChanges } = require('./reviewChanges');
-const { indexConstituents, reconcileDivisor, computeIndexValue } = require('./indexMaintenance');
+const { indexConstituents, reconcileDivisor, computeIndexValue } = require('../shared/indexMaintenance');
 
 // Builds and posts the daily market summary Discord embed. Shared by the
 // scheduled run and the admin re-trigger. Only the scheduled run records the

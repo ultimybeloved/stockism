@@ -205,7 +205,7 @@ const maxSharesForAction = ({
 // Snap a sell/cover size to the exit grid. Entries stay on whole cents; exits go
 // to six decimals so a position built from dividends and partial fills can be
 // closed in full. Mirror of MIN_EXIT_SHARES / EXIT_SHARE_DECIMALS in
-// functions/src/shared/constants.js — the server rejects anything finer.
+// functions/src/shared/constants/ — the server rejects anything finer.
 const EXIT_SHARE_STEP = 1 / MIN_EXIT_SHARES;
 export const roundShares = (n: number, isExit?: boolean): number =>
   isExit ? Math.round(n * EXIT_SHARE_STEP) / EXIT_SHARE_STEP : Math.round(n * 100) / 100;
