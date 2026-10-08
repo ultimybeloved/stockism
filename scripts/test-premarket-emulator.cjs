@@ -26,11 +26,11 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { runMarketOpenProcessing } = require('../functions/services/marketOrders');
-const { calculateMarginalImpact } = require('../functions/helpers');
-const { BID_ASK_SPREAD } = require('../functions/constants');
+const { runMarketOpenProcessing } = require('../functions/src/orders/marketOrders');
+const { calculateMarginalImpact } = require('../functions/src/shared/helpers');
+const { BID_ASK_SPREAD } = require('../functions/src/shared/constants');
 
-const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/characters');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/src/shared/characters');
 
 const TICKER = 'GUN'; // auction ticker (in the YAMA fund)
 const STOP_TICKER = 'VSCO'; // stop-loss ticker (in the ALLY fund, untouched by the auction)

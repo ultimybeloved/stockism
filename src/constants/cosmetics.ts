@@ -238,7 +238,7 @@ export const COSMETICS: Cosmetic[] = [
   // ─── Animated cosmetics (premium) ──────────────────────────────────────────
   // `effectClass` references a CSS animation in src/index.css. `rarity` is used
   // for gacha weighting (Phase 2). Keep ids/prices in sync with the backend
-  // COSMETIC_CATALOG in functions/services/users.js.
+  // COSMETIC_CATALOG in functions/src/users/users.js.
 
   // Animated name effects
   {

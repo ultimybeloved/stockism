@@ -41,7 +41,7 @@ axios.request = async (cfg) => {
   return { status: 204, data: '' };
 };
 
-const constants = require('../functions/constants');
+const constants = require('../functions/src/shared/constants');
 const { CREW_HEAD_ROLE_IDS } = constants;
 
 // Give every crew a usable role ID for the test run.
@@ -51,7 +51,7 @@ Object.keys(constants.CREWS).forEach((crewId, i) => {
   CREW_HEAD_ROLE_IDS[crewId] = ROLE[crewId];
 });
 
-const { syncCrewHeadRoles } = require('../functions/services/discordRoles');
+const { syncCrewHeadRoles } = require('../functions/src/discord/discordRoles');
 
 const STATE = db.collection('admin').doc('discordCrewRoles');
 const CREWS = Object.keys(constants.CREWS);
@@ -222,7 +222,7 @@ const state = async () => (await STATE.get()).data() || {};
   // Discord ID never lands in market/crewStats, which anyone can read.
   await reset();
 
-  const { getWeekId } = require('../functions/helpers');
+  const { getWeekId } = require('../functions/src/shared/helpers');
   // Must match how the job itself resolves "last week" (marketWeekly.js:220),
   // otherwise the seeded activity lands in the wrong bucket and nobody
   // qualifies as active.
@@ -254,7 +254,7 @@ const state = async () => (await STATE.get()).data() || {};
       ...activeLastWeek,
     });
 
-  const { runWeeklyCrewRankings } = require('../functions/services/marketWeekly');
+  const { runWeeklyCrewRankings } = require('../functions/src/market/marketWeekly');
   await runWeeklyCrewRankings({ postToDiscord: true });
 
   const stats = (await db.collection('market').doc('crewStats').get()).data() || {};

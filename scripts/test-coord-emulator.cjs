@@ -18,10 +18,10 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { triggerCoordScan } = require('../functions/services/coordDetection');
-const { getCoordProfit, adminRemoveCoordProfit } = require('../functions/services/coordReview');
-const { washRuleRemainingMs, shortAfterDumpRemainingMs } = require('../functions/helpers');
-const { ADMIN_UID } = require('../functions/constants');
+const { triggerCoordScan } = require('../functions/src/moderation/coordDetection');
+const { getCoordProfit, adminRemoveCoordProfit } = require('../functions/src/moderation/coordReview');
+const { washRuleRemainingMs, shortAfterDumpRemainingMs } = require('../functions/src/shared/helpers');
+const { ADMIN_UID } = require('../functions/src/shared/constants');
 
 const adminCtx = { auth: { uid: ADMIN_UID } };
 const MIN = 60000;

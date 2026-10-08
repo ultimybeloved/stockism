@@ -23,8 +23,8 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const { runDividendPayoutNow } = require('../functions/services/dividends');
-const { ADMIN_UID } = require('../functions/constants');
+const { runDividendPayoutNow } = require('../functions/src/market/dividends');
+const { ADMIN_UID } = require('../functions/src/shared/constants');
 const {
   CHARACTERS,
   computeRarityTiers,
@@ -35,7 +35,7 @@ const {
   DIVIDEND_LOYALTY_LADDER,
   DIVIDEND_MATURE_MS,
   DIVIDEND_LADDER_EPOCH,
-} = require('../functions/characters');
+} = require('../functions/src/shared/characters');
 
 let failures = 0;
 let checks = 0;

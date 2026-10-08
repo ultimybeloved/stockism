@@ -130,7 +130,7 @@ export const REVIEW_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
  * `history` must be in timestamp order. Returns null for a stock the review
  * never moved, or one whose pre-review price is no longer known.
  *
- * Keep in sync with getReviewWindowChanges in functions/helpers.js.
+ * Keep in sync with getReviewWindowChanges in functions/src/shared/helpers.js.
  */
 export const computeReviewChange = (
   history: ReviewPoint[] | null | undefined,

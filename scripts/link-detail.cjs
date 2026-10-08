@@ -28,7 +28,7 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const { ALT_IPV6_PREFIX_GROUPS } = require('../functions/constants');
+const { ALT_IPV6_PREFIX_GROUPS } = require('../functions/src/shared/constants');
 
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 const pct = (n) => (n * 100).toFixed(0) + '%';

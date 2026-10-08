@@ -13,7 +13,7 @@ import type { HttpsCallableResult } from 'firebase/functions';
 import type { AdminUser } from './adminShared';
 
 // Direct edits to one user's game state — the fixes that used to mean opening
-// the Firebase console. Backed by functions/services/adminUserEdit.js.
+// the Firebase console. Backed by functions/src/admin/adminUserEdit.js.
 export function useAdminUserEdit({
   showMessage,
   setLoading,

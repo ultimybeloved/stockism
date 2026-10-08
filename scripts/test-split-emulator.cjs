@@ -21,12 +21,12 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { splitStock } = require('../functions/services/adminMigrate');
-const { runSplit, PHASES } = require('../functions/services/stockSplit');
-const { executeTrade } = require('../functions/services/trading');
-const { exitEquityAt } = require('../functions/helpers');
-const { CHARACTER_MAP } = require('../functions/characters');
-const { ADMIN_UID, isWeeklyTradingHalt } = require('../functions/constants');
+const { splitStock } = require('../functions/src/admin/adminMigrate');
+const { runSplit, PHASES } = require('../functions/src/market/stockSplit');
+const { executeTrade } = require('../functions/src/trading/trading');
+const { exitEquityAt } = require('../functions/src/shared/helpers');
+const { CHARACTER_MAP } = require('../functions/src/shared/characters');
+const { ADMIN_UID, isWeeklyTradingHalt } = require('../functions/src/shared/constants');
 
 const T = 'SOPH';
 const N = 10;

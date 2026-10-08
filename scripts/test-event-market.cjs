@@ -17,9 +17,9 @@ const admin = require('firebase-admin');
 const { initializeApp } = require('firebase/app');
 const { getAuth, connectAuthEmulator, signInWithEmailAndPassword } = require('firebase/auth');
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require('firebase/functions');
-const { EVENT_AMM_LIQUIDITY } = require('../functions/constants');
+const { EVENT_AMM_LIQUIDITY } = require('../functions/src/shared/constants');
 
-// LMSR price formula, inlined (identical to functions/helpers.js + frontend).
+// LMSR price formula, inlined (identical to functions/src/shared/helpers.js + frontend).
 // Inlined here only to avoid helpers.js's load-time admin.firestore() call.
 const lmsrPrices = (q, b) => {
   const xs = q.map((x) => x / b);

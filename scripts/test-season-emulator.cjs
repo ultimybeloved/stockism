@@ -34,9 +34,9 @@ const {
   getSeasonStandings,
   adminEndSeason,
   triggerSeasonCheckpoint,
-} = require('../functions/services/season');
-const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../functions/services/seasonExclusions');
-const { ADMIN_UID } = require('../functions/constants');
+} = require('../functions/src/season/season');
+const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../functions/src/season/seasonExclusions');
+const { ADMIN_UID } = require('../functions/src/shared/constants');
 
 const DAY = 24 * 60 * 60 * 1000;
 const adminCtx = { auth: { uid: ADMIN_UID } };

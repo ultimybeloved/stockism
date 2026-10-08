@@ -19,8 +19,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const { CHARACTERS } = require('../functions/characters');
-const { isWeeklyTradingHalt } = require('../functions/constants');
+const { CHARACTERS } = require('../functions/src/shared/characters');
+const { isWeeklyTradingHalt } = require('../functions/src/shared/constants');
 
 const PROJECT_ID = 'stockism-abb28';
 // The web API key is locked to browser referrers; the dev server's origin is an

@@ -41,17 +41,21 @@ is gone.
 
 Left for Phase 4: ProfileChart and PortfolioChart duplicate their drawing code.
 
-Backend bug found during the conversion, not fixed yet (needs a deploy of
-`getPublicProfile` only): it sends `displayCrewPin || null`, so a player who hid
-their crew pin still shows it on their public profile.
+Backend bug found during the conversion, fixed in code 2026-10-08, live once
+`getPublicProfile` and `getLeaderboard` are deployed: they sent
+`displayCrewPin || null`, so a player who hid their crew pin still showed it on
+their public profile and the leaderboard.
 
 ## Phase 3: Backend restructure + TypeScript
 
-1. Move `functions/services/*` into domain folders
-   `functions/src/{trading,orders,margin,market,season,admin,discord,moderation,ladder,predictions,users,crews,missions,shared}/`.
-   Each domain's `index` lists its deployable functions; internal modules sit
-   beside it. `servicePaths.js` becomes derived. Update `check-function-exports`,
-   `serviceLoader`, emulator suite imports, and CLAUDE.md in the same change.
+1. ~~Domain folders~~ **Done 2026-10-08.** Everything is under `functions/src/`
+   (`package.json` main is `src/index.js`). Each domain's `services.js` lists its
+   deployable files and `servicePaths.js` joins them; the shared modules and the
+   generated characters/crews are in `src/shared/`; vitest files sit beside
+   their module. Same 153 functions. Also fixed: the `firebase.json` predeploy
+   still ran `npm --prefix functions run lint`, a script Phase 1 removed, which
+   would have failed every deploy; it runs `npm run lint:functions` now.
+   Nothing is deployed yet: production runs the old layout until step 7.
 2. Split `helpers.js` (2,091 lines) and `constants.js` (1,199 lines) into topic
    modules under `functions/src/shared/`, keeping a temporary barrel so imports
    don't all change at once.

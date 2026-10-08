@@ -37,7 +37,7 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const { ALT_IPV6_PREFIX_GROUPS, ALT_CROWDED_NETWORK_LIMIT } = require('../functions/constants');
+const { ALT_IPV6_PREFIX_GROUPS, ALT_CROWDED_NETWORK_LIMIT } = require('../functions/src/shared/constants');
 
 const BUCKET_MS = 10 * 60 * 1000; // co-trading window
 const MAX_UIDS_PER_BUCKET = 8; // above this it is a market-wide move, not a pair

@@ -26,18 +26,18 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore() binds to the emulator.
-const { executeTrade } = require('../functions/services/trading');
+const { executeTrade } = require('../functions/src/trading/trading');
 // No migratePriceHistoryDoc import: that was a one-time migration off the
 // legacy priceHistory field on market/current. It ran, the callable was
 // deleted from adminOps.js, and the section testing it was removed here.
-const { archivePriceHistory } = require('../functions/services/archiving');
-const { applyDueIPOJumps } = require('../functions/helpers');
-const { ADMIN_UID, PRICE_HISTORY_LIVE_MAX } = require('../functions/constants');
+const { archivePriceHistory } = require('../functions/src/admin/archiving');
+const { applyDueIPOJumps } = require('../functions/src/shared/helpers');
+const { ADMIN_UID, PRICE_HISTORY_LIVE_MAX } = require('../functions/src/shared/constants');
 
 // Comfortably more points than the live cap, so archiving has real overflow to move.
 const SEEDED_POINTS = PRICE_HISTORY_LIVE_MAX + 945;
 
-const { CHARACTER_MAP } = require('../functions/characters');
+const { CHARACTER_MAP } = require('../functions/src/shared/characters');
 
 const DAY = 24 * 60 * 60 * 1000;
 const NORMAL = 'GUN';

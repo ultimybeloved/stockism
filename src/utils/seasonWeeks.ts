@@ -5,7 +5,7 @@
 // so the tier rule can change at any point and every past week rescores from the
 // same rows. Everything below is derivation. Nothing here is stored.
 //
-// Record shape (functions/services/season.js, buildWeekRecord):
+// Record shape (functions/src/season/season.js, buildWeekRecord):
 //   s season id   w week   t timestamp   v portfolio value
 //   g granted since the season baseline  x index value
 //   c largest single holding's value     h total value of all holdings
@@ -184,7 +184,7 @@ export const seasonCapital = (
 /**
  * A week's share of invested money in one character, or 0 when too little of the
  * player's money was invested for it to count. Mirror of weekConcentration in
- * functions/services/seasonTiers.js.
+ * functions/src/season/seasonTiers.js.
  */
 export const weekConcentration = (
   r: SeasonWeekRecord | null | undefined,

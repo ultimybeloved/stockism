@@ -31,8 +31,12 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { writeReviewChanges, collapseReviewWindow } = require('../functions/services/reviewChanges');
-const { WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, REVIEW_COLLAPSE_MINUTE } = require('../functions/constants');
+const { writeReviewChanges, collapseReviewWindow } = require('../functions/src/market/reviewChanges');
+const {
+  WEEKLY_HALT_START_MINUTE,
+  WEEKLY_HALT_END_MINUTE,
+  REVIEW_COLLAPSE_MINUTE,
+} = require('../functions/src/shared/constants');
 
 let failures = 0;
 const check = (label, cond, detail = '') => {

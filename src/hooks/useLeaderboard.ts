@@ -25,7 +25,7 @@ interface CachedBoard {
 // accounts mid-session can never show the previous account's rank.
 const sessionCache: Record<string, CachedBoard> = {}; // key -> { leaders, callerRank, callerRankUid, fetchedAt }
 
-// Must mirror the backend cacheKey in functions/services/leaderboard.js
+// Must mirror the backend cacheKey in functions/src/users/leaderboard.js
 const isGainSort = (sortBy: string) => sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
 const docKey = (sortBy: string, crew: string | null) =>
   crew ? (isGainSort(sortBy) ? `${sortBy}_${crew}` : crew) : isGainSort(sortBy) ? sortBy : 'global';

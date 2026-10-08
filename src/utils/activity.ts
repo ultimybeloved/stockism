@@ -1,6 +1,6 @@
 import type { TimestampLike, UserData } from '../types';
 
-// Mirror of getLastActiveMs in functions/helpers.js. Keep the two in sync so
+// Mirror of getLastActiveMs in functions/src/shared/helpers.js. Keep the two in sync so
 // the admin panel's active-user counts match what gets posted to Discord.
 
 // Coerce any of our timestamp shapes (Firestore Timestamp, epoch ms, ISO

@@ -4,7 +4,7 @@
 //
 //   node scripts/household-report.cjs [days]        (default 90)
 //
-// The nightly scanner (services/altDetection.js) answers "who should I look
+// The nightly scanner (functions/src/moderation/altDetection.js) answers "who should I look
 // at". This answers "what am I actually looking at" — it groups the flagged
 // accounts into households, then for each pair inside a household lays out the
 // evidence that separates a family sharing a router from one person running two
@@ -29,7 +29,7 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const { ALT_IPV6_PREFIX_GROUPS, ALT_CROWDED_NETWORK_LIMIT } = require('../functions/constants');
+const { ALT_IPV6_PREFIX_GROUPS, ALT_CROWDED_NETWORK_LIMIT } = require('../functions/src/shared/constants');
 
 // Two trades in the same stock inside this window are treated as one action
 // split across two accounts.

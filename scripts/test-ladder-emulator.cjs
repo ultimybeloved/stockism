@@ -28,9 +28,9 @@ const {
   depositToLadderGame,
   withdrawFromLadderGame,
   adminTransferToLadder,
-} = require('../functions/services/ladderTransfers');
-const { playLadderGame } = require('../functions/services/ladderGame');
-const { getLadderChips, getLadderWithdrawable } = require('../functions/helpers');
+} = require('../functions/src/ladder/ladderTransfers');
+const { playLadderGame } = require('../functions/src/ladder/ladderGame');
+const { getLadderChips, getLadderWithdrawable } = require('../functions/src/shared/helpers');
 const {
   ADMIN_UID,
   LADDER_GAME_MAX_BALANCE,
@@ -40,7 +40,7 @@ const {
   LADDER_WITHDRAW_RUSH_RATE,
   LADDER_RAMP_MIN_FACTOR,
   LADDER_DEPOSIT_WINDOW_MS,
-} = require('../functions/constants');
+} = require('../functions/src/shared/constants');
 
 let failures = 0;
 let checks = 0;

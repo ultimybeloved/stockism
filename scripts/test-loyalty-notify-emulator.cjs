@@ -23,8 +23,12 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { syncAllPortfolios } = require('../functions/services/archiving');
-const { DIVIDEND_HOLD_MS, DIVIDEND_HOLD_DAYS, LOYALTY_NOTIFY_MIN_SHARES } = require('../functions/characters');
+const { syncAllPortfolios } = require('../functions/src/admin/archiving');
+const {
+  DIVIDEND_HOLD_MS,
+  DIVIDEND_HOLD_DAYS,
+  LOYALTY_NOTIFY_MIN_SHARES,
+} = require('../functions/src/shared/characters');
 
 const DAY = 24 * 60 * 60 * 1000;
 const T1 = 'SOPH';

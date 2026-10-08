@@ -16,9 +16,9 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { switchCrew } = require('../functions/services/crew');
-const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } = require('../functions/constants');
-const { CREW_SWITCH_EVENT, isFreeSwitchTarget } = require('../functions/crews');
+const { switchCrew } = require('../functions/src/crews/crew');
+const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } = require('../functions/src/shared/constants');
+const { CREW_SWITCH_EVENT, isFreeSwitchTarget } = require('../functions/src/shared/crews');
 
 const EVENT_CREW = CREW_SWITCH_EVENT?.crewId;
 const PAID_CREW = 'YAMAZAKI'; // no event running on this one

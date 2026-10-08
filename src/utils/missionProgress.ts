@@ -195,7 +195,7 @@ export const getWeeklyMissionProgress = (
     case 'WEEKLY_PORTFOLIO_GROWTH': {
       // requirement is percent growth from the week's starting value, with free
       // money received this week taken out. Mirror of earnedGrowthPct in
-      // functions/services/missionChecks.js.
+      // functions/src/missions/missionChecks.js.
       const startValue = wp.startPortfolioValue || portfolioValue;
       const grantedThisWeek = grantedValue - (wp.startGrantedValue ?? grantedValue);
       const growthPct = startValue > 0 ? ((portfolioValue - grantedThisWeek - startValue) / startValue) * 100 : 0;

@@ -212,7 +212,7 @@ export const unlinkOwnDiscordFunction = callable<void>('unlinkOwnDiscord');
 export const adminGrantCosmeticFunction = callable<{ userId: string; cosmeticId: string; revoke?: boolean }>(
   'adminGrantCosmetic',
 );
-// Admin: direct edits to one user's game state (see functions/services/adminUserEdit.js)
+// Admin: direct edits to one user's game state (see functions/src/admin/adminUserEdit.js)
 export const adminChangeDisplayNameFunction = callable<{ userId: string; displayName: string }>(
   'adminChangeDisplayName',
 );

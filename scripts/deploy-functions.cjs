@@ -1,7 +1,6 @@
 'use strict';
 
 const { spawn } = require('child_process');
-const fs = require('fs');
 const path = require('path');
 
 const BATCH_SIZE = 10;
@@ -13,25 +12,13 @@ function sleep(ms) {
 }
 
 function getFunctionNames() {
-  const servicesDir = path.join(__dirname, '..', 'functions', 'services');
-  const files = fs.readdirSync(servicesDir).filter((f) => f.endsWith('.js'));
-  const names = new Set();
-
-  for (const file of files) {
-    const src = fs.readFileSync(path.join(servicesDir, file), 'utf8');
-    const matches = src.matchAll(/exports\.(\w+)\s*=/g);
-    for (const m of matches) names.add(m[1]);
-  }
-
-  // Also check functions/index.js for any top-level exports
-  const indexPath = path.join(__dirname, '..', 'functions', 'index.js');
-  if (fs.existsSync(indexPath)) {
-    const src = fs.readFileSync(indexPath, 'utf8');
-    const matches = src.matchAll(/exports\.(\w+)\s*=/g);
-    for (const m of matches) names.add(m[1]);
-  }
-
-  return [...names].sort();
+  // Load the real entry point, the same way firebase-tools does, so the list is
+  // exactly what a deploy would upload (service files also export some helpers).
+  process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
+  const entry = require(path.join(__dirname, '..', 'functions'));
+  return Object.keys(entry)
+    .filter((name) => typeof entry[name] === 'function' && entry[name].__endpoint !== undefined)
+    .sort();
 }
 
 /**
@@ -137,7 +124,7 @@ function requestedNames(allNames) {
   const unknown = asked.filter((n) => !allNames.includes(n));
   if (unknown.length > 0) {
     console.error(`Unknown function name(s): ${unknown.join(', ')}`);
-    console.error('Check spelling against functions/services/*.js exports.');
+    console.error('Check spelling against the function list printed by npm run check:functions.');
     process.exit(1);
   }
   return asked.sort();

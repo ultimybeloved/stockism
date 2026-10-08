@@ -3,7 +3,7 @@ import { PreflightTable, PhaseProgress } from './RecoveryRenameStatus';
 import type { AdminCommonProps } from '../types';
 import type { ShowMessage } from '../../../hooks/admin/adminShared';
 
-// Admin front end for the stock split engine (functions/services/stockSplit.js).
+// Admin front end for the stock split engine (functions/src/market/stockSplit.js).
 const RecoverySplitStock = ({
   darkMode,
   textClass,

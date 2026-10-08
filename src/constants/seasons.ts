@@ -1,5 +1,5 @@
-// Season tiers. Mirror of the season constants in functions/constants.js and the
-// rules in functions/services/seasonTiers.js — keep them in sync
+// Season tiers. Mirror of the season constants in functions/src/shared/constants.js and the
+// rules in functions/src/season/seasonTiers.js — keep them in sync
 // (functions/seasonTiers.test.js checks the rules match).
 //
 // The tiers are a ladder: each one needs everything the one below it does.
@@ -62,7 +62,7 @@ export const SEASON_TIER_MAP: Record<string, SeasonTier> = Object.fromEntries(SE
 export const SEASON_BRONZE_ACTIVE_WEEKS = 2;
 
 // Smallest pinned baseline the server will score a player from. Mirror of
-// SEASON_MIN_BASELINE in functions/constants.js — keep both in sync. Below this
+// SEASON_MIN_BASELINE in functions/src/shared/constants.js — keep both in sync. Below this
 // a percentage return is noise, so the server skips the player entirely; the UI
 // has to use the same gate or it shows tier progress that is never banked.
 export const SEASON_MIN_BASELINE = 1000;
@@ -77,17 +77,17 @@ export const SEASON_DIAMOND_MAX_CONCENTRATION = 0.6;
 // A checkpoint only counts toward that limit when at least this share of the
 // player's money is invested. Someone sitting almost all in cash with one small
 // position is not "all in on one character", even though that position is 100%
-// of what they hold. Mirror of functions/constants.js.
+// of what they hold. Mirror of functions/src/shared/constants.js.
 export const SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED = 0.25;
 
 // Tiers that give a permanent title when the season ends. Mirror of
-// SEASON_TITLED_TIERS in functions/constants.js. The rest still show, they just
+// SEASON_TITLED_TIERS in functions/src/shared/constants.js. The rest still show, they just
 // don't pay a title.
 export const SEASON_TITLED_TIERS: readonly string[] = Object.freeze(['gold', 'platinum', 'diamond']);
 
 // Size divisions, by value when your season baseline was pinned. Platinum and
 // Diamond are ranked within a division so small accounts, which swing further,
-// don't take every top place. Mirror of SEASON_DIVISIONS in functions/constants.js.
+// don't take every top place. Mirror of SEASON_DIVISIONS in functions/src/shared/constants.js.
 export const SEASON_DIVISIONS: readonly SeasonDivision[] = Object.freeze([
   Object.freeze({ id: 'rookie', label: 'Rookie', min: 0, max: 10000 }),
   Object.freeze({ id: 'trader', label: 'Trader', min: 10000, max: 50000 }),

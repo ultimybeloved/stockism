@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // Guards the payout odds shown on each option. The previewed multiplier must always
-// equal what claimPredictionPayout actually pays (functions/services/predictions.js),
+// equal what claimPredictionPayout actually pays (functions/src/predictions/predictions.js),
 // so a formula change on either side should break this test.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';

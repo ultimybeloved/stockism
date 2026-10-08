@@ -31,7 +31,7 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const { STARTING_CASH, UNVERIFIED_STARTING_CASH } = require('../functions/constants');
+const { STARTING_CASH, UNVERIFIED_STARTING_CASH } = require('../functions/src/shared/constants');
 
 // Abusive on its own, whoever it names.
 const SLUR = [
@@ -308,11 +308,13 @@ async function main() {
   // Read the list as text. Requiring helpers.js would pull in functions/'s own
   // copy of firebase-admin, which is a different module instance from this
   // script's and has no initialized app.
-  const helpersSrc = fs.readFileSync(path.join(__dirname, '..', 'functions', 'helpers.js'), 'utf8');
+  const helpersSrc = fs.readFileSync(path.join(__dirname, '..', 'functions', 'src', 'shared', 'helpers.js'), 'utf8');
   const block = helpersSrc.match(/const PROTECTED_PLAYER_NAMES = \[([\s\S]*?)\];/);
   const PROTECTED_PLAYER_NAMES = block ? [...block[1].matchAll(/'([^']+)'/g)].map((m) => m[1]) : [];
   if (!PROTECTED_PLAYER_NAMES.length) {
-    console.log('\nCould not read PROTECTED_PLAYER_NAMES from functions/helpers.js - skipping coverage check.\n');
+    console.log(
+      '\nCould not read PROTECTED_PLAYER_NAMES from functions/src/shared/helpers.js - skipping coverage check.\n',
+    );
     return;
   }
   const top = users
@@ -326,7 +328,7 @@ async function main() {
   console.log('='.repeat(78));
   if (missing.length) {
     console.log('\nTOP-25 PLAYERS NOT COVERED BY THE SIGNUP FILTER\n');
-    console.log('  Add these to PROTECTED_PLAYER_NAMES in functions/helpers.js (lowercase,');
+    console.log('  Add these to PROTECTED_PLAYER_NAMES in functions/src/shared/helpers.js (lowercase,');
     console.log('  letters and digits only), then redeploy createUser and changeDisplayName:\n');
     for (const u of missing) {
       console.log(

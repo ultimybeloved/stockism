@@ -75,11 +75,11 @@ export const getBidAskPrices = (midPrice: number, isETF: boolean | undefined = f
 /**
  * A stock's liquidity: BASE_LIQUIDITY times its splitFactor (see characters.js),
  * so the same dollar trade moves a split stock the same percent as before.
- * Mirror of liquidityFor in functions/helpers.js.
+ * Mirror of liquidityFor in functions/src/shared/helpers.js.
  */
 export const liquidityFor = (ticker: Ticker): number => BASE_LIQUIDITY * splitFactorOf(ticker);
 
-/** Largest single order: MAX_TRADE_SHARES x splitFactor. Mirror of functions/helpers.js. */
+/** Largest single order: MAX_TRADE_SHARES x splitFactor. Mirror of functions/src/shared/helpers.js. */
 export const maxTradeSharesFor = (ticker: Ticker | null | undefined): number =>
   MAX_TRADE_SHARES * splitFactorOf(ticker);
 
@@ -105,7 +105,7 @@ export const calculatePriceImpactDollars = (
  * MAX_PRICE_CHANGE_PERCENT so one trade can't crater a stock; the trader pays
  * the real marginal cost of the size they moved, bounded at
  * OVERSIZED_IMPACT_MULTIPLE x that cap. Below the cap both return the same
- * number. Mirrors traderMarginalImpact in functions/helpers.js — if you change
+ * number. Mirrors traderMarginalImpact in functions/src/shared/helpers.js — if you change
  * one, change both, and re-run `npm test` plus `npm run test:trading`.
  */
 export const calculateTraderImpactDollars = (
@@ -124,7 +124,7 @@ export const calculateTraderImpactDollars = (
 /**
  * Price at which a short gets auto force-covered (its equity ratio hits
  * SHORT_MARGIN_CALL_THRESHOLD). This is the price the ticker has to RISE to.
- * Mirrors checkShortMarginCalls in functions/services/margin.js.
+ * Mirrors checkShortMarginCalls in functions/src/margin/margin.js.
  * @param {number} margin - collateral posted on the short
  * @param {number} entryPrice - average short entry / cost basis
  * @param {number} shares - shares shorted
@@ -172,7 +172,7 @@ export const estimateTradeTotal = ({
   }
   if (action === 'sell') {
     // Exit loyalty prices the seller against a reduced impact — mirrors
-    // computeSell in functions/services/tradeActions.js.
+    // computeSell in functions/src/trading/tradeActions.js.
     const sellerImpact = priceImpact * (1 - exitDiscount);
     const { bid } = getBidAskPrices(Math.max(MIN_PRICE, price - sellerImpact), isETF);
     return bid * amount;
@@ -221,7 +221,7 @@ export const getShortMargin = (position: ShortPosition | null | undefined): numb
 
 /**
  * Risk snapshot for an open short at the current price. Mirrors the equity-ratio
- * check in checkShortMarginCalls (functions/services/margin.js).
+ * check in checkShortMarginCalls (functions/src/margin/margin.js).
  * @param {Object} position - short position ({ shares, margin, costBasis/entryPrice })
  * @param {number} currentPrice
  * @returns {{equityRatio:number, equity:number, margin:number, liquidationPrice:number|null, isAtRisk:boolean, isCritical:boolean}|null}
@@ -290,7 +290,7 @@ export const calculatePortfolioValue = (
 /**
  * What an account would actually walk away with: every holding sold and every
  * short covered, one order each, at the price that order pushes the stock to.
- * Less any margin loan. Mirror of exitEquityAt in functions/helpers.js, which
+ * Less any margin loan. Mirror of exitEquityAt in functions/src/shared/helpers.js, which
  * seasons are scored on, so a paper gain from pumping a thin stock can't count.
  * @param {Object} userData - User data object
  * @param {Object} prices - Current prices by ticker
@@ -454,7 +454,7 @@ export const calculateMarginStatus = (
  * Check if user qualifies for margin trading.
  *
  * This drives the requirements checklist in MarginModal. toggleMargin in
- * functions/services/margin.js enforces the identical thresholds server-side,
+ * functions/src/margin/margin.js enforces the identical thresholds server-side,
  * so this is display logic, not the gate. Change one, change both.
  *
  * @param {Object} userData - User data object
@@ -513,7 +513,7 @@ export const checkMarginEligibility = (
 
 /**
  * Total a user has "invested" in stocks: cost basis of holdings + open short margin.
- * Used to cap prediction bets and ladder-game deposits. Mirrors functions/helpers.js.
+ * Used to cap prediction bets and ladder-game deposits. Mirrors functions/src/shared/helpers.js.
  */
 export const getTotalInvested = (
   holdings: ShareMap | null | undefined = {},
@@ -531,7 +531,7 @@ export const getTotalInvested = (
 // ── LMSR event-market pricing ────────────────────────────────────────────────
 // Logarithmic Market Scoring Rule for long-term event share markets.
 // `q` = array of shares outstanding per outcome, `b` = liquidity parameter.
-// Prices always sum to 1 and stay in (0,1). Mirror of functions/helpers.js — keep in sync.
+// Prices always sum to 1 and stay in (0,1). Mirror of functions/src/shared/helpers.js — keep in sync.
 const _lse = (xs: number[]): number => {
   const m = Math.max(...xs);
   return m + Math.log(xs.reduce((s, x) => s + Math.exp(x - m), 0));
@@ -558,7 +558,7 @@ export const lmsrSellRefund = (q: number[], b: number, idx: number, shares: numb
 // outcome, summing to 100). Frontend-only: markets are created client-side in
 // the admin panel. Shifted so the smallest entry is 0 — player holdings of
 // outcome i equal q[i] - seed[i], so q can never fall below the seed and the
-// sell-side zero clamp in functions/services/eventMarket.js stays inert.
+// sell-side zero clamp in functions/src/predictions/eventMarket.js stays inert.
 export const lmsrSeedQ = (pcts: number[], b: number): number[] => {
   const min = Math.min(...pcts);
   return pcts.map((p) => Math.round(b * Math.log(p / min) * 100) / 100);
@@ -593,7 +593,7 @@ export const maxAffordableShares = (q: number[], b: number, idx: number, budget:
 
 /**
  * Reduced price impact for new accounts (anti-manipulation). Mirrors
- * getAccountAgeImpactFactor in functions/helpers.js — change both together.
+ * getAccountAgeImpactFactor in functions/src/shared/helpers.js — change both together.
  * @param {Object} userData
  * @returns {number} multiplier in [NEW_ACCOUNT_MIN_IMPACT_FACTOR, 1]
  */

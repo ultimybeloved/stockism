@@ -7,7 +7,7 @@
 // Pure, so the confirm dialog can show the resulting arithmetic before anything
 // is sent. The server recomputes all of this from `mode` and `amount` and is the
 // authority — this exists so the admin sees the outcome first, not to be trusted.
-// Mirror of the math in adminSetCash (functions/services/adminOps.js).
+// Mirror of the math in adminSetCash (functions/src/admin/adminOps.js).
 
 export type CashMode = 'add' | 'subtract' | 'set';
 

@@ -22,8 +22,8 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
 const rawPublic = publicKey.export({ type: 'spki', format: 'der' }).slice(-32);
 process.env.DISCORD_PUBLIC_KEY = rawPublic.toString('hex');
 
-const { CHARACTERS } = require('../functions/characters');
-const { discordInteractions } = require('../functions/services/discordInteractions');
+const { CHARACTERS } = require('../functions/src/shared/characters');
+const { discordInteractions } = require('../functions/src/discord/discordInteractions');
 
 let passed = 0;
 let failed = 0;

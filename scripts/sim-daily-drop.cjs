@@ -4,10 +4,10 @@
 /**
  * Daily-drop payout simulator.
  *
- * Runs the REAL roll (functions/services/dailyDropRoll.js) against live
+ * Runs the REAL roll (functions/src/discord/dailyDropRoll.js) against live
  * production prices, so it can never drift from what players actually get.
  * Use it after adding characters or changing any DAILY_DROP_* weight in
- * functions/constants.js.
+ * functions/src/shared/constants.js.
  *
  *   node scripts/sim-daily-drop.cjs [rolls]
  *
@@ -68,7 +68,7 @@ const money = (n) => '$' + n.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 (async () => {
   const { prices, launched } = await fetchLiveMarket();
-  const { rollDailyStock } = require(path.join(ROOT, 'functions/services/dailyDropRoll.js'));
+  const { rollDailyStock } = require(path.join(ROOT, 'functions/src/discord/dailyDropRoll.js'));
 
   const values = [];
   let jackpotTotal = 0,

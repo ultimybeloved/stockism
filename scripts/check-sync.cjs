@@ -6,7 +6,7 @@
 //
 // Silent success = clean. Exits non-zero and says what to run otherwise.
 //
-// functions/characters.js and functions/crews.js are generated from src/ by
+// functions/src/shared/characters.js and functions/src/shared/crews.js are generated from src/ by
 // `npm run sync:chars`. When someone edits a source file and forgets to sync,
 // nothing complains locally: the frontend has the new data and the backend does
 // not. Players then get "Invalid ticker" errors on any new character, and new

@@ -118,7 +118,7 @@ export function useSeason() {
     activeWeeks,
     bronzeActiveWeeks: rules.bronzeActiveWeeks,
     // Kept out of Platinum and Diamond by the admin for repeated coordinated
-    // trading. Mirror of isTopTierExcluded in functions/services/seasonTiers.js.
+    // trading. Mirror of isTopTierExcluded in functions/src/season/seasonTiers.js.
     topTierExcluded: userData?.seasonTopTierExclusion?.seasonId === season.id,
     // The tiers are a ladder, so without Bronze the next step is always Bronze.
     // With it, being up on the season means Silver if they finish there, so

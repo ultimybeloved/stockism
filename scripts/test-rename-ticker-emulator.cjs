@@ -36,8 +36,8 @@ const NEW = 'GUNX';
 // than one that fails outright, so every assertion checks this survived.
 const OTHER = 'JIN';
 
-const { CHARACTERS, CHARACTER_MAP } = require('../functions/characters');
-const { CREWS } = require('../functions/crews');
+const { CHARACTERS, CHARACTER_MAP } = require('../functions/src/shared/characters');
+const { CREWS } = require('../functions/src/shared/crews');
 
 if (!CHARACTER_MAP[OLD]) throw new Error(`${OLD} is not in characters.js`);
 if (CHARACTER_MAP[NEW]) throw new Error(`${NEW} already exists; pick another fixture`);
@@ -71,8 +71,8 @@ const renameInRoster = (from, to) => {
 
 // Loaded AFTER admin.initializeApp so their top-level admin.firestore() binds
 // to the emulator.
-const R = require('../functions/services/tickerRename');
-const { remapAliasedKeys } = require('../functions/helpers');
+const R = require('../functions/src/market/tickerRename');
+const { remapAliasedKeys } = require('../functions/src/shared/helpers');
 
 let failures = 0;
 const check = (label, cond, detail = '') => {
@@ -127,7 +127,7 @@ const seed = async (ticker = OLD) => {
     haltReason: '',
   });
 
-  const { priceHistoryRef } = require('../functions/helpers');
+  const { priceHistoryRef } = require('../functions/src/shared/helpers');
   await priceHistoryRef().set({
     [t]: [
       { timestamp: now - DAY, price: 88 },
@@ -340,7 +340,7 @@ const run = (mode, opts = {}) =>
   check('alias recorded', m.tickerAliases[OLD] === NEW);
   check('market reopened', m.marketHalted === false);
 
-  const { priceHistoryRef } = require('../functions/helpers');
+  const { priceHistoryRef } = require('../functions/src/shared/helpers');
   const hist = (await priceHistoryRef().get()).data();
   check('live history moved with both points', (hist[NEW] || []).length === 2 && hist[OLD] === undefined);
   check('neighbour history untouched', (hist[OTHER] || []).length === 1);

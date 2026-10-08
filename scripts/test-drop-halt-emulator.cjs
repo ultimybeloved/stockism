@@ -39,12 +39,12 @@ for (const method of ['get', 'post', 'patch', 'put', 'delete', 'request']) {
 
 // isWeeklyTradingHalt reads the wall clock, and the handler destructures it at
 // require time — so it has to be swapped before the require below, not after.
-const constants = require('../functions/constants');
+const constants = require('../functions/src/shared/constants');
 let weeklyHalt = false;
 constants.isWeeklyTradingHalt = () => weeklyHalt;
 
-const { discordInteractions } = require('../functions/services/discordInteractions');
-const { CHARACTERS } = require('../functions/characters');
+const { discordInteractions } = require('../functions/src/discord/discordInteractions');
+const { CHARACTERS } = require('../functions/src/shared/characters');
 
 let failures = 0;
 const check = (label, cond, detail = '') => {

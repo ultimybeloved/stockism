@@ -17,7 +17,7 @@ const ROOT = path.join(__dirname, '..', '..');
 const SHARED = ['characters', 'crews'];
 
 const sourcePath = (name) => path.join(ROOT, 'src', `${name}.ts`);
-const generatedPath = (name) => path.join(ROOT, 'functions', `${name}.js`);
+const generatedPath = (name) => path.join(ROOT, 'functions', 'src', 'shared', `${name}.js`);
 
 const transpile = (name, module) =>
   ts.transpileModule(fs.readFileSync(sourcePath(name), 'utf8'), {

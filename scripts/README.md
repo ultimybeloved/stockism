@@ -81,7 +81,7 @@ node scripts/spam-name-purge.cjs --confirm
 **The audit** scans every account and flags two things: a name containing a slur,
 and a name containing a real player's name plus a degrading word. The player-name
 list is derived from the data at run time, so it stays current. It also warns when
-a top-25 player is missing from `PROTECTED_PLAYER_NAMES` in `functions/helpers.js`,
+a top-25 player is missing from `PROTECTED_PLAYER_NAMES` in `functions/src/shared/helpers.js`,
 which is what the signup filter uses — that list is hand-curated and will otherwise
 go stale as the leaderboard moves.
 

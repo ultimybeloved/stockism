@@ -1,6 +1,6 @@
 // Frontend error monitoring.
 //
-// Deliberately mirrors functions/sentry.js so both halves of the codebase report
+// Deliberately mirrors functions/src/shared/sentry.js so both halves of the codebase report
 // failures the same way:
 //
 //   reportError(err, { where: 'useTradeManagement.handleTrade', ticker, action });

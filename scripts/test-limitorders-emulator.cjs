@@ -37,11 +37,11 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { runLimitOrderCheck } = require('../functions/services/limitOrders');
-const { runFillBackfill } = require('../functions/services/tradeBackfill');
-const { calculateMarginalImpact } = require('../functions/helpers');
-const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../functions/constants');
-const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/characters');
+const { runLimitOrderCheck } = require('../functions/src/orders/limitOrders');
+const { runFillBackfill } = require('../functions/src/trading/tradeBackfill');
+const { calculateMarginalImpact } = require('../functions/src/shared/helpers');
+const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../functions/src/shared/constants');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/src/shared/characters');
 
 // Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
 // from characters.js: `ipoRequired` gets dropped once a stock actually launches
@@ -720,7 +720,7 @@ async function main() {
   );
 
   // Placement: a BUY takes one of the connection's slots, a third account is refused.
-  const { claimNetworkForOrder } = require('../functions/services/orderNetwork');
+  const { claimNetworkForOrder } = require('../functions/src/orders/orderNetwork');
   const ctxFor = (ip) => ({ rawRequest: { ip } });
   await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_a', isBuy: true });
   await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_b', isBuy: true });

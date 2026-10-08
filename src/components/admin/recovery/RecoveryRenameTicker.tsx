@@ -9,7 +9,7 @@ import type { useAdminRecoveryTools } from '../../../hooks/admin/useAdminRecover
 import type { RenameJournal, RenameTickerRequest, RenameTickerResponse } from '../../../api/types';
 import type { renameTickerFunction as RenameTickerFn } from '../../../firebase';
 
-// Admin front end for the ticker rename engine (functions/services/tickerRename.js).
+// Admin front end for the ticker rename engine (functions/src/market/tickerRename.js).
 //
 // Progress comes from a live subscription to market/tickerRename rather than
 // from the callable's return value. A rename can run for minutes and pause on a

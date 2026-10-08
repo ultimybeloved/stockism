@@ -1,6 +1,6 @@
 // ============================================
 // LADDER WITHDRAWAL TAX
-// Mirror of calculateLadderWithdrawTax in functions/services/ladderTransfers.js
+// Mirror of calculateLadderWithdrawTax in functions/src/ladder/ladderTransfers.js
 // — keep both in sync. The server is the source of truth; this copy powers the
 // live preview in the withdraw tab.
 // ============================================
@@ -15,7 +15,7 @@ import {
 import type { TimestampLike } from '../types';
 
 // How much of the ladder deposit caps a new account has unlocked, 0..1.
-// Mirror of getLadderDepositFactor in functions/helpers.js — keep both in sync.
+// Mirror of getLadderDepositFactor in functions/src/shared/helpers.js — keep both in sync.
 // Takes createdAt straight off the user doc, which arrives as a Firestore
 // Timestamp on the client; an unreadable date means full access, same as server.
 /** ladderGameUsers/{uid}. */
@@ -53,7 +53,7 @@ export const getLadderDepositFactor = (createdAt: TimestampLike): number => {
 
 // House chips: check-in grants and the welcome stake. Playable, never cashable.
 // They are staked before real balance, so losses burn them and winnings on top
-// of them belong to the player. Mirror of getLadderChips in functions/helpers.js
+// of them belong to the player. Mirror of getLadderChips in functions/src/shared/helpers.js
 // — keep both in sync. The server is the source of truth.
 export const getLadderChips = (ladderData: LadderData | null | undefined): number => {
   const granted = ladderData?.nonWithdrawable || 0;

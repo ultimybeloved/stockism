@@ -9,7 +9,7 @@
 // stock with a run of points inside the halt window — trailing, trailing, admin,
 // trailing — that on the chart is indistinguishable from people trading through
 // the halt. It caused a live argument on 2026-08-20. See the review split in
-// functions/helpers.js for the other half of the fix.
+// functions/src/shared/helpers.js for the other half of the fix.
 //
 // This NEVER changes a price. It removes the intermediate steps and keeps the
 // last one exactly where it is, so the stock closes the review where the admin

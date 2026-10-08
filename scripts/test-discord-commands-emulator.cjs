@@ -16,8 +16,8 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { handleSlashCommand, isPrivate } = require('../functions/services/discordCommands');
-const { CHARACTERS } = require('../functions/characters');
+const { handleSlashCommand, isPrivate } = require('../functions/src/discord/discordCommands');
+const { CHARACTERS } = require('../functions/src/shared/characters');
 
 let passed = 0;
 let failed = 0;
@@ -99,7 +99,7 @@ async function seed() {
         { userId: 'u3', displayName: 'Gamma', portfolioValue: 31000 },
       ],
     });
-  const crew = Object.keys(require('../functions/constants').CREW_MEMBERS)[0];
+  const crew = Object.keys(require('../functions/src/shared/constants').CREW_MEMBERS)[0];
   await db
     .collection('users')
     .doc('u1')

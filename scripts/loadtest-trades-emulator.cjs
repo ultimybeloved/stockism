@@ -29,7 +29,7 @@ const admin = require('../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { executeTrade } = require('../functions/services/trading');
+const { executeTrade } = require('../functions/src/trading/trading');
 
 // Clean tickers with no trailingFactors and no ETF membership, so a trade moves
 // exactly one price and the result isn't muddied by propagation.

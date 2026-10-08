@@ -8,7 +8,7 @@
 //      "node scripts/test-trading-emulator.cjs")
 //
 // Purpose: pin down the CURRENT behavior of the trade engine so any future change
-// to functions/services/trading.js can be verified against it. Expected numbers are
+// to functions/src/trading/trading.js can be verified against it. Expected numbers are
 // computed independently in this file (same math, reimplemented) — if the engine's
 // formulas, rounding, or orchestration change, these checks fail.
 //
@@ -35,9 +35,9 @@ const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
-const { executeTrade } = require('../functions/services/trading');
-const { checkShortMarginCalls, checkMarginLending } = require('../functions/services/marginScanners');
-const { bailout } = require('../functions/services/margin');
+const { executeTrade } = require('../functions/src/trading/trading');
+const { checkShortMarginCalls, checkMarginLending } = require('../functions/src/margin/marginScanners');
+const { bailout } = require('../functions/src/margin/margin');
 const {
   BASE_IMPACT,
   BASE_LIQUIDITY,
@@ -63,8 +63,8 @@ const {
   MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
   ADMIN_UID,
-} = require('../functions/constants');
-const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../functions/characters');
+} = require('../functions/src/shared/constants');
+const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../functions/src/shared/characters');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
 // SOPH / CROC / XIAO: no trailingFactors, not a constituent of any ETF.

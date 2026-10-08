@@ -7,13 +7,12 @@
 //     Sentry DSN from production while reporting success. Lives in check-env.cjs
 //     so `npm run check:env` and the firebase.json predeploy hook share it.
 //
-//  1. EXPORT PURITY — functions/index.js re-exports everything a service file
-//     exports (`Object.assign(exports, require('./services/x'))`). If a service
-//     exports a plain helper or a constant, it lands in the deployed Cloud
-//     Function list as a bogus entry. Shared helpers belong in helpers.js or in
-//     an internal module that index.js does not require.
+//  1. EXPORT PURITY — functions/src/index.js loads every file listed in
+//     servicePaths.js. Those files sometimes export a plain helper for a sibling
+//     or a test; serviceLoader.js copies across only real Cloud Functions, and
+//     this check proves nothing else reached the deployed surface.
 //
-//  2. CONSTANTS IMPORTS — a service that uses a constant without importing it
+//  2. CONSTANTS IMPORTS — a file that uses a constant without importing it
 //     throws at runtime, in production, only on the code path that touches it.
 //     This is the check documented in CLAUDE.md.
 //
@@ -25,7 +24,16 @@ const fs = require('fs');
 const path = require('path');
 
 const FUNCTIONS_DIR = path.join(__dirname, '..', 'functions');
-const SERVICES_DIR = path.join(FUNCTIONS_DIR, 'services');
+const SRC_DIR = path.join(FUNCTIONS_DIR, 'src');
+
+// Every backend source file except tests, as [absolute path, label].
+const sourceFiles = (dir = SRC_DIR) =>
+  fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return sourceFiles(full);
+    if (!entry.name.endsWith('.js') || entry.name.includes('.test.')) return [];
+    return [[full, path.relative(SRC_DIR, full).split(path.sep).join('/')]];
+  });
 
 let problems = 0;
 
@@ -38,17 +46,18 @@ problems += require('./check-env.cjs').checkEnv();
 // --- 1. Export purity -------------------------------------------------------
 
 // A real Cloud Function carries __trigger/__endpoint from the firebase-functions
-// builder. Anything else in index.js is a leaked helper or constant.
+// builder. Anything else on the entry point is a leaked helper or constant.
 const isCloudFunction = (v) => typeof v === 'function' && v.__trigger !== undefined && v.__endpoint !== undefined;
 
-const exports_ = require(path.join(FUNCTIONS_DIR, 'index.js'));
+// The package.json "main", exactly what firebase-tools loads.
+const exports_ = require(FUNCTIONS_DIR);
 const leaked = Object.keys(exports_).filter((k) => !isCloudFunction(exports_[k]));
 
 if (leaked.length > 0) {
   problems += leaked.length;
-  console.log('index.js exports that are NOT Cloud Functions:');
+  console.log('Entry point exports that are NOT Cloud Functions:');
   leaked.forEach((k) => console.log(`  ${k}  (${typeof exports_[k]})`));
-  console.log('  -> move these into helpers.js or an internal module not required by index.js\n');
+  console.log('  -> move these into shared/helpers.js or an internal module no services.js lists\n');
 } else {
   console.log(`Export purity: OK (${Object.keys(exports_).length} exports, all Cloud Functions)`);
 }
@@ -60,13 +69,13 @@ if (leaked.length > 0) {
 // other way would not be found. That is fail-open (it falls back to loading
 // everything, costing startup time but never breaking), but it silently loses
 // the cold-start win — so flag it here instead of letting it rot.
+const servicePaths = require(path.join(SRC_DIR, 'servicePaths.js'));
 const scanFinds = (name) =>
-  fs
-    .readdirSync(SERVICES_DIR)
-    .filter((f) => f.endsWith('.js'))
-    .some((f) => new RegExp(`^exports\\.${name}\\s*=`, 'm').test(fs.readFileSync(path.join(SERVICES_DIR, f), 'utf8')));
+  servicePaths.some((p) =>
+    new RegExp(`^exports\\.${name}\\s*=`, 'm').test(fs.readFileSync(path.join(SRC_DIR, `${p}.js`), 'utf8')),
+  );
 
-const unscannable = Object.keys(exports_).filter((name) => name !== 'botTrader' && !scanFinds(name));
+const unscannable = Object.keys(exports_).filter((name) => !scanFinds(name));
 
 if (unscannable.length > 0) {
   problems += unscannable.length;
@@ -79,7 +88,7 @@ if (unscannable.length > 0) {
 
 // --- 2. Constants imports ---------------------------------------------------
 
-const constantNames = Object.keys(require(path.join(FUNCTIONS_DIR, 'constants.js')));
+const constantNames = Object.keys(require(path.join(SRC_DIR, 'shared', 'constants.js')));
 
 // Counted separately from `problems` so a failure in an earlier check does not
 // hide whether this one actually passed.
@@ -96,26 +105,16 @@ const stripNonCode = (src) =>
     .replace(/'(?:\\.|[^'\\\n])*'/g, "''")
     .replace(/"(?:\\.|[^"\\\n])*"/g, '""');
 
-// services/ plus the shared modules at the functions root. helpers.js was NOT
-// scanned here until 2026-09-23, so a constant used in it but never imported
-// would only surface as a ReferenceError on whichever path touched it — and in
-// writeFeedEntry that path is inside a try/catch, so feed entries would have
-// stopped appearing with nothing logged anywhere.
-const CONSTANTS_SCAN = [
-  ...fs
-    .readdirSync(SERVICES_DIR)
-    .filter((f) => f.endsWith('.js'))
-    .map((f) => [SERVICES_DIR, f, `services/${f}`]),
-  ...fs
-    .readdirSync(FUNCTIONS_DIR)
-    .filter((f) => f.endsWith('.js') && !['constants.js', 'index.js'].includes(f) && !f.includes('.test.'))
-    .map((f) => [FUNCTIONS_DIR, f, f]),
-];
+// Every source file. helpers.js was NOT scanned here until 2026-09-23, so a
+// constant used in it but never imported would only surface as a ReferenceError
+// on whichever path touched it — and in writeFeedEntry that path is inside a
+// try/catch, so feed entries would have stopped appearing with nothing logged.
+const CONSTANTS_SCAN = sourceFiles().filter(([, label]) => !['shared/constants.js', 'index.js'].includes(label));
 
-CONSTANTS_SCAN.forEach(([dir, file, label]) => {
-  const raw = fs.readFileSync(path.join(dir, file), 'utf8');
+CONSTANTS_SCAN.forEach(([file, label]) => {
+  const raw = fs.readFileSync(file, 'utf8');
   const source = stripNonCode(raw);
-  // Collect EVERY destructured require, not just the one from '../constants'.
+  // Collect EVERY destructured require, not just the one from constants.
   // Several names constants.js re-exports actually originate elsewhere (CREWS
   // and the crew mission values come from crews.js), so a file importing one
   // from its real source is correct and must not be reported as missing.
@@ -144,31 +143,26 @@ problems += constantsProblems;
 // "monthIdOf is not a function" on EVERY hourly run — the stabiliser was dead
 // and the only trace was a log line nobody was reading.
 
-const helperExports = new Set(Object.keys(require(path.join(FUNCTIONS_DIR, 'helpers.js'))));
+const helperExports = new Set(Object.keys(require(path.join(SRC_DIR, 'shared', 'helpers.js'))));
 let helperProblems = 0;
 
-const scanHelperImports = (dir, label) => {
-  for (const file of fs.readdirSync(dir).filter((f) => f.endsWith('.js') && !f.includes('.test.'))) {
-    if (file === 'helpers.js') continue;
-    const raw = fs.readFileSync(path.join(dir, file), 'utf8');
-    for (const m of raw.matchAll(/const\s*\{([^}]+)\}\s*=\s*require\((['"])[^'"]*helpers\2\)/g)) {
-      const missing = m[1]
-        .split(',')
-        .map((s) => s.split(':')[0].trim())
-        .filter((n) => n && !helperExports.has(n));
-      if (missing.length) {
-        helperProblems += missing.length;
-        console.log(`${label}${file}: imports from helpers.js that are not exported — ${missing.join(', ')}`);
-      }
+for (const [file, label] of sourceFiles()) {
+  if (label === 'shared/helpers.js') continue;
+  const raw = fs.readFileSync(file, 'utf8');
+  for (const m of raw.matchAll(/const\s*\{([^}]+)\}\s*=\s*require\((['"])[^'"]*helpers\2\)/g)) {
+    const missing = m[1]
+      .split(',')
+      .map((s) => s.split(':')[0].trim())
+      .filter((n) => n && !helperExports.has(n));
+    if (missing.length) {
+      helperProblems += missing.length;
+      console.log(`${label}: imports from helpers.js that are not exported — ${missing.join(', ')}`);
     }
   }
-};
-
-scanHelperImports(SERVICES_DIR, 'services/');
-scanHelperImports(FUNCTIONS_DIR, '');
+}
 
 if (helperProblems === 0) console.log('Helpers imports: OK');
-else console.log('  -> add the name to module.exports in functions/helpers.js\n');
+else console.log('  -> add the name to module.exports in functions/src/shared/helpers.js\n');
 problems += helperProblems;
 
 if (problems === 0) {

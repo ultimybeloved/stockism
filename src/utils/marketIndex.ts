@@ -5,7 +5,7 @@
 // market/indexHistory. It exists so adding characters to the roster can't move
 // the index on its own: a new character enters at about 1.0x base, which would
 // drag a plain average down and make everyone look like they beat the market.
-// See functions/services/indexMaintenance.js — keep the value maths in sync.
+// See functions/src/market/indexMaintenance.js — keep the value maths in sync.
 //
 // Every function here takes the divisor as an optional last argument and falls
 // back to the plain average when it is missing. That fallback is exact until the

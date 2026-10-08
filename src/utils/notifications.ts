@@ -5,7 +5,7 @@
 
 // Per-type display metadata. `colorKey` maps to a small palette in the row
 // component so we never inline duplicate theme strings here.
-// Notification types written by the backend (functions/helpers.js writeNotification):
+// Notification types written by the backend (functions/src/shared/helpers.js writeNotification):
 // trade, alert, achievement, margin, system, dividend, loyalty.
 export interface NotificationMeta {
   icon: string;

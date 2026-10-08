@@ -23,7 +23,7 @@ if (!fs.existsSync(KEY_PATH)) {
 admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
-const { ALT_IPV6_PREFIX_GROUPS } = require('../functions/constants');
+const { ALT_IPV6_PREFIX_GROUPS } = require('../functions/src/shared/constants');
 const BUCKET_MS = 10 * 60 * 1000;
 const CONCURRENT_MS = 10 * 1000;
 

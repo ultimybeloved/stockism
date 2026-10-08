@@ -182,7 +182,7 @@ describe('getReviewChanges — the real $GAP tape from 2026-08-20', () => {
   // halt up 8.71%, because $JIN, $SHNG, $FIST and (via $SHNG) $YAMA all dragged
   // it. Players read the difference as trading during the halt. Every price here
   // is the live one. Must stay identical to getReviewWindowChanges in
-  // functions/helpers.js, verified against the same tape.
+  // functions/src/shared/helpers.js, verified against the same tape.
   const t = (iso: string) => Date.parse(`2026-08-20T${iso}Z`);
   const history = {
     GAP: [

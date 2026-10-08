@@ -69,7 +69,7 @@ const REQUIRED = {
 // Deliberately allowed to be absent, with the reason it is safe.
 const OPTIONAL = {
   DISCORD_GUILD_ID: 'crew-head roles are dormant until the role IDs are filled in',
-  ADMIN_UID: 'falls back to the hardcoded admin UID in functions/constants.js',
+  ADMIN_UID: 'falls back to the hardcoded admin UID in functions/src/shared/constants.js',
 };
 
 // VITE_ keys that do not belong in .env.local.

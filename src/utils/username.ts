@@ -1,7 +1,7 @@
 // ============================================
 // USERNAME FORMAT VALIDATION
 // ============================================
-// Mirror of validateUsernameFormat in functions/helpers.js — keep both in sync.
+// Mirror of validateUsernameFormat in functions/src/shared/helpers.js — keep both in sync.
 // Returns a user-facing error string, or null if the name is valid.
 // Does NOT check uniqueness, bans, or profanity — those are handled separately.
 
