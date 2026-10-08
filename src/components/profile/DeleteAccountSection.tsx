@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { getThemeClasses } from '../../utils/theme';
+import type { UserData } from '../../types';
 
 // The multi-step "delete account" confirmation flow. Owns its own step state.
-const DeleteAccountSection = ({ userData, darkMode, onDeleteAccount }) => {
+const DeleteAccountSection = ({
+  userData,
+  darkMode,
+  onDeleteAccount,
+}: {
+  userData: UserData | null;
+  darkMode: boolean;
+  onDeleteAccount: (confirmUsername: string) => Promise<void>;
+}) => {
   const [deleteStep, setDeleteStep] = useState(0);
   const [deleting, setDeleting] = useState(false);
   const [confirmUsername, setConfirmUsername] = useState('');

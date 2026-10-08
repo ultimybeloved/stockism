@@ -3,6 +3,17 @@ import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { deriveSeasonWeeks, summariseSeasonWeeks, buildSeasonSeries } from '../../utils/seasonWeeks';
 import { seasonRulesFor } from '../../constants/seasons';
+import type { SeasonWeekRecord } from '../../utils/seasonWeeks';
+import type { SeasonDoc } from '../../types';
+
+interface SeasonProgressProps {
+  season: SeasonDoc;
+  seasonWeeks: SeasonWeekRecord[];
+  baselineValue: number;
+  baselineLadder?: number;
+  baselinePinnedAt?: number;
+  baselineIndex?: number;
+}
 
 // How the season has actually gone, week by week.
 //
@@ -21,8 +32,8 @@ const SeasonProgress = ({
   baselineValue,
   baselineLadder = 0,
   baselinePinnedAt = 0,
-  baselineIndex,
-}) => {
+  baselineIndex = 0,
+}: SeasonProgressProps) => {
   const { darkMode, userData } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -33,7 +44,7 @@ const SeasonProgress = ({
 
   // A player who joined mid-season is measured against the market from when they
   // joined. Older baselines carry no index, so the season's opening one stands in.
-  const indexAtStart = baselineIndex > 0 ? baselineIndex : season?.indexAtStart;
+  const indexAtStart = baselineIndex > 0 ? baselineIndex : season?.indexAtStart || 0;
 
   const { weeks, summary, series } = useMemo(() => {
     const derived = deriveSeasonWeeks(seasonWeeks, {
@@ -58,8 +69,8 @@ const SeasonProgress = ({
     );
   }
 
-  const fmt = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
-  const pct = (share) => `${Math.round(share * 100)}%`;
+  const fmt = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+  const pct = (share: number) => `${Math.round(share * 100)}%`;
   const ahead = summary.excess >= 0;
   // Weeks missed count against Diamond, so the count is out of every checkpoint
   // the season has had, not just the ones on this player's record.

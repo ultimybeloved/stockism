@@ -1,38 +1,47 @@
 import { Link } from 'react-router-dom';
 import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../../constants/cosmetics';
 import { SHOP_PINS, CREW_MAP } from '../../../crews';
-import { ACHIEVEMENTS } from '../../../constants/achievements';
+import { ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import { getMaxAchievementSlots, getMaxShopSlots, toggleDisplayedPin } from '../../../utils/pinSlots';
 import { getThemeClasses } from '../../../utils/theme';
 import { useAppContext } from '../../../context/AppContext';
+import type { PinAction } from '../../../hooks/usePinShop';
+
+interface MyLookTabProps {
+  onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
+  onEquipCosmetic: (type: string, cosmeticId: string | null) => void;
+  onClose: () => void;
+}
+
+// These pin lists are client-writable, so anything that isn't a list is ignored.
+const asList = (value: unknown): string[] => (Array.isArray(value) ? value : []);
 
 // My Look tab: everything the user wears in one place — owned cosmetics
 // (tap a swatch to equip, tap again to take off), achievement pins, shop pins,
 // and the crew pin. Buying lives in the Shop tab.
-const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }) => {
+const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) => {
   const { darkMode, userData } = useAppContext();
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
 
   const ownedCosmetics = userData?.ownedCosmetics || [];
   const activeCosmetics = userData?.activeCosmetics || {};
   const ownedPins = userData?.ownedShopPins || [];
-  const displayedShopPins = userData?.displayedShopPins || [];
+  const displayedShopPins = asList(userData?.displayedShopPins);
   const earnedAchievements = userData?.achievements || [];
   // Drop pins for achievements the user no longer has (revocable ones like
   // Unifier can be lost). A stale entry is invisible below but would otherwise
   // keep occupying a slot. Toggling anything persists this cleaned list.
-  const displayedAchievementPins = (userData?.displayedAchievementPins || []).filter((id) =>
+  const displayedAchievementPins = asList(userData?.displayedAchievementPins).filter((id) =>
     earnedAchievements.includes(id),
   );
 
   const maxAchievementSlots = getMaxAchievementSlots(userData);
   const maxShopSlots = getMaxShopSlots(userData);
-  const ownedByType = COSMETIC_TYPES.map((type) => [
-    type,
-    COSMETICS.filter((c) => c.type === type && ownedCosmetics.includes(c.id)),
-  ]).filter(([, items]) => items.length > 0);
+  const ownedByType = COSMETIC_TYPES.map(
+    (type) => [type, COSMETICS.filter((c) => c.type === type && ownedCosmetics.includes(c.id))] as const,
+  ).filter(([, items]) => items.length > 0);
 
-  const chipClass = (active) =>
+  const chipClass = (active: boolean) =>
     `px-3 py-2 rounded-sm border ${active ? 'border-orange-500 bg-orange-500/10' : borderClass}`;
 
   return (
@@ -89,7 +98,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }) => {
         {earnedAchievements.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {earnedAchievements.map((achId) => {
-              const ach = ACHIEVEMENTS[achId];
+              const ach = ACHIEVEMENT_MAP[achId];
               if (!ach) return null;
               const isDisplayed = displayedAchievementPins.includes(achId);
               return (

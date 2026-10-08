@@ -169,6 +169,7 @@ export const chargeMarginInterestFunction = callable<Record<string, never>, Api.
   'chargeMarginInterest',
 );
 // Server-side portfolio sync
+export const claimCrewMissionFunction = callable<{ missionId: string }>('claimCrewMission');
 export const syncPortfolioFunction = callable<void, Api.SyncPortfolioResponse>('syncPortfolio');
 // Admin: remove achievement from user
 export const removeAchievementFunction = callable<{ userId: string; achievementId: string }>('removeAchievement');
@@ -218,7 +219,9 @@ export const adminReturnDistributionFunction = callable<Record<string, never>, A
   'adminReturnDistribution',
 );
 // Seasons — standings are public; the rest are admin-only
-export const getSeasonStandingsFunction = callable('getSeasonStandings');
+export const getSeasonStandingsFunction = callable<Record<string, never>, Api.SeasonStandingsResponse>(
+  'getSeasonStandings',
+);
 export const adminStartSeasonFunction = callable<
   { name: string; preseason: boolean; countThisWeek: boolean },
   Api.StartSeasonResponse

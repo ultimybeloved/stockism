@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { db } from '../../firebase';
+import { db, claimCrewMissionFunction } from '../../firebase';
+import { errorMessage } from '../../utils/errors';
 import {
   CREW_MAP,
   getWeekId,
@@ -18,9 +18,33 @@ import { useAppContext } from '../../context/AppContext';
 
 // Contribution fields stored booleans before June 2026; treat those as
 // qualifying until the Monday reset clears them (matches the backend).
-const meetsContribution = (value, threshold) => value === true || (typeof value === 'number' && value >= threshold);
+/** crewMissions/{crew}_{week}: the crew's running totals and who has claimed. */
+interface CrewMissionWeek {
+  buyCount?: number;
+  sellCount?: number;
+  tradeVolume?: number;
+  contributorsBuy?: Record<string, number | boolean>;
+  contributorsSell?: Record<string, number | boolean>;
+  contributorsVolume?: Record<string, number | boolean>;
+  claimed?: Record<string, Record<string, boolean>>;
+}
 
-const CREW_MISSIONS = [
+interface CrewMissionDef {
+  id: string;
+  name: string;
+  description: string;
+  reward: number;
+  color: string;
+  getProgress: (d: CrewMissionWeek, memberCount: number) => { value: number; target: number };
+  contributed: (d: CrewMissionWeek, uid: string | undefined) => boolean;
+  formatProgress?: (v: number) => string;
+  formatTarget?: (t: number) => string;
+}
+
+const meetsContribution = (value: number | boolean | undefined, threshold: number) =>
+  value === true || (typeof value === 'number' && value >= threshold);
+
+const CREW_MISSIONS: CrewMissionDef[] = [
   {
     id: 'CREW_BUY_500',
     name: 'Buying Spree',
@@ -28,7 +52,7 @@ const CREW_MISSIONS = [
     reward: CREW_MISSION_REWARDS.CREW_BUY_500,
     color: 'blue',
     getProgress: (d, memberCount) => ({ value: d.buyCount || 0, target: getCrewBuyTarget(memberCount) }),
-    contributed: (d, uid) => meetsContribution(d.contributorsBuy?.[uid], CREW_CONTRIB.BUY_SHARES),
+    contributed: (d, uid) => meetsContribution(uid ? d.contributorsBuy?.[uid] : undefined, CREW_CONTRIB.BUY_SHARES),
   },
   {
     id: 'CREW_SELL_500',
@@ -37,7 +61,7 @@ const CREW_MISSIONS = [
     reward: CREW_MISSION_REWARDS.CREW_SELL_500,
     color: 'blue',
     getProgress: (d, memberCount) => ({ value: d.sellCount || 0, target: getCrewSellTarget(memberCount) }),
-    contributed: (d, uid) => meetsContribution(d.contributorsSell?.[uid], CREW_CONTRIB.SELL_SHARES),
+    contributed: (d, uid) => meetsContribution(uid ? d.contributorsSell?.[uid] : undefined, CREW_CONTRIB.SELL_SHARES),
   },
   {
     id: 'CREW_VOLUME',
@@ -46,7 +70,7 @@ const CREW_MISSIONS = [
     reward: CREW_MISSION_REWARDS.CREW_VOLUME,
     color: 'blue',
     getProgress: (d, memberCount) => ({ value: d.tradeVolume || 0, target: getCrewVolumeTarget(memberCount) }),
-    contributed: (d, uid) => meetsContribution(d.contributorsVolume?.[uid], CREW_CONTRIB.VOLUME),
+    contributed: (d, uid) => meetsContribution(uid ? d.contributorsVolume?.[uid] : undefined, CREW_CONTRIB.VOLUME),
     formatProgress: (v) => (v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`),
     formatTarget: (t) => (t >= 1000 ? `$${(t / 1000).toFixed(t % 1000 === 0 ? 0 : 1)}k` : `$${t}`),
   },
@@ -55,9 +79,9 @@ const CREW_MISSIONS = [
 export default function CrewMissionsTab() {
   const { darkMode, userData, user, crewStats } = useAppContext();
   const { cardClass: _, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
-  const [missionData, setMissionData] = useState(null);
-  const [claiming, setClaiming] = useState(null);
-  const [claimError, setClaimError] = useState(null);
+  const [missionData, setMissionData] = useState<CrewMissionWeek | null>(null);
+  const [claiming, setClaiming] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
 
   const crew = userData?.crew;
   const weekId = getWeekId();
@@ -67,19 +91,17 @@ export default function CrewMissionsTab() {
     if (!crew) return;
     const ref = doc(db, 'crewMissions', `${crew}_${weekId}`);
     return onSnapshot(ref, (snap) => {
-      setMissionData(snap.exists() ? snap.data() : {});
+      setMissionData(snap.exists() ? (snap.data() as CrewMissionWeek) : {});
     });
   }, [crew, weekId]);
 
-  const handleClaim = async (missionId) => {
+  const handleClaim = async (missionId: string) => {
     setClaimError(null);
     setClaiming(missionId);
     try {
-      const fns = getFunctions();
-      const claimCrewMission = httpsCallable(fns, 'claimCrewMission');
-      await claimCrewMission({ missionId });
+      await claimCrewMissionFunction({ missionId });
     } catch (err) {
-      setClaimError(err.message || 'Claim failed.');
+      setClaimError(errorMessage(err) || 'Claim failed.');
     } finally {
       setClaiming(null);
     }
@@ -121,8 +143,8 @@ export default function CrewMissionsTab() {
       {CREW_MISSIONS.map((mission) => {
         const memberCount = (crewInfo?.members || []).length;
         const { value, target } = mission.getProgress(data, memberCount);
-        const isClaimed = !!data.claimed?.[uid]?.[mission.id];
-        const hasContributed = mission.contributed(data, uid, userData);
+        const isClaimed = !!(uid && data.claimed?.[uid]?.[mission.id]);
+        const hasContributed = mission.contributed(data, uid);
         const goalMet = value >= target;
         const canClaim = goalMet && hasContributed && !isClaimed;
 

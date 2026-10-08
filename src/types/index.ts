@@ -127,6 +127,7 @@ export interface LoggedTransaction {
 /** users/{uid}.bets[predictionId]. */
 export interface UserBet {
   option?: string;
+  outcome?: string;
   amount: number;
   placedAt?: number;
   question?: string;
@@ -173,6 +174,7 @@ export interface UserData {
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
   ladderTutorial2Completed?: boolean;
+  eventPositions?: Record<string, EventPosition>;
   isPublic?: boolean;
   nameChangedAt?: TimestampLike;
   displayedAchievementPins?: unknown;
@@ -239,6 +241,25 @@ export interface SiteMessage {
   link: string;
   tone: string;
   active: boolean;
+}
+
+/** A long-term event market: a PredictionDoc priced by the LMSR market maker. */
+export interface EventMarketDoc extends PredictionDoc {
+  outcomes?: string[];
+  b?: number;
+  q?: number[];
+  seedQ?: number[];
+  opensAt?: number;
+  settled?: boolean;
+  cancelled?: boolean;
+  volume?: number;
+}
+
+/** users/{uid}.eventPositions[marketId]: outcome shares held in one event market. */
+export interface EventPosition {
+  shares: Record<string, number>;
+  payout?: number;
+  [key: string]: unknown;
 }
 
 /** One entry in market/ipos.list. */

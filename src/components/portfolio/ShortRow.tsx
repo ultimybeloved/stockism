@@ -2,10 +2,37 @@ import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
 import { formatShares } from './shared';
 import { SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_WARNING_THRESHOLD } from '../../constants/economy';
+import type { Dispatch, SetStateAction } from 'react';
+import type { buildShortItems } from './buildPositionItems';
+
+type ShortItem = ReturnType<typeof buildShortItems>[number];
+
+/** ticker -> shares typed in the cover box ('' while the box is cleared). */
+export type CoverAmounts = Record<string, number | ''>;
+
+interface ShortRowProps {
+  item: ShortItem;
+  isExpanded: boolean;
+  onToggle: (ticker: string) => void;
+  coverAmounts: CoverAmounts;
+  setCoverAmounts: Dispatch<SetStateAction<CoverAmounts>>;
+  onCover: (ticker: string, shares: number) => void;
+  darkMode: boolean;
+  colorBlindMode: boolean;
+}
 
 // A single short-position row in the portfolio modal (collapsed summary + expanded
 // stats / equity ratio / cover controls).
-const ShortRow = ({ item, isExpanded, onToggle, coverAmounts, setCoverAmounts, onCover, darkMode, colorBlindMode }) => {
+const ShortRow = ({
+  item,
+  isExpanded,
+  onToggle,
+  coverAmounts,
+  setCoverAmounts,
+  onCover,
+  darkMode,
+  colorBlindMode,
+}: ShortRowProps) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const isAtRisk = item.equityRatio < SHORT_MARGIN_WARNING_THRESHOLD;
   const liqPrice = item.liquidationPrice;
@@ -137,7 +164,7 @@ const ShortRow = ({ item, isExpanded, onToggle, coverAmounts, setCoverAmounts, o
               }}
               onBlur={() => {
                 const current = coverAmounts[item.ticker];
-                if (current === '' || current < 1) {
+                if (current === '' || (current !== undefined && current < 1)) {
                   setCoverAmounts((prev) => ({ ...prev, [item.ticker]: 1 }));
                 }
               }}

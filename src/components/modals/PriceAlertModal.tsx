@@ -1,6 +1,17 @@
 import { useState, useMemo } from 'react';
 import { getThemeClasses } from '../../utils/theme';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import type { PriceAlert } from '../../types';
+
+interface PriceAlertModalProps {
+  ticker: string;
+  currentPrice: number;
+  darkMode: boolean;
+  onClose: () => void;
+  existingAlerts?: PriceAlert[];
+  onCreateAlert: (alert: { ticker: string; targetPrice: number; direction: string }) => Promise<boolean>;
+  onDeleteAlert: (alertId: string) => Promise<void>;
+}
 
 export default function PriceAlertModal({
   ticker,
@@ -10,12 +21,12 @@ export default function PriceAlertModal({
   existingAlerts = [],
   onCreateAlert,
   onDeleteAlert,
-}) {
+}: PriceAlertModalProps) {
   useEscapeKey(onClose);
   const [direction, setDirection] = useState('above');
   const [targetPrice, setTargetPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { textClass, mutedClass, inputClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
@@ -40,7 +51,7 @@ export default function PriceAlertModal({
 
   // Pass the doc id, not the whole alert object — the backend deletes by id, so
   // handing it the object made every delete throw and silently fail.
-  const handleDelete = async (alert) => {
+  const handleDelete = async (alert: PriceAlert) => {
     if (deletingId) return;
     setDeletingId(alert.id);
     try {
@@ -50,7 +61,7 @@ export default function PriceAlertModal({
     }
   };
 
-  const getPctFromCurrent = (price) => {
+  const getPctFromCurrent = (price: number) => {
     if (!currentPrice) return '0.00';
     return (((price - currentPrice) / currentPrice) * 100).toFixed(2);
   };
@@ -111,7 +122,7 @@ export default function PriceAlertModal({
           />
           {isValid && pctDiff !== null && (
             <div className={`text-xs mt-1 ${mutedClass}`}>
-              {pctDiff > 0 ? '+' : ''}
+              {Number(pctDiff) > 0 ? '+' : ''}
               {pctDiff}% from current price
             </div>
           )}
@@ -141,7 +152,7 @@ export default function PriceAlertModal({
             <div className={`text-xs font-medium ${mutedClass} mb-2`}>Active Alerts</div>
             <div className="space-y-1.5">
               {existingAlerts.map((alert, i) => {
-                const pct = getPctFromCurrent(alert.targetPrice);
+                const pct = getPctFromCurrent(alert.targetPrice!);
                 const isAbove = alert.direction === 'above';
                 return (
                   <div
@@ -152,9 +163,9 @@ export default function PriceAlertModal({
                   >
                     <div className="flex items-center gap-2">
                       <span className={isAbove ? 'text-green-500' : 'text-red-500'}>{isAbove ? '▲' : '▼'}</span>
-                      <span className="font-medium">${alert.targetPrice.toFixed(2)}</span>
+                      <span className="font-medium">${alert.targetPrice!.toFixed(2)}</span>
                       <span className={`text-xs ${mutedClass}`}>
-                        {pct > 0 ? '+' : ''}
+                        {Number(pct) > 0 ? '+' : ''}
                         {pct}%
                       </span>
                     </div>

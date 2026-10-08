@@ -3,8 +3,24 @@ import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { REVIEW_SORTS, activeFilterCount } from '../../utils/marketFilters';
 import MarketFilterPanel from './MarketFilterPanel';
+import type { useMarketBrowser } from '../../hooks/useMarketBrowser';
 
-const TABS = [
+type MarketControlsProps = Pick<
+  ReturnType<typeof useMarketBrowser>,
+  | 'filters'
+  | 'setFilter'
+  | 'clearFilters'
+  | 'sortBy'
+  | 'setSortBy'
+  | 'currentPage'
+  | 'setCurrentPage'
+  | 'totalPages'
+  | 'showAll'
+  | 'setShowAll'
+  | 'reviewChanges'
+>;
+
+const TABS: { id: string; label: string; needsUser?: boolean; needsReview?: boolean }[] = [
   { id: 'stocks', label: 'Stocks' },
   { id: 'etfs', label: 'ETFs' },
   { id: 'watchlist', label: 'Watchlist', needsUser: true },
@@ -40,7 +56,7 @@ const MarketControls = ({
   showAll,
   setShowAll,
   reviewChanges,
-}) => {
+}: MarketControlsProps) => {
   const { darkMode, user, userData } = useAppContext();
   const { cardClass, textClass, mutedClass, inputClass, ghostBtnClass, chipClass, raisedClass } =
     getThemeClasses(darkMode);
@@ -50,7 +66,7 @@ const MarketControls = ({
   const isReviewTab = filters.tab === 'review';
   const activeCount = activeFilterCount(filters);
 
-  const switchTab = (tab) => {
+  const switchTab = (tab: string) => {
     setCurrentPage(1);
     setFilter('tab', tab);
     // The Review tab opens on its own sort. Leaving it has to drop that sort,

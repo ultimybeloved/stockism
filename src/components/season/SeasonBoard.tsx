@@ -11,6 +11,7 @@ import {
   tierGivesTitle,
   divisionRange,
 } from '../../constants/seasons';
+import type { SeasonStandingsResponse } from '../../api/types';
 
 // Season standings, ranked on how far ahead of the market each player is with
 // free money removed. Server-cached, so this is one document read per load.
@@ -27,9 +28,9 @@ import {
 const SeasonBoard = () => {
   const { darkMode, user } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
-  const [data, setData] = useState(null);
-  const [state, setState] = useState('loading');
-  const [picked, setPicked] = useState(null);
+  const [data, setData] = useState<SeasonStandingsResponse | null>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [picked, setPicked] = useState<string | null>(null);
 
   useEffect(() => {
     getSeasonStandingsFunction({})
@@ -53,7 +54,7 @@ const SeasonBoard = () => {
     );
   }
 
-  const fmt = (v) => `${v > 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
+  const fmt = (v: number | undefined) => `${(v ?? 0) > 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
   const rules = seasonRulesFor(data);
   const divisions = data.divisions || [];
   const mine = user && data.entries.find((e) => e.userId === user.uid)?.division;

@@ -45,7 +45,7 @@ const SeasonCard = () => {
 
   if (!active) return null;
 
-  const fmtPct = (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
+  const fmtPct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`;
 
   // What the next tier asks for, in this player's own numbers where there are any.
   const nextHint = () => {
@@ -104,8 +104,9 @@ const SeasonCard = () => {
       ) : (
         <>
           <div className="flex items-baseline gap-2 mt-3">
-            <span className={`text-2xl font-bold ${returnPercent >= 0 ? 'text-green-500' : 'text-red-400'}`}>
-              {fmtPct(returnPercent)}
+            {/* In season, returnPercent is always set. */}
+            <span className={`text-2xl font-bold ${returnPercent! >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+              {fmtPct(returnPercent!)}
             </span>
             <span className={`text-xs ${mutedClass}`}>season return, trading only</span>
           </div>
@@ -124,7 +125,7 @@ const SeasonCard = () => {
 
           {/* The ladder is excluded from anything that counts. Showing what it
               would have been is honest, and quietly discourages chasing it. */}
-          {returnWithLadder !== null && Math.abs(returnWithLadder - returnPercent) >= 0.1 && (
+          {returnWithLadder !== null && Math.abs(returnWithLadder - returnPercent!) >= 0.1 && (
             <p className={`text-xs ${mutedClass} mt-1`}>
               With ladder winnings it would be {fmtPct(returnWithLadder)}. The ladder is a casino, so it doesn't count
               toward your season.
@@ -142,9 +143,9 @@ const SeasonCard = () => {
 
           {hint && (
             <p className={`text-sm ${textClass} mt-2`}>
-              Next up{' '}
-              <span className="font-semibold" style={{ color: nextTier.color }}>
-                {nextTier.name}
+              Next up {/* A hint only exists when there is a next tier. */}
+              <span className="font-semibold" style={{ color: nextTier!.color }}>
+                {nextTier!.name}
               </span>
               . {hint}
             </p>

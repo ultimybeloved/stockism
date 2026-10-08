@@ -6,6 +6,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
+import type { SeasonDoc } from '../../types';
+
 expect.extend(matchers);
 
 const h = vi.hoisted(() => ({ ctx: { darkMode: true, userData: {} } }));
@@ -13,8 +15,11 @@ vi.mock('../../context/AppContext', () => ({ useAppContext: () => h.ctx }));
 
 const SeasonProgress = (await import('./SeasonProgress')).default;
 
-const season = { id: 'S1', indexAtStart: 1000 };
-const row = (w, { v, g = 0, x, c = 0, h: hold = 0 }) => ({ s: 'S1', w, t: w, v, g, x, c, h: hold });
+const season = { id: 'S1', indexAtStart: 1000 } as SeasonDoc;
+const row = (
+  w: number,
+  { v, g = 0, x, c = 0, h: hold = 0 }: { v: number; g?: number; x: number; c?: number; h?: number },
+) => ({ s: 'S1', w, t: w, v, g, x, c, h: hold });
 
 afterEach(cleanup);
 
@@ -26,7 +31,11 @@ describe('SeasonProgress', () => {
 
   it('says the same when the season has no pinned index yet', () => {
     render(
-      <SeasonProgress season={{ id: 'S1' }} seasonWeeks={[row(1, { v: 11000, x: 1010 })]} baselineValue={10000} />,
+      <SeasonProgress
+        season={{ id: 'S1' } as SeasonDoc}
+        seasonWeeks={[row(1, { v: 11000, x: 1010 })]}
+        baselineValue={10000}
+      />,
     );
     expect(screen.getByText(/starts at the first Thursday checkpoint/i)).toBeInTheDocument();
   });
@@ -121,7 +130,7 @@ describe('SeasonProgress', () => {
     // Joined late: one week on record out of three checkpoints.
     render(
       <SeasonProgress
-        season={{ ...season, checkpointWeeks: [1, 2, 3] }}
+        season={{ ...season, checkpointWeeks: [1, 2, 3] } as SeasonDoc}
         baselineValue={10000}
         seasonWeeks={[row(3, { v: 11000, x: 1000, c: 100, h: 1000 })]}
       />,

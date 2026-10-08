@@ -1,9 +1,14 @@
 import { useAppContext } from '../context/AppContext';
-import { ACHIEVEMENTS } from '../constants/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../constants/achievements';
 import { getThemeClasses } from '../utils/theme';
 import { getMaxAchievementSlots, toggleDisplayedPin } from '../utils/pinSlots';
+import type { PinAction } from '../hooks/usePinShop';
 
-const AchievementsPage = ({ onPinAction }) => {
+const AchievementsPage = ({
+  onPinAction,
+}: {
+  onPinAction?: (action: PinAction, payload: unknown, cost?: number) => void;
+}) => {
   const { darkMode, userData } = useAppContext();
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
@@ -12,7 +17,11 @@ const AchievementsPage = ({ onPinAction }) => {
   const allAchievements = Object.values(ACHIEVEMENTS);
   // Earned achievements can be worn as pins next to your name. Same data and
   // slot rules as the customization modal's My Look tab.
-  const displayedPins = (userData?.displayedAchievementPins || []).filter((id) => earnedAchievements.includes(id));
+  // Client-writable, so anything that isn't a list is ignored.
+  const pinList = userData?.displayedAchievementPins;
+  const displayedPins = (Array.isArray(pinList) ? (pinList as string[]) : []).filter((id) =>
+    earnedAchievements.includes(id),
+  );
   const maxSlots = getMaxAchievementSlots(userData);
   const canWearPins = !!userData && !!onPinAction;
 
@@ -83,7 +92,8 @@ const AchievementsPage = ({ onPinAction }) => {
               <h3 className={`font-semibold mb-3 ${textClass}`}>{category}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {achievementIds.map((id) => {
-                  const achievement = ACHIEVEMENTS[id];
+                  const achievement = ACHIEVEMENT_MAP[id];
+                  if (!achievement) return null;
                   const earned = earnedAchievements.includes(id);
 
                   return (

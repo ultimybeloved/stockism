@@ -3,19 +3,34 @@ import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { lmsrPrices } from '../../utils/calculations';
 import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';
+import type { EventMarketDoc, PredictionDoc, UserBet, UserData } from '../../types';
+
+/** One of the player's bets, joined to its prediction. */
+export type BetHistoryEntry = UserBet & {
+  predictionId: string;
+  prediction?: PredictionDoc & { pools?: Record<string, number> };
+};
 
 // Active bets + resolved prediction history (weekly), plus long-term event positions.
-const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
+const PredictionHistory = ({
+  userBetHistory = [],
+  userData,
+  darkMode,
+}: {
+  userBetHistory?: BetHistoryEntry[];
+  userData: UserData | null;
+  darkMode: boolean;
+}) => {
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const { predictions } = useAppContext();
 
   // Calculate potential payout for active bets
-  const calculatePotentialPayout = (bet) => {
+  const calculatePotentialPayout = (bet: BetHistoryEntry) => {
     if (!bet.prediction || bet.prediction.resolved) return null;
 
     const pools = bet.prediction.pools || {};
     const totalPool = Object.values(pools).reduce((sum, p) => sum + p, 0);
-    const myPool = pools[bet.option] || 0;
+    const myPool = pools[bet.option ?? ''] || 0;
 
     if (myPool === 0) return 0;
 
@@ -30,7 +45,7 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
   const eventPositions = userData?.eventPositions || {};
   const eventEntries = Object.entries(eventPositions)
     .map(([marketId, pos]) => {
-      const market = predictions?.find((p) => p.id === marketId && p.type === 'event');
+      const market = predictions?.find((p) => p.id === marketId && p.type === 'event') as EventMarketDoc | undefined;
       return { marketId, ...pos, market };
     })
     .filter((e) => e.market && e.shares && Object.values(e.shares).some((s) => s > 0))
@@ -44,16 +59,18 @@ const PredictionHistory = ({ userBetHistory = [], userData, darkMode }) => {
           <h3 className={`font-semibold ${textClass} mb-2`}>🔮 Long-Term Positions</h3>
           <div className="space-y-2">
             {eventEntries.map((entry) => {
-              const { marketId, market, shares, payout } = entry;
+              // The filter above dropped entries with no market.
+              const { marketId, shares, payout } = entry;
+              const market = entry.market!;
               const outcomes = market.outcomes || [];
               const b = market.b || EVENT_AMM_LIQUIDITY;
               const q =
                 Array.isArray(market.q) && market.q.length === outcomes.length ? market.q : outcomes.map(() => 0);
               const prices = lmsrPrices(q, b);
-              const liveValue = outcomes.reduce((s, o, i) => s + (shares[o] || 0) * prices[i], 0);
+              const liveValue = outcomes.reduce((s, o, i) => s + (shares[o] || 0) * prices[i]!, 0);
               const owned = outcomes.map((o) => ({ o, qty: shares[o] || 0 })).filter((x) => x.qty > 0);
               const resolved = market.resolved;
-              const won = resolved && payout > 0;
+              const won = resolved && (payout ?? 0) > 0;
               return (
                 <div key={marketId} className={`p-3 rounded-sm border ${borderClass}`}>
                   <p className={`text-sm font-semibold ${textClass}`}>{market.question}</p>

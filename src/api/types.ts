@@ -679,6 +679,38 @@ export type TrackedDiscordMessage = import('../hooks/admin/discordDraft').Stored
   [key: string]: unknown;
 };
 
+/** One player on the season board. */
+export interface SeasonStandingEntry {
+  userId: string;
+  displayName: string;
+  division: string;
+  returnPercent: number;
+  excess: number;
+  tier?: string | null;
+  projectedTier?: string | null;
+}
+
+/** A size division on the board, with its player count and top-tier places. */
+export type SeasonBoardDivision = import('../constants/seasons').SeasonDivision & {
+  players: number;
+  platinum: number;
+  diamond: number;
+};
+
+export interface SeasonStandingsResponse {
+  active: boolean;
+  name?: string;
+  number?: number;
+  preseason?: boolean;
+  preseasons?: number;
+  rules?: Partial<import('../constants/seasons').SeasonRules>;
+  weeks?: number;
+  totalScored?: number;
+  marketPercent?: number;
+  divisions?: SeasonBoardDivision[];
+  entries: SeasonStandingEntry[];
+}
+
 export interface LeaderboardMarginsRequest {
   userIds: string[];
 }
