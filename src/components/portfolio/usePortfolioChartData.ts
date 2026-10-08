@@ -3,8 +3,15 @@ import { useMemo } from 'react';
 // Builds the portfolio chart series (sampled, anchored, and always ending at the
 // current value) plus the derived summary values the header needs. Extracted from
 // PortfolioModal so the modal stays a thin orchestrator.
-export function usePortfolioChartData(portfolioHistory, currentValue) {
-  const chartData = useMemo(() => {
+import type { PortfolioPoint } from './usePortfolioHistory';
+
+export interface PortfolioChartPoint extends PortfolioPoint {
+  date: string;
+  fullDate: string;
+}
+
+export function usePortfolioChartData(portfolioHistory: PortfolioPoint[] | null | undefined, currentValue: number) {
+  const chartData = useMemo((): PortfolioChartPoint[] => {
     if (!portfolioHistory || portfolioHistory.length === 0) {
       // No history at all - create two points for a flat line
       const now = Date.now();
@@ -14,7 +21,7 @@ export function usePortfolioChartData(portfolioHistory, currentValue) {
       ];
     }
 
-    let data = portfolioHistory.map((point) => ({
+    let data: PortfolioChartPoint[] = portfolioHistory.map((point) => ({
       ...point,
       date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       fullDate: new Date(point.timestamp).toLocaleDateString('en-US', {
@@ -29,13 +36,13 @@ export function usePortfolioChartData(portfolioHistory, currentValue) {
     const maxPoints = 20;
     if (data.length > maxPoints) {
       const step = Math.floor(data.length / maxPoints);
-      const sampled = [];
+      const sampled: PortfolioChartPoint[] = [];
       for (let i = 0; i < data.length; i += step) {
-        sampled.push(data[i]);
+        sampled.push(data[i]!);
       }
       // Always include the last point
       if (sampled[sampled.length - 1] !== data[data.length - 1]) {
-        sampled.push(data[data.length - 1]);
+        sampled.push(data[data.length - 1]!);
       }
       data = sampled;
     }
@@ -50,8 +57,9 @@ export function usePortfolioChartData(portfolioHistory, currentValue) {
 
     // If still only 1 point, duplicate it so the chart draws a flat line
     if (data.length === 1) {
+      const only = data[0]!;
       data = [
-        { timestamp: data[0].timestamp - 60000, value: data[0].value, date: data[0].date, fullDate: data[0].fullDate },
+        { timestamp: only.timestamp - 60000, value: only.value, date: only.date, fullDate: only.fullDate },
         ...data,
       ];
     }

@@ -1,7 +1,17 @@
 // Shared presentational helpers for the portfolio sub-components.
 
 // Tier names and colors follow the card rarity tiers (see src/index.css).
-export const DIVIDEND_TIER_META = {
+/** The fields the holdings list filters and sorts on. */
+export interface SortableHolding {
+  ticker: string;
+  shares?: number;
+  value?: number;
+  character?: { name?: string } | null;
+}
+
+export type TimeRange = { key: string; label: string; days?: number; months?: number; years?: number };
+
+export const DIVIDEND_TIER_META: Record<string, { label: string; color: string }> = {
   legendary: { label: 'Legendary', color: 'text-amber-500' },
   epic: { label: 'Epic', color: 'text-purple-500' },
   rare: { label: 'Rare', color: 'text-blue-500' },
@@ -10,7 +20,7 @@ export const DIVIDEND_TIER_META = {
   etf: { label: 'ETF', color: 'text-sky-500' },
 };
 
-export const formatShares = (n) => {
+export const formatShares = (n: number): string => {
   if (n === 0) return '0';
   const rounded = Math.round(n * 100) / 100;
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
@@ -24,7 +34,7 @@ export const HOLDING_SORTS = [
 ];
 
 // Case-insensitive filter on ticker or character name. Empty query = all.
-export const filterHoldings = (items, query) => {
+export const filterHoldings = <T extends SortableHolding>(items: T[], query: string | null | undefined): T[] => {
   const q = (query || '').trim().toLowerCase();
   if (!q) return items;
   return items.filter(
@@ -34,7 +44,7 @@ export const filterHoldings = (items, query) => {
 
 // Pure sort — returns a new array. value/shares are numeric; name uses
 // localeCompare on the character name (falling back to ticker).
-export const sortHoldings = (items, key, dir = 'desc') => {
+export const sortHoldings = <T extends SortableHolding>(items: T[], key: string, dir: 'asc' | 'desc' = 'desc'): T[] => {
   const sign = dir === 'asc' ? 1 : -1;
   const sorted = [...items];
   sorted.sort((a, b) => {
@@ -50,7 +60,7 @@ export const sortHoldings = (items, key, dir = 'desc') => {
   return sorted;
 };
 
-export const TIME_RANGES = [
+export const TIME_RANGES: TimeRange[] = [
   { key: '1d', label: '24h', days: 1 },
   { key: '7d', label: '7D', days: 7 },
   { key: '1m', label: '1M', months: 1 },

@@ -2,8 +2,16 @@ import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
 import { TIME_RANGES } from './shared';
+import type { User } from 'firebase/auth';
+import type { TimeRange } from './shared';
 
-const getRangeCutoff = (range) => {
+/** users/{uid}/portfolioHistory/{id}. */
+export interface PortfolioPoint {
+  timestamp: number;
+  value: number;
+}
+
+const getRangeCutoff = (range: TimeRange | undefined): number => {
   if (!range || (!range.days && !range.months && !range.years)) return 0;
   const d = new Date();
   if (range.years) d.setFullYear(d.getFullYear() - range.years);
@@ -17,8 +25,8 @@ const getRangeCutoff = (range) => {
 // before the window so charts start exactly at the window edge. Bounded
 // queries keep Firestore reads proportional to what the chart shows — only
 // the user-selected "All" range reads the full history.
-export function usePortfolioHistory(user, rangeKey) {
-  const [history, setHistory] = useState([]);
+export function usePortfolioHistory(user: User | null, rangeKey: string) {
+  const [history, setHistory] = useState<PortfolioPoint[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,14 +58,14 @@ export function usePortfolioHistory(user, rangeKey) {
             : null;
 
         const mainSnap = await getDocs(mainQ);
-        let points = mainSnap.docs.map((d) => d.data());
+        let points = mainSnap.docs.map((d) => d.data() as PortfolioPoint);
 
         if (anchorQ && points.length > 0) {
-          let anchorValue = points[0].value; // fallback: first in-window value
+          let anchorValue = points[0]!.value; // fallback: first in-window value
           try {
             const anchorSnap = await getDocs(anchorQ);
             if (!anchorSnap.empty) {
-              anchorValue = anchorSnap.docs[0].data().value;
+              anchorValue = anchorSnap.docs[0]!.data().value;
             }
           } catch (_) {
             /* use fallback */

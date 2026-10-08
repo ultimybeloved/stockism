@@ -2,12 +2,30 @@ import { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, where, orderBy, getDocs, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { usePortfolioHistory } from './usePortfolioHistory';
+import { errorMessage } from '../../utils/errors';
+import type { User } from 'firebase/auth';
+import type { AppContextValue } from '../../context/AppContext';
+
+/** limitOrders/{id}: an open limit or stop-loss order. */
+export interface PendingOrder {
+  id: string;
+  ticker?: string;
+  type?: string;
+  status?: string;
+  shares?: number;
+  limitPrice?: number;
+  [key: string]: unknown;
+}
 
 // Owns the portfolio modal's Firestore loads: pending limit orders and the
 // portfolio-history series for the selected time range. Extracted from
 // PortfolioModal to keep the component focused on rendering.
-export function usePortfolioModalData(user, timeRange, showNotification) {
-  const [pendingOrders, setPendingOrders] = useState([]);
+export function usePortfolioModalData(
+  user: User | null,
+  timeRange: string,
+  showNotification: AppContextValue['showNotification'],
+) {
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const { history: portfolioHistory, loading: loadingHistory } = usePortfolioHistory(user, timeRange);
 
@@ -26,7 +44,7 @@ export function usePortfolioModalData(user, timeRange, showNotification) {
         );
 
         const snapshot = await getDocs(q);
-        const orders = snapshot.docs.map((d) => ({
+        const orders = snapshot.docs.map((d): PendingOrder => ({
           id: d.id,
           ...d.data(),
         }));
@@ -42,7 +60,7 @@ export function usePortfolioModalData(user, timeRange, showNotification) {
 
   // Confirmation is handled in PendingOrdersList with a two-step button,
   // matching the pattern used elsewhere (no native confirm dialogs).
-  const handleCancelOrder = async (orderId) => {
+  const handleCancelOrder = async (orderId: string) => {
     setLoadingOrders(true);
     try {
       await updateDoc(doc(db, 'limitOrders', orderId), {
@@ -54,7 +72,7 @@ export function usePortfolioModalData(user, timeRange, showNotification) {
       setPendingOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (error) {
       console.error('Error canceling order:', error);
-      showNotification('error', `Failed to cancel order: ${error.message}`);
+      showNotification('error', `Failed to cancel order: ${errorMessage(error)}`);
     }
     setLoadingOrders(false);
   };
