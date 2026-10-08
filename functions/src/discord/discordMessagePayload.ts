@@ -1,4 +1,3 @@
-'use strict';
 // Internal module for discordMessages.js — turns the panel's form fields into a
 // Discord message payload, and back into the shape we store in Firestore.
 //
@@ -23,19 +22,34 @@ const LABEL_MAX = 100;
 
 // Channel types a bot can post a normal message into: text (0), announcement
 // (5), and the two thread types that behave like channels for our purposes.
-const DISCORD_TEXT_CHANNEL_TYPES = [0, 5, 10, 11, 12];
+export const DISCORD_TEXT_CHANNEL_TYPES = [0, 5, 10, 11, 12];
 
 // Site orange, matching the rules embed and the app's accent.
-const DEFAULT_EMBED_COLOR = 0xf97316;
+export const DEFAULT_EMBED_COLOR = 0xf97316;
 
-const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+/** An error the admin can fix; the service shows its message as is. */
+const userError = (message: string) => Object.assign(new Error(message), { userFacing: true });
+
+/** The message as stored in Firestore and sent to Discord. */
+export interface StoredMessage {
+  label: string;
+  content: string;
+  embed: { title: string; description: string; color: number; imageUrl: string; footer: string } | null;
+  buttons: { label: string; url: string; emoji: string }[];
+  allowMentions: boolean;
+}
+
+/** What the panel sends. Nothing in it is trusted. */
+type Fields = Record<string, unknown> & { embed?: Record<string, unknown> | null; buttons?: unknown };
+
+const str = (v: unknown) => (typeof v === 'string' ? v : v == null ? '' : String(v));
 
 /**
  * Parse a colour the panel sends. Accepts '#f97316', 'f97316' or a raw number,
  * and falls back to the site orange rather than erroring — a bad colour is
  * never worth blocking a message on.
  */
-function parseColor(value) {
+function parseColor(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(0, Math.min(0xffffff, Math.floor(value)));
   }
@@ -44,12 +58,10 @@ function parseColor(value) {
   return DEFAULT_EMBED_COLOR;
 }
 
-function clamp(value, max, field) {
+function clamp(value: unknown, max: number, field: string) {
   const s = str(value).trim();
   if (s.length > max) {
-    const err = new Error(`${field} is too long (${s.length} characters, Discord allows ${max}).`);
-    err.userFacing = true;
-    throw err;
+    throw userError(`${field} is too long (${s.length} characters, Discord allows ${max}).`);
   }
   return s;
 }
@@ -58,11 +70,11 @@ function clamp(value, max, field) {
  * Validate and clamp the client's fields into the shape stored in Firestore.
  * Throws a plain Error with `userFacing` set for anything an admin can fix.
  */
-function normalizeStored(data) {
+export function normalizeStored(data: Fields | null | undefined): StoredMessage {
   const content = clamp(data?.content, CONTENT_MAX, 'The message text');
   const label = str(data?.label).trim().slice(0, LABEL_MAX);
 
-  let embed = null;
+  let embed: StoredMessage['embed'] = null;
   const raw = data?.embed;
   // An embed object with nothing in it is the same as no embed — the panel sends
   // one whenever the embed toggle has ever been opened.
@@ -75,35 +87,29 @@ function normalizeStored(data) {
       footer: clamp(raw.footer, EMBED_FOOTER_MAX, 'The embed footer'),
     };
     if (embed.imageUrl && !/^https:\/\//i.test(embed.imageUrl)) {
-      const err = new Error('The image link must start with https://');
-      err.userFacing = true;
-      throw err;
+      throw userError('The image link must start with https://');
     }
   }
 
-  const buttons = (Array.isArray(data?.buttons) ? data.buttons : [])
+  const buttons = (Array.isArray(data?.buttons) ? (data.buttons as (Record<string, unknown> | null)[]) : [])
     .filter((b) => str(b?.label).trim() && str(b?.url).trim())
     .slice(0, BUTTONS_PER_ROW_MAX)
     .map((b) => {
-      const url = str(b.url).trim();
+      const url = str(b!.url).trim();
       // Link buttons are the only kind we make: they need no custom_id and fire
       // no interaction, so nothing has to be listening on the backend.
       if (!/^https?:\/\//i.test(url)) {
-        const err = new Error(`Button "${str(b.label).trim()}" needs a link starting with http:// or https://`);
-        err.userFacing = true;
-        throw err;
+        throw userError(`Button "${str(b!.label).trim()}" needs a link starting with http:// or https://`);
       }
       return {
-        label: str(b.label).trim().slice(0, BUTTON_LABEL_MAX),
+        label: str(b!.label).trim().slice(0, BUTTON_LABEL_MAX),
         url,
-        emoji: str(b.emoji).trim().slice(0, 64),
+        emoji: str(b!.emoji).trim().slice(0, 64),
       };
     });
 
   if (!content && !embed) {
-    const err = new Error('Write some text, or fill in the embed, before sending.');
-    err.userFacing = true;
-    throw err;
+    throw userError('Write some text, or fill in the embed, before sending.');
   }
 
   return { label, content, embed, buttons, allowMentions: data?.allowMentions === true };
@@ -114,8 +120,13 @@ function normalizeStored(data) {
  * removes the embed or the buttons actually removes them — Discord's PATCH only
  * touches the keys it is given, and omitting one leaves the old value in place.
  */
-function buildDiscordPayload(stored) {
-  const payload = {
+export function buildDiscordPayload(stored: StoredMessage) {
+  const payload: {
+    content: string;
+    embeds: Record<string, unknown>[];
+    components: Record<string, unknown>[];
+    allowed_mentions: { parse: string[] };
+  } = {
     content: stored.content || '',
     embeds: [],
     components: [],
@@ -125,7 +136,7 @@ function buildDiscordPayload(stored) {
   };
 
   if (stored.embed) {
-    const embed = { color: stored.embed.color };
+    const embed: Record<string, unknown> = { color: stored.embed.color };
     if (stored.embed.title) embed.title = stored.embed.title;
     if (stored.embed.description) embed.description = stored.embed.description;
     if (stored.embed.imageUrl) embed.image = { url: stored.embed.imageUrl };
@@ -148,10 +159,3 @@ function buildDiscordPayload(stored) {
 
   return payload;
 }
-
-module.exports = {
-  normalizeStored,
-  buildDiscordPayload,
-  DISCORD_TEXT_CHANNEL_TYPES,
-  DEFAULT_EMBED_COLOR,
-};

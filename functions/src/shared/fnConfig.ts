@@ -5,7 +5,7 @@
 // the function is flooded). Callable functions also call requireAppCheck() so only
 // our real app can reach them. Both knobs live in constants.js.
 import * as functions from 'firebase-functions';
-import { MAX_FN_INSTANCES, APP_CHECK_ENFORCED } from './constants';
+import { MAX_FN_INSTANCES, APP_CHECK_ENFORCED, ADMIN_UID } from './constants';
 
 // 1st-gen function builder, pre-capped to MAX_FN_INSTANCES. Pass extra runWith
 // options (e.g. timeoutSeconds, memory) and they merge on top of the cap:
@@ -31,5 +31,15 @@ export const requireAppCheck = (context: functions.https.CallableContext) => {
       'failed-precondition',
       'This request could not be verified. Reload the page and try again.',
     );
+  }
+};
+
+// Admin-only callables: App Check, then the caller must be the admin account.
+// The message is what a non-admin caller sees; some older functions word it
+// their own way, so it can be passed in.
+export const requireAdmin = (context: functions.https.CallableContext, message = 'Admin only') => {
+  requireAppCheck(context);
+  if (!context.auth || context.auth.uid !== ADMIN_UID) {
+    throw new functions.https.HttpsError('permission-denied', message);
   }
 };

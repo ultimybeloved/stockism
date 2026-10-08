@@ -1,11 +1,22 @@
-'use strict';
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 // Modular import — the emulator sandbox strips admin.firestore statics.
-const { Timestamp } = require('firebase-admin/firestore');
+import { Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
-const { ADMIN_UID } = require('../shared/constants');
+
+/** A filled limit or pre-market order, the fields a trade record needs. */
+interface FilledOrder {
+  userId?: string;
+  ticker?: string;
+  type?: string;
+  action?: string;
+  filledShares?: number;
+  executedPrice?: number;
+  executedAt?: admin.firestore.Timestamp;
+  updatedAt?: admin.firestore.Timestamp;
+}
+
+type TradeRecordDoc = NonNullable<ReturnType<typeof buildRecord>>;
 
 const FILLED_STATUSES = ['FILLED', 'PARTIALLY_FILLED'];
 const BATCH_SIZE = 400;
@@ -13,13 +24,13 @@ const BATCH_SIZE = 400;
 // Trade records are keyed off the order they came from, so re-running this
 // overwrites the same document instead of adding a duplicate. This is the whole
 // safety story for the backfill — never switch these to auto-ids.
-const fillRecordId = (orderId) => `fill_${orderId}`;
+const fillRecordId = (orderId: string) => `fill_${orderId}`;
 
 // Shapes one completed order into the same record executeTrade writes.
 // cashBefore / cashAfter aren't recoverable from an order doc, so they're left
 // off: Trade History and the market reports don't need them, and
 // reconstructPortfolioHistory already skips records without them.
-function buildRecord(orderId, order, { action, source }) {
+function buildRecord(orderId: string, order: FilledOrder, { action, source }: { action: string; source: string }) {
   const shares = order.filledShares || 0;
   const price = order.executedPrice || 0;
   if (!order.userId || !order.ticker || shares <= 0 || price <= 0) return null;
@@ -46,7 +57,7 @@ function buildRecord(orderId, order, { action, source }) {
 async function alreadyRecordedOrderIds() {
   const snap = await db.collection('trades').where('source', 'in', ['limit', 'stop_loss', 'premarket']).get();
 
-  const ids = new Set();
+  const ids = new Set<string>();
   snap.forEach((doc) => {
     const orderId = doc.data().orderId;
     if (orderId) ids.add(orderId);
@@ -54,7 +65,11 @@ async function alreadyRecordedOrderIds() {
   return ids;
 }
 
-async function backfillCollection(name, toRecord, recorded) {
+async function backfillCollection(
+  name: string,
+  toRecord: (id: string, order: FilledOrder) => TradeRecordDoc | null,
+  recorded: Set<string>,
+) {
   const snap = await db.collection(name).where('status', 'in', FILLED_STATUSES).get();
 
   let written = 0;
@@ -90,7 +105,7 @@ async function backfillCollection(name, toRecord, recorded) {
 }
 
 // Split out from the callable so the emulator test can run it directly.
-async function runFillBackfill() {
+export async function runFillBackfill() {
   const recorded = await alreadyRecordedOrderIds();
 
   const limitOrders = await backfillCollection(
@@ -125,12 +140,9 @@ async function runFillBackfill() {
  *
  * Safe to run more than once — records use deterministic ids.
  */
-exports.backfillFillTradeRecords = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
-  return runFillBackfill();
-});
-
-exports.runFillBackfill = runFillBackfill;
+export const backfillFillTradeRecords = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(
+  async (_data: unknown, context) => {
+    requireAdmin(context);
+    return runFillBackfill();
+  },
+);

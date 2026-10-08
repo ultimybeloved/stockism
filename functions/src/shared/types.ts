@@ -1,6 +1,7 @@
 // Firestore document shapes the backend reads. Fields are added as typed code
 // reads them, so a missing field here means nothing typed uses it yet.
 import type { Timestamp } from 'firebase-admin/firestore';
+import type { ActionHistory } from './impact';
 
 /** A stored moment: a Firestore Timestamp, epoch ms, or an ISO string on older docs. */
 export type StoredTime = Timestamp | number | string;
@@ -19,7 +20,7 @@ export interface Cohort {
   [field: string]: unknown;
 }
 
-/** ipoLockup[ticker] / marginLockup[ticker]: shares that cannot be sold until . */
+/** ipoLockup[ticker] / marginLockup[ticker]: shares that cannot be sold until `until`. */
 export interface Lockup {
   shares?: number;
   until?: number;
@@ -74,6 +75,81 @@ export interface LimitOrder {
   [field: string]: unknown;
 }
 
+/** One size division of a season board. max null = no ceiling. */
+export interface SeasonDivision {
+  id: string;
+  label: string;
+  min: number;
+  max: number | null;
+}
+
+/** The rules a season is scored by, pinned on the season doc at its start. */
+export interface SeasonRules {
+  bronzeActiveWeeks: number;
+  platinumTopShare: number;
+  diamondTopShare: number;
+  diamondBeatShare: number;
+  diamondMaxConcentration: number;
+  diamondConcentrationMinInvested: number;
+  titledTiers: readonly string[];
+  divisions: readonly SeasonDivision[];
+}
+
+/** market/season. */
+export interface SeasonDoc {
+  id: string;
+  number?: number;
+  name?: string;
+  status?: string;
+  preseason?: boolean;
+  preseasons?: number;
+  startedAt?: number;
+  indexAtStart?: number;
+  checkpointWeeks?: unknown[];
+  rules?: Partial<SeasonRules>;
+  [field: string]: unknown;
+}
+
+/** users/{uid}.seasonBaseline: where a player's season is measured from. */
+export interface SeasonBaseline {
+  seasonId: string;
+  value: number;
+  ladder?: number;
+  granted?: number;
+  grantedDays?: number;
+  ladderFlow?: number;
+  predictionFlow?: number;
+  index?: number;
+  pinnedAt?: number;
+}
+
+/** users/{uid}.seasonMargin: dollar-days owed on margin, as a running tally. */
+export interface MarginTally {
+  seasonId: string;
+  dd: number;
+  amount: number;
+  at: number;
+}
+
+/**
+ * One weekly season record. v net equity, g granted since baseline, x index,
+ * c largest character, h all characters, d margin dollar-days, a grantedDays,
+ * f side-game flows, t when, w week, s season id.
+ */
+export interface WeekRecord {
+  s: string;
+  w: number;
+  t: number;
+  v: number;
+  g?: number;
+  x: number;
+  c: number;
+  h: number;
+  d?: number;
+  a?: number;
+  f?: number;
+}
+
 /** users/{uid}. */
 export interface UserData {
   createdAt?: StoredTime;
@@ -103,6 +179,24 @@ export interface UserData {
   ipoLockup?: Record<string, Lockup>;
   marginLockup?: Record<string, Lockup>;
   transactionLog?: TxLogEntry[];
+  displayName?: string;
+  achievements?: string[];
+  npcProfit?: number;
+  marginEnabled?: boolean;
+  peakPortfolioValue?: number;
+  tickerTradeHistory?: Record<string, ActionHistory>;
+  shortHistory?: Record<string, number[]>;
+  lastBuyTime?: Record<string, Timestamp | number>;
+  lastTickerTradeTime?: Record<string, Timestamp | number>;
+  grantedDays?: number;
+  ladderFlowValue?: number;
+  predictionFlowValue?: number;
+  seasonBaseline?: SeasonBaseline;
+  seasonMargin?: MarginTally;
+  seasonWeeks?: WeekRecord[];
+  seasonTier?: { seasonId: string; tier: string };
+  seasonActiveWeeks?: { seasonId: string; weeks?: number };
+  seasonTopTierExclusion?: { seasonId: string; at?: number };
   [field: string]: unknown;
 }
 

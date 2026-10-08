@@ -33,7 +33,7 @@ export const decayTarget = ({
   haltedTickers,
 }: {
   character: Character;
-  price: number;
+  price: number | undefined;
   stats: { lastTradedAt?: number; trades?: number } | null | undefined;
   shortInterest: Record<string, number | undefined>;
   priceHistory: Record<string, PricePoint[] | undefined> | null | undefined;
@@ -42,7 +42,7 @@ export const decayTarget = ({
   haltedTickers: Record<string, { resumeAt?: number } | undefined> | null | undefined;
 }): number | null => {
   if (character.isETF) return null;
-  if (!(price > 0)) return null;
+  if (price === undefined || !(price > 0)) return null;
 
   // Circuit-breaker pause. Nearly inert by construction — a stock that moved
   // 10% in five minutes was being traded, so it is not neglected — but a

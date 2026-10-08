@@ -30,8 +30,8 @@ export const writeNotification = async (
 // One public feed entry. Optional fields are stored as null when absent.
 interface FeedEntry {
   type: string;
-  userId: string;
-  displayName: string;
+  userId?: string;
+  displayName?: string;
   crew?: string | null;
   message: string;
   ticker?: string | null;

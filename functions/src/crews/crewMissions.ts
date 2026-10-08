@@ -1,44 +1,59 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const {
+import {
   CREW_MEMBERS,
   getCrewBuyTarget,
   getCrewSellTarget,
   getCrewVolumeTarget,
   CREW_MISSION_REWARDS,
   CREW_CONTRIB,
-} = require('../shared/constants');
-const { getCrewMultiplier } = require('../shared/crews');
-const {
-  checkBanned,
-  checkDiscordWall,
-  writeNotification,
-  touchLastActive,
-  grantedValueUpdate,
-} = require('../shared/helpers');
+} from '../shared/constants';
+import { getCrewMultiplier } from '../shared/crews';
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { writeNotification } from '../shared/notifications';
+import { touchLastActive } from '../shared/activity';
+import { grantedValueUpdate } from '../shared/equity';
+import type { UserData } from '../shared/types';
+
+type CrewMissionId = keyof typeof CREW_MISSION_REWARDS;
+
+/** crewMissions/{crew}_{weekId}. Contributor values were booleans before June 2026. */
+interface CrewMissionDoc {
+  buyCount?: number;
+  sellCount?: number;
+  tradeVolume?: number;
+  contributorsBuy?: Record<string, number | boolean>;
+  contributorsSell?: Record<string, number | boolean>;
+  contributorsVolume?: Record<string, number | boolean>;
+  claimed?: Record<string, Record<string, boolean> | undefined>;
+}
 
 const VALID_CREW_MISSIONS = new Set(Object.keys(CREW_MISSION_REWARDS));
 
 // Contribution fields stored booleans before June 2026; those legacy `true`
 // values are grandfathered as qualifying so nobody loses credit mid-week.
 // From the next Monday reset on, only the numeric counters exist.
-const meetsContribution = (value, threshold) => value === true || (typeof value === 'number' && value >= threshold);
+const meetsContribution = (value: number | boolean | undefined, threshold: number) =>
+  value === true || (typeof value === 'number' && value >= threshold);
 
 // Progress writing + the UTC week id live in an internal module so the three
 // trade-executing paths can import them without this file having to export a
 // plain helper (which index.js would then re-export as a "Cloud Function").
-const { getWeekId, updateCrewMissionProgress } = require('./crewMissionProgress');
+import { getWeekId } from './crewMissionProgress';
 
 /**
  * Checks if the crew goal is met and whether the user contributed.
  * Returns { complete, contributed, reason? }
  */
-async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId) {
+async function checkCrewGoal(
+  missionId: string,
+  missionData: CrewMissionDoc,
+  crew: string,
+  uid: string,
+): Promise<{ complete: boolean; contributed: boolean; reason: string | null }> {
   const crewTickers = CREW_MEMBERS[crew] || [];
   const memberCount = crewTickers.length;
 
@@ -75,7 +90,7 @@ async function checkCrewGoal(missionId, missionData, crew, uid, userData, weekId
   }
 }
 
-exports.claimCrewMission = cf().https.onCall(async (data, context) => {
+export const claimCrewMission = cf().https.onCall(async (data: { missionId?: unknown }, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -83,7 +98,7 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'crewMissions');
-  const { missionId } = data;
+  const missionId = data.missionId as CrewMissionId;
 
   if (!VALID_CREW_MISSIONS.has(missionId)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid crew mission.');
@@ -91,7 +106,7 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
 
   const userSnap = await db.collection('users').doc(uid).get();
   if (!userSnap.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
-  const userData = userSnap.data();
+  const userData = userSnap.data() as UserData;
   checkBanned(userData);
   checkDiscordWall(userData);
 
@@ -102,13 +117,13 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
   const weekId = getWeekId();
   const missionRef = db.collection('crewMissions').doc(`${crew}_${weekId}`);
   const missionSnap = await missionRef.get();
-  const missionData = missionSnap.exists ? missionSnap.data() : {};
+  const missionData: CrewMissionDoc = missionSnap.exists ? missionSnap.data()! : {};
 
   if (missionData.claimed?.[uid]?.[missionId]) {
     throw new functions.https.HttpsError('failed-precondition', 'Already claimed this mission.');
   }
 
-  const { complete, contributed, reason } = await checkCrewGoal(missionId, missionData, crew, uid, userData, weekId);
+  const { complete, contributed, reason } = await checkCrewGoal(missionId, missionData, crew, uid);
   if (!complete) throw new functions.https.HttpsError('failed-precondition', reason || 'Mission not yet complete.');
   if (!contributed)
     throw new functions.https.HttpsError('failed-precondition', 'You have not contributed to this mission.');
@@ -122,9 +137,9 @@ exports.claimCrewMission = cf().https.onCall(async (data, context) => {
   await db.runTransaction(async (tx) => {
     const [freshUser, freshMission] = await Promise.all([tx.get(userRef), tx.get(missionRef)]);
     if (!freshUser.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
-    if (freshUser.data().crew !== crew)
+    if (freshUser.data()!.crew !== crew)
       throw new functions.https.HttpsError('failed-precondition', 'Your crew has changed.');
-    if (freshMission.exists && freshMission.data().claimed?.[uid]?.[missionId]) {
+    if (freshMission.exists && freshMission.data()!.claimed?.[uid]?.[missionId]) {
       throw new functions.https.HttpsError('failed-precondition', 'Already claimed.');
     }
     tx.update(userRef, {

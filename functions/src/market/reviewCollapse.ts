@@ -9,12 +9,11 @@
 // It has to land before the 20:55 lock and the 20:56 opening auction, or the
 // review would appear on the chart AFTER the fills that were priced off it.
 
-import * as functions from 'firebase-functions';
-import { cf, requireAppCheck } from '../shared/fnConfig';
+import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-import { ADMIN_UID, WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE } from '../shared/constants';
+import { WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE } from '../shared/constants';
 import { reportError } from '../shared/sentry';
 import { writeReviewChanges, collapseReviewWindow } from './reviewChanges';
 
@@ -86,10 +85,7 @@ export const collapseReviewHistory = cf({ timeoutSeconds: 300 })
  */
 export const triggerCollapseReviewHistory = cf({ timeoutSeconds: 300 }).https.onCall(
   async (_data: unknown, context) => {
-    requireAppCheck(context);
-    if (!context.auth || context.auth.uid !== ADMIN_UID) {
-      throw new functions.https.HttpsError('permission-denied', 'Admin only');
-    }
+    requireAdmin(context);
 
     const result = await finalizeReview(mostRecentHaltWindow());
     return { success: true, ...result };

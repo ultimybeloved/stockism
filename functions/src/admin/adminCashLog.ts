@@ -6,11 +6,10 @@
 //
 // Write path lives in adminOps.js. Keep it that way: this file must stay a
 // read-only view, so a bug here can never move anyone's money.
-import * as functions from 'firebase-functions';
-import { cf, requireAppCheck } from '../shared/fnConfig';
+import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();
-import { ADMIN_UID, ADMIN_CASH_LOG_PAGE_MAX } from '../shared/constants';
+import { ADMIN_CASH_LOG_PAGE_MAX } from '../shared/constants';
 
 /**
  * Admin-only: the most recent cash adjustments, newest first.
@@ -21,10 +20,7 @@ import { ADMIN_UID, ADMIN_CASH_LOG_PAGE_MAX } from '../shared/constants';
  * already has. Add a real query here only if this ever stops fitting.
  */
 export const adminListCashLog = cf().https.onCall(async (data: { limit?: unknown } | undefined, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+  requireAdmin(context);
 
   const requested = Number(data?.limit);
   const limit = Math.min(

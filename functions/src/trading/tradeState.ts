@@ -1,22 +1,35 @@
-'use strict';
 // Firestore state assembly for executeTrade: IP-level trade tracking, trade
 // history pruning/appending, and the single user-doc update payload.
 // Internal module — required by trading.js, not exported through index.js.
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const { SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS, WASH_RULE_IMPACT_TRIGGER } = require('../shared/constants');
-const {
-  pruneAndSumTradeHistory,
-  sumDirectionalImpact,
-  cohortAddUpdate,
-  cohortRemoveUpdate,
-} = require('../shared/helpers');
-const { seasonMarginUpdate } = require('../season/seasonTiers');
+import { SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS, WASH_RULE_IMPACT_TRIGGER } from '../shared/constants';
+import { pruneAndSumTradeHistory, sumDirectionalImpact } from '../shared/impact';
+import { cohortAddUpdate, cohortRemoveUpdate } from '../shared/cohorts';
+import type { ActionHistory, ImpactEntry } from '../shared/impact';
+import type { TrailingEntries } from './tradePricing';
+import type { Character } from '../shared/characters';
+import type { ShortPosition, UserData } from '../shared/types';
+
+/** { ticker: { action: entries } }, on the user doc and on ipTracking docs. */
+export type HistoryMap = Record<string, ActionHistory>;
+import { seasonMarginUpdate } from '../season/seasonTiers';
 
 // ANTI-MANIPULATION: Read IP-level trade history (shared across all accounts
 // on the same IP). Must run before any transaction writes.
-async function readIpTradeData(transaction, ip, ticker, now) {
-  const result = {
+export async function readIpTradeData(
+  transaction: admin.firestore.Transaction,
+  ip: string,
+  ticker: string,
+  now: number,
+) {
+  const result: {
+    ipDailyImpact: { down: number; up: number };
+    ipTrackingRef: admin.firestore.DocumentReference | null;
+    sanitizedIp: string | null;
+    ipTickerTradeHistory: HistoryMap;
+    ipRecentTraders: Record<string, number>;
+  } = {
     // Spent allowance split by direction, same shape as the per-user figure.
     ipDailyImpact: { down: 0, up: 0 },
     ipTrackingRef: null,
@@ -30,7 +43,7 @@ async function readIpTradeData(transaction, ip, ticker, now) {
   result.ipTrackingRef = db.collection('ipTracking').doc(result.sanitizedIp);
   const ipDoc = await transaction.get(result.ipTrackingRef);
   if (ipDoc.exists) {
-    const ipData = ipDoc.data();
+    const ipData = ipDoc.data()!;
     result.ipTickerTradeHistory = ipData.tickerTradeHistory || {};
     result.ipRecentTraders = ipData.recentTraders || {};
     result.ipDailyImpact = sumDirectionalImpact(result.ipTickerTradeHistory[ticker], now);
@@ -40,13 +53,14 @@ async function readIpTradeData(transaction, ip, ticker, now) {
 
 // Rebuild a { ticker: { action: [entries] } } history map with expired entries
 // pruned out. Used for both the user-doc and IP-doc histories.
-function pruneHistoryMap(historyMap, now) {
-  const pruned = {};
+export function pruneHistoryMap(historyMap: HistoryMap, now: number): HistoryMap {
+  const pruned: HistoryMap = {};
   for (const [t, actions] of Object.entries(historyMap)) {
-    pruned[t] = {};
+    const prunedActions: ActionHistory = {};
+    pruned[t] = prunedActions;
     for (const [act, entries] of Object.entries(actions)) {
       const { recent } = pruneAndSumTradeHistory(entries, now);
-      pruned[t][act] = recent;
+      prunedActions[act] = recent;
     }
   }
   return pruned;
@@ -54,22 +68,28 @@ function pruneHistoryMap(historyMap, now) {
 
 // Append this trade's entry plus any synthetic trailing-effect entries to a
 // (already pruned) history map. Mutates and returns the map.
-function appendTradeEntries(historyMap, ticker, action, newTradeEntry, trailingEntries) {
-  if (!historyMap[ticker]) historyMap[ticker] = {};
-  if (!historyMap[ticker][action]) historyMap[ticker][action] = [];
-  historyMap[ticker][action].push(newTradeEntry);
+export function appendTradeEntries(
+  historyMap: HistoryMap,
+  ticker: string,
+  action: string,
+  newTradeEntry: ImpactEntry,
+  trailingEntries: TrailingEntries,
+): HistoryMap {
+  const push = (t: string, act: string, entry: ImpactEntry) => {
+    const actions = (historyMap[t] ||= {});
+    (actions[act] ||= []).push(entry);
+  };
+  push(ticker, action, newTradeEntry);
 
   for (const [trailingTicker, { action: trailingAction, entry }] of Object.entries(trailingEntries)) {
-    if (!historyMap[trailingTicker]) historyMap[trailingTicker] = {};
-    if (!historyMap[trailingTicker][trailingAction]) historyMap[trailingTicker][trailingAction] = [];
-    historyMap[trailingTicker][trailingAction].push(entry);
+    push(trailingTicker, trailingAction, entry);
   }
   return historyMap;
 }
 
 // Build the merge payload for the ipTracking doc: pruned+appended trade
 // history, plus the rolling 1h recent-traders map for the per-IP account cap.
-function buildIpTrackingUpdate({
+export function buildIpTrackingUpdate({
   ipTickerTradeHistory,
   ipRecentTraders,
   ticker,
@@ -78,6 +98,15 @@ function buildIpTrackingUpdate({
   trailingEntries,
   uid,
   now,
+}: {
+  ipTickerTradeHistory: HistoryMap;
+  ipRecentTraders: Record<string, unknown>;
+  ticker: string;
+  action: string;
+  newTradeEntry: ImpactEntry;
+  trailingEntries: TrailingEntries;
+  uid: string;
+  now: number;
 }) {
   const updatedIpHistory = appendTradeEntries(
     pruneHistoryMap(ipTickerTradeHistory, now),
@@ -90,7 +119,7 @@ function buildIpTrackingUpdate({
   // Record this account as a recent trader from the IP (rolling 1h) for the
   // per-IP multi-account cap; prune entries older than 1h.
   const ONE_HOUR_MS = 60 * 60 * 1000;
-  const updatedRecentTraders = {};
+  const updatedRecentTraders: Record<string, unknown> = {};
   for (const [u, ts] of Object.entries(ipRecentTraders)) {
     if (now - (typeof ts === 'number' ? ts : 0) < ONE_HOUR_MS) updatedRecentTraders[u] = ts;
   }
@@ -103,7 +132,7 @@ function buildIpTrackingUpdate({
 // Build the complete user-doc update payload for this trade: balances,
 // positions, throttle stamps, cost basis, dividend cohorts, lockup cleanup,
 // short history, and the rolling transaction log.
-function buildUserUpdates({
+export function buildUserUpdates({
   ticker,
   action,
   amount,
@@ -124,8 +153,29 @@ function buildUserUpdates({
   totalCost,
   currentPrice,
   downImpactAfter = 0,
+}: {
+  ticker: string;
+  action: string;
+  amount: number;
+  now: number;
+  userData: UserData;
+  character: Character | undefined;
+  cash: number;
+  holdings: Record<string, number>;
+  shorts: Record<string, ShortPosition | null | undefined>;
+  newCash: number;
+  newHoldings: Record<string, number>;
+  newShorts: Record<string, ShortPosition>;
+  newMarginUsed: number;
+  marginLockUpdate?: unknown;
+  updatedTickerTradeHistory: HistoryMap;
+  creditUpdates: Record<string, unknown>;
+  executionPrice: number;
+  totalCost: number;
+  currentPrice: number;
+  downImpactAfter?: number;
 }) {
-  const updates = {
+  const updates: Record<string, unknown> = {
     cash: newCash,
     holdings: newHoldings,
     shorts: newShorts,
@@ -206,14 +256,20 @@ function buildUserUpdates({
   }
 
   if (action === 'short') {
-    const shortHistory = userData.shortHistory || {};
-    const tickerHistory = (shortHistory[ticker] || []).filter((ts) => now - ts < SHORT_COOLDOWN_WINDOW_MS);
+    const shortHistory = (userData.shortHistory || {}) as Record<string, number[]>;
+    const tickerHistory = (shortHistory[ticker] || []).filter((ts: number) => now - ts < SHORT_COOLDOWN_WINDOW_MS);
     tickerHistory.push(now);
     updates.shortHistory = { ...shortHistory, [ticker]: tickerHistory };
   }
 
   // Append to transaction log (keep last 100 entries)
-  const txLogEntry = { timestamp: now, ticker, shares: amount, cashBefore: cash, cashAfter: newCash };
+  const txLogEntry: Record<string, unknown> = {
+    timestamp: now,
+    ticker,
+    shares: amount,
+    cashBefore: cash,
+    cashAfter: newCash,
+  };
   if (action === 'buy') {
     txLogEntry.type = 'BUY';
     txLogEntry.pricePerShare = executionPrice;
@@ -238,11 +294,3 @@ function buildUserUpdates({
 
   return updates;
 }
-
-module.exports = {
-  readIpTradeData,
-  pruneHistoryMap,
-  appendTradeEntries,
-  buildIpTrackingUpdate,
-  buildUserUpdates,
-};

@@ -1,8 +1,8 @@
-'use strict';
-
-const { cf } = require('../shared/fnConfig');
-const { sendDiscordMessage, reportError, discordApi, HEARTBEAT_DOC } = require('../shared/helpers');
-const { DISCORD_DAILY_DROP_CHANNEL, WATCHED_SCHEDULED_JOBS } = require('../shared/constants');
+import { cf } from '../shared/fnConfig';
+import { sendDiscordMessage, discordApi } from '../shared/discordApi';
+import { reportError } from '../shared/sentry';
+import { HEARTBEAT_DOC } from '../shared/activity';
+import { DISCORD_DAILY_DROP_CHANNEL, WATCHED_SCHEDULED_JOBS } from '../shared/constants';
 
 /**
  * Scheduled self-check for the Discord Updates bot. Verifies the bot token is valid and
@@ -12,12 +12,12 @@ const { DISCORD_DAILY_DROP_CHANNEL, WATCHED_SCHEDULED_JOBS } = require('../share
  * This is the guard that would have caught the wrong-bot-token outage on its own: a token
  * that belongs to the wrong bot passes the /users/@me check but 403s on every channel.
  */
-exports.discordHealthCheck = cf()
+export const discordHealthCheck = cf()
   .pubsub.schedule('every 24 hours')
   .timeZone('UTC')
   .onRun(async () => {
     const token = process.env.DISCORD_BOT_TOKEN;
-    const problems = [];
+    const problems: string[] = [];
 
     if (!token) {
       reportError(new Error('DISCORD_BOT_TOKEN is not set'), { where: 'discordHealthCheck' });
@@ -31,19 +31,19 @@ exports.discordHealthCheck = cf()
         problems.push(`Bot token rejected by Discord (status ${me.status})`);
       }
     } catch (e) {
-      problems.push(`Could not reach Discord to validate token: ${e.message}`);
+      problems.push(`Could not reach Discord to validate token: ${(e as Error).message}`);
     }
 
     // 2. Can the bot reach each channel it needs to post to?
     const channelIds = [
       ...new Set(
         [DISCORD_DAILY_DROP_CHANNEL, process.env.DISCORD_CHANNEL_ID, process.env.DISCORD_SIGNUP_CHANNEL_ID].filter(
-          Boolean,
+          (id): id is string => Boolean(id),
         ),
       ),
     ];
 
-    const reachable = [];
+    const reachable: string[] = [];
     for (const id of channelIds) {
       try {
         const r = await discordApi('get', `/channels/${id}`);
@@ -54,7 +54,7 @@ exports.discordHealthCheck = cf()
           problems.push(`Channel ${id} unreachable (status ${r.status} ${msg})`);
         }
       } catch (e) {
-        problems.push(`Channel ${id} check failed: ${e.message}`);
+        problems.push(`Channel ${id} check failed: ${(e as Error).message}`);
       }
     }
 
@@ -108,7 +108,7 @@ exports.discordHealthCheck = cf()
  * 2026-08-18. "Never ran" and "not due yet" look identical in the data; the
  * install timestamp is what separates them.
  */
-exports.scheduledJobWatchdog = cf()
+export const scheduledJobWatchdog = cf()
   .pubsub.schedule('every 24 hours')
   .timeZone('UTC')
   .onRun(async () => {
@@ -124,8 +124,8 @@ exports.scheduledJobWatchdog = cf()
       await HEARTBEAT_DOC().set({ watchdogInstalledAt: installedAt }, { merge: true });
     }
 
-    const stale = [];
-    const never = [];
+    const stale: string[] = [];
+    const never: string[] = [];
 
     for (const { job, maxAgeHours, label, watchedSince } of WATCHED_SCHEDULED_JOBS) {
       const last = beats[job];

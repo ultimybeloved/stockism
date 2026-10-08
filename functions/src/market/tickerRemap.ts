@@ -1,13 +1,16 @@
-'use strict';
 // Pure remap helpers for the ticker rename engine (tickerRename.js).
 //
 // INTERNAL MODULE — required by tickerRename.js, never listed in
 // servicePaths.js. Split out of tickerRename.js to keep it under the service
 // size limit; tickerRename.js re-exports all of this, so callers and tests are
 // unchanged.
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 
 const DELETE = () => admin.firestore.FieldValue.delete();
+
+/** A Firestore document as the rename reads it: any ticker-keyed maps and arrays. */
+type Doc = Record<string, unknown>;
+type Updates = Record<string, unknown>;
 
 // No Firestore handles, no async. Everything that decides what a rename means
 // lives here so it can be tested without an emulator.
@@ -18,16 +21,17 @@ const DELETE = () => admin.firestore.FieldValue.delete();
  * Returns {} when the old key is absent, which is what makes every phase safe
  * to re-run: a document already migrated produces no writes the second time.
  */
-const mapMoveUpdates = (prefix, obj, old, nw) => {
-  if (!obj || obj[old] === undefined) return {};
+export const mapMoveUpdates = (prefix: string, obj: unknown, old: string, nw: string): Updates => {
+  const map = obj as Record<string, unknown> | null | undefined;
+  if (!map || map[old] === undefined) return {};
   return {
-    [`${prefix}.${nw}`]: obj[old],
+    [`${prefix}.${nw}`]: map[old],
     [`${prefix}.${old}`]: DELETE(),
   };
 };
 
 /** A ticker array (launchedTickers, watchlist) with one entry swapped. */
-const remapArrayOfStrings = (arr, old, nw) => {
+export const remapArrayOfStrings = (arr: unknown, old: string, nw: string): unknown[] | null => {
   if (!Array.isArray(arr) || !arr.includes(old)) return null;
   // Dedupe in case both names somehow ended up present.
   const swapped = arr.map((t) => (t === old ? nw : t));
@@ -35,10 +39,10 @@ const remapArrayOfStrings = (arr, old, nw) => {
 };
 
 /** An array of objects (transactionLog, indexHistory.constituents, ipos.list). */
-const remapObjectArray = (arr, field, old, nw) => {
+export const remapObjectArray = (arr: unknown, field: string, old: string, nw: string): unknown[] | null => {
   if (!Array.isArray(arr)) return null;
   let hit = false;
-  const out = arr.map((entry) => {
+  const out = arr.map((entry: Record<string, unknown> | null) => {
     if (!entry || entry[field] !== old) return entry;
     hit = true;
     return { ...entry, [field]: nw };
@@ -53,7 +57,7 @@ const remapObjectArray = (arr, field, old, nw) => {
  * read "bought 5 $GUN", and rewriting the ticker field alone would leave the
  * sentence players actually see still saying the old name.
  */
-const remapMessage = (msg, old, nw) => {
+export const remapMessage = (msg: unknown, old: string, nw: string): string | null => {
   if (typeof msg !== 'string') return null;
   const swapped = msg.replace(new RegExp(`\\$${old}(?![A-Z0-9])`, 'g'), `$${nw}`);
   // Null means "nothing actually changed", so a message that only mentions
@@ -67,8 +71,12 @@ const remapMessage = (msg, old, nw) => {
  * Renaming B to C when A already points at B must leave A pointing at C, not
  * at a retired name that resolves to nothing.
  */
-const collapseAliasChain = (existing, old, nw) => {
-  const out = {};
+export const collapseAliasChain = (
+  existing: Record<string, string> | null | undefined,
+  old: string,
+  nw: string,
+): Record<string, string> => {
+  const out: Record<string, string> = {};
   for (const [from, to] of Object.entries(existing || {})) {
     out[from] = to === old ? nw : to;
   }
@@ -81,7 +89,7 @@ const collapseAliasChain = (existing, old, nw) => {
 // holdingCohorts is the dividend and exit-loyalty lot ledger, drip is the
 // per-ticker reinvestment toggle, and loyaltyTierNotified suppresses duplicate
 // tier-up notifications — dropping its key fires a spurious one at every holder.
-const USER_TICKER_MAPS = [
+export const USER_TICKER_MAPS = [
   'holdings',
   'shorts',
   'costBasis',
@@ -104,7 +112,7 @@ const USER_TICKER_MAPS = [
 ];
 
 // Ticker-keyed maps on market/current.
-const MARKET_TICKER_MAPS = [
+export const MARKET_TICKER_MAPS = [
   'prices',
   'volumes',
   'dailyVolumes',
@@ -117,8 +125,8 @@ const MARKET_TICKER_MAPS = [
 ];
 
 /** Everything one player document needs changed. {} means already migrated. */
-const buildUserUpdates = (userData, old, nw) => {
-  const updates = {};
+export const buildUserUpdates = (userData: Doc, old: string, nw: string) => {
+  const updates: Updates = {};
   for (const mapName of USER_TICKER_MAPS) {
     Object.assign(updates, mapMoveUpdates(mapName, userData[mapName], old, nw));
   }
@@ -132,8 +140,8 @@ const buildUserUpdates = (userData, old, nw) => {
 };
 
 /** Everything market/current needs changed, alias entry included. */
-const buildMarketUpdates = (marketData, old, nw) => {
-  const updates = {};
+export const buildMarketUpdates = (marketData: Doc, old: string, nw: string) => {
+  const updates: Updates = {};
   for (const mapName of MARKET_TICKER_MAPS) {
     Object.assign(updates, mapMoveUpdates(mapName, marketData[mapName], old, nw));
   }
@@ -144,22 +152,10 @@ const buildMarketUpdates = (marketData, old, nw) => {
   // Alert thresholds are keyed "<TICKER>_10_up". They are throttle state, not
   // history, so they are dropped rather than moved — the worst case is one
   // repeated alert.
-  for (const key of Object.keys(marketData.alertedThresholds || {})) {
+  for (const key of Object.keys((marketData.alertedThresholds as object | undefined) || {})) {
     if (key.startsWith(`${old}_`)) updates[`alertedThresholds.${key}`] = DELETE();
   }
 
-  updates.tickerAliases = collapseAliasChain(marketData.tickerAliases, old, nw);
+  updates.tickerAliases = collapseAliasChain(marketData.tickerAliases as Record<string, string> | undefined, old, nw);
   return updates;
-};
-
-module.exports = {
-  mapMoveUpdates,
-  remapArrayOfStrings,
-  remapObjectArray,
-  remapMessage,
-  collapseAliasChain,
-  buildUserUpdates,
-  buildMarketUpdates,
-  USER_TICKER_MAPS,
-  MARKET_TICKER_MAPS,
 };

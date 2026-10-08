@@ -68,12 +68,21 @@ their public profile and the leaderboard.
    `npm run build:functions` → `functions/lib/`, `main: lib/index.js`, built by
    the predeploy hook, `check:functions`, `deploy:functions` and `emulators`.
    Emulator suites run through tsx; backend vitest files get tsx's require hook
-   (`functions/test/setup.ts`, the `backend` vitest project). Converted so far:
-   `shared/money.ts`, `shared/lmsr.ts`.
-   **Next:** convert the rest, leaves first: `shared/` (constants, then the
-   helper topics), then each domain's internal modules, then its service
-   files. Write exports as `export const name = ...`; tsc emits
-   `exports.name = name`, which serviceLoader's scan finds. When `allowJs` can
+   (`functions/test/setup.ts`, the `backend` vitest project).
+   **Converted:** all of `shared/` (constants, helper topics, barrels), the
+   roster copies (`sync:chars` now copies `src/characters.ts` and
+   `src/crews.ts` verbatim, types included), and ~30 small domain modules.
+   Document shapes live in `shared/types.ts`; add fields as code reads them.
+   Admin callables use `requireAdmin(context)` from `fnConfig` instead of the
+   inline check (63 copies to retire as files convert).
+   **Next:** the rest of the domain files, internal modules before the service
+   files that use them (season: seasonRecords, seasonDryRun, season; trading:
+   tradeGuards, tradeActions, tradeEffects, trading; orders; and so on). In
+   converted files, import from the topic module (`../shared/impact`), not the
+   `helpers` barrel. Write exports as `export const name = ...`; tsc emits
+   `exports.name = ...`, which serviceLoader's scan finds. A test that
+   reassigns a module export must swap the cached module instead (see
+   `test-drop-halt-emulator.cjs`): TS exports are read-only. When `allowJs` can
    go, delete the `.js` branches in `check-function-exports.cjs`.
 4. Replace `console.log` with `firebase-functions/logger`.
 5. One shared source for game rules used by both sides (characters, crews,

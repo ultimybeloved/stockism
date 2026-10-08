@@ -1,4 +1,3 @@
-'use strict';
 // Archivable plain-HTML views of the public market state.
 //
 // The site is a React SPA: the HTML it ships is an empty shell and every price
@@ -11,14 +10,38 @@
 // Reads only documents that are already world-readable, and never emits user IDs
 // or Discord data — display names and portfolio values are already public on the
 // live leaderboard, nothing more is exposed here.
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const axios = require('axios');
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+import axios from 'axios';
 const db = admin.firestore();
 
-const { CHARACTERS, CHARACTER_MAP } = require('../shared/characters');
-const { ADMIN_UID, DISCORD_API_TIMEOUT_MS, isWeeklyTradingHalt } = require('../shared/constants');
-const { isRosterTicker } = require('../shared/helpers');
+import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
+import { DISCORD_API_TIMEOUT_MS, isWeeklyTradingHalt } from '../shared/constants';
+import { isRosterTicker } from '../shared/roster';
+
+/** One row of the cached global leaderboard. */
+interface BoardEntry {
+  displayName?: string;
+  crew?: string;
+  portfolioValue?: number;
+}
+
+/** One row of the cached season board. */
+interface SeasonBoardEntry {
+  displayName?: string;
+  tier?: string;
+  returnPercent: number;
+}
+
+/** One entry of predictions/current.list. */
+interface PredictionEntry {
+  question?: string;
+  type?: string;
+  options?: string[];
+  resolved?: boolean;
+}
+
+type Doc = admin.firestore.DocumentData;
 
 const SITE = 'https://stockism.app';
 // Cached at the edge so a crawl storm can't turn into a Firestore bill. Each
@@ -28,7 +51,7 @@ const CACHE_SECONDS = 1800;
 // Display names and prediction questions are user- and admin-authored, so every
 // interpolated value goes through this. A name containing markup would otherwise
 // end up as live HTML on a public page.
-const esc = (v) =>
+const esc = (v: unknown) =>
   String(v ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -36,13 +59,13 @@ const esc = (v) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
-const money = (n) =>
+const money = (n: unknown) =>
   Number(n || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
 
-const page = (title, bodyHtml, takenAt) => `<!doctype html>
+const page = (title: string, bodyHtml: string, takenAt: string) => `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -69,17 +92,17 @@ ${bodyHtml}
 
 const stamp = () => `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 
-const marketSection = (market) => {
+const marketSection = (market: Doc) => {
   const halted = market.marketHalted === true || isWeeklyTradingHalt();
   return `<h2>Market status</h2>
 <p class="${halted ? 'halt' : 'open'}">${halted ? 'HALTED' : 'OPEN'}</p>
 ${market.marketHalted && market.haltReason ? `<p class="meta">Reason: ${esc(market.haltReason)}</p>` : ''}`;
 };
 
-const pricesSection = (market) => {
-  const prices = market.prices || {};
+const pricesSection = (market: Doc) => {
+  const prices: Record<string, number> = market.prices || {};
   const rows = CHARACTERS.filter((c) => isRosterTicker(c.ticker) && prices[c.ticker] !== undefined)
-    .map((c) => ({ ticker: c.ticker, name: c.name, price: prices[c.ticker] }))
+    .map((c) => ({ ticker: c.ticker, name: c.name, price: prices[c.ticker]! }))
     .sort((a, b) => b.price - a.price);
 
   if (!rows.length) return '';
@@ -92,7 +115,7 @@ ${rows.map((r) => `<tr><td>${esc(r.ticker)}</td><td>${esc(r.name)}</td><td class
 // A single past day, read from the daily closes recorded by dailyMarketSummary.
 // This is what makes the archive answer "what was true on this date" rather than
 // only ever showing whatever is current.
-const datedPricesSection = (closes, day) => {
+const datedPricesSection = (closes: Record<string, number> | undefined, day: string) => {
   const rows = Object.entries(closes || {})
     .filter(([ticker]) => isRosterTicker(ticker))
     .map(([ticker, price]) => ({
@@ -113,13 +136,13 @@ ${rows.map((r) => `<tr><td>${esc(r.ticker)}</td><td>${esc(r.name)}</td><td class
 
 // Every date the archive holds for one month, so a crawler following links
 // reaches all of them without guessing dates.
-const monthIndexSection = (monthId, days) => {
+const monthIndexSection = (monthId: string, days: string[]) => {
   if (!days.length) return `<h2>${esc(monthId)}</h2><p class="meta">Nothing recorded.</p>`;
   return `<h2>${esc(monthId)} — ${days.length} day${days.length === 1 ? '' : 's'}</h2>
 <p>${days.map((d) => `<a href="${SITE}/snapshot/${esc(d)}">${esc(d)}</a>`).join(' · ')}</p>`;
 };
 
-const leaderboardSection = (entries) => {
+const leaderboardSection = (entries: BoardEntry[]) => {
   if (!entries.length) return '';
   return `<h2>Leaderboard — top ${entries.length}</h2>
 <table><thead><tr><th>#</th><th>Player</th><th>Crew</th><th class="n">Portfolio</th></tr></thead><tbody>
@@ -127,9 +150,9 @@ ${entries.map((e, i) => `<tr><td>${i + 1}</td><td>${esc(e.displayName || 'Anonym
 </tbody></table>`;
 };
 
-const seasonSection = (season, standings) => {
+const seasonSection = (season: Doc | null | undefined, standings: Doc | null | undefined) => {
   if (!season || season.status !== 'active') return '';
-  const rows = (standings?.entries || []).slice(0, 25);
+  const rows: SeasonBoardEntry[] = (standings?.entries || []).slice(0, 25);
   return `<h2>Season ${esc(season.number)} — ${esc(season.name)}</h2>
 <p class="meta">Week ${esc(standings?.weeks ?? '')} · ranked on trading return, free stock and bonuses excluded</p>
 ${
@@ -141,7 +164,7 @@ ${rows.map((e, i) => `<tr><td>${i + 1}</td><td>${esc(e.displayName)}</td><td>${e
 }`;
 };
 
-const predictionsSection = (list) => {
+const predictionsSection = (list: PredictionEntry[]) => {
   const live = list.filter((p) => !p.resolved);
   if (!live.length) return '<h2>Predictions</h2><p class="meta">None open.</p>';
   return `<h2>Open predictions (${live.length})</h2>
@@ -157,7 +180,7 @@ ${live.map((p) => `<tr><td>${esc(p.question)}</td><td>${esc(p.type === 'event' ?
  * Public and unauthenticated on purpose: an archive crawler is the intended
  * caller. Everything served is already world-readable.
  */
-exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
+export const publicSnapshot = cf().https.onRequest(async (req, res) => {
   try {
     res.set('Cache-Control', `public, max-age=${CACHE_SECONDS}, s-maxage=${CACHE_SECONDS}`);
     res.set('Content-Type', 'text/html; charset=utf-8');
@@ -175,7 +198,7 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
     // before that recording started simply have nothing, which the page says.
     const dated = /(\d{4}-\d{2})(-\d{2})?\s*$/.exec(req.path || '');
     if (dated && !wantsPredictions) {
-      const monthId = dated[1];
+      const monthId = dated[1]!;
       const day = dated[2] ? `${monthId}${dated[2]}` : null;
       const doc = await db.collection('market').doc('current').collection('daily_closes').doc(monthId).get();
       const closes = doc.exists ? (doc.data() || {}).closes || {} : {};
@@ -185,19 +208,22 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
           datedPricesSection(closes[day], day) +
           `<p class="meta"><a href="${SITE}/snapshot/${monthId}">All of ${monthId}</a>` +
           ` · <a href="${SITE}/snapshot">Current market</a></p>`;
-        return res.status(200).send(page(`Market on ${day}`, body, takenAt));
+        res.status(200).send(page(`Market on ${day}`, body, takenAt));
+        return;
       }
 
       const days = Object.keys(closes).sort();
       const body =
         monthIndexSection(monthId, days) + `<p class="meta"><a href="${SITE}/snapshot">Current market</a></p>`;
-      return res.status(200).send(page(`Market archive ${monthId}`, body, takenAt));
+      res.status(200).send(page(`Market archive ${monthId}`, body, takenAt));
+      return;
     }
 
     if (wantsPredictions) {
       const snap = await db.collection('predictions').doc('current').get();
-      const list = snap.exists ? snap.data().list || [] : [];
-      return res.status(200).send(page('Predictions snapshot', predictionsSection(list), takenAt));
+      const list = snap.exists ? snap.data()!.list || [] : [];
+      res.status(200).send(page('Predictions snapshot', predictionsSection(list), takenAt));
+      return;
     }
 
     const [marketSnap, boardSnap, seasonSnap, seasonBoardSnap] = await Promise.all([
@@ -207,8 +233,8 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
       db.collection('leaderboard').doc('season').get(),
     ]);
 
-    const market = marketSnap.exists ? marketSnap.data() : {};
-    const entries = (boardSnap.exists ? boardSnap.data().entries || [] : []).slice(0, 50);
+    const market = (marketSnap.exists ? marketSnap.data() : {}) as Doc;
+    const entries = (boardSnap.exists ? boardSnap.data()!.entries || [] : []).slice(0, 50);
     const season = seasonSnap.exists ? seasonSnap.data() : null;
     const seasonBoard = seasonBoardSnap.exists ? seasonBoardSnap.data() : null;
 
@@ -221,10 +247,12 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
         ` · <a href="${SITE}/snapshot/${new Date().toISOString().slice(0, 7)}">This month's daily closes →</a></p>`,
     ].join('\n');
 
-    return res.status(200).send(page('Market snapshot', body, takenAt));
+    res.status(200).send(page('Market snapshot', body, takenAt));
+    return;
   } catch (err) {
     console.error('publicSnapshot failed:', err);
-    return res.status(500).send('<!doctype html><p>Snapshot unavailable.</p>');
+    res.status(500).send('<!doctype html><p>Snapshot unavailable.</p>');
+    return;
   }
 });
 
@@ -236,7 +264,7 @@ exports.publicSnapshot = cf().https.onRequest(async (req, res) => {
  * Best-effort by design: Save Page Now is a free public service that rate-limits
  * and can be slow, and a missed week is not worth failing a scheduled run over.
  */
-const savePage = async (path) => {
+const savePage = async (path: string) => {
   const url = `https://web.archive.org/save/${SITE}${path}`;
   try {
     await axios.get(url, {
@@ -248,12 +276,12 @@ const savePage = async (path) => {
     console.log(`ARCHIVE requested: ${path}`);
     return { path, requested: true };
   } catch (err) {
-    console.error(`Archive request failed for ${path}:`, err.message);
-    return { path, requested: false, error: err.message };
+    console.error(`Archive request failed for ${path}:`, (err as Error).message);
+    return { path, requested: false, error: (err as Error).message };
   }
 };
 
-const runArchive = async (includePredictions) => {
+const runArchive = async (includePredictions: boolean) => {
   const results = [await savePage('/snapshot')];
   if (includePredictions) results.push(await savePage('/snapshot/predictions'));
   return results;
@@ -269,7 +297,7 @@ const runArchive = async (includePredictions) => {
 // (/snapshot/YYYY-MM-DD) which are backed by our own daily closes.
 //
 // Predictions ride along on the 1st-8th, which works out to roughly monthly.
-exports.archiveSnapshot = cf()
+export const archiveSnapshot = cf()
   .pubsub.schedule('30 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -278,14 +306,11 @@ exports.archiveSnapshot = cf()
     return null;
   });
 
-exports.triggerArchiveSnapshot = cf().https.onCall(async (data, context) => {
+export const triggerArchiveSnapshot = cf().https.onCall(async (_data: unknown, context) => {
   // The public snapshot ROUTES are deliberately App Check free so crawlers can
   // read them. This admin trigger is not one of those routes, and was the only
   // callable in the codebase missing the check.
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new (require('firebase-functions').https.HttpsError)('permission-denied', 'Admin only');
-  }
+  requireAdmin(context);
   const results = await runArchive(true);
   return { success: true, results };
 });

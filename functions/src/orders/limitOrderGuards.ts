@@ -1,4 +1,3 @@
-'use strict';
 // Screening for the limit-order sweep. INTERNAL MODULE — not exported through
 // functions/src/index.js, same pattern as tradeGuards.
 //
@@ -11,20 +10,21 @@
 // A thrown message is matched against CANCEL_ON in limitOrderMatching to decide
 // cancel-vs-defer, so the wording of these throws is load-bearing.
 
-const { CHARACTER_MAP } = require('../shared/characters');
-const {
-  lockedShares,
-  pruneAndSumTradeHistory,
-  floorExitShares,
-  isTickerPaused,
-  washRuleRemainingMs,
-} = require('../shared/helpers');
-const {
+import { CHARACTER_MAP } from '../shared/characters';
+import { lockedShares, floorExitShares } from '../shared/cohorts';
+import { pruneAndSumTradeHistory, isTickerPaused, washRuleRemainingMs } from '../shared/impact';
+import type { ActionHistory } from '../shared/impact';
+import type { LimitOrder, UserData } from '../shared/types';
+import type { DocumentSnapshot } from 'firebase-admin/firestore';
+
+/** What a screen decides to write instead of filling. */
+type Screened = { status: string; reason?: string; log?: string } | null;
+import {
   MAX_TRADES_PER_TICKER_24H,
   MIN_TRADE_SHARES,
   MIN_EXIT_SHARES,
   TRADE_SHARE_DECIMALS,
-} = require('../shared/constants');
+} from '../shared/constants';
 
 const ENTRY_SHARE_STEP = 10 ** TRADE_SHARE_DECIMALS;
 
@@ -36,7 +36,10 @@ const ENTRY_SHARE_STEP = 10 ** TRADE_SHARE_DECIMALS;
  * Order-level screening that needs no user or price data.
  * Returns { status, reason, log } to write, or null to keep going.
  */
-const screenOrder = (order, { now, launchedTickers }) => {
+export const screenOrder = (
+  order: LimitOrder,
+  { now, launchedTickers }: { now: number; launchedTickers: string[] },
+): Screened => {
   if (order.type === 'SHORT' || order.type === 'COVER') {
     return { status: 'CANCELED', reason: 'SHORT/COVER limit orders not supported' };
   }
@@ -57,7 +60,7 @@ const screenOrder = (order, { now, launchedTickers }) => {
  * them — a ban left the queued lane open.
  * Returns { status, reason, log } to write, or null to keep going.
  */
-const screenUser = (userData) => {
+export const screenUser = (userData: UserData): Screened => {
   if (userData.isBanned) {
     return { status: 'CANCELED', reason: 'Account is banned', log: 'account banned' };
   }
@@ -71,16 +74,21 @@ const screenUser = (userData) => {
 };
 
 /** Circuit breaker: a ticker halt suspends fills until resumeAt. */
-const isTickerHalted = (haltedTickersMap, ticker) => isTickerPaused(haltedTickersMap, ticker);
+export const isTickerHalted = (
+  haltedTickersMap: Record<string, { resumeAt?: number } | undefined> | null | undefined,
+  ticker: string,
+) => isTickerPaused(haltedTickersMap, ticker);
 
 /**
  * Has the trigger price been crossed? This checks the MID price; execution
  * later re-checks the ask/bid the user actually gets, which is a stricter test.
  */
-const triggerMet = (order, price) => {
-  if (order.type === 'BUY') return price <= order.limitPrice;
-  if (order.type === 'SELL') return price >= order.limitPrice;
-  if (order.type === 'STOP_LOSS') return price <= order.limitPrice;
+export const triggerMet = (order: LimitOrder, price: number) => {
+  // An order with no limit price never triggers (comparing with undefined was false).
+  const limit = order.limitPrice ?? NaN;
+  if (order.type === 'BUY') return price <= limit;
+  if (order.type === 'SELL') return price >= limit;
+  if (order.type === 'STOP_LOSS') return price <= limit;
   return false;
 };
 
@@ -94,10 +102,10 @@ const triggerMet = (order, price) => {
  * overlapping runs) and execute a trade the user no longer wants.
  * Returns the shares still to fill.
  */
-const assertOrderStillActive = (freshOrderSnap, totalShares) => {
+export const assertOrderStillActive = (freshOrderSnap: DocumentSnapshot, totalShares: number) => {
   if (!freshOrderSnap.exists) throw new Error('Order no longer exists');
-  const freshOrder = freshOrderSnap.data();
-  if (!['PENDING', 'PARTIALLY_FILLED'].includes(freshOrder.status)) {
+  const freshOrder = freshOrderSnap.data() as LimitOrder;
+  if (!['PENDING', 'PARTIALLY_FILLED'].includes(freshOrder.status as string)) {
     throw new Error('Order no longer active');
   }
   const freshFilled = freshOrder.filledShares || 0;
@@ -107,7 +115,7 @@ const assertOrderStillActive = (freshOrderSnap, totalShares) => {
 };
 
 /** The same user states screenUser covers, re-checked against fresh data. */
-const assertUserEligible = (userData) => {
+export const assertUserEligible = (userData: UserData) => {
   if (userData.isBanned) throw new Error('Account is banned');
   if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt or in debt');
   if (userData.requiresDiscordLink && !userData.discordId) throw new Error('Discord verification required');
@@ -120,7 +128,7 @@ const assertUserEligible = (userData) => {
  * perfectly valid, it just cannot fill yet, so the wording here must stay out
  * of CANCEL_ON in limitOrderMatching.
  */
-const assertWashRule = (userData, ticker, action, now = Date.now()) => {
+export const assertWashRule = (userData: UserData, ticker: string, action: string, now = Date.now()) => {
   if (action !== 'buy') return;
   if (washRuleRemainingMs(userData, ticker, now) > 0) {
     throw new Error('Wash rule cooldown active on this ticker');
@@ -128,14 +136,14 @@ const assertWashRule = (userData, ticker, action, now = Date.now()) => {
 };
 
 /** The trigger, re-checked against the fresh price. */
-const assertLimitStillMet = (order, freshPrice) => {
+export const assertLimitStillMet = (order: LimitOrder, freshPrice: number) => {
   if (!triggerMet(order, freshPrice)) {
     throw new Error('Price no longer meets limit condition');
   }
 };
 
 /** 10 fills per action per ticker per 24h, same ceiling executeTrade enforces. */
-const assertTradeLimit = (tradeCount, action, ticker) => {
+export const assertTradeLimit = (tradeCount: number, action: string, ticker: string) => {
   if (tradeCount >= MAX_TRADES_PER_TICKER_24H) {
     throw new Error(`Trade limit reached: ${MAX_TRADES_PER_TICKER_24H} ${action}s on ${ticker} in 24h`);
   }
@@ -149,16 +157,28 @@ const assertTradeLimit = (tradeCount, action, ticker) => {
  * the order was placed (e.g. a margin buy on the same ticker) must not be
  * sellable through a fill or a partial clamp.
  */
-const resolveFillShares = ({ effectiveType, order, userData, freshPrice, fillShares }) => {
+export const resolveFillShares = ({
+  effectiveType,
+  order,
+  userData,
+  freshPrice,
+  fillShares,
+}: {
+  effectiveType: string;
+  order: LimitOrder;
+  userData: UserData;
+  freshPrice: number;
+  fillShares: number;
+}): number => {
   if (effectiveType === 'BUY') {
     const totalCost = freshPrice * fillShares;
-    if (userData.cash >= totalCost) return fillShares;
+    const cash = userData.cash as number;
+    if (cash >= totalCost) return fillShares;
     if (!order.allowPartialFills) throw new Error('Insufficient cash');
     // Whole-cent share counts, same grid every other buy path uses. This used
     // to floor to WHOLE shares, so $15 of cash against a $10 stock filled 1
     // share and left $5 of buying power on the table.
-    const affordableShares =
-      freshPrice > 0 ? Math.floor((userData.cash / freshPrice) * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP : 0;
+    const affordableShares = freshPrice > 0 ? Math.floor((cash / freshPrice) * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP : 0;
     if (affordableShares < MIN_TRADE_SHARES) throw new Error('Insufficient cash');
     console.log(`Partial fill: can only afford ${affordableShares} shares`);
     return affordableShares;
@@ -186,19 +206,9 @@ const resolveFillShares = ({ effectiveType, order, userData, freshPrice, fillSha
 };
 
 /** 24h cumulative volume and fill count for one action on one ticker. */
-const readActionHistory = (tickerTradeHistory, ticker, action, now) =>
-  pruneAndSumTradeHistory(tickerTradeHistory[ticker]?.[action] || [], now);
-
-module.exports = {
-  screenOrder,
-  screenUser,
-  isTickerHalted,
-  triggerMet,
-  assertOrderStillActive,
-  assertUserEligible,
-  assertWashRule,
-  assertLimitStillMet,
-  assertTradeLimit,
-  resolveFillShares,
-  readActionHistory,
-};
+export const readActionHistory = (
+  tickerTradeHistory: Record<string, ActionHistory | undefined>,
+  ticker: string,
+  action: string,
+  now: number,
+) => pruneAndSumTradeHistory(tickerTradeHistory[ticker]?.[action] || [], now);

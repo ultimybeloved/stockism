@@ -21,7 +21,9 @@ import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
 import { sumDirectionalImpact, impactDirectionOf } from '../shared/impact';
-import type { ActionHistory, ImpactEntry } from '../shared/impact';
+import type { ImpactEntry } from '../shared/impact';
+import type { HistoryMap } from '../trading/tradeState';
+import type { TrailingEntries } from '../trading/tradePricing';
 import type { https } from 'firebase-functions';
 
 type CallableContext = https.CallableContext;
@@ -30,7 +32,7 @@ type CallableContext = https.CallableContext;
 export interface OrderNetwork {
   key: string;
   ref: admin.firestore.DocumentReference;
-  tickerTradeHistory: Record<string, ActionHistory | undefined>;
+  tickerTradeHistory: HistoryMap;
   recentTraders: Record<string, number>;
 }
 import { assertIpAccountCap } from '../trading/tradeGuards';
@@ -122,7 +124,7 @@ export const writeNetworkFill = (
     ticker: string;
     action: string;
     entry: ImpactEntry;
-    trailingEntries?: unknown;
+    trailingEntries: TrailingEntries;
     uid: string;
     now: number;
   },

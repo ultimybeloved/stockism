@@ -1,18 +1,23 @@
-'use strict';
 // Price propagation for executeTrade: trailing effects between related
 // characters, stock → ETF reverse propagation, and the synthetic trade-history
 // entries that stop trailing moves from bypassing the daily impact cap.
 // Internal module — required by trading.js, not exported through index.js.
-const { CHARACTERS, CHARACTER_MAP } = require('../shared/characters');
-const { MIN_PRICE, TRAILING_MAX_DEPTH } = require('../shared/constants');
+import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
+import { MIN_PRICE, TRAILING_MAX_DEPTH } from '../shared/constants';
+import type { ImpactEntry } from '../shared/impact';
+
+type Prices = Record<string, number | undefined>;
+
+/** A synthetic history entry per ticker a trade moved by trailing alone. */
+export type TrailingEntries = Record<string, { action: 'buy' | 'sell'; entry: ImpactEntry }>;
 
 // Reverse lookup: stockTicker → [{ etfTicker, coefficient }]. Built once at
 // module load; the roster never changes at runtime.
-const REVERSE_ETF_MAP = {};
+const REVERSE_ETF_MAP: Record<string, { etfTicker: string; coefficient: number }[]> = {};
 CHARACTERS.filter((c) => c.isETF && c.trailingFactors).forEach((etf) => {
-  etf.trailingFactors.forEach(({ ticker: stockTicker, coefficient }) => {
+  etf.trailingFactors!.forEach(({ ticker: stockTicker, coefficient }) => {
     if (!REVERSE_ETF_MAP[stockTicker]) REVERSE_ETF_MAP[stockTicker] = [];
-    REVERSE_ETF_MAP[stockTicker].push({ etfTicker: etf.ticker, coefficient });
+    REVERSE_ETF_MAP[stockTicker]!.push({ etfTicker: etf.ticker, coefficient });
   });
 });
 
@@ -34,7 +39,19 @@ CHARACTERS.filter((c) => c.isETF && c.trailingFactors).forEach((etf) => {
  * ticker. That is what stops mutual links (GAP, JIN and SHNG all point at each
  * other) from looping forever.
  */
-function applyTrailingEffects({ ticker, currentPrice, newPrice, prices, priceUpdates }) {
+function applyTrailingEffects({
+  ticker,
+  currentPrice,
+  newPrice,
+  prices,
+  priceUpdates,
+}: {
+  ticker: string;
+  currentPrice: number;
+  newPrice: number;
+  prices: Prices;
+  priceUpdates: Record<string, number>;
+}) {
   // No price change or zero price = no trailing effects (prevents division by zero)
   if (!(currentPrice > 0) || currentPrice === newPrice) return;
 
@@ -45,7 +62,7 @@ function applyTrailingEffects({ ticker, currentPrice, newPrice, prices, priceUpd
     // Total the whole level's pushes before applying any of them, so two stocks
     // the same distance away both count instead of the first one winning and
     // shutting the other out.
-    const pushes = new Map();
+    const pushes = new Map<string, number>();
     for (const node of frontier) {
       const character = CHARACTER_MAP[node.ticker];
       if (!character?.trailingFactors) continue;
@@ -56,7 +73,7 @@ function applyTrailingEffects({ ticker, currentPrice, newPrice, prices, priceUpd
       }
     }
 
-    const nextFrontier = [];
+    const nextFrontier: typeof frontier = [];
     for (const [linked, change] of pushes) {
       settled.add(linked);
       const oldLinkedPrice = prices[linked];
@@ -82,8 +99,18 @@ function applyTrailingEffects({ ticker, currentPrice, newPrice, prices, priceUpd
  * Updated ETFs are NOT fed back into the trailing walk (prevents an
  * ETF → stock → ETF loop).
  */
-function applyEtfPropagation({ ticker, currentPrice, prices, priceUpdates }) {
-  const etfPushes = new Map();
+function applyEtfPropagation({
+  ticker,
+  currentPrice,
+  prices,
+  priceUpdates,
+}: {
+  ticker: string;
+  currentPrice: number;
+  prices: Prices;
+  priceUpdates: Record<string, number>;
+}) {
+  const etfPushes = new Map<string, number>();
 
   for (const [updatedTicker, updatedPrice] of Object.entries(priceUpdates)) {
     if (CHARACTER_MAP[updatedTicker]?.isETF) continue; // Skip ETFs themselves
@@ -112,8 +139,18 @@ function applyEtfPropagation({ ticker, currentPrice, prices, priceUpdates }) {
 
 // Returns { ticker: newPrice } for the traded ticker plus every related ticker
 // moved by trailing effects and ETF reverse propagation.
-function computePriceUpdates({ ticker, currentPrice, newPrice, prices }) {
-  const priceUpdates = { [ticker]: newPrice };
+export function computePriceUpdates({
+  ticker,
+  currentPrice,
+  newPrice,
+  prices,
+}: {
+  ticker: string;
+  currentPrice: number;
+  newPrice: number;
+  prices: Prices;
+}): Record<string, number> {
+  const priceUpdates: Record<string, number> = { [ticker]: newPrice };
   applyTrailingEffects({ ticker, currentPrice, newPrice, prices, priceUpdates });
   applyEtfPropagation({ ticker, currentPrice, prices, priceUpdates });
   return priceUpdates;
@@ -123,8 +160,20 @@ function computePriceUpdates({ ticker, currentPrice, newPrice, prices }) {
 // limit by trading one ticker and getting free impact on related tickers.
 // Returns synthetic entries (shares: 0, just impact) for affected tickers:
 // { ticker: { action, entry } }
-function buildTrailingEntries({ priceUpdates, ticker, prices, action, now }) {
-  const trailingEntries = {};
+export function buildTrailingEntries({
+  priceUpdates,
+  ticker,
+  prices,
+  action,
+  now,
+}: {
+  priceUpdates: Record<string, number>;
+  ticker: string;
+  prices: Prices;
+  action: string;
+  now: number;
+}): TrailingEntries {
+  const trailingEntries: TrailingEntries = {};
   Object.entries(priceUpdates).forEach(([updatedTicker, updatedPrice]) => {
     if (updatedTicker === ticker) return; // Already tracked via main entry
     const originalPrice = prices[updatedTicker];
@@ -140,5 +189,3 @@ function buildTrailingEntries({ priceUpdates, ticker, prices, action, now }) {
   });
   return trailingEntries;
 }
-
-module.exports = { computePriceUpdates, buildTrailingEntries };

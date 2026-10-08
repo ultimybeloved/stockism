@@ -3,18 +3,15 @@
 // the ticker-rollback recovery tooling it used to sit beside.
 
 import * as functions from 'firebase-functions';
-import { cf, requireAppCheck } from '../shared/fnConfig';
+import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-import { ADMIN_UID, DISCORD_EPOCH_MS, TWENTY_FOUR_HOURS_MS } from '../shared/constants';
+import { DISCORD_EPOCH_MS, TWENTY_FOUR_HOURS_MS } from '../shared/constants';
 import type { UserData } from '../shared/types';
 
 export const auditUserDrops = cf().https.onCall(async (data: { uid?: string; username?: string }, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+  requireAdmin(context);
 
   const { uid, username } = data;
   if (!uid && !username) {

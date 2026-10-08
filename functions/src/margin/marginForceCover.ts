@@ -1,4 +1,3 @@
-'use strict';
 // The forced short cover itself: one transaction that re-reads the position and
 // the market, re-checks the equity ratio, and buys the position back.
 //
@@ -12,27 +11,28 @@
 //
 // Covered by npm run test:trading section J.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const {
+import {
   BASE_IMPACT,
-  BASE_LIQUIDITY,
   MAX_PRICE_CHANGE_PERCENT,
   SHORT_MARGIN_CALL_THRESHOLD,
   SHORT_MARGIN_DAMPENING_FACTOR,
   SHORT_MARGIN_RATIO,
   LEGACY_SHORT_MARGIN_RATIO,
   ADMIN_PRICE_PROTECTION_MS,
-} = require('../shared/constants');
-const { appendPriceHistory, isPriceProtected, liquidityFor } = require('../shared/helpers');
+} from '../shared/constants';
+import { appendPriceHistory, isPriceProtected } from '../shared/marketData';
+import { liquidityFor } from '../shared/impact';
+import type { PricePoint, ShortPosition, UserData } from '../shared/types';
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
 // collateral; pre-v2 shorts were half. Only used when the stored `margin` field
 // is missing or zero — guessing low here understates equity and force-covers a
 // healthy position, so the guess must match the system that opened it.
-const depositedMargin = (position, costBasis) => {
-  if (position.margin > 0) return position.margin;
+export const depositedMargin = (position: ShortPosition, costBasis: number) => {
+  if (position.margin !== undefined && position.margin > 0) return position.margin;
   const ratio = (position.system || 'v2') === 'v2' ? SHORT_MARGIN_RATIO : LEGACY_SHORT_MARGIN_RATIO;
   return costBasis * position.shares * ratio;
 };
@@ -43,10 +43,18 @@ const depositedMargin = (position, costBasis) => {
  * Returns the number of shares actually covered, or false when the guards
  * decide the position is fine after all — a skipped position must not be
  * counted, charged against the per-ticker cap, or announced to the player.
- *
- * @returns {Promise<number|false>}
  */
-const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
+export const forceCoverShort = async ({
+  uid,
+  ticker,
+  marketRef,
+  priceHistory,
+}: {
+  uid: string;
+  ticker: string;
+  marketRef: admin.firestore.DocumentReference;
+  priceHistory: Record<string, PricePoint[] | undefined> | null | undefined;
+}): Promise<number | false> =>
   db.runTransaction(async (transaction) => {
     // Re-read latest data inside transaction
     const freshUserDoc = await transaction.get(db.collection('users').doc(uid));
@@ -54,13 +62,13 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
 
     if (!freshUserDoc.exists || !freshMarketDoc.exists) return false;
 
-    const freshUserData = freshUserDoc.data();
+    const freshUserData = freshUserDoc.data() as UserData;
     const freshShorts = freshUserData.shorts || {};
     const freshPosition = freshShorts[ticker];
 
     if (!freshPosition || freshPosition.shares <= 0) return false;
 
-    const freshPrices = freshMarketDoc.data().prices || {};
+    const freshPrices: Record<string, number> = freshMarketDoc.data()!.prices || {};
     const freshPrice = freshPrices[ticker];
     if (!freshPrice) return false;
 
@@ -91,7 +99,7 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
 
     // Calculate cover cost and margin return
     const coverPrice = newPrice;
-    let cashChange;
+    let cashChange: number;
     if ((freshPosition.system || 'v2') === 'v2') {
       // v2: margin back + profit/loss
       const shortProfit = (freshCostBasis - coverPrice) * freshPosition.shares;
@@ -105,7 +113,7 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
     // Update user: clear short, adjust cash
     const newCash = Math.round(((freshUserData.cash || 0) + cashChange) * 100) / 100;
     // Sanitize shorts to prevent undefined fields from crashing Firestore writes
-    const updatedShorts = {};
+    const updatedShorts: Record<string, ShortPosition> = {};
     for (const [t, pos] of Object.entries(freshShorts)) {
       if (t !== ticker && pos && pos.shares > 0) {
         updatedShorts[t] = {
@@ -118,7 +126,7 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
       }
     }
 
-    const userUpdates = {
+    const userUpdates: Record<string, unknown> = {
       shorts: updatedShorts,
       hasOpenShorts: Object.keys(updatedShorts).length > 0,
       cash: newCash,
@@ -168,5 +176,3 @@ const forceCoverShort = async ({ uid, ticker, marketRef, priceHistory }) =>
     // player covers part of the position themselves mid-scan.
     return freshPosition.shares;
   });
-
-module.exports = { forceCoverShort, depositedMargin };

@@ -1,4 +1,3 @@
-'use strict';
 // Season tier rules: who earned what. season.js does the reading and writing;
 // everything here is a pure function.
 //
@@ -44,8 +43,9 @@
 // of weeks both have an unknown denominator until the Finale lands, and that is
 // what stops anyone claiming a top tier in week one.
 
-const { round2 } = require('../shared/helpers');
-const {
+import { round2 } from '../shared/money';
+import type { MarginTally, SeasonBaseline, SeasonDoc, SeasonRules, UserData, WeekRecord } from '../shared/types';
+import {
   SEASON_TIER_ORDER,
   SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
@@ -59,10 +59,26 @@ const {
   WEEKLY_HALT_WEEKDAY,
   WEEKLY_HALT_START_MINUTE,
   TWENTY_FOUR_HOURS_MS,
-} = require('../shared/constants');
+  ONE_WEEK_MS,
+} from '../shared/constants';
+
+/** One player as the board ranks them (see boardEntry in seasonRecords). */
+export interface RankedPlayer {
+  uid: string;
+  excess: number;
+  returnPercent: number;
+  marketPercent: number;
+  activeWeeks?: number;
+  beatShare: number;
+  peakConcentration: number;
+  division?: string | null;
+  baselineValue?: number;
+  tier?: string | null;
+  topTierExcluded?: boolean;
+}
 
 /** The rules a season is scored by. Pinned onto the season doc when it starts. */
-const DEFAULT_SEASON_RULES = Object.freeze({
+export const DEFAULT_SEASON_RULES: Readonly<SeasonRules> = Object.freeze({
   bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
   platinumTopShare: SEASON_PLATINUM_TOP_SHARE,
   diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
@@ -73,19 +89,24 @@ const DEFAULT_SEASON_RULES = Object.freeze({
   divisions: SEASON_DIVISIONS,
 });
 
-const rulesFor = (season) => ({ ...DEFAULT_SEASON_RULES, ...(season?.rules || {}) });
+export const rulesFor = (season: SeasonDoc | null | undefined): SeasonRules => ({
+  ...DEFAULT_SEASON_RULES,
+  ...(season?.rules || {}),
+});
 
-const tierRank = (tierId) => (tierId ? SEASON_TIER_ORDER.indexOf(tierId) + 1 : 0);
+export const tierRank = (tierId: string | null | undefined) =>
+  tierId ? (SEASON_TIER_ORDER as readonly string[]).indexOf(tierId) + 1 : 0;
 
 /** The better of two tiers. A banked tier is never lowered by this. */
-const higherTier = (a, b) => (tierRank(b) > tierRank(a) ? b : a) || null;
+export const higherTier = (a: string | null | undefined, b: string | null | undefined): string | null =>
+  (tierRank(b) > tierRank(a) ? b : a) || null;
 
 /**
  * A player's season baseline: value, the granted-value counter and the market
  * index at one instant, which is what makes "return net of free money, against
  * the market" computable over any span later.
  */
-const buildSeasonBaseline = ({
+export const buildSeasonBaseline = ({
   seasonId,
   value,
   granted,
@@ -95,7 +116,17 @@ const buildSeasonBaseline = ({
   index,
   pinnedAt,
   ladder,
-}) => ({
+}: {
+  seasonId: string;
+  value?: number;
+  granted?: number;
+  grantedDays?: number;
+  ladderFlow?: number;
+  predictionFlow?: number;
+  index?: number;
+  pinnedAt: number;
+  ladder?: number;
+}): SeasonBaseline => ({
   seasonId,
   value: round2(value || 0),
   // Cash sitting in the ladder at pinning (withdrawable only). Not in `value`,
@@ -116,10 +147,12 @@ const buildSeasonBaseline = ({
 });
 
 /** The index reading a player's season is measured from. */
-const baselineIndexFor = (baseline, season) => (baseline?.index > 0 ? baseline.index : season?.indexAtStart || 0);
+export const baselineIndexFor = (baseline: SeasonBaseline | null | undefined, season: SeasonDoc | null | undefined) =>
+  baseline?.index !== undefined && baseline.index > 0 ? baseline.index : season?.indexAtStart || 0;
 
 /** Account size at pinning: value plus ladder cash. Sets the floor and division. */
-const seasonAccountSize = (baseline) => (baseline?.value || 0) + (baseline?.ladder || 0);
+export const seasonAccountSize = (baseline: SeasonBaseline | null | undefined) =>
+  (baseline?.value || 0) + (baseline?.ladder || 0);
 
 // ── Margin, averaged over the season ────────────────────────────────────────
 //
@@ -136,27 +169,27 @@ const seasonAccountSize = (baseline) => (baseline?.value || 0) + (baseline?.ladd
 // Thursday.
 
 /** The player's tally for this season, or an empty one from their pinning. */
-const marginTally = (userData, seasonId) => {
+const marginTally = (userData: UserData | null | undefined, seasonId: string): MarginTally => {
   const t = userData?.seasonMargin;
   if (t && t.seasonId === seasonId) return t;
   return { seasonId, dd: 0, amount: 0, at: userData?.seasonBaseline?.pinnedAt || 0 };
 };
 
 /** Dollar-days owed on margin from pinning up to `now`. */
-const marginDollarDays = (userData, seasonId, now = Date.now()) => {
+export const marginDollarDays = (userData: UserData | null | undefined, seasonId: string, now = Date.now()) => {
   const t = marginTally(userData, seasonId);
   const since = t.at > 0 ? Math.max(0, now - t.at) : 0;
   return (t.dd || 0) + (t.amount || 0) * (since / TWENTY_FOUR_HOURS_MS);
 };
 
 /** Dollar-days over a span, as the average owed across it. */
-const averageOwed = (dollarDays, fromMs, toMs, fallback = 0) => {
+const averageOwed = (dollarDays: number, fromMs: number, toMs: number, fallback = 0) => {
   const days = (toMs - fromMs) / TWENTY_FOUR_HOURS_MS;
   return days > 0 ? Math.max(0, dollarDays) / days : fallback;
 };
 
 /** What the player has owed on average since they were pinned. */
-const seasonAverageMargin = (userData, seasonId, now = Date.now()) =>
+export const seasonAverageMargin = (userData: UserData | null | undefined, seasonId: string, now = Date.now()) =>
   averageOwed(
     marginDollarDays(userData, seasonId, now),
     userData?.seasonBaseline?.pinnedAt || now,
@@ -168,7 +201,11 @@ const seasonAverageMargin = (userData, seasonId, now = Date.now()) =>
  * The update that records margin debt changing to `newAmount`: closes the
  * running span and opens a new one. {} for a player outside any season.
  */
-const seasonMarginUpdate = (userData, newAmount, now = Date.now()) => {
+export const seasonMarginUpdate = (
+  userData: UserData | null | undefined,
+  newAmount: number | null | undefined,
+  now = Date.now(),
+): { seasonMargin?: MarginTally } => {
   const seasonId = userData?.seasonBaseline?.seasonId;
   if (!seasonId) return {};
   return {
@@ -198,7 +235,12 @@ const seasonMarginUpdate = (userData, newAmount, now = Date.now()) => {
  * player's grantedDays counter minus the baseline's. Undefined means a baseline
  * or record from before the counter existed: counted in full, as it used to be.
  */
-const averageGranted = (granted, grantedDays, fromMs, toMs) => {
+export const averageGranted = (
+  granted: number | null | undefined,
+  grantedDays: number | null | undefined,
+  fromMs: number,
+  toMs: number,
+) => {
   if (grantedDays === undefined || grantedDays === null) return granted || 0;
   const days = (toMs - fromMs) / TWENTY_FOUR_HOURS_MS;
   if (!(days > 0)) return 0;
@@ -210,8 +252,8 @@ const averageGranted = (granted, grantedDays, fromMs, toMs) => {
 };
 
 /** Ladder + prediction flows since pinning. */
-const sideFlowsSince = (userData) => {
-  const b = userData?.seasonBaseline || {};
+export const sideFlowsSince = (userData: UserData | null | undefined) => {
+  const b: Partial<SeasonBaseline> = userData?.seasonBaseline || {};
   return (
     (userData?.ladderFlowValue || 0) -
     (b.ladderFlow || 0) +
@@ -223,19 +265,29 @@ const sideFlowsSince = (userData) => {
  * All money in since pinning as it counts toward capital: grants averaged over
  * the time held, side-game flows in full. `granted` is the whole counter (both).
  */
-const moneyIn = (granted, grantedDays, sideFlows, fromMs, toMs) => {
+export const moneyIn = (
+  granted: number | null | undefined,
+  grantedDays: number | null | undefined,
+  sideFlows: number | null | undefined,
+  fromMs: number,
+  toMs: number,
+) => {
   const side = sideFlows || 0;
   return averageGranted((granted || 0) - side, grantedDays, fromMs, toMs) + side;
 };
 
 /** The grantedDays counter since pinning, or undefined for an old baseline. */
-const grantedDaysSince = (userData) => {
+export const grantedDaysSince = (userData: UserData | null | undefined): number | undefined => {
   const pinned = userData?.seasonBaseline?.grantedDays;
-  return pinned === undefined ? undefined : (userData.grantedDays || 0) - pinned;
+  return pinned === undefined ? undefined : (userData!.grantedDays || 0) - pinned;
 };
 
 /** A fresh tally, for a player being pinned (or re-pinned) now. */
-const freshMarginTally = (seasonId, marginUsed, now) => ({
+export const freshMarginTally = (
+  seasonId: string,
+  marginUsed: number | null | undefined,
+  now: number,
+): MarginTally => ({
   seasonId,
   dd: 0,
   amount: round2(Math.max(0, marginUsed || 0)),
@@ -252,7 +304,10 @@ const freshMarginTally = (seasonId, marginUsed, now) => ({
  * $5k all season on a $10k account measures it against $15k, so margin makes no
  * percentage bigger, only the real profit.
  */
-const seasonCapital = (baseline, { granted, margin } = {}) => {
+export const seasonCapital = (
+  baseline: SeasonBaseline | null | undefined,
+  { granted, margin }: { granted?: number; margin?: number } = {},
+) => {
   const ladder = baseline?.ladder || 0;
   return (baseline?.value || 0) + ladder + Math.max(0, margin || 0) + Math.max(0, (granted || 0) - ladder);
 };
@@ -265,18 +320,38 @@ const seasonCapital = (baseline, { granted, margin } = {}) => {
  * `granted`, `grantedDays`, `sideFlows`, `margin` (average owed) and `at`
  * override the live counters when scoring from a stored week record.
  */
-const seasonScore = (userData, season, { value, indexNow, granted, grantedDays, sideFlows, margin, at } = {}) => {
+export const seasonScore = (
+  userData: UserData | null | undefined,
+  season: SeasonDoc | null | undefined,
+  {
+    value,
+    indexNow,
+    granted,
+    grantedDays,
+    sideFlows,
+    margin,
+    at,
+  }: {
+    value?: number;
+    indexNow?: number;
+    granted?: number;
+    grantedDays?: number;
+    sideFlows?: number;
+    margin?: number;
+    at?: number;
+  } = {},
+) => {
   const baseline = userData?.seasonBaseline;
   if (!baseline || baseline.seasonId !== season?.id) return null;
   if (!baseline.value || seasonAccountSize(baseline) < SEASON_MIN_BASELINE) return null;
 
   // Signed: a ladder deposit books a negative flow (see grantedFlowUpdate), and
   // clamping would turn money parked in the ladder into a fake trading loss.
-  const grantedSinceStart = granted !== undefined ? granted : (userData.grantedValue || 0) - (baseline.granted || 0);
+  const grantedSinceStart = granted !== undefined ? granted : (userData!.grantedValue || 0) - (baseline.granted || 0);
   const fromRecord = granted !== undefined;
   const grantedDaysSinceStart = fromRecord ? grantedDays : grantedDaysSince(userData);
   const sideSinceStart = fromRecord ? sideFlows || 0 : sideFlowsSince(userData);
-  const ladderNet = (userData.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
+  const ladderNet = (userData!.ladderFlowValue || 0) - (baseline.ladderFlow || 0);
   const capital = seasonCapital(baseline, {
     granted: moneyIn(
       grantedSinceStart,
@@ -285,13 +360,14 @@ const seasonScore = (userData, season, { value, indexNow, granted, grantedDays, 
       baseline.pinnedAt || 0,
       at || Date.now(),
     ),
-    margin: margin !== undefined ? margin : seasonAverageMargin(userData, season.id),
+    margin: margin !== undefined ? margin : seasonAverageMargin(userData, season!.id),
   });
-  const gainPercent = (g) => (((value || 0) - g - baseline.value) / capital) * 100;
+  const gainPercent = (g: number) => (((value || 0) - g - baseline.value) / capital) * 100;
 
   const returnPercent = gainPercent(grantedSinceStart);
   const startIndex = baselineIndexFor(baseline, season);
-  const marketPercent = startIndex > 0 && indexNow > 0 ? ((indexNow - startIndex) / startIndex) * 100 : 0;
+  const marketPercent =
+    startIndex > 0 && indexNow !== undefined && indexNow > 0 ? ((indexNow - startIndex) / startIndex) * 100 : 0;
 
   return {
     returnPercent,
@@ -303,21 +379,23 @@ const seasonScore = (userData, season, { value, indexNow, granted, grantedDays, 
 };
 
 /** The tier a weekly checkpoint can bank: Bronze, for turning up, or nothing. */
-const checkpointTier = ({ activeWeeks }, rules = DEFAULT_SEASON_RULES) =>
+export const checkpointTier = ({ activeWeeks }: { activeWeeks?: number }, rules: SeasonRules = DEFAULT_SEASON_RULES) =>
   (activeWeeks || 0) >= rules.bronzeActiveWeeks ? 'bronze' : null;
 
 /**
  * Silver or Gold from where the player stands on the whole season. Gold needs
  * Silver too: beating a falling market while down is not Gold.
  */
-const standingTier = ({ returnPercent, marketPercent }) => {
+export const standingTier = ({ returnPercent, marketPercent }: { returnPercent: number; marketPercent: number }) => {
   if (!(returnPercent > 0)) return null;
   return returnPercent > marketPercent ? 'gold' : 'silver';
 };
 
 /** Whether this board entry has earned Bronze, the first rung everything needs. */
-const hasBronze = (entry, rules = DEFAULT_SEASON_RULES) =>
-  tierRank(entry.tier) >= tierRank('bronze') || (entry.activeWeeks || 0) >= rules.bronzeActiveWeeks;
+export const hasBronze = (
+  entry: { tier?: string | null; activeWeeks?: number },
+  rules: SeasonRules = DEFAULT_SEASON_RULES,
+) => tierRank(entry.tier) >= tierRank('bronze') || (entry.activeWeeks || 0) >= rules.bronzeActiveWeeks;
 
 /**
  * The tier a player finishes on (or would, if the season ended now): the best
@@ -325,7 +403,11 @@ const hasBronze = (entry, rules = DEFAULT_SEASON_RULES) =>
  * Diamond place. Nothing at all without Bronze. `entry` is a boardEntry;
  * `ranked` is rankTopTiers' map (which only ranks players who have Gold).
  */
-const finalTier = (entry, ranked, rules = DEFAULT_SEASON_RULES) => {
+export const finalTier = (
+  entry: RankedPlayer,
+  ranked: Map<string, string> | null | undefined,
+  rules: SeasonRules = DEFAULT_SEASON_RULES,
+) => {
   if (!hasBronze(entry, rules)) return null;
   const standing = higherTier(higherTier(entry.tier, 'bronze'), standingTier(entry));
   return higherTier(standing, ranked?.get(entry.uid)) || null;
@@ -335,18 +417,21 @@ const finalTier = (entry, ranked, rules = DEFAULT_SEASON_RULES) => {
  * Average owed on margin between two week records, from their dollar-day
  * counters. Records from before the counter existed count as nothing owed.
  */
-const weekMargin = (r, prev) =>
-  r.d === undefined || !(prev?.t > 0) ? 0 : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t);
+export const weekMargin = (r: WeekRecord, prev: Partial<WeekRecord> | null | undefined) =>
+  r.d === undefined || !prev || prev.t === undefined || !(prev.t > 0)
+    ? 0
+    : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t);
 
 /** Money in between two week records: grants averaged over the week, flows in full. */
-const weekGranted = (r, prev) => {
+export const weekGranted = (r: WeekRecord, prev: Partial<WeekRecord>) => {
   const g = (r.g || 0) - (prev.g || 0);
-  if (r.a === undefined || prev.a === undefined || !(prev.t > 0)) return g;
+  if (r.a === undefined || prev.a === undefined || prev.t === undefined || !(prev.t > 0)) return g;
   return moneyIn(g, r.a - prev.a, (r.f || 0) - (prev.f || 0), prev.t, r.t);
 };
 
 /** Average owed from pinning up to a week record. */
-const recordMargin = (r, pinnedAt) => (r?.d === undefined ? undefined : averageOwed(r.d, pinnedAt, r.t));
+export const recordMargin = (r: WeekRecord | null | undefined, pinnedAt: number) =>
+  r?.d === undefined ? undefined : averageOwed(r.d, pinnedAt, r.t);
 
 /**
  * What Diamond is judged on, from the raw week record. Mirror of
@@ -356,12 +441,33 @@ const recordMargin = (r, pinnedAt) => (r?.d === undefined ? undefined : averageO
  * with no record for this player counts as not beaten, so someone who joins for
  * the last fortnight can't take Diamond off one lucky week.
  */
-const weeklyRecordSummary = (seasonWeeks, { seasonId, baselineValue, baselineIndex, pinnedAt }, checkpointsRun = 0) => {
-  const rows = (Array.isArray(seasonWeeks) ? seasonWeeks : [])
-    .filter((r) => r && r.s === seasonId && r.w > 0)
+export const weeklyRecordSummary = (
+  seasonWeeks: unknown,
+  {
+    seasonId,
+    baselineValue,
+    baselineIndex,
+    pinnedAt,
+  }: { seasonId: string; baselineValue: number; baselineIndex: number; pinnedAt: number },
+  checkpointsRun = 0,
+) => {
+  const rows = (Array.isArray(seasonWeeks) ? (seasonWeeks as (WeekRecord | null)[]) : [])
+    .filter((r): r is WeekRecord => !!r && r.s === seasonId && r.w > 0)
     .sort((a, b) => a.w - b.w);
 
-  let prev = { v: baselineValue, g: 0, a: 0, f: 0, x: baselineIndex, t: pinnedAt, d: 0 };
+  let prev: WeekRecord = {
+    s: seasonId,
+    w: 0,
+    c: 0,
+    h: 0,
+    v: baselineValue,
+    g: 0,
+    a: 0,
+    f: 0,
+    x: baselineIndex,
+    t: pinnedAt,
+    d: 0,
+  };
   let beatWeeks = 0;
   let peakConcentration = 0;
   for (const r of rows) {
@@ -389,14 +495,17 @@ const weeklyRecordSummary = (seasonWeeks, { seasonId, baselineValue, baselineInd
  * SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED). Mirror of the concentration in
  * deriveSeasonWeeks (src/utils/seasonWeeks.ts).
  */
-const weekConcentration = (r, minInvested = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED) => {
-  if (!(r?.h > 0)) return 0;
+export const weekConcentration = (
+  r: Pick<WeekRecord, 'h' | 'v' | 'c'> | null | undefined,
+  minInvested: number = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
+) => {
+  if (!r || !(r.h > 0)) return 0;
   if (r.v > 0 && r.h < r.v * minInvested) return 0;
   return r.c / r.h;
 };
 
 /** How many Platinum and Diamond places a board of `n` players has. */
-const topTierSlots = (n, rules = DEFAULT_SEASON_RULES) =>
+export const topTierSlots = (n: number, rules: SeasonRules = DEFAULT_SEASON_RULES) =>
   n > 0
     ? {
         platinum: Math.max(1, Math.round(n * rules.platinumTopShare)),
@@ -405,7 +514,7 @@ const topTierSlots = (n, rules = DEFAULT_SEASON_RULES) =>
     : { platinum: 0, diamond: 0 };
 
 /** The size division a baseline value falls in. Below every minimum = the first. */
-const divisionFor = (baselineValue, rules = DEFAULT_SEASON_RULES) => {
+export const divisionFor = (baselineValue: number | null | undefined, rules: SeasonRules = DEFAULT_SEASON_RULES) => {
   const divisions = rules.divisions || [];
   const v = baselineValue || 0;
   const hit = divisions.find((d) => v >= d.min && (d.max === null || d.max === undefined || v < d.max));
@@ -413,8 +522,8 @@ const divisionFor = (baselineValue, rules = DEFAULT_SEASON_RULES) => {
 };
 
 /** Players and Platinum/Diamond places per division, for the board and admin. */
-const divisionSlots = (field, rules = DEFAULT_SEASON_RULES) => {
-  const players = Array.isArray(field) ? field.filter(Boolean) : [];
+export const divisionSlots = (field: unknown, rules: SeasonRules = DEFAULT_SEASON_RULES) => {
+  const players: RankedPlayer[] = Array.isArray(field) ? field.filter(Boolean) : [];
   return (rules.divisions || []).map((d) => {
     const n = players.filter((p) => (p.division || divisionFor(p.baselineValue, rules)) === d.id).length;
     return { id: d.id, label: d.label, min: d.min, max: d.max ?? null, players: n, ...topTierSlots(n, rules) };
@@ -426,7 +535,8 @@ const divisionSlots = (field, rules = DEFAULT_SEASON_RULES) => {
  * season, for repeated coordinated trading. Stored on the user doc, which only
  * the player and the admin can read, so the board never reveals who.
  */
-const isTopTierExcluded = (userData, seasonId) => !!seasonId && userData?.seasonTopTierExclusion?.seasonId === seasonId;
+export const isTopTierExcluded = (userData: UserData | null | undefined, seasonId: string | null | undefined) =>
+  !!seasonId && userData?.seasonTopTierExclusion?.seasonId === seasonId;
 
 /**
  * Hand out Platinum and Diamond, ranked within each size division.
@@ -440,14 +550,14 @@ const isTopTierExcluded = (userData, seasonId) => !!seasonId && userData?.season
  * division's size, so nobody loses a place because of them, but can't take
  * one: the next player down moves up.
  */
-const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
-  const result = new Map();
-  const players = Array.isArray(field) ? field.filter(Boolean) : [];
-  const groups = new Map();
+export const rankTopTiers = (field: unknown, rules: SeasonRules = DEFAULT_SEASON_RULES) => {
+  const result = new Map<string, string>();
+  const players: RankedPlayer[] = Array.isArray(field) ? field.filter(Boolean) : [];
+  const groups = new Map<string | null, RankedPlayer[]>();
   for (const p of players) {
     const id = p.division || divisionFor(p.baselineValue, rules);
     if (!groups.has(id)) groups.set(id, []);
-    groups.get(id).push(p);
+    groups.get(id)!.push(p);
   }
 
   for (const group of groups.values()) {
@@ -479,7 +589,7 @@ const rankTopTiers = (field, rules = DEFAULT_SEASON_RULES) => {
  * "Preseason <Tier>", so a trial run can never pass for Season 1. A tier outside
  * the season's `titledTiers` gives none.
  */
-const seasonTitles = (season, tier) => {
+export const seasonTitles = (season: SeasonDoc, tier: string | null | undefined) => {
   if (!tier || !rulesFor(season).titledTiers.includes(tier)) return [];
   const label = tier.charAt(0).toUpperCase() + tier.slice(1);
   if (season.preseason) {
@@ -499,47 +609,11 @@ const seasonTitles = (season, tier) => {
  * week 1, so the next scheduled checkpoint lands in week 2 even when the season
  * is started after this week's checkpoint has already run.
  */
-const lastHaltStart = (now = Date.now()) => {
+export const lastHaltStart = (now = Date.now()) => {
   const d = new Date(now);
   const daysBack = (d.getUTCDay() - WEEKLY_HALT_WEEKDAY + 7) % 7;
   const start =
     Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - daysBack) + WEEKLY_HALT_START_MINUTE * 60 * 1000;
   // Thursday morning, before the halt: that's last week's halt.
-  return start > now ? start - 7 * 24 * 60 * 60 * 1000 : start;
-};
-
-module.exports = {
-  DEFAULT_SEASON_RULES,
-  rulesFor,
-  tierRank,
-  higherTier,
-  buildSeasonBaseline,
-  baselineIndexFor,
-  seasonAccountSize,
-  marginDollarDays,
-  seasonAverageMargin,
-  seasonMarginUpdate,
-  freshMarginTally,
-  averageGranted,
-  moneyIn,
-  sideFlowsSince,
-  grantedDaysSince,
-  weekGranted,
-  weekMargin,
-  recordMargin,
-  seasonCapital,
-  seasonScore,
-  checkpointTier,
-  standingTier,
-  hasBronze,
-  finalTier,
-  weekConcentration,
-  weeklyRecordSummary,
-  topTierSlots,
-  divisionFor,
-  divisionSlots,
-  rankTopTiers,
-  isTopTierExcluded,
-  seasonTitles,
-  lastHaltStart,
+  return start > now ? start - ONE_WEEK_MS : start;
 };

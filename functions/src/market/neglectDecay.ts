@@ -1,4 +1,3 @@
-'use strict';
 // Neglect decay: stocks no real player trades slowly drift down.
 //
 // Before this, a stock nobody touched simply sat at whatever price it was last
@@ -25,14 +24,16 @@
 // neglected character would drag live ones down every single day. The knock-on
 // consequence is that funds do not drift down when their members do; that is a
 // known gap, not an oversight.
-const { cf } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import { cf } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../shared/characters');
-const { SHORT_INTEREST_MAX_AGE_MS, isWeeklyTradingHalt } = require('../shared/constants');
-const { priceHistoryRef, tickerStatsRef, recordHeartbeat } = require('../shared/helpers');
-const { decayTarget } = require('./neglectDecayRules');
+import { CHARACTERS } from '../shared/characters';
+import { SHORT_INTEREST_MAX_AGE_MS, isWeeklyTradingHalt } from '../shared/constants';
+import { priceHistoryRef, tickerStatsRef } from '../shared/marketData';
+import { recordHeartbeat } from '../shared/activity';
+import type { PricePoint } from '../shared/types';
+import { decayTarget } from './neglectDecayRules';
 
 /**
  * Runs daily at 21:40 UTC.
@@ -41,7 +42,7 @@ const { decayTarget } = require('./neglectDecayRules');
  * the recorded daily close is the day's real trading rather than a number this
  * job just moved.
  */
-exports.applyNeglectDecay = cf()
+export const applyNeglectDecay = cf()
   .pubsub.schedule('40 21 * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -62,7 +63,7 @@ exports.applyNeglectDecay = cf()
         console.log('applyNeglectDecay: no market document');
         return null;
       }
-      const marketData = marketSnap.data();
+      const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
         console.log('applyNeglectDecay: skipping — manual halt active');
         return null;
@@ -90,12 +91,12 @@ exports.applyNeglectDecay = cf()
         return null;
       }
 
-      const prices = marketData.prices || {};
+      const prices: Record<string, number> = marketData.prices || {};
       const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
 
-      const updates = {};
-      const historyPoints = {};
-      const moved = [];
+      const updates: Record<string, number> = {};
+      const historyPoints: Record<string, PricePoint> = {};
+      const moved: string[] = [];
 
       for (const character of CHARACTERS) {
         const target = decayTarget({
@@ -124,7 +125,7 @@ exports.applyNeglectDecay = cf()
 
       const batch = db.batch();
       batch.update(marketRef, updates);
-      const histUpdates = {};
+      const histUpdates: Record<string, admin.firestore.FieldValue> = {};
       for (const [t, point] of Object.entries(historyPoints)) {
         histUpdates[t] = admin.firestore.FieldValue.arrayUnion(point);
       }

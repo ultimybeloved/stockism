@@ -10,20 +10,13 @@
 // The mark lives on the user doc, which only the player and the admin can read,
 // so the public board never shows who was excluded.
 import * as functions from 'firebase-functions';
-import { cf, requireAppCheck } from '../shared/fnConfig';
+import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
-import { ADMIN_UID } from '../shared/constants';
 import { toMs } from '../shared/activity';
-
-/** market/season, the fields these admin tools read. */
-interface SeasonDoc {
-  id: string;
-  status?: string;
-  startedAt?: number;
-}
+import type { SeasonDoc } from '../shared/types';
 
 /** One player as the flags report builds them. */
 interface FlaggedPlayer {
@@ -35,13 +28,6 @@ interface FlaggedPlayer {
 }
 
 const seasonRef = () => db.collection('market').doc('season');
-
-const requireAdmin = (context: functions.https.CallableContext) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
-};
 
 const activeSeason = async (): Promise<SeasonDoc> => {
   const snap = await seasonRef().get();

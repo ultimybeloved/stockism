@@ -1,4 +1,3 @@
-'use strict';
 // Persist what the admin actually changed during a chapter review. INTERNAL
 // MODULE — required by market.js, not exported through functions/src/index.js.
 //
@@ -13,11 +12,14 @@
 // So the result is computed once, while the data is still complete, and stored
 // at market/reviewChanges for the tab to read.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { priceHistoryRef, getReviewWindowChanges } = require('../shared/helpers');
-const { WEEKLY_HALT_START_MINUTE, PRE_MARKET_LOCK_MINUTE, REVIEW_COLLAPSE_MINUTE } = require('../shared/constants');
+import { priceHistoryRef, getReviewWindowChanges } from '../shared/marketData';
+import type { PricePoint } from '../shared/types';
+
+type History = Record<string, PricePoint[]>;
+import { WEEKLY_HALT_START_MINUTE, PRE_MARKET_LOCK_MINUTE, REVIEW_COLLAPSE_MINUTE } from '../shared/constants';
 
 const REVIEW_DOC = 'reviewChanges';
 
@@ -28,9 +30,9 @@ const REVIEW_DOC = 'reviewChanges';
  * has been trimmed yet. The admin backfill does, because by then the window may
  * have rolled out of the live doc entirely.
  */
-const loadHistory = async ({ includeArchive }) => {
+const loadHistory = async ({ includeArchive }: { includeArchive: boolean }): Promise<History> => {
   const snap = await priceHistoryRef().get();
-  const live = snap.exists ? snap.data() || {} : {};
+  const live: History = snap.exists ? snap.data() || {} : {};
   if (!includeArchive) return live;
 
   const archiveColRef = db.collection('market').doc('current').collection('price_history');
@@ -56,13 +58,13 @@ const loadHistory = async ({ includeArchive }) => {
  * 2026-08-20. So the stash is spliced back in here. The chart is untouched;
  * this copy only ever exists in memory for the length of the rebuild.
  */
-const withCollapsedDetail = async (history, haltEnd) => {
+const withCollapsedDetail = async (history: History, haltEnd: number): Promise<History> => {
   const snap = await db.collection('market').doc('reviewDetail').get();
   const stash = snap.exists ? snap.data() : null;
   if (!stash || stash.windowEnd !== haltEnd) return history;
 
   const restored = { ...history };
-  for (const [ticker, points] of Object.entries(stash.detail || {})) {
+  for (const [ticker, points] of Object.entries((stash.detail || {}) as History)) {
     if (!Array.isArray(points) || points.length === 0) continue;
     const withoutPlaceholder = (restored[ticker] || []).filter((p) => !p?.collapsed);
     restored[ticker] = [...withoutPlaceholder, ...points].sort((a, b) => a.timestamp - b.timestamp);
@@ -74,7 +76,17 @@ const withCollapsedDetail = async (history, haltEnd) => {
  * Compute the review changes for one halt window and store them.
  * Returns the stored payload.
  */
-const writeReviewChanges = async ({ haltStart, haltEnd, fallbackPrices = {}, includeArchive = false }) => {
+export const writeReviewChanges = async ({
+  haltStart,
+  haltEnd,
+  fallbackPrices = {},
+  includeArchive = false,
+}: {
+  haltStart: number;
+  haltEnd: number;
+  fallbackPrices?: Record<string, number | undefined>;
+  includeArchive?: boolean;
+}) => {
   const priceHistory = await withCollapsedDetail(await loadHistory({ includeArchive }), haltEnd);
   // The review stops at the pre-market lock. The opening auction settles at
   // 20:56, still inside the halt, and those are real fills at real demand — not
@@ -120,7 +132,7 @@ const writeReviewChanges = async ({ haltStart, haltEnd, fallbackPrices = {}, inc
  * appends to. Reading it, rebuilding arrays and writing back outside one would
  * silently drop any point a trade added in between.
  */
-const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
+export const collapseReviewWindow = async ({ haltStart, haltEnd }: { haltStart: number; haltEnd: number }) => {
   const reviewEnd = haltStart + (PRE_MARKET_LOCK_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
   const stamp = haltStart + (REVIEW_COLLAPSE_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
   const REVIEW_SOURCES = new Set(['admin_adjust', 'trailing']);
@@ -130,10 +142,10 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
 
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(priceHistoryRef());
-    const history = snap.exists ? snap.data() || {} : {};
+    const history: History = snap.exists ? snap.data() || {} : {};
 
-    const updates = {};
-    const detail = {};
+    const updates: History = {};
+    const detail: History = {};
     tidied = 0;
     folded = 0;
 
@@ -143,11 +155,15 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
 
       const reviewPts = sorted.filter(
         (p) =>
-          p && p.timestamp >= haltStart && p.timestamp <= reviewEnd && REVIEW_SOURCES.has(p.source) && !p.collapsed,
+          p &&
+          p.timestamp >= haltStart &&
+          p.timestamp <= reviewEnd &&
+          REVIEW_SOURCES.has(p.source as string) &&
+          !p.collapsed,
       );
       if (reviewPts.length < 2) continue; // already one move, nothing to tidy
 
-      const last = reviewPts[reviewPts.length - 1];
+      const last = reviewPts[reviewPts.length - 1]!;
       const kept = sorted.filter((p) => !reviewPts.includes(p));
 
       // Never let the collapsed point jump ahead of something real. Only points
@@ -161,11 +177,11 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
       // Tagged admin_adjust on purpose: isPriceProtected keys off that tag and
       // the review's result must stay protected from bots and the market maker.
       // `collapsed` tells the review-split readers the detail has moved.
-      const merged = { timestamp: at, price: last.price, source: 'admin_adjust', collapsed: true };
+      const merged: PricePoint = { timestamp: at, price: last.price, source: 'admin_adjust', collapsed: true };
       const next = [...kept, merged].sort((a, b) => a.timestamp - b.timestamp);
 
       // A collapse that moves the live price is a bug, not a tidy-up.
-      if (sorted[sorted.length - 1].price !== next[next.length - 1].price) {
+      if (sorted[sorted.length - 1]!.price !== next[next.length - 1]!.price) {
         throw new Error(`collapseReviewWindow: ${ticker} would change the last price`);
       }
 
@@ -189,5 +205,3 @@ const collapseReviewWindow = async ({ haltStart, haltEnd }) => {
   console.log(`collapseReviewWindow: ${tidied} stocks tidied, ${folded} intermediate points folded`);
   return { tidied, folded };
 };
-
-module.exports = { writeReviewChanges, collapseReviewWindow };
