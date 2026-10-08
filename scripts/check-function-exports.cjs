@@ -123,7 +123,7 @@ CONSTANTS_SCAN.forEach(([file, label]) => {
   // Several names constants.js re-exports actually originate elsewhere (CREWS
   // and the crew mission values come from crews.js), so a file importing one
   // from its real source is correct and must not be reported as missing.
-  const imported = [...raw.matchAll(/\{([^}]+)\}\s*=\s*require\(/g)].map((m) => m[1]).join(',');
+  const imported = [...raw.matchAll(/\{([^}]+)\}\s*(?:=\s*require\(|from\s)/g)].map((m) => m[1]).join(',');
   const missing = constantNames.filter(
     (name) =>
       !imported.includes(name) &&

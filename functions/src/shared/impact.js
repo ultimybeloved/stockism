@@ -59,14 +59,14 @@ const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, l
  * A stock's liquidity: how many shares it takes to move it. BASE_LIQUIDITY,
  * times the stock's splitFactor if it has been split (see characters.js), so
  * the same dollar trade moves a split stock by the same percent as before the
- * split. Mirror of liquidityFor in src/utils/calculations.js.
+ * split. Mirror of liquidityFor in src/utils/calculations.ts.
  */
 const liquidityFor = (ticker) => BASE_LIQUIDITY * splitFactorOf(ticker);
 
 /**
  * The largest single order on a stock: MAX_TRADE_SHARES, times its splitFactor,
  * so a split never changes how many orders it takes to trade a position.
- * Mirror of maxTradeSharesFor in src/utils/calculations.js.
+ * Mirror of maxTradeSharesFor in src/utils/calculations.ts.
  */
 const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * splitFactorOf(ticker);
 

@@ -1,11 +1,10 @@
-'use strict';
 // Cloud Function safety caps and scheduled-job monitoring.
 
 // Hard ceiling on how many copies of any one function can run at the same time.
 // Bounds how fast cost can pile up if a function is flooded (deliberate abuse or a
 // bug) without affecting normal play. Lower = safer on cost; too low could throttle
 // trades at a busy market open. Applied to every function via functions/src/shared/fnConfig.js.
-const MAX_FN_INSTANCES = 10;
+export const MAX_FN_INSTANCES = 10;
 
 // App Check enforcement on callable functions. When true, callables reject any
 // request that didn't come from our real app (no valid App Check token), which
@@ -18,7 +17,7 @@ const MAX_FN_INSTANCES = 10;
 // client requests (the metric that would mean locking out real players) and
 // 380 unverified requests of unknown or invalid origin, which is exactly what
 // this is meant to reject. Flip back to false to disable instantly.
-const APP_CHECK_ENFORCED = true;
+export const APP_CHECK_ENFORCED = true;
 
 // Scheduled jobs the watchdog expects to see a fresh heartbeat from, and how
 // stale each may get before it is treated as broken.
@@ -34,7 +33,7 @@ const APP_CHECK_ENFORCED = true;
 // Jobs added to the watch list after the watchdog was installed count from
 // this date, so a weekly job isn't reported missing before its first run.
 const ADDED_2026_09_28 = Date.UTC(2026, 8, 29);
-const WATCHED_SCHEDULED_JOBS = [
+export const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday/Monday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
   { job: 'payDividends', maxAgeHours: 8 * 24, label: 'Dividend payout' },
@@ -83,5 +82,3 @@ const WATCHED_SCHEDULED_JOBS = [
   { job: 'recordPriceExtremes', maxAgeHours: 12, label: 'All-time high/low sweep' },
   { job: 'applyNeglectDecay', maxAgeHours: 48, label: 'Neglect decay' },
 ];
-
-module.exports = { MAX_FN_INSTANCES, APP_CHECK_ENFORCED, WATCHED_SCHEDULED_JOBS };

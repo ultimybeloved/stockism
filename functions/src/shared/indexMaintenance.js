@@ -20,7 +20,7 @@
 // and only real price moves can move it afterwards. This is what a real index
 // does when a company joins or leaves it.
 //
-// Mirror of the value maths in src/utils/marketIndex.js — keep both in sync.
+// Mirror of the value maths in src/utils/marketIndex.ts — keep both in sync.
 
 const { CHARACTERS } = require('./characters');
 const { INDEX_BASE_VALUE } = require('./constants');

@@ -39,9 +39,12 @@ for (const method of ['get', 'post', 'patch', 'put', 'delete', 'request']) {
 
 // isWeeklyTradingHalt reads the wall clock, and the handler destructures it at
 // require time — so it has to be swapped before the require below, not after.
-const constants = require('../functions/src/shared/constants');
+// The constants module's exports are read-only, so the cached module is
+// replaced with a copy that carries the stub.
+const constantsPath = require.resolve('../functions/src/shared/constants');
+const constants = require(constantsPath);
 let weeklyHalt = false;
-constants.isWeeklyTradingHalt = () => weeklyHalt;
+require.cache[constantsPath].exports = { ...constants, isWeeklyTradingHalt: () => weeklyHalt };
 
 const { discordInteractions } = require('../functions/src/discord/discordInteractions');
 const { CHARACTERS } = require('../functions/src/shared/characters');

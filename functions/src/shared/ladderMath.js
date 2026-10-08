@@ -27,7 +27,7 @@ const getLadderDepositFactor = (userData) => {
 // anything at all. This repairs those docs once: everything a player has ever
 // lost came out of the chips first, so what is left of them is
 // (granted - totalLost), and it can never exceed the balance actually sitting
-// there. Mirror of getLadderChips in src/utils/ladderTax.js.
+// there. Mirror of getLadderChips in src/utils/ladderTax.ts.
 const getLadderChips = (ladderData) => {
   const granted = ladderData?.nonWithdrawable || 0;
   if (ladderData?.chipsMigrated) return granted;

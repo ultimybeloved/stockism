@@ -1,7 +1,6 @@
-'use strict';
 // Crew rosters (derived from crews.js) and crew mission values.
 
-const {
+import {
   CREWS,
   CREW_MISSION_REWARDS,
   CREW_CONTRIB,
@@ -12,7 +11,7 @@ const {
   CREW_SWITCH_PENALTY,
   CREW_SWITCH_EVENT,
   isFreeSwitchTarget,
-} = require('../crews');
+} from '../crews';
 
 // ============================================
 // CREW MEMBER MAPPINGS
@@ -20,17 +19,17 @@ const {
 // Derived from src/crews.ts via the synced functions/src/shared/crews.js — never list
 // rosters here by hand (a hand-copied list once drifted and broke missions
 // for newly added characters).
-const CREW_MEMBERS = {};
+export const CREW_MEMBERS: Record<string, string[]> = {};
 Object.values(CREWS).forEach((c) => {
   CREW_MEMBERS[c.id] = c.members;
 });
 
-const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
+export const ALL_CREW_TICKERS = new Set(Object.values(CREW_MEMBERS).flat());
 
-const ANIMAL_TICKERS = new Set(['RYAN', 'EDEN', 'MIRO', 'ENU']);
+export const ANIMAL_TICKERS = new Set(['RYAN', 'EDEN', 'MIRO', 'ENU']);
 
 // Buys below this price count for the Underdog Investor daily mission.
-const UNDERDOG_PRICE_THRESHOLD = 20;
+export const UNDERDOG_PRICE_THRESHOLD = 20;
 
 // Crew head ("top dog") — assigned automatically every Monday by
 // weeklyCrewRankings: the biggest PORTFOLIO among a crew's active members.
@@ -42,9 +41,9 @@ const UNDERDOG_PRICE_THRESHOLD = 20;
 // whales no economic advantage.
 // Dynasty weeks = the streak that earns DYNASTY, and the reign length that
 // makes dethroning someone count as USURPER.
-const CREW_HEAD_DYNASTY_WEEKS = 4;
+export const CREW_HEAD_DYNASTY_WEEKS = 4;
 
-module.exports = {
+export {
   CREWS,
   CREW_MISSION_REWARDS,
   CREW_CONTRIB,
@@ -55,9 +54,4 @@ module.exports = {
   CREW_SWITCH_PENALTY,
   CREW_SWITCH_EVENT,
   isFreeSwitchTarget,
-  CREW_MEMBERS,
-  ALL_CREW_TICKERS,
-  ANIMAL_TICKERS,
-  UNDERDOG_PRICE_THRESHOLD,
-  CREW_HEAD_DYNASTY_WEEKS,
 };

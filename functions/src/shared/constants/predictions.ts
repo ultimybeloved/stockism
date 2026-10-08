@@ -1,4 +1,3 @@
-'use strict';
 // Weekly predictions and the long-term event markets.
 
 // ============================================
@@ -9,7 +8,5 @@
 // (~$3,466 for a yes/no market at b=5000). Seeded generously on purpose: stable
 // prices and generous payouts build trust, and a deep book stops one big early
 // bet from yanking the line.
-const EVENT_AMM_LIQUIDITY = 5000;
-const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy (avoids dust)
-
-module.exports = { EVENT_AMM_LIQUIDITY, EVENT_MIN_BUYIN };
+export const EVENT_AMM_LIQUIDITY = 5000;
+export const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy (avoids dust)

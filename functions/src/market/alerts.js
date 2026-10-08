@@ -145,7 +145,7 @@ exports.priceThresholdAlert = cf()
  * Achievement Alert - Called when someone unlocks an achievement
  */
 // Server-side copy of the announceable achievements (subset of
-// src/constants/achievements.js). The embed text comes from here, never from
+// src/constants/achievements.ts). The embed text comes from here, never from
 // the client — otherwise any caller could post arbitrary text through the bot.
 const NOTEWORTHY_ACHIEVEMENTS = {
   SHARK: { name: 'Shark', description: 'Execute a single trade worth $1,000+' },

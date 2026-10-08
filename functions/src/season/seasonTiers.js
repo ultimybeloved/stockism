@@ -3,8 +3,8 @@
 // everything here is a pure function.
 //
 // INTERNAL MODULE — required by season.js and users.js, never listed in
-// servicePaths.js. Mirror of src/constants/seasons.js and
-// src/utils/seasonWeeks.js — keep them in sync.
+// servicePaths.js. Mirror of src/constants/seasons.ts and
+// src/utils/seasonWeeks.ts — keep them in sync.
 //
 // The rule, agreed 2026-09-13 after a calibration run over live accounts:
 //
@@ -350,7 +350,7 @@ const recordMargin = (r, pinnedAt) => (r?.d === undefined ? undefined : averageO
 
 /**
  * What Diamond is judged on, from the raw week record. Mirror of
- * deriveSeasonWeeks + summariseSeasonWeeks in src/utils/seasonWeeks.js.
+ * deriveSeasonWeeks + summariseSeasonWeeks in src/utils/seasonWeeks.ts.
  *
  * `checkpointsRun` is how many weekly checkpoints the season has had. A week
  * with no record for this player counts as not beaten, so someone who joins for
@@ -387,7 +387,7 @@ const weeklyRecordSummary = (seasonWeeks, { seasonId, baselineValue, baselineInd
  * A week's share of invested money in one character, or 0 when too little of
  * the player's money was invested for it to count (see
  * SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED). Mirror of the concentration in
- * deriveSeasonWeeks (src/utils/seasonWeeks.js).
+ * deriveSeasonWeeks (src/utils/seasonWeeks.ts).
  */
 const weekConcentration = (r, minInvested = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED) => {
   if (!(r?.h > 0)) return 0;

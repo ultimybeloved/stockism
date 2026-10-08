@@ -181,7 +181,7 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
           );
         }
         // The same three requirements MarginModal displays. Mirrors
-        // checkMarginEligibility in src/utils/calculations.js. If either side
+        // checkMarginEligibility in src/utils/calculations.ts. If either side
         // changes, change both or the app shows a checklist the server ignores.
         if ((userData.totalCheckins || 0) < MARGIN_MIN_CHECKINS) {
           throw new functions.https.HttpsError('failed-precondition', `Need ${MARGIN_MIN_CHECKINS} daily check-ins.`);

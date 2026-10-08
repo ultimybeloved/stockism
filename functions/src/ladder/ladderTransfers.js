@@ -29,7 +29,7 @@ const {
 // (e.g. 50.000000000001) charging a phantom extra cent.
 const roundUpToCent = (x) => Math.ceil((x - 1e-9) * 100) / 100;
 
-// Mirror of calculateLadderWithdrawTax in src/utils/ladderTax.js — keep both in sync.
+// Mirror of calculateLadderWithdrawTax in src/utils/ladderTax.ts — keep both in sync.
 // Principal (the user's own deposits coming back) pays a flat fee; profit pays
 // lifetime-progressive bracket rates over cumulative profit withdrawn; a rush
 // surcharge on the whole amount applies if any deposit landed within the window.

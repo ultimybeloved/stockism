@@ -142,7 +142,7 @@ exports.adminSetCrew = cf().https.onCall(async (data, context) => {
 /**
  * Award an achievement, mirroring removeAchievement in adminOps.js.
  *
- * The achievement catalogue lives in src/constants/achievements.js and is not
+ * The achievement catalogue lives in src/constants/achievements.ts and is not
  * duplicated backend-side, so the ID is validated by shape only — the admin
  * picks from the real list in the panel.
  */

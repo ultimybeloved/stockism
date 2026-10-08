@@ -243,7 +243,7 @@ const isPriceProtected = (priceHistory, ticker, windowMs, now = Date.now()) => {
 // `fallbackPrices` is the pre-halt snapshot, used as the opening price for a
 // stock with no surviving point from before the window.
 //
-// Keep in sync with computeReviewChange in src/utils/marketHours.js.
+// Keep in sync with computeReviewChange in src/utils/marketHours.ts.
 const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) => {
   const changes = {};
 

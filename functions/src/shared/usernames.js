@@ -350,7 +350,7 @@ function isBannedUsername(username) {
  * Throws an HttpsError with a user-facing message on the first failed rule.
  * Caller passes the already-trimmed name. Does NOT check uniqueness, bans, or
  * profanity — those stay at the call sites.
- * Mirror of validateUsername in src/utils/username.js — keep both in sync.
+ * Mirror of validateUsername in src/utils/username.ts — keep both in sync.
  * @param {string} name - Trimmed display name
  */
 function validateUsernameFormat(name) {

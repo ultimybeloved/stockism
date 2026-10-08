@@ -1,10 +1,9 @@
-'use strict';
 // The cosmetic shop catalog.
 
 // Cosmetic catalog — validates shop purchases (purchaseCosmetic) and admin
 // grants (adminGrantCosmetic). Keep ids/prices in sync with the frontend list
-// in src/constants/cosmetics.js.
-const COSMETIC_CATALOG = {
+// in src/constants/cosmetics.ts.
+export const COSMETIC_CATALOG = {
   name_gold: { type: 'nameColor', price: 5000 },
   name_crimson: { type: 'nameColor', price: 5000 },
   name_emerald: { type: 'nameColor', price: 5000 },
@@ -50,5 +49,3 @@ const COSMETIC_CATALOG = {
   glow_pulse_orange: { type: 'rowGlow', price: 50000 },
   glow_pulse_silver: { type: 'rowGlow', price: 50000 },
 };
-
-module.exports = { COSMETIC_CATALOG };

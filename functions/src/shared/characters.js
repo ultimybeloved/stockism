@@ -895,7 +895,7 @@ export const splitFactorOf = (ticker) => (ticker ? CHARACTER_MAP[ticker]?.splitF
 // This algorithm lives here (not in src/utils/) because the backend needs the
 // exact same tier math: npm run sync:chars copies this file to functions/, and
 // the dividend payout runs it on the frozen pre-halt price snapshot. The
-// frontend re-exports it from src/utils/rarity.js.
+// frontend re-exports it from src/utils/rarity.ts.
 //
 // A character's tier is its STANDING in the live market, not a fixed dollar
 // price. Rank every non-ETF character by current price, slice the ranking into

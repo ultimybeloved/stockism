@@ -70,7 +70,7 @@ const WEEKLY_MISSION_CHECKS = {
  * 2026-09-28 it counted all of it, so a small account completed both growth
  * missions on a week of check-ins and drops without trading at all. A week
  * recorded before startGrantedValue existed deducts nothing rather than guess.
- * Mirrored in src/utils/missionProgress.js.
+ * Mirrored in src/utils/missionProgress.ts.
  */
 function earnedGrowthPct(wp, userData) {
   const startValue = wp.startPortfolioValue || 0;
