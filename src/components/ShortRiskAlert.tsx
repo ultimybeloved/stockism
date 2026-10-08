@@ -5,7 +5,7 @@ import { formatCurrency } from '../utils/formatters';
 
 // Small banner on the main page that warns when one or more open shorts are near
 // auto force-cover. Returns null when nothing is at risk, so it can always be rendered.
-const ShortRiskAlert = ({ onOpenPortfolio }) => {
+const ShortRiskAlert = ({ onOpenPortfolio }: { onOpenPortfolio?: () => void }) => {
   const { shorts, prices } = useAppContext();
 
   const atRisk = useMemo(
@@ -15,7 +15,7 @@ const ShortRiskAlert = ({ onOpenPortfolio }) => {
           const risk = getShortRisk(pos, prices[ticker] || 0);
           return risk?.isAtRisk && risk.liquidationPrice ? { ticker, ...risk } : null;
         })
-        .filter(Boolean)
+        .filter((r): r is NonNullable<typeof r> => r !== null)
         .sort((a, b) => a.equityRatio - b.equityRatio),
     [shorts, prices],
   );

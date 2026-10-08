@@ -1,9 +1,19 @@
 import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
 import { formatShares } from './shared';
+import type { Character } from '../../characters';
+
+export interface IpoHoldingItem {
+  ticker: string;
+  character?: Character;
+  shares: number;
+  price: number;
+  total: number;
+  maxPerUser: number;
+}
 
 // IPO holdings section of the portfolio modal (renders nothing when empty).
-const IpoHoldingsList = ({ items, darkMode }) => {
+const IpoHoldingsList = ({ items, darkMode }: { items: IpoHoldingItem[]; darkMode: boolean }) => {
   if (!items || items.length === 0) return null;
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 

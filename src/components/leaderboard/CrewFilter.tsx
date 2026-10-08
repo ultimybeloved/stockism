@@ -2,7 +2,13 @@ import { CREWS } from '../../crews';
 
 // The crew pills above the leaderboard. Lifted out of LeaderboardPage so the
 // page stays inside its size limit; no behaviour changed.
-const CrewFilter = ({ crewFilter, setCrewFilter, chipClass }) => (
+interface CrewFilterProps {
+  crewFilter: string;
+  setCrewFilter: (crewId: string) => void;
+  chipClass: string;
+}
+
+const CrewFilter = ({ crewFilter, setCrewFilter, chipClass }: CrewFilterProps) => (
   <div className="grid grid-cols-5 gap-1.5">
     <button
       onClick={() => setCrewFilter('ALL')}

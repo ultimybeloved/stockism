@@ -1,8 +1,14 @@
 import { useTradeAsPlayer } from '../../../hooks/admin/useTradeAsPlayer';
 import { formatCurrency } from '../../../utils/formatters';
+import type { AdminCommonProps } from '../types';
+import type { AdminUser } from '../../../hooks/admin/adminShared';
 
 // Admin → Users → one player: place a real trade on their account.
-const UserTradeAs = ({ mutedClass, inputClass, selectedUser }) => {
+const UserTradeAs = ({
+  mutedClass,
+  inputClass,
+  selectedUser,
+}: Pick<AdminCommonProps, 'mutedClass' | 'inputClass'> & { selectedUser: AdminUser }) => {
   const { ticker, setTicker, action, setAction, amount, setAmount, busy, result, error, place } =
     useTradeAsPlayer(selectedUser);
 

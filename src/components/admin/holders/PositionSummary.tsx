@@ -1,14 +1,23 @@
+import type { ReactNode } from 'react';
+import type { AdminCommonProps } from '../types';
+import type { HolderRow, ShortHolderRow } from '../../../hooks/admin/useAdminHolders';
 // Long vs short totals for one ticker. Net shares is the number worth watching:
 // a large short interest against a small float is what a squeeze looks like
 // before it happens.
-const PositionSummary = ({ darkMode, textClass, mutedClass, holdersData, shortsData }) => {
+
+type PositionSummaryProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+  holdersData: HolderRow[];
+  shortsData: ShortHolderRow[];
+};
+
+const PositionSummary = ({ darkMode, textClass, mutedClass, holdersData, shortsData }: PositionSummaryProps) => {
   const longShares = holdersData.reduce((sum, h) => sum + h.shares, 0);
   const longValue = holdersData.reduce((sum, h) => sum + h.value, 0);
   const shortShares = shortsData.reduce((sum, s) => sum + s.shares, 0);
   const shortValue = shortsData.reduce((sum, s) => sum + s.value, 0);
   const netShares = longShares - shortShares;
 
-  const Cell = ({ label, value, tone }) => (
+  const Cell = ({ label, value, tone }: { label: string; value: ReactNode; tone?: string }) => (
     <div>
       <p className={`text-xs ${mutedClass}`}>{label}</p>
       <p className={`font-bold ${tone || textClass}`}>{value}</p>

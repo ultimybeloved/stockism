@@ -1,8 +1,11 @@
 {
   "extends": "./tsconfig.json",
-  // Tests index fixture arrays and maps freely, and an out-of-range read fails
-  // the assertion anyway, so the per-index undefined check is relaxed here only.
-  "compilerOptions": { "noUncheckedIndexedAccess": false },
+  "compilerOptions": {
+    // Tests index fixture arrays and maps freely, and an out-of-range read fails
+    // the assertion anyway, so the per-index undefined check is relaxed here only.
+    "noUncheckedIndexedAccess": false,
+    "types": ["vite/client", "node", "@testing-library/jest-dom/vitest"]
+  },
   "include": ["src"],
   "exclude": []
 }

@@ -3,8 +3,22 @@ import { formatCurrency } from '../../utils/formatters';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
+export interface BetConfirmation {
+  predictionId: string;
+  option: string;
+  amount: number;
+  question?: string;
+}
+
+interface BetConfirmModalProps {
+  confirmation: BetConfirmation;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
 // Confirmation step for weekly prediction bets.
-const BetConfirmModal = ({ confirmation, onConfirm, onCancel, loading }) => {
+const BetConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: BetConfirmModalProps) => {
   useEscapeKey(onCancel);
   const { darkMode } = useAppContext();
   const { borderClass, chipClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);

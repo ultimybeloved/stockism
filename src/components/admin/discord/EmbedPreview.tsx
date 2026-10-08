@@ -1,7 +1,9 @@
 // Rough preview of how the message will land in Discord. Deliberately not a
 // pixel-perfect clone — it exists so you can see the colour bar, the title and
 // the buttons before posting, not to replace looking at Discord.
-export default function EmbedPreview({ draft, darkMode }) {
+import type { MessageDraft } from '../../../hooks/admin/discordDraft';
+
+export default function EmbedPreview({ draft, darkMode }: { draft: MessageDraft; darkMode: boolean }) {
   const hasEmbed = draft.useEmbed && (draft.embed.title || draft.embed.description || draft.embed.imageUrl);
   const nothing = !draft.content && !hasEmbed && !draft.buttons.length;
 

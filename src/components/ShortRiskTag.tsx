@@ -1,9 +1,18 @@
 import { formatCurrency } from '../utils/formatters';
 import { getShortRisk } from '../utils/calculations';
+import type { ShortPosition } from '../types';
 
 // The "X short (P/L)" status shown on a stock card, plus a force-cover warning sign
 // when the short is getting close to auto-liquidation. Hover the sign for the price.
-const ShortRiskTag = ({ shortPosition, ticker, price, colorBlindMode }) => {
+
+interface ShortRiskTagProps {
+  shortPosition: ShortPosition | null | undefined;
+  ticker: string;
+  price: number;
+  colorBlindMode: boolean;
+}
+
+const ShortRiskTag = ({ shortPosition, ticker, price, colorBlindMode }: ShortRiskTagProps) => {
   if (!shortPosition || !(shortPosition.shares > 0)) return null;
   const entry = Number(shortPosition.costBasis || shortPosition.entryPrice) || 0;
   const shortPL = (entry - price) * shortPosition.shares;

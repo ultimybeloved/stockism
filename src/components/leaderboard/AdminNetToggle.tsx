@@ -4,7 +4,15 @@
 // The public board ranks on gross value, so a player holding $5M against $2M of
 // borrowed money outranks someone who owns $4M outright. This shows who is
 // actually ahead.
-const AdminNetToggle = ({ isAdmin, netMode, setNetMode, loading, darkMode }) => {
+interface AdminNetToggleProps {
+  isAdmin: boolean;
+  netMode: boolean;
+  setNetMode: (on: boolean) => void;
+  loading: boolean;
+  darkMode: boolean;
+}
+
+const AdminNetToggle = ({ isAdmin, netMode, setNetMode, loading, darkMode }: AdminNetToggleProps) => {
   if (!isAdmin) return null;
 
   return (

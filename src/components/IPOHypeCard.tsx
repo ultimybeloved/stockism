@@ -3,8 +3,9 @@ import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../constants';
 import { useAppContext } from '../context/AppContext';
+import type { IPO } from '../types';
 
-const IPOHypeCard = ({ ipo }) => {
+const IPOHypeCard = ({ ipo }: { ipo: IPO }) => {
   const { darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);

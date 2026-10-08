@@ -1,7 +1,14 @@
 // Every open short against one ticker. Risk numbers come from getShortRisk, the
 // same helper that mirrors the force-cover scanner, so a position flagged
 // critical here is one the server is about to liquidate.
-const ShortsList = ({ darkMode, textClass, mutedClass, shortsData }) => {
+import type { AdminCommonProps } from '../types';
+import type { ShortHolderRow } from '../../../hooks/admin/useAdminHolders';
+
+type ShortsListProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+  shortsData: ShortHolderRow[];
+};
+
+const ShortsList = ({ darkMode, textClass, mutedClass, shortsData }: ShortsListProps) => {
   if (shortsData.length === 0) return null;
 
   return (

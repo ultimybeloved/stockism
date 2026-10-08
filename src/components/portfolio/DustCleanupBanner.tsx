@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { formatCurrency } from '../../utils/formatters';
 
+interface DustCleanupBannerProps {
+  count: number;
+  total: number;
+  sweeping: boolean;
+  onConfirm: () => void;
+  darkMode: boolean;
+}
+
 // Small banner shown above the long-positions list when the user has tiny
 // (sub-$5) positions. Two-step confirm so it can't be hit by accident.
-const DustCleanupBanner = ({ count, total, sweeping, onConfirm, darkMode }) => {
+const DustCleanupBanner = ({ count, total, sweeping, onConfirm, darkMode }: DustCleanupBannerProps) => {
   const [confirming, setConfirming] = useState(false);
 
   const secondaryBtn = darkMode

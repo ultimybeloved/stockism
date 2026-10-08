@@ -1,9 +1,18 @@
 import { getThemeClasses } from '../../utils/theme';
 import { HOLDING_SORTS } from './shared';
 
+interface HoldingsControlsProps {
+  darkMode: boolean;
+  search: string;
+  setSearch: (search: string) => void;
+  sortKey: string;
+  sortDir: 'asc' | 'desc';
+  onSortChange: (key: string) => void;
+}
+
 // Search + sort controls for the long-positions list. Clicking the active sort
 // toggles its direction. Presentational — all state lives in the parent.
-const HoldingsControls = ({ darkMode, search, setSearch, sortKey, sortDir, onSortChange }) => {
+const HoldingsControls = ({ darkMode, search, setSearch, sortKey, sortDir, onSortChange }: HoldingsControlsProps) => {
   const { mutedClass } = getThemeClasses(darkMode);
 
   return (

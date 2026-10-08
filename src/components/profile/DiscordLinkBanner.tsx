@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 // redirect (reads ?discord_link= from the URL, then clears it). Renders nothing
 // otherwise.
 const DiscordLinkBanner = () => {
-  const [discordLinkStatus, setDiscordLinkStatus] = useState(null);
+  const [discordLinkStatus, setDiscordLinkStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

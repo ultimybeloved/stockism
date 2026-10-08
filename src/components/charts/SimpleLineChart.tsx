@@ -13,7 +13,21 @@
  * @param {number} props.height - Chart height (default 32)
  * @param {string} props.className - Additional class names
  */
-const SimpleLineChart = ({ data, colorBlindMode = false, width = 100, height = 32, className = '' }) => {
+interface SimpleLineChartProps {
+  data: { price: number }[];
+  colorBlindMode?: boolean;
+  width?: number;
+  height?: number;
+  className?: string;
+}
+
+const SimpleLineChart = ({
+  data,
+  colorBlindMode = false,
+  width = 100,
+  height = 32,
+  className = '',
+}: SimpleLineChartProps) => {
   if (!data || data.length < 2) return null;
 
   const prices = data.map((d) => d.price);

@@ -10,6 +10,7 @@ expect.extend(matchers);
 
 import ShortsList from './ShortsList';
 import PositionSummary from './PositionSummary';
+import type { HolderRow } from '../../../hooks/admin/useAdminHolders';
 
 const theme = { darkMode: false, textClass: 'text-slate-900', mutedClass: 'text-slate-500' };
 
@@ -73,9 +74,9 @@ describe('ShortsList', () => {
 });
 
 describe('PositionSummary', () => {
-  const holders = [
-    { userId: 'a', shares: 100, value: 9000 },
-    { userId: 'b', shares: 50, value: 4500 },
+  const holders: HolderRow[] = [
+    { userId: 'a', displayName: 'A', shares: 100, value: 9000, costBasis: null },
+    { userId: 'b', displayName: 'B', shares: 50, value: 4500, costBasis: null },
   ];
 
   it('totals the long side', () => {
