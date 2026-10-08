@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { PreflightTable, DryRunBreakdown, PhaseProgress } from './RecoveryRenameStatus';
+import { errorMessage } from '../../../utils/errors';
+import type { AdminCommonProps } from '../types';
+import type { ShowMessage } from '../../../hooks/admin/adminShared';
+import type { useAdminRecoveryTools } from '../../../hooks/admin/useAdminRecoveryTools';
+import type { RenameJournal, RenameTickerRequest, RenameTickerResponse } from '../../../api/types';
+import type { renameTickerFunction as RenameTickerFn } from '../../../firebase';
 
 // Admin front end for the ticker rename engine (functions/services/tickerRename.js).
 //
@@ -21,17 +27,29 @@ const RecoveryRenameTicker = ({
   setRenameResult,
   showMessage,
   renameTickerFunction,
-}) => {
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> &
+  Pick<
+    ReturnType<typeof useAdminRecoveryTools>,
+    | 'renameOldTicker'
+    | 'setRenameOldTicker'
+    | 'renameNewTicker'
+    | 'setRenameNewTicker'
+    | 'renameResult'
+    | 'setRenameResult'
+  > & {
+    showMessage: ShowMessage;
+    renameTickerFunction: typeof RenameTickerFn;
+  }) => {
   // Owned here, not a prop, so the buttons actually disable while a run is in
   // flight — a rename halts the whole market and must never fire twice.
   const [renaming, setRenaming] = useState(false);
-  const [journal, setJournal] = useState(null);
+  const [journal, setJournal] = useState<RenameJournal | null>(null);
 
   useEffect(
     () =>
       onSnapshot(
         doc(db, 'market', 'tickerRename'),
-        (snap) => setJournal(snap.exists() ? snap.data() : null),
+        (snap) => setJournal(snap.exists() ? (snap.data() as RenameJournal) : null),
         () => setJournal(null),
       ),
     [],
@@ -42,7 +60,7 @@ const RecoveryRenameTicker = ({
     darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
   }`;
 
-  const call = async (mode, onOk) => {
+  const call = async (mode: RenameTickerRequest['mode'], onOk?: (data: RenameTickerResponse) => void) => {
     setRenaming(true);
     try {
       const res = await renameTickerFunction({
@@ -53,7 +71,7 @@ const RecoveryRenameTicker = ({
       setRenameResult(res.data);
       onOk?.(res.data);
     } catch (err) {
-      showMessage('error', err.message);
+      showMessage('error', errorMessage(err));
     } finally {
       setRenaming(false);
     }
@@ -115,7 +133,7 @@ const RecoveryRenameTicker = ({
   // so a class built from a variable is purged and the button ships with no
   // background at all.
   const BTN = 'flex-1 px-4 py-2 text-white font-semibold rounded-sm disabled:opacity-50';
-  const btn = (color) =>
+  const btn = (color: 'blue' | 'red' | 'amber') =>
     `${BTN} ${
       {
         blue: 'bg-blue-600 hover:bg-blue-700',

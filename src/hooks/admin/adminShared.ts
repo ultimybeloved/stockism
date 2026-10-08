@@ -22,6 +22,7 @@ export interface AdminUser extends UserData {
 
 /** A user doc loaded through the user list, where these fields are filled with defaults. */
 export interface LoadedAdminUser extends AdminUser {
+  displayName: string;
   holdings: ShareMap;
   shorts: ShortMap;
   bets: Record<string, UserBet>;

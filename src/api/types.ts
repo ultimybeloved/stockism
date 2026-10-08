@@ -431,7 +431,17 @@ export interface PreflightCheck {
 }
 
 /** What renameTicker returns from a dry run, an execute, or a resume. */
+export interface RenameTickerRequest {
+  oldTicker: string;
+  newTicker: string;
+  mode: 'dryRun' | 'execute' | 'resume' | 'abort';
+}
+
 export interface RenameTickerResponse {
+  success?: boolean;
+  paused?: boolean;
+  nextPhase?: string;
+  alreadyComplete?: boolean;
   dryRun?: boolean;
   blocked?: boolean;
   oldTicker?: string;

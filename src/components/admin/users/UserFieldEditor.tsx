@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { CREWS } from '../../../crews';
-import { ACHIEVEMENTS } from '../../../constants/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import { CHARACTERS } from '../../../characters';
+import type { AdminCommonProps } from '../types';
+import type { LoadedAdminUser } from '../../../hooks/admin/adminShared';
+import type { useAdminUserEdit } from '../../../hooks/admin/useAdminUserEdit';
 
 // The odd one-off user fixes that used to mean opening the Firebase console:
 // crew, achievements, margin, and a single holding.
@@ -20,9 +23,10 @@ const UserFieldEditor = ({
   setEditShares,
   editCostBasis,
   setEditCostBasis,
-}) => {
+}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'loading'> &
+  ReturnType<typeof useAdminUserEdit> & { selectedUser: LoadedAdminUser }) => {
   const [achievementId, setAchievementId] = useState('');
-  const name = selectedUser.displayName || selectedUser.username;
+  const name = selectedUser.displayName || selectedUser.username || '';
   const owned = selectedUser.achievements || [];
   const marginUsed = selectedUser.marginUsed || 0;
 
@@ -81,7 +85,7 @@ const UserFieldEditor = ({
                   selectedUser.id,
                   name,
                   achievementId,
-                  ACHIEVEMENTS[achievementId]?.name || achievementId,
+                  ACHIEVEMENT_MAP[achievementId]?.name || achievementId,
                 )
               }
               disabled={loading || !achievementId}

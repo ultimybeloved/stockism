@@ -113,6 +113,12 @@ export interface LoggedTransaction {
   totalRevenue?: number;
   marginRequired?: number;
   cashBack?: number;
+  cashBefore?: number;
+  cashAfter?: number;
+  profitPercent?: number;
+  totalProfit?: number;
+  bonus?: number;
+  option?: string;
   priceImpact?: number;
   newPrice?: number;
   profit?: number;
@@ -121,7 +127,7 @@ export interface LoggedTransaction {
 /** users/{uid}.bets[predictionId]. */
 export interface UserBet {
   option?: string;
-  amount?: number;
+  amount: number;
   placedAt?: number;
   question?: string;
   paid?: boolean;
@@ -157,6 +163,9 @@ export interface UserData {
   isBot?: boolean;
   botPersonality?: string;
   botCrew?: string;
+  activeLoan?: { principal?: number; [key: string]: unknown } | null;
+  discordId?: string | null;
+  discordUsername?: string | null;
   lastSyncedAt?: TimestampLike;
   lastMarginInterestCharge?: number;
   ipoPurchases?: Record<Ticker, number>;

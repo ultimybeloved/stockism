@@ -1,5 +1,7 @@
 import EventMarketFields from './EventMarketFields';
 import { WEEKLY_PREDICTION_SEED_MAX } from '../../constants/economy';
+import type { AdminCommonProps } from './types';
+import type { useAdminPredictionCreate } from '../../hooks/admin/useAdminPredictionCreate';
 
 // Predictions tab, "Create New Prediction" section: weekly (cash) and long-term
 // (event shares) forms. Extracted from PredictionsTab to keep it under the
@@ -30,7 +32,7 @@ const PredictionCreateForm = ({
   setOpenDelayHours,
   openingOdds,
   setOpeningOdds,
-}) => {
+}: AdminCommonProps & Omit<ReturnType<typeof useAdminPredictionCreate>, 'getEndTime'>) => {
   return (
     <div
       className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}

@@ -265,7 +265,7 @@ export const repairSpikeVictimsFunction = callable<Api.SpikeRepairRequest, Api.S
   'repairSpikeVictims',
 );
 // Admin: rename ticker across all data
-export const renameTickerFunction = callable('renameTicker');
+export const renameTickerFunction = callable<Api.RenameTickerRequest, Api.RenameTickerResponse>('renameTicker');
 export const splitStockFunction = callable<Api.SplitStockRequest, Api.SplitStockResponse>('splitStock');
 export const setMarketHaltFunction = callable<{ halted: boolean; reason: string }>('setMarketHalt');
 // Admin: watchlist management

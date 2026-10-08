@@ -1,4 +1,10 @@
 import EmbedPreview from './EmbedPreview';
+import type { AdminCommonProps } from '../types';
+import type { DiscordChannel } from '../../../api/types';
+import type { MessageDraft } from '../../../hooks/admin/discordDraft';
+import type { useAdminDiscordMessages } from '../../../hooks/admin/useAdminDiscordMessages';
+
+type DiscordHook = ReturnType<typeof useAdminDiscordMessages>;
 
 const CONTENT_MAX = 2000;
 const EMBED_TITLE_MAX = 256;
@@ -24,6 +30,18 @@ export default function MessageComposer({
   onRemoveButton,
   onSend,
   onNew,
+}: Omit<AdminCommonProps, 'loading'> & {
+  draft: MessageDraft;
+  channels: DiscordChannel[];
+  channelNote: string;
+  busy: boolean;
+  onPatch: DiscordHook['patchDiscordDraft'];
+  onPatchEmbed: DiscordHook['patchDiscordEmbed'];
+  onAddButton: DiscordHook['addDiscordButton'];
+  onPatchButton: DiscordHook['patchDiscordButton'];
+  onRemoveButton: DiscordHook['removeDiscordButton'];
+  onSend: DiscordHook['sendDiscordDraft'];
+  onNew: DiscordHook['newDiscordDraft'];
 }) {
   const editing = !!draft.id;
   const field = `w-full px-3 py-2 text-sm rounded-sm border ${inputClass}`;

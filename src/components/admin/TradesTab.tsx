@@ -1,3 +1,6 @@
+import type { AdminCommonProps } from './types';
+import type { useAdminTrades } from '../../hooks/admin/useAdminTrades';
+
 const TradesTab = ({
   darkMode,
   textClass,
@@ -13,7 +16,7 @@ const TradesTab = ({
   tradesLoading,
   recentTrades,
   loadRecentTrades,
-}) => {
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & ReturnType<typeof useAdminTrades>) => {
   return (
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>

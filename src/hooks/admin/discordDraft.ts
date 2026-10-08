@@ -16,7 +16,7 @@ export interface DraftEmbed {
 export interface DraftButton {
   label?: string;
   url?: string;
-  [key: string]: unknown;
+  emoji?: string;
 }
 
 export interface MessageDraft {

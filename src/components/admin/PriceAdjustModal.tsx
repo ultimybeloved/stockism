@@ -1,4 +1,24 @@
 import { CHARACTERS } from '../../characters';
+import type { AdminCommonProps } from './types';
+import type { useAdminMarketTools } from '../../hooks/admin/useAdminMarketTools';
+import type { PriceMap } from '../../types';
+
+type PriceAdjustModalProps = Omit<AdminCommonProps, 'inputClass'> &
+  Pick<
+    ReturnType<typeof useAdminMarketTools>,
+    | 'setShowPriceModal'
+    | 'priceModalSearch'
+    | 'setPriceModalSearch'
+    | 'selectedPriceCharacter'
+    | 'setSelectedPriceCharacter'
+    | 'priceAdjustPercent'
+    | 'setPriceAdjustPercent'
+    | 'handleModalPriceAdjustment'
+  > & {
+    cardClass: string;
+    prices: PriceMap;
+    reviewSoFar?: ReturnType<typeof useAdminMarketTools>['reviewSoFar'];
+  };
 
 // Admin price adjustment modal: pick a character, nudge its price by a percent.
 // All state and the write handler live in useAdminMarketTools; this is render-only.
@@ -24,9 +44,9 @@ const PriceAdjustModal = ({
   setPriceAdjustPercent,
   handleModalPriceAdjustment,
   reviewSoFar = {},
-}) => {
-  const signed = (pct) => `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
-  const notable = (pct) => typeof pct === 'number' && Math.abs(pct) >= 0.01;
+}: PriceAdjustModalProps) => {
+  const signed = (pct: number) => `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
+  const notable = (pct: unknown): pct is number => typeof pct === 'number' && Math.abs(pct) >= 0.01;
 
   return (
     <div
@@ -195,7 +215,7 @@ const PriceAdjustModal = ({
                           return (
                             <div className={`text-sm ${mutedClass}`}>
                               Preview: ${currentPrice.toFixed(2)} → ${preview.toFixed(2)}
-                              {openPrice > 0 && (
+                              {openPrice !== undefined && openPrice > 0 && (
                                 <div className="text-xs mt-0.5">
                                   Review total would be {signed(((preview - openPrice) / openPrice) * 100)}
                                   {' from $'}

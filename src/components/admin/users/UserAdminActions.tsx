@@ -1,6 +1,10 @@
 import UserCosmeticsPanel from '../UserCosmeticsPanel';
 import DiscordLinkTransfer from './DiscordLinkTransfer';
 import UserFieldEditor from './UserFieldEditor';
+import type { AdminCommonProps } from '../types';
+import type { LoadedAdminUser } from '../../../hooks/admin/adminShared';
+import type { useAdminUserOps } from '../../../hooks/admin/useAdminUserOps';
+import type { useAdminCosmetics } from '../../../hooks/admin/useAdminCosmetics';
 
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
 const UserAdminActions = ({
@@ -36,7 +40,9 @@ const UserAdminActions = ({
   setEditShares,
   editCostBasis,
   setEditCostBasis,
-}) => (
+}: AdminCommonProps &
+  ReturnType<typeof useAdminUserOps> &
+  ReturnType<typeof useAdminCosmetics> & { selectedUser: LoadedAdminUser }) => (
   <>
     {/* Crew, achievements, margin, holdings — the direct Firestore edits */}
     <UserFieldEditor
@@ -114,7 +120,7 @@ const UserAdminActions = ({
               onClick={() =>
                 handleToggleDiscordWall(
                   selectedUser.id,
-                  selectedUser.displayName || selectedUser.username,
+                  selectedUser.displayName || selectedUser.username || '',
                   !!selectedUser.requiresDiscordLink,
                 )
               }
@@ -141,7 +147,7 @@ const UserAdminActions = ({
                 onClick={() =>
                   handleUnlinkDiscord(
                     selectedUser.id,
-                    selectedUser.displayName || selectedUser.username,
+                    selectedUser.displayName || selectedUser.username || '',
                     selectedUser.discordUsername,
                   )
                 }
@@ -211,7 +217,7 @@ const UserAdminActions = ({
                 {tx.type === 'BUY' &&
                   `${tx.shares} ${tx.ticker} @ $${tx.pricePerShare?.toFixed(2)} = $${tx.totalCost?.toFixed(2)}`}
                 {tx.type === 'SELL' &&
-                  `${tx.shares} ${tx.ticker} @ $${tx.pricePerShare?.toFixed(2)} = $${tx.totalRevenue?.toFixed(2)} (${tx.profitPercent >= 0 ? '+' : ''}${tx.profitPercent}%)`}
+                  `${tx.shares} ${tx.ticker} @ $${tx.pricePerShare?.toFixed(2)} = $${tx.totalRevenue?.toFixed(2)} (${tx.profitPercent !== undefined && tx.profitPercent >= 0 ? '+' : ''}${tx.profitPercent}%)`}
                 {tx.type === 'SHORT_OPEN' &&
                   `${tx.shares} ${tx.ticker} @ $${tx.entryPrice?.toFixed(2)}, margin $${tx.marginRequired?.toFixed(2)}`}
                 {tx.type === 'SHORT_CLOSE' && `${tx.shares} ${tx.ticker}, P&L: $${tx.totalProfit?.toFixed(2)}`}

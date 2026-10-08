@@ -1,5 +1,9 @@
 import { sharesOf } from '../../../utils/holdings';
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
+import type { AdminCommonProps } from '../types';
+import type { LoadedAdminUser } from '../../../hooks/admin/adminShared';
+import type { PriceMap, UserData } from '../../../types';
+
 const UserFinancials = ({
   darkMode,
   textClass,
@@ -9,6 +13,11 @@ const UserFinancials = ({
   selectedUser,
   calculateLivePortfolioValue,
   handleSyncSingleUser,
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass' | 'loading'> & {
+  prices: PriceMap;
+  selectedUser: LoadedAdminUser;
+  calculateLivePortfolioValue: (userData: UserData) => number | null;
+  handleSyncSingleUser: (userId: string) => void;
 }) => (
   <>
     {/* Sync Status */}
@@ -66,7 +75,7 @@ const UserFinancials = ({
               Last synced:{' '}
               {lastSynced instanceof Date
                 ? lastSynced.toLocaleString()
-                : new Date(lastSynced.seconds * 1000).toLocaleString()}
+                : new Date((lastSynced as { seconds: number }).seconds * 1000).toLocaleString()}
             </div>
           )}
         </div>
@@ -107,8 +116,8 @@ const UserFinancials = ({
       });
 
       Object.values(selectedUser.bets || {}).forEach((bet) => {
-        if (bet.paid && bet.payout > 0) {
-          betProfit += bet.payout - bet.amount;
+        if (bet.paid && (bet.payout ?? 0) > 0) {
+          betProfit += bet.payout! - bet.amount;
           wonBets++;
         } else if (bet.paid) {
           betProfit -= bet.amount;
@@ -122,7 +131,7 @@ const UserFinancials = ({
 
       const totalCostBasis = Object.entries(selectedUser.costBasis || {}).reduce((sum, [ticker, cost]) => {
         const h = selectedUser.holdings || {};
-        const shareCount = typeof h[ticker] === 'number' ? h[ticker] : h[ticker]?.shares || 0;
+        const shareCount = sharesOf(h[ticker]);
         if (shareCount > 0 && typeof cost === 'number' && !isNaN(cost)) return sum + cost;
         return sum;
       }, 0);
