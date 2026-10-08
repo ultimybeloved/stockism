@@ -1,18 +1,13 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ADMIN_UID, THIRTY_DAYS_MS } = require('../shared/constants');
-const { normalizeEmail, clusterBy } = require('../users/signupCluster');
+import { THIRTY_DAYS_MS } from '../shared/constants';
+import { normalizeEmail, clusterBy } from '../users/signupCluster';
 
-exports.addWatchedUser = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const addWatchedUser = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
 
   const { userId, reason, maxAccountsPerIP } = data;
 
@@ -24,13 +19,13 @@ exports.addWatchedUser = cf().https.onCall(async (data, context) => {
 
   // Fetch user info
   const userDoc = await db.collection('users').doc(userId).get();
-  const displayName = userDoc.exists ? userDoc.data().displayName : 'Unknown';
+  const displayName = userDoc.exists ? userDoc.data()!.displayName : 'Unknown';
 
   // Collect known IPs from ipTracking
-  const knownIPs = {};
+  const knownIPs: Record<string, unknown> = {};
   const ipTrackingSnap = await db.collection('ipTracking').get();
   for (const ipDoc of ipTrackingSnap.docs) {
-    const accounts = ipDoc.data().accounts || {};
+    const accounts = ipDoc.data()!.accounts || {};
     if (accounts[userId]) {
       const rawIp = ipDoc.id;
       knownIPs[rawIp] = {
@@ -58,7 +53,7 @@ exports.addWatchedUser = cf().https.onCall(async (data, context) => {
       linkedAccounts: [],
       knownIPs,
       addedAt: admin.firestore.FieldValue.serverTimestamp(),
-      addedBy: context.auth.uid,
+      addedBy: context.auth!.uid,
       isActive: true,
     });
 
@@ -78,11 +73,8 @@ exports.addWatchedUser = cf().https.onCall(async (data, context) => {
 /**
  * Remove (deactivate) a user from the watchlist
  */
-exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const removeWatchedUser = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
 
   const { userId } = data;
   if (!userId) throw new functions.https.HttpsError('invalid-argument', 'User ID required.');
@@ -95,10 +87,10 @@ exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
   await db.collection('watchedUsers').doc(userId).update({ isActive: false });
 
   // Remove reverse IP lookups
-  const knownIPs = watchedDoc.data().knownIPs || {};
+  const knownIPs = watchedDoc.data()!.knownIPs || {};
   for (const ipId of Object.keys(knownIPs)) {
     const watchedIpDoc = await db.collection('watchedIPs').doc(ipId).get();
-    if (watchedIpDoc.exists && watchedIpDoc.data().watchedUserId === userId) {
+    if (watchedIpDoc.exists && watchedIpDoc.data()!.watchedUserId === userId) {
       await db.collection('watchedIPs').doc(ipId).delete();
     }
   }
@@ -109,7 +101,7 @@ exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
     relatedUID: null,
     ip: null,
     action: 'flagged',
-    details: `Removed "${watchedDoc.data().displayName}" from watchlist`,
+    details: `Removed "${watchedDoc.data()!.displayName}" from watchlist`,
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
@@ -119,11 +111,8 @@ exports.removeWatchedUser = cf().https.onCall(async (data, context) => {
 /**
  * Manually link an alt account to a watched user
  */
-exports.linkAltAccount = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const linkAltAccount = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
 
   const { watchedUserId, altAccountId } = data;
   if (!watchedUserId || !altAccountId) {
@@ -136,10 +125,10 @@ exports.linkAltAccount = cf().https.onCall(async (data, context) => {
   }
 
   const altDoc = await db.collection('users').doc(altAccountId).get();
-  const altName = altDoc.exists ? altDoc.data().displayName : 'Unknown';
+  const altName = altDoc.exists ? altDoc.data()!.displayName : 'Unknown';
 
   // Check if already linked
-  const alreadyLinked = (watchedDoc.data().linkedAccounts || []).some((a) => a.uid === altAccountId);
+  const alreadyLinked = (watchedDoc.data()!.linkedAccounts || []).some((a: { uid: string }) => a.uid === altAccountId);
   if (alreadyLinked) {
     throw new functions.https.HttpsError('already-exists', 'This account is already linked.');
   }
@@ -165,7 +154,7 @@ exports.linkAltAccount = cf().https.onCall(async (data, context) => {
     relatedUID: altAccountId,
     ip: null,
     action: 'linked',
-    details: `Manually linked "${altName}" as alt of "${watchedDoc.data().displayName}"`,
+    details: `Manually linked "${altName}" as alt of "${watchedDoc.data()!.displayName}"`,
     timestamp: admin.firestore.FieldValue.serverTimestamp(),
   });
 
@@ -175,11 +164,8 @@ exports.linkAltAccount = cf().https.onCall(async (data, context) => {
 /**
  * Add an IP address to a watched user
  */
-exports.addWatchedIP = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const addWatchedIP = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
 
   const { userId, ip } = data;
   if (!userId || !ip) {
@@ -192,7 +178,7 @@ exports.addWatchedIP = cf().https.onCall(async (data, context) => {
   }
 
   const sanitizedIp = ip.replace(/[.:/]/g, '_');
-  const watchedData = watchedDoc.data();
+  const watchedData = watchedDoc.data()!;
 
   // Add to watched user's knownIPs
   await db
@@ -232,17 +218,14 @@ exports.addWatchedIP = cf().https.onCall(async (data, context) => {
 /**
  * Get all active watched users (admin panel)
  */
-exports.getWatchlist = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const getWatchlist = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
 
   const watchedSnap = await db.collection('watchedUsers').where('isActive', '==', true).get();
   const watchedUsers = [];
 
   for (const doc of watchedSnap.docs) {
-    const d = doc.data();
+    const d = doc.data()!;
     watchedUsers.push({
       id: doc.id,
       displayName: d.displayName,
@@ -261,7 +244,7 @@ exports.getWatchlist = cf().https.onCall(async (data, context) => {
   const alerts = alertsSnap.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-    timestamp: doc.data().timestamp?.toMillis?.() || doc.data().timestamp,
+    timestamp: doc.data()!.timestamp?.toMillis?.() || doc.data()!.timestamp,
   }));
 
   return { watchedUsers, alerts };
@@ -277,11 +260,8 @@ exports.getWatchlist = cf().https.onCall(async (data, context) => {
  * rotated exit IPs and disposable domains repeat across a burst, and gmail
  * dot/plus aliases collapse to one underlying account. Writes nothing.
  */
-exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const getRecentSignupReport = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
 
   const hoursBack = Math.min(168, Math.max(1, Number(data && data.hoursBack) || 48));
   const cutoff = Date.now() - hoursBack * 60 * 60 * 1000;
@@ -292,7 +272,7 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
 
   const recent = [];
   for (const doc of snap.docs) {
-    const d = doc.data();
+    const d = doc.data()!;
     const createdMs = d.createdAt && d.createdAt.toMillis ? d.createdAt.toMillis() : null;
     if (createdMs === null) continue;
     if (createdMs < cutoff) break; // ordered desc — the rest are older
@@ -308,7 +288,7 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
       const res = await admin.auth().getUsers(chunk);
       for (const u of res.users) authByUid.set(u.uid, u);
     } catch (err) {
-      console.error('getRecentSignupReport getUsers chunk failed:', err.message);
+      console.error('getRecentSignupReport getUsers chunk failed:', (err as Error).message);
     }
   }
 
@@ -356,20 +336,17 @@ exports.getRecentSignupReport = cf().https.onCall(async (data, context) => {
  *   - Discord-wall status: flagged accounts vs. how many have linked
  * Writes nothing.
  */
-exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const getIpTrackingHealth = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
 
   // 1. ipTracking distribution
   const ipSnap = await db.collection('ipTracking').get();
-  const histogram = { 1: 0, 2: 0, 3: 0, '4+': 0 };
+  const histogram: Record<string, number> = { 1: 0, 2: 0, 3: 0, '4+': 0 };
   const multiAccountIPs = [];
   let totalLiveAccounts = 0;
   let totalTombstones = 0;
   for (const doc of ipSnap.docs) {
-    const d = doc.data();
+    const d = doc.data()!;
     const live = Object.keys(d.accounts || {}).length;
     const dead = Object.keys(d.deletedAccounts || {}).length;
     totalLiveAccounts += live;
@@ -386,9 +363,9 @@ exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
   // 2. Blocked/flagged alert counts, last 30 days
   const cutoff = new Date(Date.now() - THIRTY_DAYS_MS);
   const alertsSnap = await db.collection('watchlist_alerts').where('timestamp', '>=', cutoff).get();
-  const alertsByType = {};
+  const alertsByType: Record<string, number> = {};
   for (const doc of alertsSnap.docs) {
-    const t = doc.data().type || 'other';
+    const t = doc.data()!.type || 'other';
     alertsByType[t] = (alertsByType[t] || 0) + 1;
   }
 
@@ -399,7 +376,7 @@ exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
   let walledPending = 0;
   let walledLifted = 0;
   for (const doc of usersSnap.docs) {
-    const d = doc.data();
+    const d = doc.data()!;
     if (d.isBot) continue;
     realUsers++;
     if (!d.signupIp || d.signupIp === 'unknown') missingIp++;
@@ -444,19 +421,19 @@ exports.getIpTrackingHealth = cf().https.onCall(async (data, context) => {
 // If the trade came from a watched IP, auto-link unknown accounts to the
 // watched user and keep knownIPs fresh. (This used to live in the unused
 // validateTrade callable, where it never actually ran.)
-const trackWatchedIpTrade = async (uid, displayName, ip) => {
+export const trackWatchedIpTrade = async (uid: string, displayName: string | undefined, ip: string) => {
   if (!ip || ip === 'unknown') return;
   try {
     const sanitizedIp = ip.replace(/[.:/]/g, '_');
     const watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedIp).get();
     if (!watchedIpDoc.exists) return;
 
-    const { watchedUserId } = watchedIpDoc.data();
+    const { watchedUserId } = watchedIpDoc.data()!;
     const watchedUserDoc = await db.collection('watchedUsers').doc(watchedUserId).get();
-    if (!watchedUserDoc.exists || !watchedUserDoc.data().isActive) return;
+    if (!watchedUserDoc.exists || !watchedUserDoc.data()!.isActive) return;
 
-    const watchedData = watchedUserDoc.data();
-    const knownUIDs = (watchedData.linkedAccounts || []).map((a) => a.uid);
+    const watchedData = watchedUserDoc.data()!;
+    const knownUIDs = (watchedData.linkedAccounts || []).map((a: { uid: string }) => a.uid);
     knownUIDs.push(watchedUserId);
 
     if (!knownUIDs.includes(uid)) {
@@ -515,8 +492,6 @@ const trackWatchedIpTrade = async (uid, displayName, ip) => {
         });
     }
   } catch (err) {
-    console.error('trackWatchedIpTrade error:', err.message);
+    console.error('trackWatchedIpTrade error:', (err as Error).message);
   }
 };
-
-exports.trackWatchedIpTrade = trackWatchedIpTrade;

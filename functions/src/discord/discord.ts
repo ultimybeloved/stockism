@@ -1,34 +1,25 @@
-'use strict';
-
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const axios = require('axios');
-const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
+import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
+import axios from 'axios';
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../shared/characters');
-const crypto = require('crypto');
-const {
-  ADMIN_UID,
+import * as crypto from 'crypto';
+import {
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
-  BASE_IMPACT,
-  BASE_LIQUIDITY,
-  MAX_PRICE_CHANGE_PERCENT,
   DISCORD_DAILY_DROP_CHANNEL,
   DISCORD_LINK_NONCE_TTL_MS,
-} = require('../shared/constants');
-const {
-  writeNotification,
-  sendDiscordMessage,
+} from '../shared/constants';
+import { sendDiscordMessage } from '../shared/discordApi';
+import {
   isDiscordRelinkBlocked,
   getDiscordBinding,
   isDiscordBindingLocked,
   bindDiscordToUid,
-  grantedValueUpdate,
-  recordHeartbeat,
-} = require('../shared/helpers');
+} from '../shared/accountGuards';
+import { grantedValueUpdate } from '../shared/equity';
+import { recordHeartbeat } from '../shared/activity';
 
 /**
  * Park a new signup's Discord details until they have picked a name.
@@ -45,7 +36,7 @@ const {
  * then consumes this record to attach the Discord link.
  */
 const DISCORD_PENDING = 'discordPending';
-const stashPendingDiscord = (uid, discordId, discordUsername) =>
+const stashPendingDiscord = (uid: string, discordId: string, discordUsername: string | null | undefined) =>
   db
     .collection(DISCORD_PENDING)
     .doc(uid)
@@ -56,14 +47,14 @@ const stashPendingDiscord = (uid, discordId, discordUsername) =>
     });
 
 // Discord OAuth Authentication
-exports.discordAuth = cf().https.onRequest(async (req, res) => {
+export const discordAuth = cf().https.onRequest(async (req, res) => {
   // Enable CORS
   res.set('Access-Control-Allow-Origin', 'https://stockism.app');
 
   const code = req.query.code;
 
   if (!code) {
-    return res.status(400).send('Missing authorization code');
+    return void res.status(400).send('Missing authorization code');
   }
 
   try {
@@ -79,10 +70,10 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
     const tokenResponse = await axios.post(
       'https://discord.com/api/oauth2/token',
       new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: clientId as string,
+        client_secret: clientSecret as string,
         grant_type: 'authorization_code',
-        code: code,
+        code: code as string,
         redirect_uri: redirectUri,
       }),
       {
@@ -129,7 +120,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
 
     if (!discordSnap.empty) {
       // Existing user found by discordId
-      firebaseUid = discordSnap.docs[0].id;
+      firebaseUid = discordSnap.docs[0]!.id;
     } else if (boundUid) {
       // Unlinked earlier — re-attach it to the account that owns it.
       firebaseUid = boundUid;
@@ -140,7 +131,7 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
     } else if (await isDiscordRelinkBlocked(discordId)) {
       // No live account for this Discord, and it was on a recently-deleted one.
       // Block creating a fresh account (anti recycle / troll-account loop).
-      return res.redirect('https://stockism.app/?discord_error=recently_deleted');
+      return void res.redirect('https://stockism.app/?discord_error=recently_deleted');
     } else if (email) {
       // Look up by email. Only getUserByEmail may throw "not found" here — the
       // link writes below must stay outside this try, or any Firestore hiccup
@@ -156,16 +147,16 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
         firebaseUid = existingUser.uid;
         const existingRef = db.collection('users').doc(firebaseUid);
         const existingDoc = await existingRef.get();
-        const linkedDiscordId = existingDoc.exists ? existingDoc.data().discordId : null;
+        const linkedDiscordId = existingDoc.exists ? existingDoc.data()!.discordId : null;
 
         // Never overwrite a different Discord that is already on the account.
         // Overwriting silently released the old Discord ID for reuse elsewhere
         // (see discordLink below for why that matters). Logging in still works.
         if (existingDoc.exists && !linkedDiscordId) {
-          const authLinkUpdate = { discordId: discordId, discordUsername: username };
+          const authLinkUpdate: Record<string, unknown> = { discordId: discordId, discordUsername: username };
           // Same one-time unlock discordLink grants, so verifying by logging in
           // with Discord is worth exactly what verifying from the profile page is.
-          if (existingDoc.data().startingCashUnlocked === false) {
+          if (existingDoc.data()!.startingCashUnlocked === false) {
             authLinkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
             authLinkUpdate.startingCashUnlocked = true;
             Object.assign(authLinkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
@@ -203,10 +194,10 @@ exports.discordAuth = cf().https.onRequest(async (req, res) => {
     // picker. It is only a prefill — createUser re-validates it server-side, so
     // nothing here is trusted.
     const suggestion = needsName ? `&discord_name=${encodeURIComponent(username)}` : '';
-    return res.redirect(`https://stockism.app/?discord_token=${customToken}${suggestion}`);
+    return void res.redirect(`https://stockism.app/?discord_token=${customToken}${suggestion}`);
   } catch (error) {
     console.error('Discord auth error:', error);
-    return res.redirect('https://stockism.app/?discord_error=true');
+    return void res.redirect('https://stockism.app/?discord_error=true');
   }
 });
 
@@ -221,7 +212,7 @@ const DISCORD_LINK_NONCES = 'discordLinkNonces';
  * authorize URL and staple their own Discord onto that account. This proves the
  * person who started the flow was signed in as that account.
  */
-exports.startDiscordLink = cf().https.onCall(async (data, context) => {
+export const startDiscordLink = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Sign in first');
@@ -247,26 +238,26 @@ exports.startDiscordLink = cf().https.onCall(async (data, context) => {
  * code so it can't be replayed. Returns null if it is missing, already used or
  * older than DISCORD_LINK_NONCE_TTL_MS.
  */
-const consumeDiscordLinkState = async (state) => {
+const consumeDiscordLinkState = async (state: string) => {
   if (!/^[a-f0-9]{32}$/.test(state)) return null;
   const ref = db.collection(DISCORD_LINK_NONCES).doc(state);
   const snap = await ref.get();
   if (!snap.exists) return null;
   await ref.delete();
-  const { uid, createdAt } = snap.data();
+  const { uid, createdAt } = snap.data()!;
   if (Date.now() - (createdAt || 0) > DISCORD_LINK_NONCE_TTL_MS) return null;
   return uid || null;
 };
 
 // Discord Link — links Discord to an existing Stockism account (no new account created)
-exports.discordLink = cf().https.onRequest(async (req, res) => {
+export const discordLink = cf().https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', 'https://stockism.app');
 
   const code = req.query.code;
   const state = req.query.state; // single-use code from startDiscordLink
 
   if (!code || !state) {
-    return res.status(400).send('Missing authorization code or user ID');
+    return void res.status(400).send('Missing authorization code or user ID');
   }
 
   try {
@@ -278,10 +269,10 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     const tokenResponse = await axios.post(
       'https://discord.com/api/oauth2/token',
       new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id: clientId as string,
+        client_secret: clientSecret as string,
         grant_type: 'authorization_code',
-        code: code,
+        code: code as string,
         redirect_uri: redirectUri,
       }),
       { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
@@ -301,15 +292,15 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     // link just fails and the player clicks Link Discord again. A raw Firebase
     // UID is NOT accepted here — Discord echoes state back without checking it,
     // so that let anyone staple their Discord onto someone else's account.
-    const uid = await consumeDiscordLinkState(state);
+    const uid = await consumeDiscordLinkState(state as string);
     if (!uid) {
-      return res.redirect('https://stockism.app/profile?discord_link=error&reason=link_expired');
+      return void res.redirect('https://stockism.app/profile?discord_link=error&reason=link_expired');
     }
 
     // Verify the Firebase UID is a real user
     const userDoc = await db.collection('users').doc(uid).get();
     if (!userDoc.exists) {
-      return res.redirect('https://stockism.app/profile?discord_link=error&reason=user_not_found');
+      return void res.redirect('https://stockism.app/profile?discord_link=error&reason=user_not_found');
     }
 
     // Refuse to move an account onto a different Discord. Relinking used to
@@ -318,16 +309,16 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     // each one the verified starting cash, a Discord-wall pass and a fresh
     // claim on the same daily drop (drop claims dedupe per Stockism account,
     // not per Discord). Admins can free a link with adminUnlinkDiscord.
-    const currentDiscordId = userDoc.data().discordId;
+    const currentDiscordId = userDoc.data()!.discordId;
     if (currentDiscordId && currentDiscordId !== discordId) {
-      return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_has_discord');
+      return void res.redirect('https://stockism.app/profile?discord_link=error&reason=already_has_discord');
     }
 
     // Check if this Discord is already linked to another account
     const existingSnap = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
 
-    if (!existingSnap.empty && existingSnap.docs[0].id !== uid) {
-      return res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
+    if (!existingSnap.empty && existingSnap.docs[0]!.id !== uid) {
+      return void res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
     }
 
     // Nobody holds it, but unlinking reserves a Discord to its account for
@@ -336,18 +327,18 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     // claims and Discord-wall passes across fresh accounts. adminFreeDiscord
     // releases it early when the hold is catching an honest player.
     if (await isDiscordBindingLocked(discordId, uid)) {
-      return res.redirect('https://stockism.app/profile?discord_link=error&reason=bound_to_other_account');
+      return void res.redirect('https://stockism.app/profile?discord_link=error&reason=bound_to_other_account');
     }
 
     // Block linking a Discord that was on a recently-deleted account — otherwise
     // the create → grab the verified $3k → gamble → delete → remake loop works by
     // re-linking the same Discord to each fresh account. Frees up after the cooldown.
     if (await isDiscordRelinkBlocked(discordId)) {
-      return res.redirect('https://stockism.app/profile?discord_link=error&reason=recently_deleted');
+      return void res.redirect('https://stockism.app/profile?discord_link=error&reason=recently_deleted');
     }
 
     // Link Discord to the existing account
-    const linkUpdate = {
+    const linkUpdate: Record<string, unknown> = {
       discordId: discordId,
       discordUsername: discordUsername,
     };
@@ -357,14 +348,14 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
     // accounts that actually started on the unverified $1,000 are owed the difference.
     // Accounts predating the gate (May 2026) have no flag at all and already started
     // with the full amount — `!== true` paid them another $2,000 on any relink.
-    if (userDoc.data().startingCashUnlocked === false && !currentDiscordId) {
+    if (userDoc.data()!.startingCashUnlocked === false && !currentDiscordId) {
       linkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
       linkUpdate.startingCashUnlocked = true;
       Object.assign(linkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
     }
 
     // Award DISCORD_LINKED achievement if not already earned
-    const currentAchievements = userDoc.data().achievements || [];
+    const currentAchievements = userDoc.data()!.achievements || [];
     if (!currentAchievements.includes('DISCORD_LINKED')) {
       linkUpdate.achievements = admin.firestore.FieldValue.arrayUnion('DISCORD_LINKED');
       linkUpdate['achievementDates.DISCORD_LINKED'] = Date.now();
@@ -372,12 +363,15 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
 
     await db.collection('users').doc(uid).update(linkUpdate);
 
-    return res.redirect('https://stockism.app/profile?discord_link=success');
+    return void res.redirect('https://stockism.app/profile?discord_link=success');
   } catch (error) {
+    const err = error as { response?: { data?: unknown }; message?: string };
     const discordError =
-      error.response && error.response.data ? JSON.stringify(error.response.data) : error.message || 'unknown';
+      err.response && err.response.data ? JSON.stringify(err.response.data) : err.message || 'unknown';
     console.error('Discord link error:', discordError);
-    return res.redirect(`https://stockism.app/profile?discord_link=error&reason=${encodeURIComponent(discordError)}`);
+    return void res.redirect(
+      `https://stockism.app/profile?discord_link=error&reason=${encodeURIComponent(discordError)}`,
+    );
   }
 });
 
@@ -393,7 +387,7 @@ exports.discordLink = cf().https.onRequest(async (req, res) => {
  * startingCashUnlocked is left alone, so re-linking can never re-pay the
  * one-time verification bonus.
  */
-exports.unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
+export const unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Sign in first');
@@ -406,7 +400,7 @@ exports.unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('not-found', 'Account not found');
   }
 
-  const userData = userSnap.data();
+  const userData = userSnap.data()!;
   const discordId = userData.discordId;
   if (!discordId) {
     return { success: true, alreadyUnlinked: true };
@@ -483,7 +477,7 @@ const postDailyDrop = async () => {
  * Daily scheduled function — posts the claim button to Discord.
  * Runs at 10 AM Eastern (14:00 UTC) every day.
  */
-exports.dailyFreeStock = cf()
+export const dailyFreeStock = cf()
   .pubsub.schedule('0 14 * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -501,18 +495,15 @@ exports.dailyFreeStock = cf()
  * linked player another full claim. That is the point (event drops), but it
  * doubles the day's payout — the admin button warns before firing.
  */
-exports.triggerDailyFreeStock = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const triggerDailyFreeStock = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   try {
     await postDailyDrop();
     return { success: true };
   } catch (error) {
     console.error('Error in triggerDailyFreeStock:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 });
 

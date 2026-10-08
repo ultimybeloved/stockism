@@ -1,42 +1,36 @@
-'use strict';
-
-const { cf } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const axios = require('axios');
-const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
+import { cf } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+import axios from 'axios';
+import { verifyKey, InteractionType, InteractionResponseType } from 'discord-interactions';
 const db = admin.firestore();
 
-const {
+import {
   BASE_IMPACT,
-  BASE_LIQUIDITY,
   MAX_PRICE_CHANGE_PERCENT,
   ADMIN_PRICE_PROTECTION_MS,
   DIRECT_REPLY_BUDGET_MS,
   isWeeklyTradingHalt,
   DROP_CLAIM_WINDOW_MS,
   DISCORD_EPOCH_MS,
-} = require('../shared/constants');
-const {
-  liquidityFor,
-  writeNotification,
-  sendDiscordMessage,
-  appendPriceHistory,
-  isPriceProtected,
-  priceHistoryRef,
-  reportError,
-  grantedValueUpdate,
-  cohortAddUpdate,
-} = require('../shared/helpers');
-const { CHARACTER_MAP } = require('../shared/characters');
-const { handleSlashCommand, isPrivate, EPHEMERAL } = require('./discordCommands');
-const { rollDailyStock } = require('./dailyDropRoll');
+} from '../shared/constants';
+import { liquidityFor } from '../shared/impact';
+import { writeNotification } from '../shared/notifications';
+import { appendPriceHistory, isPriceProtected, priceHistoryRef } from '../shared/marketData';
+import { reportError } from '../shared/sentry';
+import { grantedValueUpdate } from '../shared/equity';
+import { cohortAddUpdate } from '../shared/cohorts';
+import { CHARACTER_MAP } from '../shared/characters';
+import { handleSlashCommand, isPrivate, EPHEMERAL } from './discordCommands';
+import { rollDailyStock } from './dailyDropRoll';
+import type { DropPick } from './dailyDropRoll';
+import type { PricePoint } from '../shared/types';
 
 // Edit a deferred interaction reply. Discord kills any interaction that has not
 // been acknowledged within 3 seconds — and a cold start on this project loads
 // every service file, which can eat most of that on its own. So every branch
 // below acknowledges immediately with a "thinking..." (type 5) and then edits
 // the real content in through here.
-const editDeferredReply = (appId, token, payload) =>
+const editDeferredReply = (appId: string, token: string, payload: Record<string, unknown>) =>
   axios.patch(`https://discord.com/api/v10/webhooks/${appId}/${token}/messages/@original`, payload, {
     headers: { 'Content-Type': 'application/json' },
   });
@@ -55,8 +49,8 @@ const DROP_SECTIONS = [
 
 // Render a claim's picks split by drop table. `priceFor` differs by caller: the
 // claim path shows post-impact prices, "view last claim" the stored ones.
-function formatDropPicks(picks, priceFor) {
-  const line = (p) => `**${p.name}** ($${p.ticker}) x${p.shares} ($${(p.shares * priceFor(p)).toFixed(2)})`;
+function formatDropPicks(picks: DropPick[], priceFor: (p: DropPick) => number) {
+  const line = (p: DropPick) => `**${p.name}** ($${p.ticker}) x${p.shares} ($${(p.shares * priceFor(p)).toFixed(2)})`;
   // Claims made before the tables split have no group tag — show a flat list
   // rather than dropping them out of every section.
   if (picks.some((p) => !p.group)) return picks.map(line).join('\n');
@@ -68,17 +62,17 @@ function formatDropPicks(picks, priceFor) {
     .join('\n\n');
 }
 
-exports.discordInteractions = cf().https.onRequest(async (req, res) => {
+export const discordInteractions = cf().https.onRequest(async (req, res) => {
   // Only accept POST
   if (req.method !== 'POST') {
-    return res.status(405).send('Method not allowed');
+    return void res.status(405).send('Method not allowed');
   }
 
   // Verify Discord signature
   const publicKey = process.env.DISCORD_PUBLIC_KEY;
   if (!publicKey || publicKey === 'PASTE_YOUR_PUBLIC_KEY_HERE') {
     console.error('DISCORD_PUBLIC_KEY not configured');
-    return res.status(500).send('Server misconfigured');
+    return void res.status(500).send('Server misconfigured');
   }
 
   const signature = req.headers['x-signature-ed25519'];
@@ -86,19 +80,19 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
   const rawBody = req.rawBody;
 
   if (!signature || !timestamp || !rawBody) {
-    return res.status(401).send('Invalid request');
+    return void res.status(401).send('Invalid request');
   }
 
-  const isValid = await verifyKey(rawBody, signature, timestamp, publicKey);
+  const isValid = await verifyKey(rawBody, signature as string, timestamp as string, publicKey);
   if (!isValid) {
-    return res.status(401).send('Invalid signature');
+    return void res.status(401).send('Invalid signature');
   }
 
   const interaction = req.body;
 
   // Handle PING (required for endpoint verification)
   if (interaction.type === InteractionType.PING) {
-    return res.json({ type: InteractionResponseType.PONG });
+    return void res.json({ type: InteractionResponseType.PONG });
   }
 
   // Handle slash commands (/leaderboard, /profile, /price, /portfolio, /missions, /buy).
@@ -109,7 +103,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
     const interactionToken = interaction.token;
     const flags = isPrivate(commandName) ? { flags: EPHEMERAL } : {};
 
-    const editOriginal = (payload) => editDeferredReply(appId, interactionToken, payload);
+    const editOriginal = (payload: Record<string, unknown>) => editDeferredReply(appId, interactionToken, payload);
     const work = handleSlashCommand(interaction).catch((error) => {
       reportError(error, { where: 'discordSlashCommand', command: commandName });
       return { content: 'Something went wrong. Try again in a moment.' };
@@ -171,7 +165,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
       const messageId = interaction.message?.id;
 
       if (!discordUserId) {
-        return res.json({
+        return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             content: '❌ Could not identify your Discord account.',
@@ -183,7 +177,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
       // Send deferred ephemeral response immediately (avoids 3-second timeout)
       res.json({ type: 5, data: { flags: 64 } });
 
-      const editOriginal = (payload) => editDeferredReply(appId, interactionToken, payload);
+      const editOriginal = (payload: Record<string, unknown>) => editDeferredReply(appId, interactionToken, payload);
 
       try {
         // Find user with this discordId
@@ -199,7 +193,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           return;
         }
 
-        const userDoc = usersSnap.docs[0];
+        const userDoc = usersSnap.docs[0]!;
         const uid = userDoc.id;
 
         // Check if this drop has expired (72-hour window)
@@ -221,7 +215,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           try {
             await db.runTransaction(async (tx) => {
               const freshDoc = await tx.get(db.collection('users').doc(uid));
-              const freshClaimed = freshDoc.data().claimedDailyStockMessages || [];
+              const freshClaimed = freshDoc.data()!.claimedDailyStockMessages || [];
               if (freshClaimed.includes(messageId)) {
                 alreadyClaimed = true;
                 return;
@@ -232,7 +226,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
               // so anything past the window is dead weight that grew by one
               // entry per claim forever. Snowflakes carry their own timestamp,
               // so nothing extra has to be stored to prune them.
-              const keep = freshClaimed.filter((id) => {
+              const keep = freshClaimed.filter((id: string) => {
                 try {
                   return Date.now() - (Number(BigInt(id) >> 22n) + DISCORD_EPOCH_MS) <= DROP_CLAIM_WINDOW_MS;
                 } catch {
@@ -284,10 +278,10 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         await db.runTransaction(async (tx) => {
           const freshUser = await tx.get(db.collection('users').doc(uid));
           if (!freshUser.exists) throw new Error('User vanished mid-claim');
-          const freshHoldings = freshUser.data().holdings || {};
-          const freshCostBasis = freshUser.data().costBasis || {};
+          const freshHoldings: Record<string, number> = freshUser.data()!.holdings || {};
+          const freshCostBasis = freshUser.data()!.costBasis || {};
 
-          const updates = {
+          const updates: Record<string, unknown> = {
             lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
             lastDailyStockResult: {
               picks: picks.map((p) => ({
@@ -314,7 +308,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           // the drop. Carried forward across picks so two picks on the same
           // ticker both land instead of the second overwriting the first.
           const claimedAt = Date.now();
-          const workingCohorts = { ...(freshUser.data().holdingCohorts || {}) };
+          const workingCohorts = { ...(freshUser.data()!.holdingCohorts || {}) };
 
           for (const pick of picks) {
             const existingShares = freshHoldings[pick.ticker] || 0;
@@ -360,8 +354,8 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const liveHistory = histSnap.exists ? histSnap.data() || {} : {};
         const timestamp = Date.now();
         const newPrices = { ...prices };
-        const marketUpdates = {};
-        const historyPoints = {};
+        const marketUpdates: Record<string, number> = {};
+        const historyPoints: Record<string, PricePoint> = {};
 
         for (const pick of picks) {
           if (halted) break;
@@ -388,7 +382,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
 
         // Build response embed (using post-impact prices)
         const totalShares = picks.reduce((sum, p) => sum + p.shares, 0);
-        const priceFor = (p) => newPrices[p.ticker] || p.currentPrice;
+        const priceFor = (p: DropPick) => (newPrices[p.ticker] || p.currentPrice) as number;
         const stockList = formatDropPicks(picks, priceFor);
         const totalValue = picks.reduce((sum, p) => sum + p.shares * priceFor(p), 0);
 
@@ -403,13 +397,13 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const embed = isJackpot
           ? {
               title: '🎰💰 JACKPOT!! 💰🎰',
-              description: `You hit the **JACKPOT**! Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
+              description: `You hit the **JACKPOT**! Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
               color: 0xffd700,
               footer: { text: 'Incredible luck! 🍀' },
             }
           : {
               title: '🎁 Daily Stock Claimed!',
-              description: `Here\'s what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
+              description: `Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
               color: 0x00d166,
               footer: { text: 'Come back tomorrow for more!' },
             };
@@ -422,7 +416,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
             content: '❌ Something went wrong. Try again in a moment!',
           });
         } catch (followUpErr) {
-          console.error('Failed to send error follow-up:', followUpErr.message);
+          console.error('Failed to send error follow-up:', (followUpErr as Error).message);
         }
       }
       return;
@@ -432,7 +426,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
       const discordUserId = interaction.member?.user?.id || interaction.user?.id;
 
       if (!discordUserId) {
-        return res.json({
+        return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             content: '❌ Could not identify your Discord account.',
@@ -445,7 +439,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         const usersSnap = await db.collection('users').where('discordId', '==', discordUserId).limit(1).get();
 
         if (usersSnap.empty) {
-          return res.json({
+          return void res.json({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content:
@@ -456,11 +450,11 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           });
         }
 
-        const userData = usersSnap.docs[0].data();
+        const userData = usersSnap.docs[0]!.data()!;
         const lastResult = userData.lastDailyStockResult;
 
         if (!lastResult || !lastResult.picks || lastResult.picks.length === 0) {
-          return res.json({
+          return void res.json({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: '📋 No daily stock claims on record yet. Click **Claim Free Stock** to get your first!',
@@ -469,9 +463,10 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
           });
         }
 
-        const totalShares = lastResult.picks.reduce((sum, p) => sum + p.shares, 0);
-        const stockList = formatDropPicks(lastResult.picks, (p) => p.currentPrice);
-        const totalValue = lastResult.picks.reduce((sum, p) => sum + p.shares * p.currentPrice, 0);
+        const picks: DropPick[] = lastResult.picks;
+        const totalShares = picks.reduce((sum, p) => sum + p.shares, 0);
+        const stockList = formatDropPicks(picks, (p) => p.currentPrice as number);
+        const totalValue = picks.reduce((sum, p) => sum + p.shares * (p.currentPrice as number), 0);
 
         const claimedDate = lastResult.claimedAt
           ? new Date(lastResult.claimedAt).toLocaleDateString('en-US', {
@@ -493,7 +488,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
               color: 0x5865f2,
             };
 
-        return res.json({
+        return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             embeds: [embed],
@@ -502,7 +497,7 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
         });
       } catch (err) {
         console.error('View last claim error:', err);
-        return res.json({
+        return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
             content: '❌ Something went wrong. Try again in a moment!',
@@ -514,5 +509,5 @@ exports.discordInteractions = cf().https.onRequest(async (req, res) => {
   }
 
   // Unknown interaction type — acknowledge
-  return res.json({ type: InteractionResponseType.PONG });
+  return void res.json({ type: InteractionResponseType.PONG });
 });
