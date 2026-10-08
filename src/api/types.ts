@@ -590,6 +590,13 @@ export interface AuditUsernamesResponse {
   conflicts: unknown[];
 }
 
+/** One market backup in Cloud Storage. */
+export interface BackupFile {
+  name: string;
+  created: string;
+  size: number;
+}
+
 export interface ReconstructHistoryResponse {
   usersProcessed?: number;
   usersSkipped?: number;

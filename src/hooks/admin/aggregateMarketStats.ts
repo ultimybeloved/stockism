@@ -150,7 +150,7 @@ export const aggregateMarketStats = (snapshot: QuerySnapshot, prices: PriceMap) 
   const topHeld = Object.entries(playerSharesByTicker)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([ticker, shares]) => ({ ticker, shares, holders: playerHoldersByTicker[ticker] }));
+    .map(([ticker, shares]) => ({ ticker, shares, holders: playerHoldersByTicker[ticker]! }));
 
   // Top gainers/losers (comparing to base price)
   const priceChanges = CHARACTERS.map((c) => {

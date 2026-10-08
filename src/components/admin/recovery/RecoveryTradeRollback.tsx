@@ -23,7 +23,17 @@ const RecoveryTradeRollback = ({
   setRollbackConfirm,
   executeFullRollback,
 }: AdminCommonProps &
-  ReturnType<typeof useAdminRecoveryTools> & {
+  Pick<
+    ReturnType<typeof useAdminRecoveryTools>,
+    | 'selectedTickerHistory'
+    | 'setSelectedTickerHistory'
+    | 'getPriceHistoryForTicker'
+    | 'rollbackTimestamp'
+    | 'setRollbackTimestamp'
+    | 'rollbackConfirm'
+    | 'setRollbackConfirm'
+    | 'executeFullRollback'
+  > & {
     tradeFilterTicker: string;
     setTradeFilterTicker: (ticker: string) => void;
     sortedCharacters: Character[];

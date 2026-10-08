@@ -8,7 +8,7 @@ import {
   reconstructPortfolioHistoryFunction,
 } from '../../firebase';
 import { errorMessage } from '../../utils/errors';
-import type { AdminReport } from '../../api/types';
+import type { BackupFile } from '../../api/types';
 import type { AdminHookDeps } from './adminShared';
 
 interface ReconstructionProgress {
@@ -31,7 +31,7 @@ export function useAdminBackups({
   handleSyncPricesToHistory: () => Promise<void>;
 }) {
   // Backup restore state
-  const [backups, setBackups] = useState<AdminReport[]>([]);
+  const [backups, setBackups] = useState<BackupFile[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(false);
   const [reconstructingHistory, setReconstructingHistory] = useState(false);

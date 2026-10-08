@@ -3,6 +3,11 @@ import FeatureUsagePanel from './stats/FeatureUsagePanel';
 import ReturnDistributionPanel from './stats/ReturnDistributionPanel';
 import SeasonDryRunPanel from './stats/SeasonDryRunPanel';
 
+import type { AdminCommonProps } from './types';
+import type { useAdminStats } from '../../hooks/admin/useAdminStats';
+import type { useAdminPriceMaintenance } from '../../hooks/admin/useAdminPriceMaintenance';
+import type { useAdminOrphans } from '../../hooks/admin/useAdminOrphans';
+
 const StatsTab = ({
   darkMode,
   textClass,
@@ -20,7 +25,10 @@ const StatsTab = ({
   scanForOrphanedUsers,
   deleteAllOrphanedUsers,
   deleteOrphanedUser,
-}) => {
+}: Omit<AdminCommonProps, 'inputClass'> &
+  ReturnType<typeof useAdminStats> &
+  ReturnType<typeof useAdminPriceMaintenance> &
+  ReturnType<typeof useAdminOrphans>) => {
   return (
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-cyan-900/20' : 'bg-cyan-50'}`}>

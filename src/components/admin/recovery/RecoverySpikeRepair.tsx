@@ -13,7 +13,17 @@ const RecoverySpikeRepair = ({
   handleScanSpikeVictims,
   handleRepairAllSpikeVictims,
   handleRepairSpikeVictim,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & ReturnType<typeof useAdminSpikeRepair>) => (
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> &
+  Pick<
+    ReturnType<typeof useAdminSpikeRepair>,
+    | 'scanningSpike'
+    | 'repairingSpike'
+    | 'spikeScanned'
+    | 'spikeVictims'
+    | 'handleScanSpikeVictims'
+    | 'handleRepairAllSpikeVictims'
+    | 'handleRepairSpikeVictim'
+  >) => (
   <div
     className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
   >

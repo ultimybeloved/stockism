@@ -4,6 +4,31 @@ import RecoveryRenameTicker from './recovery/RecoveryRenameTicker';
 import RecoverySplitStock from './recovery/RecoverySplitStock';
 import RecoveryTradeRollback from './recovery/RecoveryTradeRollback';
 
+import type { AdminCommonProps } from './types';
+import type { ShowMessage } from '../../hooks/admin/adminShared';
+import type { useAdminBankruptcy } from '../../hooks/admin/useAdminBankruptcy';
+import type { useAdminSpikeRepair } from '../../hooks/admin/useAdminSpikeRepair';
+import type { useAdminBackups } from '../../hooks/admin/useAdminBackups';
+import type { useAdminAccountRepair } from '../../hooks/admin/useAdminAccountRepair';
+import type { useAdminRecoveryTools } from '../../hooks/admin/useAdminRecoveryTools';
+import type { renameTickerFunction as RenameTickerFn } from '../../firebase';
+import type { Character } from '../../characters';
+import type { PriceMap } from '../../types';
+
+type RecoveryTabProps = AdminCommonProps &
+  Omit<ReturnType<typeof useAdminBankruptcy>, 'handleRollbackUser'> &
+  ReturnType<typeof useAdminSpikeRepair> &
+  ReturnType<typeof useAdminBackups> &
+  ReturnType<typeof useAdminAccountRepair> &
+  ReturnType<typeof useAdminRecoveryTools> & {
+    showMessage: ShowMessage;
+    renameTickerFunction: typeof RenameTickerFn;
+    tradeFilterTicker: string;
+    setTradeFilterTicker: (ticker: string) => void;
+    sortedCharacters: Character[];
+    prices: PriceMap;
+  };
+
 const RecoveryTab = ({
   darkMode,
   textClass,
@@ -74,7 +99,7 @@ const RecoveryTab = ({
   rollbackConfirm,
   setRollbackConfirm,
   executeFullRollback,
-}) => {
+}: RecoveryTabProps) => {
   return (
     <div className="space-y-4">
       {/* Bankrupt Users */}

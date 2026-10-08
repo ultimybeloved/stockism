@@ -92,7 +92,7 @@ export const purchaseCosmeticFunction = callable<{ cosmeticId: string }>('purcha
 export const createBotsFunction = callable<Record<string, never>, Api.CreateBotsResponse>('createBots');
 export const fixBasePriceCliffsFunction = callable<Record<string, never>, Api.FixCliffsResponse>('fixBasePriceCliffs');
 export const triggerManualBackupFunction = callable<void, { filename?: string }>('triggerManualBackup');
-export const listBackupsFunction = callable<void, { backups?: Api.AdminReport[]; total?: number }>('listBackups');
+export const listBackupsFunction = callable<void, { backups?: Api.BackupFile[]; total?: number }>('listBackups');
 export const restoreBackupFunction = callable<{ backupName: string }, { tickersRestored?: number }>('restoreBackup');
 export const broadcastNotificationFunction = callable<
   { title: string; message: string; predictionId?: string },
