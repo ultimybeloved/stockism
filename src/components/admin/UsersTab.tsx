@@ -1,4 +1,3 @@
-import { CHARACTERS } from '../../characters';
 import { ADMIN_UIDS } from '../../constants';
 import UserFinancials from './users/UserFinancials';
 import UserPositions from './users/UserPositions';
@@ -19,7 +18,6 @@ type UsersTabProps = AdminCommonProps &
   ReturnType<typeof useAdminUserOps> &
   ReturnType<typeof useAdminCosmetics> &
   ReturnType<typeof useAdminUserDeletion> & { prices: PriceMap };
-import { sharesOf } from '../../utils/holdings';
 
 const UsersTab = ({
   darkMode,
