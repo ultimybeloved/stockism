@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { User } from 'firebase/auth';
 import type { ReviewChanges } from '../utils/marketHours';
+import type { ChangeColors } from '../utils/theme';
 import type { IPO, PredictionDoc, PriceHistory, PriceMap, ShareMap, ShortMap, SiteMessage, UserData } from '../types';
 
 /** market/current. Fields are added as typed code reads them. */
@@ -12,14 +13,6 @@ export interface MarketData {
   /** retired ticker -> its current name, kept after a rename. */
   tickerAliases?: Record<string, string>;
   [key: string]: unknown;
-}
-
-/** Tailwind classes for gains and losses, honouring color-blind mode. */
-export interface ChangeColors {
-  text: string;
-  bg: string;
-  bgHover: string;
-  border: string;
 }
 
 export type NotificationKind = 'success' | 'error' | 'info' | 'warning' | string;

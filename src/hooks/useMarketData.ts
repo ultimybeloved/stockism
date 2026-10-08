@@ -3,8 +3,8 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CHARACTERS } from '../characters';
 import { useActiveIPOs } from './useActiveIPOs';
-import type { AppContextValue, LooseDoc, MarketData } from '../context/AppContext';
-import type { PriceHistory, PricePoint, PriceMap } from '../types';
+import type { AppContextValue, MarketData } from '../context/AppContext';
+import type { EventMarketDoc, PriceHistory, PricePoint, PriceMap } from '../types';
 
 export type MarketStatus = 'loading' | 'ready' | 'unavailable';
 
@@ -30,7 +30,8 @@ export function useMarketData() {
   // on a clock rather than on a write to the doc, so it needs a ticker of its
   // own and that is a separate concern from these subscriptions.
   const activeIPOs = useActiveIPOs();
-  const [predictions, setPredictions] = useState<LooseDoc[]>([]);
+  // predictions/current.list holds both weekly predictions and event markets.
+  const [predictions, setPredictions] = useState<EventMarketDoc[]>([]);
   const [crewStats, setCrewStats] = useState<AppContextValue['crewStats']>(null); // weekly underdog multipliers + active counts
   // What the admin changed during the last chapter review, computed server-side
   // while the price history still covered the window. See reviewChanges.js.

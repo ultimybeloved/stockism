@@ -1,10 +1,10 @@
-// Shapes shared by the action hooks that App.jsx assembles (useDailyOperations,
+// Shapes shared by the action hooks that App.tsx assembles (useDailyOperations,
 // useIPOManagement, useTradeManagement, ...). Each receives the same handful of
 // app-level values; these name them once.
 import type { Dispatch, SetStateAction } from 'react';
 import type { User } from 'firebase/auth';
 import type { AppContextValue, MarketData } from '../context/AppContext';
-import type { IPO, PriceMap, UserData } from '../types';
+import type { IPO, PriceMap, TradeAction, UserData } from '../types';
 
 export type SetUserData = Dispatch<SetStateAction<UserData | null>>;
 
@@ -22,7 +22,7 @@ export interface ActionHookDeps {
 
 export interface TradeConfirmation {
   ticker: string;
-  action: string;
+  action: TradeAction;
   amount: number;
   price: number;
   total: number;

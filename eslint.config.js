@@ -67,14 +67,6 @@ export default tseslint.config(
   { files: ['src/pages/**/*.{js,jsx,ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(300) },
   { files: ['src/hooks/**/*.{js,jsx,ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(200) },
   { files: ['src/App.{jsx,tsx}'], rules: maxLines(500) },
-  // Over their limit after the 2026-10 reformat. Warn-only until the frontend
-  // restructure splits them (docs/MODERNIZATION.md). Remove entries as they're split.
-  {
-    files: [
-      'src/App.{jsx,tsx}',
-    ],
-    rules: { 'max-lines': 'warn' },
-  },
 
   // ---- Backend (Cloud Functions, CommonJS) ----
   {

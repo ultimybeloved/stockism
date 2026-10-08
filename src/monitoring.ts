@@ -5,7 +5,7 @@
 //
 //   reportError(err, { where: 'useTradeManagement.handleTrade', ticker, action });
 //
-// Sentry itself is initialised in main.jsx (and disabled outside production).
+// Sentry itself is initialised in main.tsx (and disabled outside production).
 // This module is the one place that decides what a swallowed error does, so a
 // `catch` that previously only wrote to the browser console, where nobody would
 // ever read it, becomes something visible on a dashboard.

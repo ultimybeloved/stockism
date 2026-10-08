@@ -1,6 +1,5 @@
 import { lazy } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { CHARACTER_MAP } from '../characters';
 import { ADMIN_UIDS } from '../constants';
 import { ToastContainer } from './ToastNotification';
 import InstallPrompt from './InstallPrompt';
@@ -14,6 +13,21 @@ import TradeConfirmModal from './modals/TradeConfirmModal';
 import BetConfirmModal from './modals/BetConfirmModal';
 import BailoutModal from './modals/BailoutModal';
 
+import type { UserData } from '../types';
+import type { useModalManager } from '../hooks/useModalManager';
+import type { useMissionManagement } from '../hooks/useMissionManagement';
+import type { useMarginManagement } from '../hooks/useMarginManagement';
+import type { useCrewManagement } from '../hooks/useCrewManagement';
+import type { usePinShop } from '../hooks/usePinShop';
+import type { useUserAlerts } from '../hooks/useUserAlerts';
+import type { useAuthUser } from '../hooks/useAuthUser';
+import type { useToasts } from '../hooks/useToasts';
+import type { useTradeManagement } from '../hooks/useTradeManagement';
+import type { useDailyOperations } from '../hooks/useDailyOperations';
+import type { usePredictionManagement } from '../hooks/usePredictionManagement';
+import type { useUserActions } from '../hooks/useUserActions';
+import type { useMarketData } from '../hooks/useMarketData';
+
 const AdminPanel = lazy(() => import('../AdminPanel'));
 const AboutModal = lazy(() => import('./modals/AboutModal'));
 const CrewSelectionModal = lazy(() => import('./modals/CrewSelectionModal'));
@@ -25,8 +39,34 @@ const ChartModal = lazy(() => import('./modals/ChartModal'));
 const PortfolioModal = lazy(() => import('./modals/PortfolioModal'));
 const TradeHistoryModal = lazy(() => import('./modals/TradeHistoryModal'));
 
-// The whole modal stack, lifted out of App.jsx to hold it under the 500-line
-// limit. App.jsx still owns the modal STATE (useModalManager) and the handlers;
+type Hook<F extends (...args: never[]) => unknown> = ReturnType<F>;
+
+type AppModalsProps = Omit<Hook<typeof useModalManager>, 'limitOrderRequest' | 'setLimitOrderRequest'> &
+  Hook<typeof useMissionManagement> &
+  Pick<Hook<typeof useMarginManagement>, 'handleEnableMargin' | 'handleDisableMargin' | 'handleRepayMargin'> &
+  Hook<typeof useCrewManagement> &
+  Hook<typeof usePinShop> &
+  Hook<typeof useUserAlerts> &
+  Pick<Hook<typeof useAuthUser>, 'adoptUserDoc' | 'needsEmailVerification' | 'needsUsername' | 'suggestedName'> &
+  Pick<Hook<typeof useToasts>, 'notifications' | 'dismissNotification'> &
+  Pick<Hook<typeof useTradeManagement>, 'handleTrade' | 'requestTrade'> &
+  Pick<Hook<typeof useDailyOperations>, 'handleBailout'> &
+  Pick<Hook<typeof usePredictionManagement>, 'handleBet'> &
+  Pick<
+    Hook<typeof useUserActions>,
+    'handleLimitOrderRequest' | 'handleMarginTutorialComplete' | 'handleOnboardingComplete' | 'handleToggleDrip'
+  > &
+  Pick<Hook<typeof useMarketData>, 'dividendTierOverrides'> & {
+    actionLoading: Record<string, boolean | undefined>;
+    activeUserData: UserData;
+    isGuest: boolean;
+    portfolioValue: number;
+    showMarginTutorialReview: boolean;
+    setShowMarginTutorialReview: (show: boolean) => void;
+  };
+
+// The whole modal stack, lifted out of App.tsx to hold it under the 500-line
+// limit. App.tsx still owns the modal STATE (useModalManager) and the handlers;
 // this component only decides what is on screen. Values already in context are
 // read from context rather than drilled.
 const AppModals = ({
@@ -100,7 +140,7 @@ const AppModals = ({
   showTradeHistory,
   tradeConfirmation,
   userNotifications,
-}) => {
+}: AppModalsProps) => {
   const { darkMode, user, userData, prices, predictions, marketData } = useAppContext();
 
   return (
@@ -108,12 +148,7 @@ const AppModals = ({
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} darkMode={darkMode} />}
       {needsEmailVerification && user && <EmailVerificationModal user={user} darkMode={darkMode} userData={userData} />}
       {needsUsername && user && (
-        <UsernameModal
-          user={user}
-          suggestedName={suggestedName}
-          onComplete={() => adoptUserDoc(user.uid)}
-          darkMode={darkMode}
-        />
+        <UsernameModal suggestedName={suggestedName} onComplete={() => adoptUserDoc(user.uid)} darkMode={darkMode} />
       )}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
       {showLending && !isGuest && !userData?.marginTutorialCompleted && (
@@ -156,7 +191,6 @@ const AppModals = ({
           onPurchaseCosmetic={handlePurchaseCosmetic}
           onEquipCosmetic={handleEquipCosmetic}
           portfolioValue={portfolioValue}
-          purchaseLoading={actionLoading.pinAction}
         />
       )}
       {showDailyMissions && (
@@ -215,10 +249,8 @@ const AppModals = ({
         <PriceAlertModal
           ticker={showPriceAlertModal}
           currentPrice={prices[showPriceAlertModal] || 0}
-          characterName={CHARACTER_MAP[showPriceAlertModal]?.name || showPriceAlertModal}
           darkMode={darkMode}
           onClose={() => setShowPriceAlertModal(null)}
-          user={user}
           existingAlerts={priceAlerts.filter((a) => a.ticker === showPriceAlertModal)}
           onCreateAlert={handleCreatePriceAlert}
           onDeleteAlert={handleDeletePriceAlert}
@@ -251,11 +283,8 @@ const AppModals = ({
       {showTradeHistory && !isGuest && <TradeHistoryModal onClose={() => setShowTradeHistory(false)} />}
       {selectedCharacter && (
         <ChartModal
-          character={selectedCharacter.character || selectedCharacter}
-          currentPrice={
-            prices[(selectedCharacter.character || selectedCharacter).ticker] ||
-            (selectedCharacter.character || selectedCharacter).basePrice
-          }
+          character={selectedCharacter.character}
+          currentPrice={prices[selectedCharacter.character.ticker] || selectedCharacter.character.basePrice}
           onClose={() => setSelectedCharacter(null)}
           defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
         />

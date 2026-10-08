@@ -745,7 +745,7 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
 
 // Anti-manipulation: brand-new accounts move the market less, ramping from
 // NEW_ACCOUNT_MIN_IMPACT_FACTOR at day 0 up to full (1.0) at the end of the
-// ramp window. Mirrors getAccountAgeImpactFactor in src/App.jsx — keep in sync.
+// ramp window. Mirrors getAccountAgeImpactFactor in src/utils/calculations.ts — keep in sync.
 const getAccountAgeImpactFactor = (userData) => {
   if (!userData || !userData.createdAt) return 1;
   const createdAt = userData.createdAt;

@@ -1,4 +1,14 @@
 import { useState } from 'react';
+import type { Character } from '../characters';
+import type { BetConfirmation } from '../components/modals/BetConfirmModal';
+import type { LimitOrderRequest } from './useUserActions';
+import type { TradeConfirmation } from './types';
+
+/** The stock whose chart popup is open, and the range it opens on. */
+export interface ChartSelection {
+  character: Character;
+  defaultTimeRange: string;
+}
 
 export function useModalManager() {
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -12,11 +22,11 @@ export function useModalManager() {
   const [showDailyMissions, setShowDailyMissions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
-  const [showPriceAlertModal, setShowPriceAlertModal] = useState(null); // ticker string or null
-  const [tradeConfirmation, setTradeConfirmation] = useState(null); // { ticker, action, amount, price, total }
-  const [limitOrderRequest, setLimitOrderRequest] = useState(null); // { ticker, action }
-  const [betConfirmation, setBetConfirmation] = useState(null); // { predictionId, option, amount, question }
-  const [selectedCharacter, setSelectedCharacter] = useState(null); // { character, defaultTimeRange }
+  const [showPriceAlertModal, setShowPriceAlertModal] = useState<string | null>(null); // ticker
+  const [tradeConfirmation, setTradeConfirmation] = useState<TradeConfirmation | null>(null);
+  const [limitOrderRequest, setLimitOrderRequest] = useState<LimitOrderRequest | null>(null);
+  const [betConfirmation, setBetConfirmation] = useState<BetConfirmation | null>(null);
+  const [selectedCharacter, setSelectedCharacter] = useState<ChartSelection | null>(null);
 
   return {
     showLoginModal,

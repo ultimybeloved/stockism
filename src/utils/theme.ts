@@ -143,3 +143,27 @@ export const getOutcomeColor = (index: number, colorBlindMode: boolean): Outcome
   const palette = colorBlindMode ? OUTCOME_COLORS_CB : OUTCOME_COLORS;
   return palette[index % palette.length]!;
 };
+
+/** Tailwind classes for gains and losses, honouring color-blind mode. */
+export interface ChangeColors {
+  text: string;
+  bg: string;
+  bgHover: string;
+  border: string;
+}
+
+/** Teal/purple in color-blind mode, green/red otherwise. */
+export const getChangeColors = (isPositive: boolean, colorBlindMode: boolean): ChangeColors =>
+  colorBlindMode
+    ? {
+        text: isPositive ? 'text-teal-500' : 'text-purple-500',
+        bg: isPositive ? 'bg-teal-600' : 'bg-purple-600',
+        bgHover: isPositive ? 'hover:bg-teal-700' : 'hover:bg-purple-700',
+        border: isPositive ? 'border-teal-500' : 'border-purple-500',
+      }
+    : {
+        text: isPositive ? 'text-green-500' : 'text-red-500',
+        bg: isPositive ? 'bg-green-600' : 'bg-red-600',
+        bgHover: isPositive ? 'hover:bg-green-700' : 'hover:bg-red-700',
+        border: isPositive ? 'border-green-500' : 'border-red-500',
+      };

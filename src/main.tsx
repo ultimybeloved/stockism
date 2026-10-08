@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/react';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import App from './App.jsx';
+import App from './App';
 import './index.css';
 
 Sentry.init({
@@ -15,7 +15,7 @@ Sentry.init({
   release: __APP_VERSION__,
 });
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <Sentry.ErrorBoundary fallback={<p>Something went wrong. Please refresh the page.</p>}>
