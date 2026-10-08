@@ -1,11 +1,27 @@
-'use strict';
 // Price history, per-ticker stats, daily closes, neglect floors, IPO jumps, the index.
 
-const admin = require('firebase-admin');
-const { IPO_PRICE_JUMP, NEGLECT_FLOOR_MIN, NEGLECT_FLOOR_MAX, MIN_PRICE } = require('./constants');
-const { indexFromStored } = require('./indexMaintenance');
-const { round2 } = require('./money');
-const { isRosterTicker } = require('./roster');
+import * as admin from 'firebase-admin';
+import { IPO_PRICE_JUMP, NEGLECT_FLOOR_MIN, NEGLECT_FLOOR_MAX, MIN_PRICE } from './constants';
+import { indexFromStored } from './indexMaintenance';
+import { round2 } from './money';
+import { isRosterTicker } from './roster';
+import type { PricePoint } from './types';
+
+/** Price per ticker. */
+type Prices = Record<string, number>;
+
+/** market/priceHistory: chart points per ticker. */
+type PriceHistory = Record<string, PricePoint[] | undefined> | null | undefined;
+
+/** One entry in market/ipos.list. */
+interface IpoEntry {
+  ticker: string;
+  basePrice: number;
+  ipoEndsAt: number;
+  sharesRemaining?: number;
+  totalShares?: number;
+  priceJumped?: boolean;
+}
 const db = admin.firestore();
 
 // Apply the +15% price jump + launch for any IPO that has ended (or sold out)
@@ -17,12 +33,15 @@ const db = admin.firestore();
 // { [ticker]: [{ timestamp, price, source? }] }) so the hot market/current doc
 // every client subscribes to stays small. Older points are archived (never
 // deleted) to market/current/price_history/{ticker} by archiving.js.
-const priceHistoryRef = () => db.collection('market').doc('priceHistory');
+export const priceHistoryRef = () => db.collection('market').doc('priceHistory');
 
 // Append history points for one or more tickers. Works inside a transaction
 // (pass it) or standalone (pass null). set+merge creates the doc if missing.
-const appendPriceHistory = (transaction, points) => {
-  const updates = {};
+export const appendPriceHistory = (
+  transaction: admin.firestore.Transaction | null,
+  points: Record<string, PricePoint>,
+) => {
+  const updates: Record<string, admin.firestore.FieldValue> = {};
   for (const [ticker, point] of Object.entries(points)) {
     updates[ticker] = admin.firestore.FieldValue.arrayUnion(point);
   }
@@ -45,16 +64,17 @@ const appendPriceHistory = (transaction, points) => {
 // client subscribes to that doc on every page load and none of this is needed
 // to render the site. The all-time high/low marks are the exception — they go
 // on market/current because they are worth showing on a stock page.
-const tickerStatsRef = () => db.collection('market').doc('tickerStats');
+export const tickerStatsRef = () => db.collection('market').doc('tickerStats');
 
 // One calendar month of closing prices per document, shape
 // { closes: { 'YYYY-MM-DD': { [ticker]: price } } }. Chunked by month from the
 // start on purpose: the live price-history doc hit Firestore's 40k index-entry
 // limit once and took trading down with it.
-const dailyClosesRef = (monthId) => db.collection('market').doc('current').collection('daily_closes').doc(monthId);
+export const dailyClosesRef = (monthId: string) =>
+  db.collection('market').doc('current').collection('daily_closes').doc(monthId);
 
-const monthIdOf = (ms) => new Date(ms).toISOString().slice(0, 7);
-const dayIdOf = (ms) => new Date(ms).toISOString().slice(0, 10);
+export const monthIdOf = (ms: number) => new Date(ms).toISOString().slice(0, 7);
+export const dayIdOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 /**
  * Fold one fill into a ticker's running totals.
@@ -63,7 +83,19 @@ const dayIdOf = (ms) => new Date(ms).toISOString().slice(0, 10);
  * out, so netFlow reads as directional pressure rather than raw volume. Price
  * alone cannot tell a real rally from three players trading with each other.
  */
-const buildTickerFlowUpdate = ({ ticker, action, amount, totalValue, now }) => {
+export const buildTickerFlowUpdate = ({
+  ticker,
+  action,
+  amount,
+  totalValue,
+  now,
+}: {
+  ticker: string;
+  action: string;
+  amount: number | null | undefined;
+  totalValue: number | null | undefined;
+  now: number;
+}) => {
   const direction = action === 'buy' || action === 'cover' ? 1 : -1;
   return {
     [ticker]: {
@@ -83,12 +115,18 @@ const buildTickerFlowUpdate = ({ ticker, action, amount, totalValue, now }) => {
  * Guarded by isRosterTicker: the price map can outlive the roster, and a stock
  * no player can see should not be setting records.
  */
-const buildExtremeUpdates = (prices, ath = {}, atl = {}) => {
-  const updates = {};
+export const buildExtremeUpdates = (
+  prices: Prices | null | undefined,
+  ath: Record<string, number | undefined> = {},
+  atl: Record<string, number | undefined> = {},
+) => {
+  const updates: Record<string, number> = {};
   for (const [ticker, price] of Object.entries(prices || {})) {
     if (!(price > 0) || !isRosterTicker(ticker)) continue;
-    if (!(ath[ticker] > 0) || price > ath[ticker]) updates[`ath.${ticker}`] = price;
-    if (!(atl[ticker] > 0) || price < atl[ticker]) updates[`atl.${ticker}`] = price;
+    const high = ath[ticker];
+    const low = atl[ticker];
+    if (high === undefined || !(high > 0) || price > high) updates[`ath.${ticker}`] = price;
+    if (low === undefined || !(low > 0) || price < low) updates[`atl.${ticker}`] = price;
   }
   return updates;
 };
@@ -102,7 +140,7 @@ const buildExtremeUpdates = (prices, ath = {}, atl = {}) => {
  * on or off for a stock. This rides the margin scanner, which already loads
  * every open short position every 30 minutes, so it costs no extra reads.
  */
-const writeShortInterest = async (totals, now = Date.now()) =>
+export const writeShortInterest = async (totals: Record<string, number>, now = Date.now()) =>
   tickerStatsRef().set(
     {
       shortInterest: totals,
@@ -123,7 +161,7 @@ const writeShortInterest = async (totals, now = Date.now()) =>
  * who draws a burst of attention and then goes quiet again lands on a different
  * floor the second time rather than returning to the old one.
  */
-const neglectFloorFraction = (ticker, tradeCount = 0) => {
+export const neglectFloorFraction = (ticker: string, tradeCount = 0) => {
   // FNV-1a. Not for security, just a good spread from a short string.
   const seed = `${ticker}:${tradeCount}`;
   let h = 0x811c9dc5;
@@ -136,15 +174,18 @@ const neglectFloorFraction = (ticker, tradeCount = 0) => {
 };
 
 /** The floor as an actual price. Never below MIN_PRICE. */
-const neglectFloorPrice = (character, tradeCount = 0) =>
+export const neglectFloorPrice = (
+  character: { basePrice?: number; ticker?: string } | null | undefined,
+  tradeCount = 0,
+) =>
   Math.max(MIN_PRICE, round2((character?.basePrice || 0) * neglectFloorFraction(character?.ticker || '', tradeCount)));
 
 /**
  * Write one day's closing prices. Idempotent: a re-run for the same day
  * overwrites that day rather than appending a second copy of it.
  */
-const recordDailyCloses = async (prices, now = Date.now()) => {
-  const closes = {};
+export const recordDailyCloses = async (prices: Prices | null | undefined, now = Date.now()) => {
+  const closes: Prices = {};
   for (const [ticker, price] of Object.entries(prices || {})) {
     if (!(price > 0) || !isRosterTicker(ticker)) continue;
     closes[ticker] = price;
@@ -161,7 +202,7 @@ const recordDailyCloses = async (prices, now = Date.now()) => {
   return Object.keys(closes).length;
 };
 
-const applyDueIPOJumps = async () => {
+export const applyDueIPOJumps = async () => {
   const ipoRef = db.collection('market').doc('ipos');
   const marketRef = db.collection('market').doc('current');
   const now = Date.now();
@@ -170,15 +211,15 @@ const applyDueIPOJumps = async () => {
     const ipoSnap = await transaction.get(ipoRef);
     if (!ipoSnap.exists) return [];
 
-    const ipos = ipoSnap.data().list || [];
+    const ipos: IpoEntry[] = ipoSnap.data()!.list || [];
     const updatedList = [...ipos];
-    const notifications = [];
-    const marketUpdates = {};
-    const historyPoints = {};
-    const tickersToLaunch = [];
+    const notifications: { ticker: string; newPrice: number; sharesSold: number; ipoTotalShares: number }[] = [];
+    const marketUpdates: Record<string, number> = {};
+    const historyPoints: Record<string, PricePoint> = {};
+    const tickersToLaunch: string[] = [];
 
     for (let i = 0; i < ipos.length; i++) {
-      const ipo = ipos[i];
+      const ipo = ipos[i]!;
       const soldOut = ipo.sharesRemaining !== undefined && ipo.sharesRemaining <= 0;
       if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
         const newPrice = round2(ipo.basePrice * (1 + IPO_PRICE_JUMP));
@@ -215,7 +256,7 @@ const applyDueIPOJumps = async () => {
 // Automated price movers (bots, market maker) use this to skip protected
 // tickers so they can't undo an admin adjustment. Assumes priceHistory is
 // in chronological order (it is — entries are appended).
-const isPriceProtected = (priceHistory, ticker, windowMs, now = Date.now()) => {
+export const isPriceProtected = (priceHistory: PriceHistory, ticker: string, windowMs: number, now = Date.now()) => {
   const hist = (priceHistory && priceHistory[ticker]) || [];
   const cutoff = now - windowMs;
   for (let i = hist.length - 1; i >= 0; i--) {
@@ -244,14 +285,29 @@ const isPriceProtected = (priceHistory, ticker, windowMs, now = Date.now()) => {
 // stock with no surviving point from before the window.
 //
 // Keep in sync with computeReviewChange in src/utils/marketHours.ts.
-const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) => {
-  const changes = {};
+export const getReviewWindowChanges = (
+  priceHistory: PriceHistory,
+  start: number,
+  end: number,
+  fallbackPrices: Record<string, number | undefined> = {},
+) => {
+  const changes: Record<
+    string,
+    {
+      oldPrice: number;
+      newPrice: number;
+      percentChange: number;
+      directChange: number;
+      trailingChange: number;
+      drivers: string[];
+    }
+  > = {};
 
   // Timestamp -> the ticker whose hand adjustment started that cascade. Every
   // stock a single adjustment drags is written with the adjustment's own
   // timestamp, so the shared timestamp is the link back to the cause. Nothing
   // extra has to be stored, and old history attributes correctly too.
-  const rootByTimestamp = new Map();
+  const rootByTimestamp = new Map<number, string>();
   for (const [ticker, history] of Object.entries(priceHistory || {})) {
     if (!Array.isArray(history)) continue;
     for (const entry of history) {
@@ -266,7 +322,7 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
 
     // The price carried into the review, plus every point the review moved it.
     let openPrice = fallbackPrices[ticker];
-    const moves = [];
+    const moves: PricePoint[] = [];
     for (const entry of history) {
       if (!entry || typeof entry.price !== 'number') continue;
       if (entry.timestamp < start) {
@@ -276,7 +332,7 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
       if (entry.timestamp > end) break;
       moves.push(entry);
     }
-    if (moves.length === 0 || !(openPrice > 0)) continue;
+    if (moves.length === 0 || openPrice === undefined || !(openPrice > 0)) continue;
 
     // Each move is measured against the price right before it, so the two
     // causes compound the same way the prices actually did.
@@ -284,7 +340,7 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
     let trailingFactor = 1;
     let from = openPrice;
     let collapsed = false;
-    const drivers = new Set();
+    const drivers = new Set<string>();
     for (const entry of moves) {
       // A collapsed point is the review's whole move rolled into one, so the
       // detail it was built from is gone and the split cannot be rebuilt from
@@ -331,32 +387,12 @@ const getReviewWindowChanges = (priceHistory, start, end, fallbackPrices = {}) =
  *
  * Season tiers are scored against this line, so it has to be the same
  * divisor-adjusted number the daily job records rather than a fresh average.
- * @returns {Promise<{prices: Object, value: number}>}
  */
-const readIndexNow = async () => {
+export const readIndexNow = async () => {
   const [marketSnap, idxSnap] = await Promise.all([
     db.collection('market').doc('current').get(),
     db.collection('market').doc('indexHistory').get(),
   ]);
-  const prices = marketSnap.exists ? marketSnap.data().prices || {} : {};
+  const prices: Prices = marketSnap.exists ? marketSnap.data()!.prices || {} : {};
   return { prices, value: indexFromStored(prices, idxSnap.exists ? idxSnap.data() : null) };
-};
-
-module.exports = {
-  priceHistoryRef,
-  appendPriceHistory,
-  tickerStatsRef,
-  dailyClosesRef,
-  monthIdOf,
-  dayIdOf,
-  buildTickerFlowUpdate,
-  buildExtremeUpdates,
-  writeShortInterest,
-  neglectFloorFraction,
-  neglectFloorPrice,
-  recordDailyCloses,
-  applyDueIPOJumps,
-  isPriceProtected,
-  getReviewWindowChanges,
-  readIndexNow,
 };

@@ -20,7 +20,7 @@ CHARACTERS.filter((c) => c.isETF && c.trailingFactors).forEach((etf) => {
  * Trailing effects, walked level by level out from the traded ticker.
  *
  * This used to be depth-first, which let the ORDER of trailingFactors in
- * characters.js decide the result. Trading $JIN reached $GAP first, $GAP's own
+ * characters.ts decide the result. Trading $JIN reached $GAP first, $GAP's own
  * link to $SHNG fired (0.2 x 0.2), $SHNG was marked visited, and $JIN's own 0.2
  * link to $SHNG was then skipped — so $SHNG moved a fifth of what $GAP moved off
  * identical coefficients, purely because $GAP is typed first in the roster.

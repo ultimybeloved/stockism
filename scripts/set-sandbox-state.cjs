@@ -13,7 +13,7 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOS
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
 const admin = require('firebase-admin');
-const { CHARACTERS } = require('../functions/src/shared/characters');
+const { CHARACTERS } = require('./lib/sharedSource.cjs').load('characters');
 
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();

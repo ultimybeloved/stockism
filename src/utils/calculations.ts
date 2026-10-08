@@ -73,7 +73,7 @@ export const getBidAskPrices = (midPrice: number, isETF: boolean | undefined = f
  * @returns {number} Dollar impact (e.g., 0.50 = 50¢ price move)
  */
 /**
- * A stock's liquidity: BASE_LIQUIDITY times its splitFactor (see characters.js),
+ * A stock's liquidity: BASE_LIQUIDITY times its splitFactor (see characters.ts),
  * so the same dollar trade moves a split stock the same percent as before.
  * Mirror of liquidityFor in functions/src/shared/helpers.js.
  */

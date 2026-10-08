@@ -10,7 +10,7 @@ export const TICKER_PATTERN = /^[A-Z0-9]{2,6}$/;
 
 // Stock splits (stockSplit.js). Same time budget and page sizes as the rename.
 // The journal holds the run in progress; the history holds each stock's total
-// split factor, which the deployed characters.js splitFactor must match.
+// split factor, which the deployed characters.ts splitFactor must match.
 export const SPLIT_JOURNAL_DOC = 'splitJournal';
 export const SPLIT_HISTORY_DOC = 'splitHistory';
 export const SPLIT_MIN_RATIO = 2;

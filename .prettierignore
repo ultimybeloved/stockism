@@ -6,7 +6,7 @@ scripts/node_modules
 local
 public
 package-lock.json
-functions/src/shared/characters.js
-functions/src/shared/crews.js
+functions/src/shared/characters.ts
+functions/src/shared/crews.ts
 *.md
 firestore.indexes.json

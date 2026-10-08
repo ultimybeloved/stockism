@@ -1,4 +1,4 @@
-// Crew rosters (derived from crews.js) and crew mission values.
+// Crew rosters (derived from crews.ts) and crew mission values.
 
 import {
   CREWS,
@@ -16,7 +16,7 @@ import {
 // ============================================
 // CREW MEMBER MAPPINGS
 // ============================================
-// Derived from src/crews.ts via the synced functions/src/shared/crews.js — never list
+// Derived from src/crews.ts via the synced functions/src/shared/crews.ts — never list
 // rosters here by hand (a hand-copied list once drifted and broke missions
 // for newly added characters).
 export const CREW_MEMBERS: Record<string, string[]> = {};

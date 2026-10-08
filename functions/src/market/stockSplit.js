@@ -33,7 +33,7 @@
 //   the index constituent's base / N              (price / base is unchanged, so
 //                                                   the index doesn't move)
 //
-// And one thing that is NOT data: characters.js must already carry the new
+// And one thing that is NOT data: characters.ts must already carry the new
 // splitFactor, deployed, which divides basePrice and multiplies liquidity (see
 // liquidityFor in helpers.js). Without the liquidity change the same dollar
 // trade would move a 10-for-1 stock about 3x as far. Preflight refuses to run
@@ -359,7 +359,7 @@ const runPreflight = async ({ ticker, ratio, marketData }) => {
   );
   add(
     'deployed',
-    `characters.js has splitFactor ${want}, deployed`,
+    `characters.ts has splitFactor ${want}, deployed`,
     (c?.splitFactor || 1) === want,
     `Deployed splitFactor is ${c?.splitFactor || 1}; this split needs ${want} (${before} so far x ${ratio}). ` +
       'Add it to src/characters.ts, run sync:chars, and deploy functions — with the market already halted.',

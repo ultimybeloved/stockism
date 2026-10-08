@@ -51,7 +51,7 @@ export const CREW_HEAD_ROLE_IDS = {
 // ============================================
 // DISCORD CREW EMOJIS (helpers.crewEmoji)
 // ============================================
-// The crew emblems in crews.js are plain Unicode (a handshake, a fist) because
+// The crew emblems in crews.ts are plain Unicode (a handshake, a fist) because
 // the website can only render Unicode. Discord can do better: these are the
 // real crew icons as custom emojis, so an embed shows the same artwork the site
 // does.

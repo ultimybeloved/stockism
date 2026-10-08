@@ -39,7 +39,7 @@ const OTHER = 'JIN';
 const { CHARACTERS, CHARACTER_MAP } = require('../functions/src/shared/characters');
 const { CREWS } = require('../functions/src/shared/crews');
 
-if (!CHARACTER_MAP[OLD]) throw new Error(`${OLD} is not in characters.js`);
+if (!CHARACTER_MAP[OLD]) throw new Error(`${OLD} is not in characters.ts`);
 if (CHARACTER_MAP[NEW]) throw new Error(`${NEW} already exists; pick another fixture`);
 
 /**

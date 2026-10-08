@@ -6,7 +6,7 @@
 //
 // Silent success = clean. Exits non-zero and says what to run otherwise.
 //
-// functions/src/shared/characters.js and functions/src/shared/crews.js are generated from src/ by
+// functions/src/shared/characters.ts and functions/src/shared/crews.ts are generated from src/ by
 // `npm run sync:chars`. When someone edits a source file and forgets to sync,
 // nothing complains locally: the frontend has the new data and the backend does
 // not. Players then get "Invalid ticker" errors on any new character, and new
@@ -21,7 +21,7 @@ const problems = [];
 
 for (const name of SHARED) {
   const from = `src/${name}.ts`;
-  const to = `functions/${name}.js`;
+  const to = `functions/src/shared/${name}.ts`;
   const toPath = generatedPath(name);
   if (!fs.existsSync(toPath)) {
     problems.push(`${to} does not exist`);

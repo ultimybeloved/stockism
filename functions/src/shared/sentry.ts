@@ -1,4 +1,3 @@
-'use strict';
 // Error monitoring.
 //
 // @sentry/node is by far the most expensive thing this backend loads (~700ms of
@@ -11,26 +10,28 @@
 // If SENTRY_DSN is unset the SDK is never loaded at all, since captureException
 // would have been a no-op anyway.
 
-let cached;
+// The loaded SDK, null when unavailable, undefined until first use.
+let cached: typeof import('@sentry/node') | null | undefined;
 
-const getSentry = () => {
+export const getSentry = () => {
   if (cached !== undefined) return cached;
   if (!process.env.SENTRY_DSN) {
     cached = null;
     return cached;
   }
   try {
-    const Sentry = require('@sentry/node');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily on purpose, see above
+    const Sentry: typeof import('@sentry/node') = require('@sentry/node');
     Sentry.init({ dsn: process.env.SENTRY_DSN, enabled: true });
     cached = Sentry;
   } catch (err) {
-    console.error('Sentry failed to load:', err && err.message);
+    console.error('Sentry failed to load:', (err as Error)?.message);
     cached = null;
   }
   return cached;
 };
 
-const capture = (err, extra) => {
+const capture = (err: unknown, extra?: Parameters<typeof import('@sentry/node').captureException>[1]) => {
   try {
     const Sentry = getSentry();
     if (!Sentry) return;
@@ -47,17 +48,16 @@ process.on('unhandledRejection', (err) => {
 /**
  * Report a handled error that we are NOT rethrowing, so silent failures still
  * surface in Sentry (and the logs) instead of vanishing. Use at any swallow point.
- * @param {*} err - the caught error
- * @param {object} context - extra context, e.g. { where: 'sendDiscordMessage', channelId }
+ * @param err - the caught error
+ * @param context - extra context, e.g. { where: 'sendDiscordMessage', channelId }
  */
-function reportError(err, context = {}) {
+export function reportError(err: unknown, context: { where?: string; [key: string]: unknown } = {}) {
+  const message = (err as { message?: unknown } | null)?.message;
   const tag = context.where ? `[${context.where}] ` : '';
   try {
-    console.error(`${tag}${err && err.message ? err.message : err}`);
+    console.error(`${tag}${message ? message : err}`);
   } catch (_) {
     /* noop */
   }
   capture(err, { extra: context });
 }
-
-module.exports = { reportError, getSentry };

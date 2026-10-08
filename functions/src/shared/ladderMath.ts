@@ -1,15 +1,15 @@
-'use strict';
 // Ladder game deposit limits and chip balances.
 
-const { TWENTY_FOUR_HOURS_MS, LADDER_RAMP_DAYS, LADDER_RAMP_MIN_FACTOR } = require('./constants');
-const { getAccountAgeDays } = require('./impact');
+import { TWENTY_FOUR_HOURS_MS, LADDER_RAMP_DAYS, LADDER_RAMP_MIN_FACTOR } from './constants';
+import { getAccountAgeDays } from './impact';
+import type { LadderData, UserData } from './types';
 
 // How much of the ladder deposit caps a user has unlocked, 0..1. Same ramp shape
 // as getAccountAgeImpactFactor but on its own constants — the price-impact ramp
 // is about market manipulation and lasts 3 days; this one is about alt accounts
 // gambling their signup cash and lasts a week. An account with no readable
 // createdAt gets full access rather than being locked out.
-const getLadderDepositFactor = (userData) => {
+export const getLadderDepositFactor = (userData: UserData) => {
   const ageDays = getAccountAgeDays(userData);
   if (ageDays === null) return 1;
   if (ageDays >= LADDER_RAMP_DAYS) return 1;
@@ -28,7 +28,7 @@ const getLadderDepositFactor = (userData) => {
 // lost came out of the chips first, so what is left of them is
 // (granted - totalLost), and it can never exceed the balance actually sitting
 // there. Mirror of getLadderChips in src/utils/ladderTax.ts.
-const getLadderChips = (ladderData) => {
+export const getLadderChips = (ladderData: LadderData | null | undefined) => {
   const granted = ladderData?.nonWithdrawable || 0;
   if (ladderData?.chipsMigrated) return granted;
   const lost = ladderData?.totalLost || 0;
@@ -37,14 +37,13 @@ const getLadderChips = (ladderData) => {
 };
 
 // What the player can actually move back to their main cash right now.
-const getLadderWithdrawable = (ladderData) => Math.max(0, (ladderData?.balance ?? 0) - getLadderChips(ladderData));
+export const getLadderWithdrawable = (ladderData: LadderData | null | undefined) =>
+  Math.max(0, (ladderData?.balance ?? 0) - getLadderChips(ladderData));
 
 // When the ladder caps reach full for this user, as an ISO date, or null if
 // they are already there. Used to tell them when the limit lifts.
-const getLadderRampEndDate = (userData) => {
+export const getLadderRampEndDate = (userData: UserData) => {
   const ageDays = getAccountAgeDays(userData);
   if (ageDays === null || ageDays >= LADDER_RAMP_DAYS) return null;
   return new Date(Date.now() + (LADDER_RAMP_DAYS - ageDays) * TWENTY_FOUR_HOURS_MS).toISOString().slice(0, 10);
 };
-
-module.exports = { getLadderDepositFactor, getLadderChips, getLadderWithdrawable, getLadderRampEndDate };

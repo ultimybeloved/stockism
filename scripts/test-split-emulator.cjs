@@ -208,7 +208,7 @@ const run = async () => {
   check('refused before the new splitFactor is deployed', failing(dry).includes('deployed'), failing(dry));
   check('refused while the market is open', failing(dry).includes('halted'), failing(dry));
 
-  // Simulate the deploy: what characters.js would carry after the edit.
+  // Simulate the deploy: what characters.ts would carry after the edit.
   const unsplitBase = CHARACTER_MAP[T].basePrice;
   CHARACTER_MAP[T].splitFactor = N;
   CHARACTER_MAP[T].basePrice = unsplitBase / N;

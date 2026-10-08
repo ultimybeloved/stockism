@@ -21,8 +21,8 @@ export const MARGIN_CASH_MINIMUM = 2000; // min cash to enable margin — keep i
 export const MARGIN_MIN_CHECKINS = 10;
 export const MARGIN_MIN_TRADES = 35;
 export const MARGIN_MIN_PEAK_PORTFOLIO = 7500;
-// CREW_SWITCH_PENALTY comes from crews.js (single source shared with the frontend)
-export const CREW_REJOIN_LOCKOUT_MS = CREW_REJOIN_LOCKOUT_DAYS * TWENTY_FOUR_HOURS_MS; // rejoin lockout after leaving a crew (from crews.js)
+// CREW_SWITCH_PENALTY comes from crews.ts (single source shared with the frontend)
+export const CREW_REJOIN_LOCKOUT_MS = CREW_REJOIN_LOCKOUT_DAYS * TWENTY_FOUR_HOURS_MS; // rejoin lockout after leaving a crew (from crews.ts)
 export const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 export const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
 export const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
@@ -36,7 +36,7 @@ export const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h wind
 // a real new player still gets to try the game immediately.
 export const LADDER_RAMP_DAYS = 7;
 export const LADDER_RAMP_MIN_FACTOR = 0.05; // 5% of the caps at day 0 → 100% at day 7
-// Crew buy/sell/volume goals scale with roster size (see getCrew*Target in crews.js)
+// Crew buy/sell/volume goals scale with roster size (see getCrew*Target in crews.ts)
 
 // ============================================
 // MARGIN THRESHOLDS

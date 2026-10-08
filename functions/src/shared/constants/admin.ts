@@ -11,9 +11,9 @@ export const REINSTATE_CASH_DEFAULT = 1000; // cash given when admin reinstates 
 // ============================================
 // MISSION REWARDS
 // ============================================
-// Daily/weekly mission payouts live on the mission definitions in crews.js
+// Daily/weekly mission payouts live on the mission definitions in crews.ts
 // (claimMissionReward reads them off the assigned mission). Crew mission
-// values are re-exported from crews.js below so services keep importing
+// values are re-exported from crews.ts below so services keep importing
 // everything from this hub.
 
 // ============================================

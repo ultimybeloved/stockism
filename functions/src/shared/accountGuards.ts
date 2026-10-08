@@ -1,16 +1,16 @@
-'use strict';
 // Account gates: bans, the Discord wall, Discord account binding, network keys.
 
-const admin = require('firebase-admin');
-const functions = require('firebase-functions');
-const { DISCORD_RELINK_COOLDOWN_MS, ALT_IPV6_PREFIX_GROUPS, DISCORD_BINDING_TTL_MS } = require('./constants');
+import * as admin from 'firebase-admin';
+import * as functions from 'firebase-functions';
+import { DISCORD_RELINK_COOLDOWN_MS, ALT_IPV6_PREFIX_GROUPS, DISCORD_BINDING_TTL_MS } from './constants';
+import type { UserData } from './types';
 const db = admin.firestore();
 
 /**
  * Reusable ban check — throws if user is banned.
  * Call right after fetching userData in any user-facing function.
  */
-function checkBanned(userData) {
+export function checkBanned(userData: UserData | null | undefined) {
   if (userData?.isBanned) {
     throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
   }
@@ -22,7 +22,7 @@ function checkBanned(userData) {
  * `discordId`, which lifts the wall automatically. Mirrors checkBanned — call it
  * right after checkBanned in any function that moves money or affects the market.
  */
-function checkDiscordWall(userData) {
+export function checkDiscordWall(userData: UserData | null | undefined) {
   if (userData?.requiresDiscordLink && !userData?.discordId) {
     throw new functions.https.HttpsError(
       'failed-precondition',
@@ -36,10 +36,8 @@ function checkDiscordWall(userData) {
  * session. IPv4 is used whole. IPv6 keeps only the routing prefix, because the
  * interface half of the address changes on its own throughout the day.
  * Shared by the alt detector and the watched-network signup block.
- * @param {string} ip
- * @returns {string|null}
  */
-function networkKey(ip) {
+export function networkKey(ip: unknown): string | null {
   if (!ip || typeof ip !== 'string' || ip === 'unknown') return null;
   const addr = ip.trim().toLowerCase();
   if (!addr.includes(':')) return addr; // IPv4
@@ -56,15 +54,14 @@ function networkKey(ip) {
  * for DISCORD_RELINK_COOLDOWN_MS before it can verify a fresh account again.
  * A tombstone marked `permanent` (a moderation removal, e.g. an alt ring) never
  * expires.
- * @param {string} discordId
- * @returns {Promise<boolean>}
  */
-async function isDiscordRelinkBlocked(discordId) {
+export async function isDiscordRelinkBlocked(discordId: string | null | undefined): Promise<boolean> {
   if (!discordId) return false;
   const snap = await db.collection('discordTombstones').doc(String(discordId)).get();
-  if (!snap.exists) return false;
-  if (snap.data().permanent === true) return true;
-  const deletedAt = snap.data().deletedAt || 0;
+  const data = snap.data();
+  if (!snap.exists || !data) return false;
+  if (data.permanent === true) return true;
+  const deletedAt = data.deletedAt || 0;
   return Date.now() - deletedAt < DISCORD_RELINK_COOLDOWN_MS;
 }
 
@@ -81,14 +78,15 @@ async function isDiscordRelinkBlocked(discordId) {
  *
  *   "May a DIFFERENT account link it?" — isDiscordBindingLocked. Expires.
  *
- * @param {string} discordId
- * @returns {Promise<{uid: string|null, boundAt: number}|null>}
  */
-async function getDiscordBinding(discordId) {
+export async function getDiscordBinding(
+  discordId: string | null | undefined,
+): Promise<{ uid: string | null; boundAt: number } | null> {
   if (!discordId) return null;
   const snap = await db.collection('discordBindings').doc(String(discordId)).get();
-  if (!snap.exists) return null;
-  const { uid = null, boundAt = 0 } = snap.data();
+  const data = snap.data();
+  if (!snap.exists || !data) return null;
+  const { uid = null, boundAt = 0 } = data;
   return { uid, boundAt };
 }
 
@@ -101,11 +99,9 @@ async function getDiscordBinding(discordId) {
  * and clear the requiresDiscordLink wall on unlimited alts. The hold lapses
  * after DISCORD_BINDING_TTL_MS so a player who unlinks the wrong account isn't
  * stranded — an admin can also release it immediately with adminFreeDiscord.
- * @param {string} discordId
- * @param {string} uid - the account trying to link it
- * @returns {Promise<boolean>}
+ * @param uid - the account trying to link it
  */
-async function isDiscordBindingLocked(discordId, uid) {
+export async function isDiscordBindingLocked(discordId: string | null | undefined, uid: string): Promise<boolean> {
   const binding = await getDiscordBinding(discordId);
   if (!binding || !binding.uid || binding.uid === uid) return false;
   return Date.now() - binding.boundAt < DISCORD_BINDING_TTL_MS;
@@ -115,17 +111,18 @@ async function isDiscordBindingLocked(discordId, uid) {
  * Reserve a Discord ID for a uid. A live reservation belongs to whoever holds
  * it; a lapsed one is up for grabs. Transactional so two accounts racing to
  * claim the same expired binding can't both win.
- * @param {string} discordId
- * @param {string} uid
- * @param {string} [discordUsername]
- * @returns {Promise<string>} the uid holding the reservation after this call
  */
-async function bindDiscordToUid(discordId, uid, discordUsername) {
+export async function bindDiscordToUid(
+  discordId: string,
+  uid: string,
+  discordUsername?: string | null,
+): Promise<string> {
   const ref = db.collection('discordBindings').doc(String(discordId));
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    if (snap.exists) {
-      const { uid: ownerUid, boundAt = 0 } = snap.data();
+    const data = snap.data();
+    if (snap.exists && data) {
+      const { uid: ownerUid, boundAt = 0 } = data;
       if (ownerUid && ownerUid !== uid && Date.now() - boundAt < DISCORD_BINDING_TTL_MS) {
         return ownerUid;
       }
@@ -138,13 +135,3 @@ async function bindDiscordToUid(discordId, uid, discordUsername) {
     return uid;
   });
 }
-
-module.exports = {
-  checkBanned,
-  checkDiscordWall,
-  networkKey,
-  isDiscordRelinkBlocked,
-  getDiscordBinding,
-  isDiscordBindingLocked,
-  bindDiscordToUid,
-};

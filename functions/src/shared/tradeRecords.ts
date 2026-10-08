@@ -1,20 +1,20 @@
-'use strict';
 // Trade records and the mission / stat credit every fill lane books.
 
-const admin = require('firebase-admin');
-const {
+import * as admin from 'firebase-admin';
+import {
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
   ANIMAL_TICKERS,
   UNDERDOG_PRICE_THRESHOLD,
   TRADE_RECORD_ACTIONS,
-} = require('./constants');
-const { round2 } = require('./money');
-const { tickerStatsRef, buildTickerFlowUpdate } = require('./marketData');
+} from './constants';
+import { round2 } from './money';
+import { tickerStatsRef, buildTickerFlowUpdate } from './marketData';
+import type { UserData } from './types';
 const db = admin.firestore();
 
 // Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
-const getWeekId = (now = new Date()) => {
+export const getWeekId = (now = new Date()) => {
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
   if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
@@ -29,7 +29,7 @@ const getWeekId = (now = new Date()) => {
 // basis (executeTrade feeds it to the achievement context).
 // `marketPrice` is the pre-impact market price (underdog check), while
 // `executionPrice` is what the user actually paid/received per share.
-const buildTradeCreditUpdates = ({
+export const buildTradeCreditUpdates = ({
   userData,
   ticker,
   action,
@@ -38,10 +38,19 @@ const buildTradeCreditUpdates = ({
   executionPrice,
   marketPrice,
   now = Date.now(),
+}: {
+  userData: UserData;
+  ticker: string;
+  action: string;
+  shares: number;
+  totalValue: number;
+  executionPrice: number;
+  marketPrice: number;
+  now?: number;
 }) => {
   const todayDate = new Date(now).toISOString().split('T')[0];
   const weekId = getWeekId(new Date(now));
-  const updates = {
+  const updates: Record<string, unknown> = {
     totalTrades: admin.firestore.FieldValue.increment(1),
     [`dailyMissions.${todayDate}.tradesCount`]: admin.firestore.FieldValue.increment(1),
     [`dailyMissions.${todayDate}.tradeVolume`]: admin.firestore.FieldValue.increment(shares),
@@ -50,7 +59,7 @@ const buildTradeCreditUpdates = ({
     [`weeklyMissions.${weekId}.tradeCount`]: admin.firestore.FieldValue.increment(1),
     [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true,
   };
-  let animalProfitTotal = null;
+  let animalProfitTotal: number | null = null;
 
   if (action === 'buy') {
     updates[`dailyMissions.${todayDate}.boughtAny`] = true;
@@ -98,6 +107,21 @@ const buildTradeCreditUpdates = ({
   return { updates, animalProfitTotal };
 };
 
+interface TradeRecordInput {
+  uid: string;
+  ticker: string;
+  action: string;
+  amount: number;
+  price: number;
+  priceImpact?: number;
+  totalValue: number;
+  cashBefore?: number | null;
+  cashAfter?: number | null;
+  source?: string | null;
+  ip?: string | null;
+  orderId?: string | null;
+}
+
 // Writes one record to the trades collection, inside the caller's transaction.
 //
 // This collection is the canonical record of a trade: the player's own Trade
@@ -108,8 +132,8 @@ const buildTradeCreditUpdates = ({
 // `source` marks a fill that the player didn't place by hand ('limit',
 // 'stop_loss', 'premarket'). Trades placed through executeTrade leave it unset,
 // and that absence is what the velocity guards use to tell the two apart.
-function recordTrade(
-  transaction,
+export function recordTrade(
+  transaction: admin.firestore.Transaction,
   {
     uid,
     ticker,
@@ -123,9 +147,9 @@ function recordTrade(
     source = null,
     ip = null,
     orderId = null,
-  },
+  }: TradeRecordInput,
 ) {
-  const record = {
+  const record: Record<string, unknown> = {
     uid,
     ticker,
     action,
@@ -155,5 +179,3 @@ function recordTrade(
     });
   }
 }
-
-module.exports = { getWeekId, buildTradeCreditUpdates, recordTrade };

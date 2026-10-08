@@ -1,12 +1,15 @@
-'use strict';
 // Net equity and granted (free) value, which percent boards subtract out.
 
-const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
-const { CHARACTER_MAP } = require('./characters');
-const { TWENTY_FOUR_HOURS_MS, MIN_PRICE } = require('./constants');
-const { round2 } = require('./money');
-const { calculateMarginalImpact, liquidityFor } = require('./impact');
+import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+import { CHARACTER_MAP } from './characters';
+import { TWENTY_FOUR_HOURS_MS, MIN_PRICE } from './constants';
+import { round2 } from './money';
+import { calculateMarginalImpact, liquidityFor } from './impact';
+import type { GrantedSample, ShortPosition, UserData } from './types';
+
+/** Current price per ticker. */
+type Prices = Record<string, number | undefined> | null | undefined;
 const db = admin.firestore();
 
 // ── Granted value ────────────────────────────────────────────────────────────
@@ -24,10 +27,10 @@ const db = admin.firestore();
 /**
  * The field update that books a grant. Spread into whatever update object the
  * caller is already writing, so recording a grant never costs an extra write.
- * @param {number} amount - dollar value granted (share grants pass shares * price)
- * @returns {Object} partial update, or {} when there is nothing to book
+ * @param amount - dollar value granted (share grants pass shares * price)
+ * @returns partial update, or {} when there is nothing to book
  */
-const grantedValueUpdate = (amount, now = Date.now()) => {
+export const grantedValueUpdate = (amount: unknown, now = Date.now()) => {
   const value = Number(amount);
   if (!value || !isFinite(value) || value <= 0) return {};
   const rounded = Math.round(value * 100) / 100;
@@ -47,7 +50,7 @@ const grantedValueUpdate = (amount, now = Date.now()) => {
  * Days, not ms: amount x ms passes 2^53 after a few thousand dollars and loses
  * cents. Average held since pinning = (granted x nowDays - sum) / days elapsed.
  */
-const grantedDaysUpdate = (signedAmount, now = Date.now()) => ({
+const grantedDaysUpdate = (signedAmount: number, now = Date.now()) => ({
   grantedDays: FieldValue.increment(signedAmount * (now / TWENTY_FOUR_HOURS_MS)),
 });
 
@@ -64,9 +67,9 @@ const grantedDaysUpdate = (signedAmount, now = Date.now()) => ({
  *
  * Negative totals are fine and expected — someone with money parked in the
  * ladder is legitimately "owed" that back in the return calculation.
- * @param {number} signedAmount - positive on the way in, negative on the way out
+ * @param signedAmount - positive on the way in, negative on the way out
  */
-const grantedFlowUpdate = (signedAmount, counter = 'ladderFlowValue') => {
+export const grantedFlowUpdate = (signedAmount: unknown, counter = 'ladderFlowValue') => {
   const value = Number(signedAmount);
   if (!value || !isFinite(value)) return {};
   const rounded = Math.round(value * 100) / 100;
@@ -86,7 +89,7 @@ const grantedFlowUpdate = (signedAmount, counter = 'ladderFlowValue') => {
  * odds read as a +1000% season. Own counter, so the ladder shadow stat stays
  * ladder-only.
  */
-const predictionFlowUpdate = (signedAmount) => grantedFlowUpdate(signedAmount, 'predictionFlowValue');
+export const predictionFlowUpdate = (signedAmount: unknown) => grantedFlowUpdate(signedAmount, 'predictionFlowValue');
 
 /**
  * Cumulative granted value as it stood at `ts`, from the daily samples
@@ -98,14 +101,11 @@ const predictionFlowUpdate = (signedAmount) => grantedFlowUpdate(signedAmount, '
  * Returning nothing in that case, as this used to, left 243 of 315 players on
  * the 2026-09-13 admin readout with no free money removed at all: samples are
  * only written when a player opens the app, so most had none from day one.
- * @param {Object} userData
- * @param {number} ts
- * @returns {number|null}
  */
-const grantedTotalAt = (userData, ts) => {
+export const grantedTotalAt = (userData: UserData | null | undefined, ts: number): number | null => {
   const samples = Array.isArray(userData?.grantedSamples) ? userData.grantedSamples : [];
-  let atOrBefore = null;
-  let oldest = null;
+  let atOrBefore: GrantedSample | null = null;
+  let oldest: GrantedSample | null = null;
   for (const s of samples) {
     if (!s || typeof s.ts !== 'number') continue;
     if (s.ts <= ts && (!atOrBefore || s.ts > atOrBefore.ts)) atOrBefore = s;
@@ -118,11 +118,8 @@ const grantedTotalAt = (userData, ts) => {
 /**
  * Grants booked within the last `windowMs`. See grantedTotalAt for why a window
  * older than the samples still gets a (low) figure rather than zero.
- * @param {Object} userData
- * @param {number} windowMs
- * @returns {number}
  */
-const grantedSince = (userData, windowMs) => {
+export const grantedSince = (userData: UserData, windowMs: number) => {
   const atStart = grantedTotalAt(userData, Date.now() - windowMs);
   if (atStart === null) return 0;
   // Signed on purpose: a ladder deposit books a negative flow, and clamping that
@@ -138,11 +135,8 @@ const grantedSince = (userData, windowMs) => {
  * moment. It is only rewritten when the player opens the app, so it can be days
  * old, and it counts borrowed margin as value (the leaderboard's netEquity
  * subtracts marginUsed for the same reason).
- * @param {Object} userData
- * @param {Object} prices
- * @returns {number}
  */
-const netEquityAt = (userData, prices) => {
+export const netEquityAt = (userData: UserData | null | undefined, prices: Prices) => {
   if (!userData) return 0;
   const holdingsValue = Object.entries(userData.holdings || {}).reduce(
     (sum, [ticker, shares]) => sum + (shares > 0 ? (prices?.[ticker] || 0) * shares : 0),
@@ -163,11 +157,8 @@ const netEquityAt = (userData, prices) => {
  * they could never cash out, because selling would push the price straight back
  * down. Here that gain and the exit cost cancel. Spread is left out: it's the
  * same share at the baseline and at every checkpoint, so it can't move a return.
- * @param {Object} userData
- * @param {Object} prices
- * @returns {number}
  */
-const exitEquityAt = (userData, prices) => {
+export const exitEquityAt = (userData: UserData | null | undefined, prices: Prices) => {
   if (!userData) return 0;
   const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
     const price = prices?.[ticker] || 0;
@@ -175,7 +166,7 @@ const exitEquityAt = (userData, prices) => {
     return sum + Math.max(MIN_PRICE, price - calculateMarginalImpact(price, shares, 0, liquidityFor(ticker))) * shares;
   }, 0);
   // Covering buys the shares back, so the price it's measured at is pushed up.
-  const coverPrices = {};
+  const coverPrices: Record<string, number> = {};
   for (const [ticker, pos] of Object.entries(userData.shorts || {})) {
     const price = prices?.[ticker] || 0;
     if (pos && pos.shares > 0)
@@ -190,12 +181,16 @@ const exitEquityAt = (userData, prices) => {
  * Percent return over a window, net of granted value. The single definition —
  * leaderboard, season standings and the admin readout all go through it so they
  * can't drift.
- * @param {number} current - portfolio value now
- * @param {number} baseline - portfolio value at the start of the window
- * @param {number} granted - value granted during the window
- * @returns {number} percent
+ * @param current - portfolio value now
+ * @param baseline - portfolio value at the start of the window
+ * @param granted - value granted during the window
+ * @returns percent
  */
-const netReturnPercent = (current, baseline, granted) => {
+export const netReturnPercent = (
+  current: number,
+  baseline: number | null | undefined,
+  granted: number | null | undefined,
+) => {
   if (!baseline || baseline <= 0) return 0;
   return ((current - (granted || 0) - baseline) / baseline) * 100;
 };
@@ -214,7 +209,10 @@ const netReturnPercent = (current, baseline, granted) => {
  * short was invisible and a player holding both margin debt and shorts looked
  * poorer than they were and could be liquidated early.
  */
-const shortsEquity = (shorts, prices) =>
+export const shortsEquity = (
+  shorts: Record<string, ShortPosition | null | undefined> | null | undefined,
+  prices: Prices,
+) =>
   Object.entries(shorts || {}).reduce((sum, [ticker, pos]) => {
     if (!pos || !(pos.shares > 0)) return sum;
     const price = prices?.[ticker] || 0;
@@ -234,16 +232,13 @@ const shortsEquity = (shorts, prices) =>
  * their market value. A crew ETF counts toward each member it tracks, split by
  * its trailing weights, so a character can't be split between its own stock and
  * its crew fund to slip under the cap.
- * @param {Object} userData
- * @param {Object} prices
- * @returns {{largest: number, total: number}}
  */
-const characterExposure = (userData, prices) => {
-  const byCharacter = {};
-  const add = (ticker, value) => {
+export const characterExposure = (userData: UserData | null | undefined, prices: Prices) => {
+  const byCharacter: Record<string, number> = {};
+  const add = (ticker: string, value: number) => {
     byCharacter[ticker] = (byCharacter[ticker] || 0) + value;
   };
-  const spread = (ticker, value) => {
+  const spread = (ticker: string, value: number) => {
     const factors = CHARACTER_MAP[ticker]?.isETF ? CHARACTER_MAP[ticker].trailingFactors || [] : [];
     const weight = factors.reduce((s, f) => s + (f.coefficient || 0), 0);
     if (!(weight > 0)) {
@@ -256,7 +251,7 @@ const characterExposure = (userData, prices) => {
     if (shares > 0) spread(ticker, (prices?.[ticker] || 0) * shares);
   }
   for (const [ticker, pos] of Object.entries(userData?.shorts || {})) {
-    if (pos?.shares > 0) spread(ticker, (prices?.[ticker] || 0) * pos.shares);
+    if (pos && pos.shares > 0) spread(ticker, (prices?.[ticker] || 0) * pos.shares);
   }
   const values = Object.values(byCharacter);
   return {
@@ -267,7 +262,7 @@ const characterExposure = (userData, prices) => {
 
 // Total a user has "invested" in stocks: cost basis of holdings + collateral posted on
 // open short positions. Used to cap prediction bets and ladder-game deposits.
-const getTotalInvested = (userData) => {
+export const getTotalInvested = (userData: UserData | null | undefined) => {
   if (!userData) return 0;
   const holdings = userData.holdings || {};
   const costBasis = userData.costBasis || {};
@@ -282,15 +277,11 @@ const getTotalInvested = (userData) => {
   return holdingsValue + shortMargin;
 };
 
-// Shares currently locked from selling, combining the IPO and margin lockups.
-// Both are { shares, until } maps on the user doc; a lock counts only while
-// unexpired. Used by every sell path (executeTrade, limit orders, pre-market)
-// so the lockups are enforced consistently and can't be dodged by one route.
 // A user's rank via count aggregations (~1 read per 1000 counted) instead of
 // reading one doc per higher-ranked user. Bots are subtracted with a second
 // count so ranks match the bot-free leaderboard. Shared by getLeaderboard and
 // the Discord bot's /profile so the two can't report different ranks.
-const countRankAbove = async (value, crew) => {
+export const countRankAbove = async (value: number, crew?: string | null) => {
   let above = db.collection('users').where('portfolioValue', '>', value);
   let botsAbove = db.collection('users').where('isBot', '==', true).where('portfolioValue', '>', value);
   if (crew) {
@@ -299,19 +290,4 @@ const countRankAbove = async (value, crew) => {
   }
   const [aboveSnap, botsSnap] = await Promise.all([above.count().get(), botsAbove.count().get()]);
   return Math.max(0, aboveSnap.data().count - botsSnap.data().count) + 1;
-};
-
-module.exports = {
-  grantedValueUpdate,
-  grantedFlowUpdate,
-  predictionFlowUpdate,
-  grantedTotalAt,
-  grantedSince,
-  netEquityAt,
-  exitEquityAt,
-  netReturnPercent,
-  shortsEquity,
-  characterExposure,
-  getTotalInvested,
-  countRankAbove,
 };

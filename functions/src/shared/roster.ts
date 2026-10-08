@@ -1,8 +1,7 @@
-'use strict';
 // Which tickers are real characters, and ticker aliases left behind by renames.
 
-const { CHARACTERS, CHARACTER_MAP } = require('./characters');
-const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } = require('./constants');
+import { CHARACTERS, CHARACTER_MAP } from './characters';
+import { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from './constants';
 
 // ============================================
 // ROSTER GUARD
@@ -18,11 +17,11 @@ const { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } = require('./constants');
 // Discord. Iterating CHARACTERS directly (as the market maker does) is
 // inherently safe and needs no guard.
 const ROSTER_TICKERS = new Set(CHARACTERS.map((c) => c.ticker));
-const isRosterTicker = (ticker) => ROSTER_TICKERS.has(ticker);
+export const isRosterTicker = (ticker: string) => ROSTER_TICKERS.has(ticker);
 
 // Bid/ask spread for a ticker. ETFs trade tighter than individual characters.
 // Was defined separately in marketOrders and limitOrderFill.
-const spreadFor = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
+export const spreadFor = (ticker: string) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
 // ============================================
 // TICKER ALIASES
@@ -34,7 +33,8 @@ const spreadFor = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD
 // frozen JSON. Resolving on read costs nothing and covers all of them.
 //
 // Renames collapse the chain when they are applied, so this is always one hop.
-const resolveTicker = (aliases, ticker) => (aliases || {})[ticker] || ticker;
+export const resolveTicker = (aliases: Record<string, string> | null | undefined, ticker: string) =>
+  (aliases || {})[ticker] || ticker;
 
 /**
  * Rewrite the keys of a ticker-keyed object through the alias map.
@@ -43,13 +43,14 @@ const resolveTicker = (aliases, ticker) => (aliases || {})[ticker] || ticker;
  * ticker and drop the new one — which is exactly how the DOTS orphan survived
  * a rename and was still being traded by bots a year later.
  */
-const remapAliasedKeys = (obj, aliases) => {
+export const remapAliasedKeys = <T>(
+  obj: Record<string, T> | null | undefined,
+  aliases: Record<string, string> | null | undefined,
+) => {
   if (!obj || !aliases || !Object.keys(aliases).length) return obj;
-  const out = {};
+  const out: Record<string, T> = {};
   for (const [ticker, value] of Object.entries(obj)) {
     out[resolveTicker(aliases, ticker)] = value;
   }
   return out;
 };
-
-module.exports = { isRosterTicker, spreadFor, resolveTicker, remapAliasedKeys };

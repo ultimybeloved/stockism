@@ -216,7 +216,7 @@ A closed position leaves nothing behind: delete `holdings`, `costBasis`,
 preference and survives on purpose.
 
 **Characters & crews** (`src/characters.ts` + `src/crews.ts` and their `functions/` copies)
-- `src/characters.ts` and `src/crews.ts` are the **only files you ever edit**. Never touch `functions/src/shared/characters.js` or `functions/src/shared/crews.js` directly — both are generated.
+- `src/characters.ts` and `src/crews.ts` are the **only files you ever edit**. Never touch `functions/src/shared/characters.ts` or `functions/src/shared/crews.ts` directly — both are generated copies.
 - After editing either source file, run `npm run check:data` (validates ETF weights, crew rosters, and ticker references — silent success = clean) then `npm run sync:chars`, which overwrites both `functions/` copies automatically.
 - Commit source and generated files together, then deploy functions. If you forget the sync, users get "Invalid ticker" errors for new characters, and new crew members are invisible to missions and crew bots (this exact bug shipped in June 2026 when the backend crew list was still hand-copied).
 - Crew rosters, mission definitions/rewards, and crew mission contribution minimums all live in `src/crews.ts`; `functions/src/shared/constants/` derives `CREW_MEMBERS` and re-exports the mission values from the synced copy.
@@ -306,7 +306,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/shared/sentry.js` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
 | `functions/src/shared/constants/` | All backend economy constants, one file per topic — add new ones to the right topic |
 | `functions/src/shared/helpers.js` | Re-exports the shared topic modules beside it (impact, cohorts, equity, usernames, ...) |
-| `functions/src/shared/characters.js` | **Generated file** — never edit directly, always via `npm run sync:chars` |
+| `functions/src/shared/characters.ts` | **Generated file** — never edit directly, always via `npm run sync:chars` |
 | `functions/src/market/botTrader.js` | Bot trading scheduler |
 | `functions/src/trading/trading.js` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
 | `functions/src/users/users.js` | Account lifecycle: createUser, deleteAccount (anti-abuse gates live here) |
@@ -434,7 +434,7 @@ and player and IP trade-history share counts. Feed entries stay as history.
    trade would get 10x the liquidity. Preflight refuses unless halted.
 2. Add `splitFactor: N` to the character in `src/characters.ts`. It is the
    TOTAL factor: a second 2-for-1 on a stock already at 10 means `20`. Leave
-   `basePrice` alone — characters.js divides it by the factor on load, and
+   `basePrice` alone — characters.ts divides it by the factor on load, and
    `liquidityFor` multiplies liquidity by it, so a dollar trade moves the stock
    the same percent as before.
 3. `npm run sync:chars`, `npm test`, `npm run build`, push, then deploy

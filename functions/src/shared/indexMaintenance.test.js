@@ -108,7 +108,7 @@ describe('divisor on a roster change', () => {
 
   it('values a departed character from its stored base price, not the roster', () => {
     // stored.constituents carries basePrice precisely so a character that is gone
-    // from characters.js entirely can still be priced on the way out.
+    // from characters.ts entirely can still be priced on the way out.
     const gone = { t: 'GONE', b: 4 };
     const storedWithGone = { divisor: stored.divisor, constituents: [...before, gone] };
     const pricesWithGone = { ...prices, GONE: 8 }; // 2x base

@@ -35,12 +35,12 @@ const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/sr
 const TICKER = 'GUN'; // auction ticker (in the YAMA fund)
 const STOP_TICKER = 'VSCO'; // stop-loss ticker (in the ALLY fund, untouched by the auction)
 // Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
-// from characters.js: `ipoRequired` gets dropped once a stock actually launches
+// from characters.ts: `ipoRequired` gets dropped once a stock actually launches
 // (all five were cleared on 2026-08-07), and relying on it broke this check.
 // Mutating the shared CHARACTER_MAP is enough — the auction reads the same
 // module instance in-process.
 const IPO_TICKER = 'EUNH';
-if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.js`);
+if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.ts`);
 CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
 let failures = 0;

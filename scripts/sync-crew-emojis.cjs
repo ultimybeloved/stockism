@@ -42,7 +42,7 @@ const MAX_EMOJI_BYTES = 256 * 1024;
 // SCREAMING_SNAKE, so lowercasing is the whole transform.
 const emojiName = (crewId) => `crew_${crewId.toLowerCase()}`;
 
-// crews.js stores a web path ('/crews/big deal.png'); the file lives in public/.
+// crews.ts stores a web path ('/crews/big deal.png'); the file lives in public/.
 const iconPath = (crew) => path.join(ROOT, 'public', crew.icon.replace(/^\//, ''));
 
 function toDataUri(file) {

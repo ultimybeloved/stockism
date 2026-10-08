@@ -1,9 +1,9 @@
-'use strict';
 // Dividend / exit-loyalty lot ledger (holdingCohorts) and exit share sizes.
 
-const { FieldValue } = require('firebase-admin/firestore');
-const { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS } = require('./characters');
-const { MIN_EXIT_SHARES, EXIT_SHARE_DECIMALS } = require('./constants');
+import { FieldValue } from 'firebase-admin/firestore';
+import { DIVIDEND_HOLD_MS, DIVIDEND_MATURE_MS } from './characters';
+import { MIN_EXIT_SHARES, EXIT_SHARE_DECIMALS } from './constants';
+import type { Cohort, UserData } from './types';
 
 // Cohort bookkeeping helpers. `cohort = { eligible: N, pending: [{shares, availableAt}] }`
 // Pending = purchase lots. A lot pays nothing until availableAt (the 10-day
@@ -12,7 +12,11 @@ const { MIN_EXIT_SHARES, EXIT_SHARE_DECIMALS } = require('./constants');
 // Invariant: eligible + sum(pending.shares) === holdings[ticker].
 // Cohorts may carry extra fields (e.g. firstHeldAt for the Dividend Demon
 // achievement) — every helper must preserve them, not rebuild bare objects.
-const addPendingShares = (cohort, shares, now) => {
+export const addPendingShares = (
+  cohort: Cohort | null,
+  shares: number,
+  now: number,
+): Cohort & { pending: NonNullable<Cohort['pending']> } => {
   const c =
     cohort && typeof cohort === 'object'
       ? { ...cohort, eligible: cohort.eligible || 0, pending: [...(cohort.pending || [])] }
@@ -23,7 +27,7 @@ const addPendingShares = (cohort, shares, now) => {
 
 // Decrement a cohort by `shares`. Consumes eligible first, then oldest pending
 // (FIFO by availableAt). Returns null if the cohort is fully consumed.
-const decrementCohort = (cohort, shares) => {
+export const decrementCohort = (cohort: Cohort | null, shares: number): Cohort | null => {
   if (!cohort) return null;
   let remaining = shares;
   let eligible = cohort.eligible || 0;
@@ -35,7 +39,7 @@ const decrementCohort = (cohort, shares) => {
 
   pending.sort((a, b) => (a.availableAt || 0) - (b.availableAt || 0));
   while (remaining > 0 && pending.length > 0) {
-    const head = pending[0];
+    const head = pending[0]!;
     if (head.shares <= remaining) {
       remaining -= head.shares;
       pending.shift();
@@ -52,10 +56,10 @@ const decrementCohort = (cohort, shares) => {
 // Fold fully matured pending lots (held past the top loyalty rung) into
 // eligible. Lots between the hold gate and full maturity stay pending so their
 // age keeps driving the ladder multiplier.
-const graduateCohort = (cohort, now) => {
+export const graduateCohort = (cohort: Cohort | null | undefined, now: number): Cohort => {
   if (!cohort) return { eligible: 0, pending: [] };
   let eligible = cohort.eligible || 0;
-  const stillPending = [];
+  const stillPending: NonNullable<Cohort['pending']> = [];
   for (const p of cohort.pending || []) {
     const acquiredAt = (p.availableAt || 0) - DIVIDEND_HOLD_MS;
     if (now - acquiredAt >= DIVIDEND_MATURE_MS) eligible += p.shares || 0;
@@ -81,7 +85,13 @@ const graduateCohort = (cohort, now) => {
 // If you add a lane that changes holdings[ticker], it calls one of these.
 
 // Shares ENTERING a position. `isETF` preserves the Dividend Demon clock.
-const cohortAddUpdate = (userData, ticker, shares, now, isETF = false) => {
+export const cohortAddUpdate = (
+  userData: UserData | null | undefined,
+  ticker: string,
+  shares: number,
+  now: number,
+  isETF = false,
+) => {
   const existing = userData?.holdingCohorts?.[ticker] || null;
   const next = addPendingShares(existing, shares, now);
   if (isETF) next.firstHeldAt = existing?.firstHeldAt || now;
@@ -91,7 +101,7 @@ const cohortAddUpdate = (userData, ticker, shares, now, isETF = false) => {
 // Shares LEAVING a position. The ledger is deleted outright when the position
 // closes, so a later re-buy starts a clean clock instead of inheriting the old
 // position's loyalty standing.
-const cohortRemoveUpdate = (userData, ticker, shares) => {
+export const cohortRemoveUpdate = (userData: UserData | null | undefined, ticker: string, shares: number) => {
   const next = decrementCohort(userData?.holdingCohorts?.[ticker] || null, shares);
   return { [`holdingCohorts.${ticker}`]: next || FieldValue.delete() };
 };
@@ -115,31 +125,21 @@ const EXIT_SHARE_STEP = 10 ** EXIT_SHARE_DECIMALS;
 // grid exists to prevent. A ten-thousandth of a step is far below any real share
 // quantity (one step is a whole unit here) and comfortably above the noise.
 const EXIT_SHARE_EPSILON = 1e-4;
-const floorExitShares = (n) => Math.floor((n || 0) * EXIT_SHARE_STEP + EXIT_SHARE_EPSILON) / EXIT_SHARE_STEP;
+export const floorExitShares = (n: number | null | undefined) =>
+  Math.floor((n || 0) * EXIT_SHARE_STEP + EXIT_SHARE_EPSILON) / EXIT_SHARE_STEP;
 
 // What is left of a position after selling `sold` of it. Anything under the
 // minimum sellable size is dropped rather than parked as a speck the player can
 // never clear, so callers can treat 0 as "position closed".
-const remainingShares = (held, sold) => {
+export const remainingShares = (held: number | null | undefined, sold: number | null | undefined) => {
   const left = Math.round(((held || 0) - (sold || 0)) * EXIT_SHARE_STEP) / EXIT_SHARE_STEP;
   return left < MIN_EXIT_SHARES ? 0 : left;
 };
 
-const lockedShares = (userData, ticker, now = Date.now()) => {
+export const lockedShares = (userData: UserData | null | undefined, ticker: string, now = Date.now()) => {
   const ipo = userData?.ipoLockup?.[ticker];
   const margin = userData?.marginLockup?.[ticker];
   const ipoN = ipo && now < (ipo.until || 0) ? ipo.shares || 0 : 0;
   const marginN = margin && now < (margin.until || 0) ? margin.shares || 0 : 0;
   return { ipo: ipoN, margin: marginN, total: ipoN + marginN };
-};
-
-module.exports = {
-  addPendingShares,
-  decrementCohort,
-  graduateCohort,
-  cohortAddUpdate,
-  cohortRemoveUpdate,
-  floorExitShares,
-  remainingShares,
-  lockedShares,
 };

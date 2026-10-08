@@ -103,7 +103,7 @@ const IpoTab = ({
             >
               <option value="">Select character...</option>
               {ipoEligibleCharacters.length === 0 ? (
-                <option disabled>No characters need IPO (add ipoRequired: true to characters.js)</option>
+                <option disabled>No characters need IPO (add ipoRequired: true to characters.ts)</option>
               ) : (
                 ipoEligibleCharacters.map((c) => (
                   <option key={c.ticker} value={c.ticker}>
@@ -114,7 +114,7 @@ const IpoTab = ({
             </select>
             {ipoEligibleCharacters.length === 0 && (
               <p className={`text-xs ${mutedClass} mt-1`}>
-                💡 To add a new character for IPO, add them to characters.js with{' '}
+                💡 To add a new character for IPO, add them to characters.ts with{' '}
                 <code className="bg-slate-700 px-1 rounded">ipoRequired: true</code>
               </p>
             )}

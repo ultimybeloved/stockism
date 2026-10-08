@@ -1,8 +1,7 @@
-'use strict';
 // Price impact math and the anti-abuse gates around it (wash rule, breaker, daily caps).
 
-const { splitFactorOf } = require('./characters');
-const {
+import { splitFactorOf } from './characters';
+import {
   BASE_IMPACT,
   BASE_LIQUIDITY,
   MAX_TRADE_SHARES,
@@ -17,8 +16,38 @@ const {
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
   CIRCUIT_BREAKER_MAX_PER_DAY,
-} = require('./constants');
-const { dayIdOf } = require('./marketData');
+} from './constants';
+import { dayIdOf } from './marketData';
+import type { Timestamp } from 'firebase-admin/firestore';
+import type { PricePoint, StoredTime, UserData } from './types';
+
+/** One entry in a 24h trade-history list (per user or per IP, per ticker and action). */
+export interface ImpactEntry {
+  ts: number;
+  shares?: number;
+  impact?: number;
+}
+
+/** history[action] for one ticker: buy / sell / short / cover. */
+export type ActionHistory = Record<string, ImpactEntry[] | undefined>;
+
+/** marketData.breakerCounts[ticker]: breakers fired today. */
+export interface BreakerCount {
+  day: string;
+  n?: number;
+}
+
+// Epoch ms from a stored createdAt (NaN when unparseable).
+const createdAtMs = (createdAt: StoredTime) =>
+  typeof (createdAt as Timestamp).toMillis === 'function'
+    ? (createdAt as Timestamp).toMillis()
+    : typeof createdAt === 'number'
+      ? createdAt
+      : Date.parse(createdAt as string);
+
+// A stamp stored as a Firestore Timestamp or as epoch ms, as epoch ms.
+const stampMs = (armed: Timestamp | number | undefined) =>
+  armed && ((armed as Timestamp).toMillis ? (armed as Timestamp).toMillis() : (armed as number));
 
 /**
  * What moving this many shares actually costs, before any cap.
@@ -34,14 +63,24 @@ const { dayIdOf } = require('./marketData');
  * dumping all 4,125 at once costs 5%, because the per-trade cap truncates it.
  * Selling everything in one go was the cheapest way to do it.
  */
-const rawMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
+export const rawMarginalImpact = (
+  currentPrice: number,
+  newShares: number,
+  cumulativeSharesBefore: number,
+  liquidity: number = BASE_LIQUIDITY,
+) =>
   currentPrice *
   BASE_IMPACT *
   (Math.sqrt((cumulativeSharesBefore + newShares) / liquidity) - Math.sqrt(cumulativeSharesBefore / liquidity));
 
 // What the MARKET moves: the raw cost, capped so a single order can't crater a
 // stock. This is what goes on the chart and what the daily allowance counts.
-const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
+export const calculateMarginalImpact = (
+  currentPrice: number,
+  newShares: number,
+  cumulativeSharesBefore: number,
+  liquidity: number = BASE_LIQUIDITY,
+) =>
   Math.min(
     rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
     currentPrice * MAX_PRICE_CHANGE_PERCENT,
@@ -49,7 +88,12 @@ const calculateMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore
 
 // What the TRADER pays: the raw cost, bounded well above the market cap so an
 // oversized order stops being free but can never be charged without limit.
-const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, liquidity = BASE_LIQUIDITY) =>
+export const traderMarginalImpact = (
+  currentPrice: number,
+  newShares: number,
+  cumulativeSharesBefore: number,
+  liquidity: number = BASE_LIQUIDITY,
+) =>
   Math.min(
     rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
     currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE,
@@ -57,18 +101,18 @@ const traderMarginalImpact = (currentPrice, newShares, cumulativeSharesBefore, l
 
 /**
  * A stock's liquidity: how many shares it takes to move it. BASE_LIQUIDITY,
- * times the stock's splitFactor if it has been split (see characters.js), so
+ * times the stock's splitFactor if it has been split (see characters.ts), so
  * the same dollar trade moves a split stock by the same percent as before the
  * split. Mirror of liquidityFor in src/utils/calculations.ts.
  */
-const liquidityFor = (ticker) => BASE_LIQUIDITY * splitFactorOf(ticker);
+export const liquidityFor = (ticker: string): number => BASE_LIQUIDITY * splitFactorOf(ticker);
 
 /**
  * The largest single order on a stock: MAX_TRADE_SHARES, times its splitFactor,
  * so a split never changes how many orders it takes to trade a position.
  * Mirror of maxTradeSharesFor in src/utils/calculations.ts.
  */
-const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * splitFactorOf(ticker);
+export const maxTradeSharesFor = (ticker: string): number => MAX_TRADE_SHARES * splitFactorOf(ticker);
 
 /**
  * Has this player's own downward pressure on this ticker armed the wash rule?
@@ -80,11 +124,10 @@ const maxTradeSharesFor = (ticker) => MAX_TRADE_SHARES * splitFactorOf(ticker);
  * One definition because there are three lanes that have to agree on it:
  * executeTrade, the limit-order sweep, and the pre-market auction.
  *
- * @returns {number} ms remaining on the cooldown, or 0 when not armed
+ * @returns ms remaining on the cooldown, or 0 when not armed
  */
-const washRuleRemainingMs = (userData, ticker, now = Date.now()) => {
-  const armed = userData?.lastHeavySell?.[ticker];
-  const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
+export const washRuleRemainingMs = (userData: UserData | null | undefined, ticker: string, now = Date.now()) => {
+  const armedMs = stampMs(userData?.lastHeavySell?.[ticker]);
   if (!armedMs) return 0;
   return Math.max(0, WASH_RULE_COOLDOWN_MS - (now - armedMs));
 };
@@ -98,11 +141,10 @@ const washRuleRemainingMs = (userData, ticker, now = Date.now()) => {
  * then shorting the crash you caused was the second half of the $SHNG raid.
  * Covering is never blocked.
  *
- * @returns {number} ms remaining, or 0 when not armed
+ * @returns ms remaining, or 0 when not armed
  */
-const shortAfterDumpRemainingMs = (userData, ticker, now = Date.now()) => {
-  const armed = userData?.lastHeavyExit?.[ticker];
-  const armedMs = armed && (armed.toMillis ? armed.toMillis() : armed);
+export const shortAfterDumpRemainingMs = (userData: UserData | null | undefined, ticker: string, now = Date.now()) => {
+  const armedMs = stampMs(userData?.lastHeavyExit?.[ticker]);
   if (!armedMs) return 0;
   return Math.max(0, SHORT_AFTER_DUMP_COOLDOWN_MS - (now - armedMs));
 };
@@ -115,13 +157,12 @@ const shortAfterDumpRemainingMs = (userData, ticker, now = Date.now()) => {
  * the dust sweep, but not into the bots, the market maker or the forced-cover
  * scanner — so the three automated movers carried on trading a stock that had
  * just been closed to every human, which is most of the point of closing it.
- *
- * @param {Object} haltedTickers - marketData.haltedTickers
- * @param {string} ticker
- * @param {number} now
- * @returns {boolean}
  */
-const isTickerPaused = (haltedTickers, ticker, now = Date.now()) => {
+export const isTickerPaused = (
+  haltedTickers: Record<string, { resumeAt?: number } | undefined> | null | undefined,
+  ticker: string,
+  now = Date.now(),
+) => {
   const halt = (haltedTickers || {})[ticker];
   return !!(halt && halt.resumeAt && now < halt.resumeAt);
 };
@@ -129,15 +170,9 @@ const isTickerPaused = (haltedTickers, ticker, now = Date.now()) => {
 // Anti-manipulation: brand-new accounts move the market less, ramping from
 // NEW_ACCOUNT_MIN_IMPACT_FACTOR at day 0 up to full (1.0) at the end of the
 // ramp window. Mirrors getAccountAgeImpactFactor in src/utils/calculations.ts — keep in sync.
-const getAccountAgeImpactFactor = (userData) => {
+export const getAccountAgeImpactFactor = (userData: UserData | null | undefined) => {
   if (!userData || !userData.createdAt) return 1;
-  const createdAt = userData.createdAt;
-  const createdMs =
-    typeof createdAt.toMillis === 'function'
-      ? createdAt.toMillis()
-      : typeof createdAt === 'number'
-        ? createdAt
-        : Date.parse(createdAt);
+  const createdMs = createdAtMs(userData.createdAt);
   if (!createdMs || isNaN(createdMs)) return 1;
   const ageDays = (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
   if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
@@ -149,21 +184,15 @@ const getAccountAgeImpactFactor = (userData) => {
 // Account age in days, or null when the account has no usable createdAt.
 // Tolerates the three shapes createdAt turns up in: Firestore Timestamp on live
 // docs, a raw number on some older ones, an ISO string from imports.
-const getAccountAgeDays = (userData) => {
+export const getAccountAgeDays = (userData: UserData | null | undefined): number | null => {
   if (!userData || !userData.createdAt) return null;
-  const createdAt = userData.createdAt;
-  const createdMs =
-    typeof createdAt.toMillis === 'function'
-      ? createdAt.toMillis()
-      : typeof createdAt === 'number'
-        ? createdAt
-        : Date.parse(createdAt);
+  const createdMs = createdAtMs(userData.createdAt);
   if (!createdMs || isNaN(createdMs)) return null;
   return (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
 };
 
 // Prune entries older than 24h, return summary
-const pruneAndSumTradeHistory = (entries, now) => {
+export const pruneAndSumTradeHistory = (entries: ImpactEntry[] | null | undefined, now: number) => {
   const cutoff = now - TWENTY_FOUR_HOURS_MS;
   const recent = (entries || []).filter((e) => e.ts > cutoff);
   const totalShares = recent.reduce((sum, e) => sum + (e.shares || 0), 0);
@@ -193,9 +222,20 @@ const pruneAndSumTradeHistory = (entries, now) => {
  * put it with no record of why. Real venues let the breaching print stand and
  * pause what comes after; so does this.
  *
- * @returns {{haltedAt:number,resumeAt:number,reason:string,movePercent:number}|null}
  */
-const evaluateCircuitBreaker = ({ priceHistory, ticker, newPrice, breakerCounts, now = Date.now() }) => {
+export const evaluateCircuitBreaker = ({
+  priceHistory,
+  ticker,
+  newPrice,
+  breakerCounts,
+  now = Date.now(),
+}: {
+  priceHistory: Record<string, PricePoint[] | undefined> | null | undefined;
+  ticker: string;
+  newPrice: number;
+  breakerCounts: Record<string, BreakerCount | undefined> | null | undefined;
+  now?: number;
+}): { haltedAt: number; resumeAt: number; reason: string; movePercent: number } | null => {
   if (!(newPrice > 0)) return null;
 
   const history = (priceHistory && priceHistory[ticker]) || [];
@@ -212,14 +252,15 @@ const evaluateCircuitBreaker = ({ priceHistory, ticker, newPrice, breakerCounts,
 
   // Last price before the window opened. Scanning backwards because history is
   // appended in order and the recent end is the short end.
-  let reference = null;
+  let reference: number | null = null;
   for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].timestamp < windowStart) {
-      reference = history[i].price;
+    const point = history[i]!;
+    if (point.timestamp < windowStart) {
+      reference = point.price;
       break;
     }
   }
-  if (!(reference > 0)) return null; // nothing older than the window yet
+  if (reference === null || !(reference > 0)) return null; // nothing older than the window yet
 
   const move = (newPrice - reference) / reference;
   if (Math.abs(move) < CIRCUIT_BREAKER_MOVE) return null;
@@ -243,7 +284,11 @@ const evaluateCircuitBreaker = ({ priceHistory, ticker, newPrice, breakerCounts,
 
 // The bump to `breakerCounts[ticker]` that goes with a fired breaker. Kept
 // beside it so the counter can never drift from the halt it is counting.
-const breakerCountUpdate = (breakerCounts, ticker, now = Date.now()) => {
+export const breakerCountUpdate = (
+  breakerCounts: Record<string, BreakerCount | undefined> | null | undefined,
+  ticker: string,
+  now = Date.now(),
+): BreakerCount => {
   const today = dayIdOf(now);
   const prev = breakerCounts && breakerCounts[ticker];
   const n = prev && prev.day === today ? (prev.n || 0) + 1 : 1;
@@ -252,8 +297,8 @@ const breakerCountUpdate = (breakerCounts, ticker, now = Date.now()) => {
 
 // Which way an action pushes the price. Sells and shorts push down, buys and
 // covers push up. Matches the trailing-entry mapping in tradePricing.js.
-const IMPACT_DIRECTIONS = { sell: 'down', short: 'down', buy: 'up', cover: 'up' };
-const impactDirectionOf = (action) => IMPACT_DIRECTIONS[action] || 'up';
+const IMPACT_DIRECTIONS: Record<string, 'down' | 'up'> = { sell: 'down', short: 'down', buy: 'up', cover: 'up' };
+export const impactDirectionOf = (action: string): 'down' | 'up' => IMPACT_DIRECTIONS[action] || 'up';
 
 // The rolling-24h impact a user (or an IP) has already spent on one ticker,
 // split by direction.
@@ -266,7 +311,7 @@ const impactDirectionOf = (action) => IMPACT_DIRECTIONS[action] || 'up';
 // round trip that should be a wash left a permanent one-way dent. The same hole
 // ran in reverse for buy-then-sell. Per-direction allowances mean an exit
 // always pushes back as hard as the entry pushed.
-const sumDirectionalImpact = (actionsForTicker, now) => {
+export const sumDirectionalImpact = (actionsForTicker: ActionHistory | null | undefined, now: number) => {
   const totals = { down: 0, up: 0 };
   for (const action of Object.keys(IMPACT_DIRECTIONS)) {
     const { totalImpact } = pruneAndSumTradeHistory((actionsForTicker || {})[action] || [], now);
@@ -278,30 +323,23 @@ const sumDirectionalImpact = (actionsForTicker, now) => {
 // What one action may still move a ticker's price, as a fraction, given the
 // history already spent by this user and by their IP. Whichever is further
 // along wins, so alts on one connection share an allowance.
-const remainingImpactFor = ({ action, userActions, ipActions, now, cap }) => {
+export const remainingImpactFor = ({
+  action,
+  userActions,
+  ipActions,
+  now,
+  cap,
+}: {
+  action: string;
+  userActions: ActionHistory | null | undefined;
+  ipActions: ActionHistory | null | undefined;
+  now: number;
+  cap: number;
+}) => {
   const direction = impactDirectionOf(action);
   const spent = Math.max(
     sumDirectionalImpact(userActions, now)[direction],
     sumDirectionalImpact(ipActions, now)[direction],
   );
   return Math.max(0, cap - spent);
-};
-
-module.exports = {
-  rawMarginalImpact,
-  calculateMarginalImpact,
-  traderMarginalImpact,
-  liquidityFor,
-  maxTradeSharesFor,
-  washRuleRemainingMs,
-  shortAfterDumpRemainingMs,
-  isTickerPaused,
-  getAccountAgeImpactFactor,
-  getAccountAgeDays,
-  pruneAndSumTradeHistory,
-  evaluateCircuitBreaker,
-  breakerCountUpdate,
-  impactDirectionOf,
-  sumDirectionalImpact,
-  remainingImpactFor,
 };

@@ -1,0 +1,1282 @@
+// GENERATED from src/characters.ts by `npm run sync:chars`. Do not edit.
+// All Lookism characters with their base stats
+// dateAdded: used for "Newest" / "Oldest" sorting - includes time for unique ordering
+// Strongest characters = oldest (added first), Weakest = newest (added last)
+export interface TrailingFactor {
+  ticker: string;
+  coefficient: number;
+}
+
+export interface Character {
+  name: string;
+  ticker: string;
+  basePrice: number;
+  dateAdded: string;
+  generation?: string;
+  status?: string;
+  altNames?: string[];
+  /** Total N-for-1 split factor; see "Splitting a Stock" in CLAUDE.md. */
+  splitFactor?: number;
+  /** basePrice before splits; set below at load time. */
+  unsplitBasePrice?: number;
+  trailingFactors?: TrailingFactor[];
+  isETF?: boolean;
+  description?: string;
+  constituents?: string[];
+  ipoRequired?: boolean;
+}
+
+export type RarityTier = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+
+/** A lot ledger for one ticker (users/{uid}.holdingCohorts[ticker]). */
+export interface HoldingCohort {
+  eligible?: number;
+  pending?: { shares?: number; availableAt?: number }[];
+}
+
+export const CHARACTERS: Character[] = [
+  {
+    name: 'James Lee',
+    ticker: 'DG',
+    basePrice: 85,
+    dateAdded: '2026-01-13T00:00:00',
+    generation: '1st',
+    altNames: ['Diego Kang'],
+  },
+  {
+    name: 'Mujin Jin',
+    ticker: 'JIN',
+    status: 'flashback',
+    basePrice: 85,
+    dateAdded: '2026-01-13T00:00:30',
+    generation: 'pre',
+    // GAP/JIN/SHNG all point at each other, and all three are usually adjusted in
+    // the same chapter review, so whatever they carry compounds three ways. At
+    // 0.4 that ran away: on 2026-08-20 $GAP was set +4.75% by hand and finished
+    // the review +8.71%, most of it picked up from these two. Halved to 0.2.
+    trailingFactors: [
+      { ticker: 'GAP', coefficient: 0.2 },
+      { ticker: 'SHNG', coefficient: 0.2 },
+      { ticker: 'VIN', coefficient: 0.3 },
+    ],
+  },
+  {
+    name: 'Shingen Yamazaki',
+    ticker: 'SHNG',
+    status: 'flashback',
+    basePrice: 85,
+    splitFactor: 3, // 3-for-1 on 2026-09-23, see "Splitting a Stock" in CLAUDE.md
+    dateAdded: '2026-01-13T00:01:00',
+    generation: 'pre',
+    // The direct SHNG <-> GAP link was cut on 2026-09-17: they have finally met
+    // in the chapter and are about to fight, so one rising should not carry the
+    // other. Both still link to JIN, which leaves a weaker second-hand path
+    // (0.2 x 0.2) rather than a direct one.
+    trailingFactors: [{ ticker: 'JIN', coefficient: 0.2 }],
+  },
+  {
+    name: 'Gapryong Kim',
+    ticker: 'GAP',
+    status: 'flashback',
+    basePrice: 85,
+    splitFactor: 3, // 3-for-1 on 2026-09-23
+    dateAdded: '2026-01-13T00:02:00',
+    generation: 'pre',
+    // See the note on SHNG: the direct GAP <-> SHNG link was cut 2026-09-17.
+    // KTAE and JAKE are one-way and were already 0.2, so they are unchanged.
+    trailingFactors: [
+      { ticker: 'JIN', coefficient: 0.2 },
+      { ticker: 'KTAE', coefficient: 0.2 },
+      { ticker: 'JAKE', coefficient: 0.2 },
+    ],
+  },
+  { name: 'Gun Park', ticker: 'GUN', basePrice: 85, dateAdded: '2026-01-13T00:03:00', generation: '1.5' },
+  { name: 'Goo Kim', ticker: 'GOO', basePrice: 85, dateAdded: '2026-01-13T00:04:00', generation: '1.5' },
+  {
+    name: 'Daniel Park (Big)',
+    ticker: 'BDNL',
+    basePrice: 85,
+    dateAdded: '2026-01-13T00:05:00',
+    generation: '2nd',
+    altNames: ['Big Daniel'],
+    trailingFactors: [{ ticker: 'LDNL', coefficient: 0.3 }],
+  },
+  { name: 'Sophia Alexander', ticker: 'SOPH', basePrice: 80, dateAdded: '2026-01-13T00:06:00', generation: 'pre' },
+  {
+    name: 'Kitae Kim',
+    ticker: 'KTAE',
+    basePrice: 80,
+    splitFactor: 2 /* 2-for-1 on 2026-09-23 */,
+    dateAdded: '2026-01-13T00:07:00',
+    generation: '1st',
+    altNames: ['Gitae Kim'],
+  },
+  {
+    name: 'Johan Seong',
+    ticker: 'GDOG',
+    basePrice: 80,
+    dateAdded: '2026-01-13T00:08:00',
+    generation: '2nd',
+    altNames: ['Yohan Seong'],
+  },
+  { name: 'Tom Lee', ticker: 'TOM', basePrice: 78, dateAdded: '2026-01-13T00:09:00', generation: 'pre' },
+  {
+    name: 'Shintaro Yamazaki',
+    ticker: 'SHRO',
+    basePrice: 75,
+    dateAdded: '2026-01-13T00:10:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  { name: 'Changsu Oh', ticker: 'CROW', basePrice: 75, dateAdded: '2026-01-13T00:11:00', generation: '1st' },
+  { name: 'Manager Kim', ticker: 'SRMK', basePrice: 74, dateAdded: '2026-01-13T00:12:00', generation: 'pre' },
+  {
+    name: 'Charles Choi',
+    ticker: 'ELIT',
+    basePrice: 72,
+    dateAdded: '2026-01-13T00:13:00',
+    generation: 'pre',
+    altNames: ['Elite'],
+    status: 'flashback',
+  },
+  {
+    name: 'Jinyeong Park',
+    ticker: 'JYNG',
+    basePrice: 72,
+    dateAdded: '2026-01-13T00:14:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  {
+    name: 'Daniel Park (Small)',
+    ticker: 'LDNL',
+    basePrice: 70,
+    dateAdded: '2026-01-13T00:15:00',
+    generation: '2nd',
+    altNames: ['Little Daniel'],
+    trailingFactors: [{ ticker: 'BDNL', coefficient: 0.3 }],
+  },
+  {
+    name: 'Paecheon Jo',
+    ticker: 'CROC',
+    basePrice: 66,
+    dateAdded: '2026-01-13T00:16:00',
+    generation: 'pre',
+    status: 'dead',
+  },
+  { name: 'Jake Kim', ticker: 'JAKE', basePrice: 65, dateAdded: '2026-01-13T00:17:00', generation: '2nd' },
+  { name: 'Jaegyeon Na', ticker: 'JAEG', basePrice: 62, dateAdded: '2026-01-13T00:18:00', generation: '1st' },
+  {
+    name: 'Yujae Seon',
+    ticker: 'YUJA',
+    basePrice: 62,
+    dateAdded: '2026-01-13T00:19:00',
+    generation: '1st',
+    status: 'dead',
+  },
+  { name: 'Eli Jang', ticker: 'ELI', basePrice: 60, dateAdded: '2026-01-13T00:20:00', generation: '2nd' },
+  { name: 'Samuel Seo', ticker: 'SAM', basePrice: 60, dateAdded: '2026-01-13T00:21:00', generation: '2nd' },
+  { name: 'Taesoo Ma', ticker: 'TM', basePrice: 60, dateAdded: '2026-01-13T00:22:00', generation: '1st' },
+  {
+    name: 'Gongseop Ji',
+    ticker: 'GONG',
+    basePrice: 60,
+    dateAdded: '2026-01-13T00:23:00',
+    generation: '1st',
+    altNames: ['Gongseob Ji'],
+  },
+  {
+    name: 'Seongji Yuk',
+    ticker: '6KNG',
+    basePrice: 60,
+    dateAdded: '2026-01-13T00:24:00',
+    generation: '1st',
+    status: 'dead',
+  },
+  {
+    name: 'Lang Jin',
+    ticker: 'WOLF',
+    basePrice: 60,
+    dateAdded: '2026-01-13T00:25:00',
+    generation: '1st',
+    altNames: ['Jinrang'],
+  },
+  { name: 'J', ticker: 'COP', basePrice: 60, dateAdded: '2026-01-13T00:26:00', generation: '1st' },
+  { name: 'Vin Jin', ticker: 'VIN', basePrice: 57, dateAdded: '2026-01-13T00:27:00', generation: '2nd' },
+  {
+    name: 'Vasco',
+    ticker: 'VSCO',
+    basePrice: 55,
+    dateAdded: '2026-01-13T00:28:00',
+    generation: '2nd',
+    altNames: ['Euntae Lee'],
+  },
+  { name: 'Zack Lee', ticker: 'ZACK', basePrice: 55, dateAdded: '2026-01-13T00:29:00', generation: '2nd' },
+  { name: 'Ryuhei Kuroda', ticker: 'NOMN', basePrice: 55, dateAdded: '2026-01-13T00:30:00', generation: '2nd' },
+  {
+    name: 'Yuseong',
+    ticker: 'CAPG',
+    basePrice: 50,
+    dateAdded: '2026-01-13T00:31:00',
+    generation: '2nd',
+    altNames: ['Cap Guy'],
+  },
+  {
+    name: 'Mandeok Bang',
+    ticker: 'BANG',
+    basePrice: 50,
+    dateAdded: '2026-01-13T00:32:00',
+    generation: '2nd',
+    status: 'dead',
+  },
+  { name: 'Jichang Kwak', ticker: 'SNEK', basePrice: 50, dateAdded: '2026-01-13T00:33:00', generation: '1st' },
+  { name: 'Seokdu Wang', ticker: 'SEOK', basePrice: 50, dateAdded: '2026-01-13T00:34:00', generation: '1st' },
+  { name: 'Sinu Han', ticker: 'SINU', basePrice: 48, dateAdded: '2026-01-13T00:35:00', generation: '1.5' },
+  { name: 'Warren Chae', ticker: 'CHAE', basePrice: 48, dateAdded: '2026-01-13T00:36:00', generation: '2nd' },
+  { name: 'Jerry Kwon', ticker: 'SWRD', basePrice: 48, dateAdded: '2026-01-13T00:37:00', generation: '2nd' },
+  { name: 'Xiaolung', ticker: 'XIAO', basePrice: 40, dateAdded: '2026-01-13T00:38:00', generation: '2nd' },
+  { name: 'Hudson Ahn', ticker: 'AHN', basePrice: 38, dateAdded: '2026-01-13T00:39:00', generation: '2nd' },
+  { name: 'Jay Hong', ticker: 'JAY', basePrice: 30, dateAdded: '2026-01-13T00:40:00', generation: '2nd' },
+  { name: 'Logan Lee', ticker: 'LOGN', basePrice: 30, dateAdded: '2026-01-13T00:41:00', generation: '2nd' },
+  {
+    name: 'Eugene',
+    ticker: 'WRKR',
+    basePrice: 26,
+    dateAdded: '2026-01-13T00:42:00',
+    generation: '2nd',
+    altNames: ['Yoojin'],
+  },
+  { name: 'Crystal Choi', ticker: 'CRYS', basePrice: 25, dateAdded: '2026-01-13T00:43:00', generation: '2nd' },
+  {
+    name: 'Olly Wang',
+    ticker: 'OLLY',
+    basePrice: 20,
+    dateAdded: '2026-01-13T00:44:00',
+    generation: '2nd',
+    status: 'dead',
+  },
+  { name: 'Brad Lee', ticker: 'BRAD', basePrice: 18, dateAdded: '2026-01-13T00:45:00', generation: '2nd' },
+  { name: 'Jason Yoon', ticker: 'JSN', basePrice: 16, dateAdded: '2026-01-13T00:46:00', generation: '2nd' },
+  { name: 'Lineman', ticker: 'LINE', basePrice: 15, dateAdded: '2026-01-13T00:47:00', generation: '2nd' },
+  { name: 'Jace Park', ticker: 'JACE', basePrice: 14, dateAdded: '2026-01-13T00:48:00', generation: '2nd' },
+  { name: 'Sally Park', ticker: 'SLLY', basePrice: 13, dateAdded: '2026-01-13T00:49:00', generation: '2nd' },
+  { name: 'Mira Kim', ticker: 'MIRA', basePrice: 12, dateAdded: '2026-01-13T00:50:00', generation: '2nd' },
+  { name: 'Zoe Park', ticker: 'ZOE', basePrice: 11, dateAdded: '2026-01-13T00:51:00', generation: '2nd' },
+  { name: 'Doo Lee', ticker: 'DOO', basePrice: 10, dateAdded: '2026-01-13T00:52:00', generation: '2nd' },
+  {
+    name: 'Jiho Park',
+    ticker: 'JIHO',
+    basePrice: 7,
+    dateAdded: '2026-01-13T00:53:00',
+    generation: '2nd',
+    status: 'dead',
+  },
+
+  // New characters added 2026-01-16
+  { name: 'Seonhui Park', ticker: 'MOM', basePrice: 15, dateAdded: '2026-01-16T00:00:00', generation: 'pre' },
+  { name: 'Joy Hong', ticker: 'JOY', basePrice: 10, dateAdded: '2026-01-16T00:01:00', generation: '2nd' },
+  { name: 'Kouji', ticker: 'HACK', basePrice: 12, dateAdded: '2026-01-16T00:02:00', generation: '2nd' },
+  { name: 'Mary Kim', ticker: '2SEC', basePrice: 25, dateAdded: '2026-01-16T00:03:00', generation: '2nd' },
+  { name: 'Duke Pyeon', ticker: 'DUKE', basePrice: 20, dateAdded: '2026-01-16T00:04:00', generation: '2nd' },
+  {
+    name: 'Baekho Kwon',
+    ticker: 'KWON',
+    basePrice: 70,
+    dateAdded: '2026-01-16T00:05:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  {
+    name: 'Lightning Choi',
+    ticker: 'DNCE',
+    basePrice: 30,
+    dateAdded: '2026-01-16T00:06:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  {
+    name: 'Gentleman',
+    ticker: 'GNTL',
+    basePrice: 50,
+    dateAdded: '2026-01-16T00:07:00',
+    generation: 'pre',
+    altNames: ['Chilbok Kang'],
+  },
+  { name: 'Shigeaki Kojima', ticker: 'SHKO', basePrice: 40, dateAdded: '2026-01-16T00:08:00', generation: 'pre' },
+  { name: 'Hiroaki Kojima', ticker: 'HIKO', basePrice: 40, dateAdded: '2026-01-16T00:09:00', generation: 'pre' },
+  {
+    name: 'Yugang Ha',
+    ticker: 'INCH',
+    basePrice: 60,
+    dateAdded: '2026-01-16T00:10:00',
+    generation: 'pre',
+    status: 'dead',
+  },
+  {
+    name: 'Yeonwoo Kim',
+    ticker: 'MISS',
+    basePrice: 40,
+    dateAdded: '2026-01-16T00:11:00',
+    generation: 'pre',
+    altNames: ['Reporter Kim'],
+  },
+  { name: 'Doksu Heo', ticker: 'PYNG', basePrice: 40, dateAdded: '2026-01-16T00:12:00', generation: '1st' },
+  { name: 'Jinyoung Go', ticker: 'SNAM', basePrice: 40, dateAdded: '2026-01-16T00:13:00', generation: '1st' },
+  { name: 'Mugeon Jang', ticker: 'SAMC', basePrice: 40, dateAdded: '2026-01-16T00:14:00', generation: '1st' },
+  { name: 'Seungwu Han', ticker: 'YONG', basePrice: 40, dateAdded: '2026-01-16T00:15:00', generation: '1st' },
+  { name: 'Siheon Choi', ticker: 'PAJU', basePrice: 40, dateAdded: '2026-01-16T00:16:00', generation: '1st' },
+  { name: 'Museok Jang', ticker: 'PHNG', basePrice: 40, dateAdded: '2026-01-16T00:17:00', generation: '1st' },
+  { name: 'BJ Showbu', ticker: 'BUCH', basePrice: 45, dateAdded: '2026-01-16T00:18:00', generation: '1st' },
+  { name: 'Juhyeok Eun', ticker: 'UJBU', basePrice: 40, dateAdded: '2026-01-16T00:19:00', generation: '1st' },
+  { name: 'Jaemin Noh', ticker: 'DAEJ', basePrice: 40, dateAdded: '2026-01-16T00:20:00', generation: '1st' },
+  { name: 'Sang Baek', ticker: 'SHRK', basePrice: 35, dateAdded: '2026-01-16T00:21:00', generation: '1st' },
+  { name: 'Jungseok Hwang', ticker: 'BUS3', basePrice: 35, dateAdded: '2026-01-16T00:22:00', generation: '1st' },
+  { name: 'Mugak Wang', ticker: 'BEAD', basePrice: 30, dateAdded: '2026-01-16T00:23:00', generation: '1st' },
+  { name: 'Juan Ryu', ticker: 'TWHK', basePrice: 30, dateAdded: '2026-01-16T00:24:00', generation: '1st' },
+  { name: 'Jamal Rahid', ticker: 'JMAL', basePrice: 25, dateAdded: '2026-01-16T00:25:00', generation: '1st' },
+  { name: 'Yeoul Ha', ticker: 'YEUL', basePrice: 35, dateAdded: '2026-01-16T00:26:00', generation: '1st' },
+  { name: 'Mitsuki Soma', ticker: 'NEKO', basePrice: 20, dateAdded: '2026-01-16T00:27:00', generation: '2nd' },
+  { name: 'Darius Hong', ticker: 'DOOR', basePrice: 15, dateAdded: '2026-01-16T00:28:00', generation: '2nd' },
+  { name: 'Jin Jang', ticker: 'JINJ', basePrice: 15, dateAdded: '2026-01-16T00:29:00', generation: '2nd' },
+  { name: 'Kenta Magami', ticker: 'DRMA', basePrice: 15, dateAdded: '2026-01-16T00:30:00', generation: '2nd' },
+  { name: 'Sato Kazuma', ticker: 'HYOT', basePrice: 15, dateAdded: '2026-01-16T00:31:00', generation: '2nd' },
+  { name: 'Vivi', ticker: 'CLUB', basePrice: 15, dateAdded: '2026-01-16T00:32:00', generation: '2nd' },
+  { name: 'Alexander Hwang', ticker: 'ALEX', basePrice: 10, dateAdded: '2026-01-16T00:33:00', generation: '2nd' },
+  { name: 'Taejin Cheon', ticker: 'SHMN', basePrice: 65, dateAdded: '2026-01-16T00:34:00', generation: '2nd' },
+  { name: 'Hangyeol Baek', ticker: 'NO1', basePrice: 35, dateAdded: '2026-01-16T00:35:00', generation: '1st' },
+  { name: 'Luah Lim', ticker: 'LUAH', basePrice: 20, dateAdded: '2026-01-16T00:36:00', generation: '2nd' },
+  { name: 'Old Face', ticker: 'OLDF', basePrice: 10, dateAdded: '2026-01-16T00:37:00', generation: '2nd' },
+  { name: 'Max Kang', ticker: 'MAX', basePrice: 15, dateAdded: '2026-01-16T00:38:00', generation: '2nd' },
+  { name: 'Derrick Jo', ticker: 'DJO', basePrice: 15, dateAdded: '2026-01-16T00:39:00', generation: '2nd' },
+  { name: 'Yenna Jang', ticker: 'ZAMI', basePrice: 10, dateAdded: '2026-01-16T00:40:00' },
+  { name: 'Ryan the Cat', ticker: 'RYAN', basePrice: 10, dateAdded: '2026-01-16T00:41:00', generation: '2nd' },
+  { name: 'Sanghui Han', ticker: 'SGUI', basePrice: 10, dateAdded: '2026-01-16T00:42:00', generation: 'pre' },
+  { name: 'Yeongcheol Kim', ticker: 'YCHL', basePrice: 10, dateAdded: '2026-01-16T00:43:00', generation: 'pre' },
+  { name: 'Sera Shin', ticker: 'SERA', basePrice: 20, dateAdded: '2026-01-16T00:44:00' },
+
+  // New characters added 2026-01-24
+  { name: 'Somi Park', ticker: 'SOMI', basePrice: 15, dateAdded: '2026-01-24T00:00:00', generation: 'pre' },
+  { name: 'Gwang Yu', ticker: 'MMA', basePrice: 17.5, dateAdded: '2026-01-24T00:01:00', generation: 'pre' },
+  { name: 'Beolgu Lee', ticker: 'LIAR', basePrice: 15, dateAdded: '2026-01-24T00:02:00', generation: 'pre' },
+  { name: 'Jaesu Noh', ticker: 'NOH', basePrice: 13, dateAdded: '2026-01-24T00:03:00', generation: 'pre' },
+  { name: 'Gyeol Baek', ticker: 'DOC', basePrice: 12.5, dateAdded: '2026-01-24T00:04:00', generation: '2nd' },
+  {
+    name: 'Sujin Kim',
+    ticker: 'SUJN',
+    basePrice: 15,
+    dateAdded: '2026-01-24T00:05:00',
+    generation: '2nd',
+    status: 'dead',
+  },
+  { name: 'Byeon Kim', ticker: 'LAW', basePrice: 30, dateAdded: '2026-01-24T00:06:00' },
+  { name: 'Jihan Kwak', ticker: 'CHCH', basePrice: 30, dateAdded: '2026-01-24T00:07:00', generation: '2nd' },
+  { name: 'Jibeom Kwak', ticker: 'BEOM', basePrice: 15, dateAdded: '2026-01-24T00:08:00', generation: '2nd' },
+
+  // New characters added 2026-01-26
+  { name: 'Brekdak', ticker: 'MUAY', basePrice: 70, dateAdded: '2026-01-26T00:00:00', generation: 'pre' },
+
+  // New characters added 2026-04-23
+  {
+    name: 'Sangcheol Park',
+    ticker: 'DAD',
+    basePrice: 30,
+    dateAdded: '2026-04-23T00:00:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+
+  // New characters added 2026-04-25
+  { name: 'Enu', ticker: 'ENU', basePrice: 10, dateAdded: '2026-04-25T00:00:00', generation: '2nd' },
+  { name: 'Miro', ticker: 'MIRO', basePrice: 10, dateAdded: '2026-04-25T00:01:00', generation: '2nd' },
+  { name: 'Eden', ticker: 'EDEN', basePrice: 12.5, dateAdded: '2026-04-25T00:02:00', generation: '2nd' },
+
+  // New characters added 2026-05-01
+  { name: 'Gangnam Landlord', ticker: 'LAND', basePrice: 5, dateAdded: '2026-05-01T00:00:00', generation: 'pre' },
+  {
+    name: 'Chang-i Seo',
+    ticker: 'SWMP',
+    basePrice: 45,
+    dateAdded: '2026-05-01T00:01:00',
+    generation: '1st',
+    altNames: ['Swamp Genius', 'Changyi Seo'],
+  },
+  { name: 'Chilsu Kang', ticker: 'JEON', basePrice: 35, dateAdded: '2026-05-01T00:02:00', generation: '1st' },
+  { name: 'Youngjin Jin', ticker: 'SCHN', basePrice: 35, dateAdded: '2026-05-01T00:03:00', generation: '1st' },
+  { name: 'Dongchun Bae', ticker: 'SIN', basePrice: 35, dateAdded: '2026-05-01T00:04:00', generation: '1st' },
+  { name: 'Minyong Park', ticker: 'DOC2', basePrice: 7.5, dateAdded: '2026-05-01T00:05:00', generation: '2nd' },
+  { name: 'Haeshik Won', ticker: 'TONG', basePrice: 30, dateAdded: '2026-05-14T00:00:00', generation: '1st' },
+
+  // New characters added 2026-06-01
+  { name: 'Chunhui Oh', ticker: 'CHUN', basePrice: 7.5, dateAdded: '2026-06-01T00:00:00' },
+  { name: 'Isu Jo', ticker: 'ISU', basePrice: 10, dateAdded: '2026-06-01T00:01:00', generation: '2nd' },
+  { name: 'Steve Hong', ticker: 'HONG', basePrice: 12.5, dateAdded: '2026-06-01T00:02:00', generation: 'pre' },
+  {
+    name: 'Bakgu Noh',
+    ticker: 'TAXI',
+    basePrice: 12.5,
+    dateAdded: '2026-06-01T00:03:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  { name: 'Tae-Oh Jang', ticker: 'TAEJ', basePrice: 12.5, dateAdded: '2026-06-01T00:04:00', generation: 'pre' },
+  { name: 'Hwasu Park', ticker: 'HPRK', basePrice: 12.5, dateAdded: '2026-06-01T00:05:00', generation: 'pre' },
+  { name: 'Myeongho Choi', ticker: 'SNGH', basePrice: 15, dateAdded: '2026-06-01T00:06:00', generation: 'pre' },
+
+  // New characters added 2026-06-04
+  { name: 'Taeguk Han', ticker: 'HANT', basePrice: 15, dateAdded: '2026-06-04T00:00:00', generation: 'pre' },
+  { name: 'Gon Kwon', ticker: 'GWON', basePrice: 15, dateAdded: '2026-06-04T00:01:00', generation: 'pre' },
+  { name: 'Minsik Choi', ticker: 'MNSK', basePrice: 10, dateAdded: '2026-06-04T00:02:00', generation: 'pre' },
+  { name: 'Yuri Park', ticker: 'AUNT', basePrice: 10, dateAdded: '2026-06-04T00:03:00', generation: 'pre' },
+
+  // New characters added 2026-07-02
+  { name: 'Takeshi Saejima', ticker: 'IJA', basePrice: 12.5, dateAdded: '2026-07-02T00:00:00', generation: 'pre' },
+  { name: 'Kenji Gonda', ticker: 'KMSH', basePrice: 12.5, dateAdded: '2026-07-02T00:01:00', generation: 'pre' },
+  { name: 'Reiji Madarame', ticker: 'SUMO', basePrice: 12.5, dateAdded: '2026-07-02T00:02:00', generation: 'pre' },
+
+  // New characters added 2026-07-23
+  {
+    name: 'Shinji Yamazaki',
+    ticker: 'OYA',
+    basePrice: 85,
+    dateAdded: '2026-07-23T00:00:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+
+  // New characters added 2026-08-06
+  { name: 'Gibok Jang', ticker: 'YH', basePrice: 45, dateAdded: '2026-08-06T00:00:00', generation: 'pre' },
+
+  // New characters added 2026-08-20
+  { name: 'Mr. Han', ticker: 'SUIT', basePrice: 35, dateAdded: '2026-08-20T00:00:00', generation: 'pre' },
+  { name: 'Beom Jo', ticker: 'DOGH', basePrice: 20, dateAdded: '2026-08-20T00:01:00', generation: 'pre' },
+  { name: 'Dongchil Jeong', ticker: 'TOAD', basePrice: 20, dateAdded: '2026-08-20T00:02:00', generation: 'pre' },
+  {
+    name: 'Childu Park',
+    ticker: 'GW',
+    basePrice: 40,
+    dateAdded: '2026-08-20T00:03:00',
+    generation: 'pre',
+    status: 'dead',
+  },
+  {
+    name: 'Yongju Choi',
+    ticker: 'OGCH',
+    basePrice: 40,
+    dateAdded: '2026-08-20T00:04:00',
+    generation: 'pre',
+    status: 'dead',
+  },
+  {
+    name: 'Yeongbeom Seok',
+    ticker: 'GYNG',
+    basePrice: 40,
+    dateAdded: '2026-08-20T00:05:00',
+    generation: 'pre',
+    status: 'dead',
+  },
+  {
+    name: 'Matsumoto Takeshi',
+    ticker: 'RED',
+    basePrice: 40,
+    dateAdded: '2026-09-03T00:00:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  {
+    name: 'Takanobu Masaichi',
+    ticker: 'URAM',
+    basePrice: 35,
+    dateAdded: '2026-09-03T00:01:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  {
+    name: 'Kokuin Watanabe',
+    ticker: 'BLUE',
+    basePrice: 40,
+    dateAdded: '2026-09-03T00:02:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  { name: 'Renji Yamazaki', ticker: 'BRCR', basePrice: 30, dateAdded: '2026-09-03T00:03:00', generation: 'pre' },
+  { name: 'Shunya Yamazaki', ticker: 'GRVS', basePrice: 30, dateAdded: '2026-09-03T00:04:00', generation: 'pre' },
+
+  // Characters that launched via IPO. `ipoRequired: true` gates a character out
+  // of trading until an admin launches it; every gate reads it as
+  // `ipoRequired && !launchedTickers.includes(ticker)`, so the flag stops doing
+  // anything the moment the launch happens. Drop it once launched — left on, it
+  // reads like the stock is still gated (it isn't) and it keeps offering the
+  // stock in the admin IPO panel as a candidate for another launch.
+  // A NEW character that needs an IPO gets `ipoRequired: true` here until launch.
+  { name: 'Baekgeon Ryu', ticker: 'RYU', basePrice: 55, dateAdded: '2026-02-12T00:00:00', generation: 'pre' },
+  {
+    name: 'Eunha Lee',
+    ticker: 'EUNH',
+    basePrice: 30,
+    dateAdded: '2026-05-28T00:00:00',
+    generation: 'pre',
+    status: 'flashback',
+  },
+  { name: 'Bangho Lee', ticker: 'MONO', basePrice: 80, dateAdded: '2026-06-04T00:04:00', generation: 'pre' },
+  {
+    name: 'Kenzo Yamazaki',
+    ticker: 'YADV',
+    basePrice: 80,
+    dateAdded: '2026-06-25T00:00:00',
+    generation: 'pre',
+    status: 'dead',
+    altNames: ['Genjo Yamazaki'],
+  },
+  { name: 'Rei Yamazaki', ticker: 'REI', basePrice: 20, dateAdded: '2026-07-02T00:03:00', generation: 'pre' },
+  { name: 'Wondo Lee', ticker: 'POLR', basePrice: 90, dateAdded: '2026-08-20T00:06:00', generation: 'pre' },
+  { name: 'Musashi Sasaki', ticker: 'TCHI', basePrice: 95, dateAdded: '2026-08-27T00:00:00', generation: 'pre' },
+  { name: 'Sogen Magami', ticker: 'IKO', basePrice: 90, dateAdded: '2026-08-27T00:01:00', generation: 'pre' },
+  { name: 'Takuma Arashimaya', ticker: 'YOKO', basePrice: 90, dateAdded: '2026-08-27T00:02:00', generation: 'pre' },
+
+  // ETFs - crew-based funds (price = sum of member base prices / 5)
+  {
+    name: 'Allied Fund',
+    ticker: 'ALLY',
+    basePrice: 78,
+    dateAdded: '2026-02-20T00:00:00',
+    isETF: true,
+    description: 'Allied ETF',
+    constituents: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
+    trailingFactors: [
+      { ticker: 'BDNL', coefficient: 0.114 },
+      { ticker: 'LDNL', coefficient: 0.114 },
+      { ticker: 'VSCO', coefficient: 0.114 },
+      { ticker: 'ZACK', coefficient: 0.114 },
+      { ticker: 'JAY', coefficient: 0.114 },
+      { ticker: 'VIN', coefficient: 0.114 },
+      { ticker: 'AHN', coefficient: 0.114 },
+    ],
+  },
+  {
+    name: 'Big Deal Fund',
+    ticker: 'DEAL',
+    basePrice: 46,
+    dateAdded: '2026-02-20T00:01:00',
+    isETF: true,
+    description: 'Big Deal ETF',
+    constituents: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
+    trailingFactors: [
+      { ticker: 'JAKE', coefficient: 0.114 },
+      { ticker: 'SWRD', coefficient: 0.114 },
+      { ticker: 'JSN', coefficient: 0.114 },
+      { ticker: 'BRAD', coefficient: 0.114 },
+      { ticker: 'LINE', coefficient: 0.114 },
+      { ticker: 'SINU', coefficient: 0.114 },
+      { ticker: 'LUAH', coefficient: 0.114 },
+    ],
+  },
+  {
+    name: 'Fist Gang Fund',
+    ticker: 'FIST',
+    basePrice: 100.5,
+    dateAdded: '2026-02-20T00:02:00',
+    isETF: true,
+    description: 'Fist Gang ETF',
+    constituents: [
+      'GAP',
+      'ELIT',
+      'JYNG',
+      'TOM',
+      'KWON',
+      'DNCE',
+      'GNTL',
+      'MMA',
+      'LIAR',
+      'NOH',
+      'TAXI',
+      'HANT',
+      'GWON',
+      'EUNH',
+      'MNSK',
+      'SUIT',
+      'DOGH',
+      'TOAD',
+      'POLR',
+    ],
+    trailingFactors: [
+      { ticker: 'GAP', coefficient: 0.042 },
+      { ticker: 'ELIT', coefficient: 0.042 },
+      { ticker: 'JYNG', coefficient: 0.042 },
+      { ticker: 'TOM', coefficient: 0.042 },
+      { ticker: 'KWON', coefficient: 0.042 },
+      { ticker: 'DNCE', coefficient: 0.042 },
+      { ticker: 'GNTL', coefficient: 0.042 },
+      { ticker: 'MMA', coefficient: 0.042 },
+      { ticker: 'LIAR', coefficient: 0.042 },
+      { ticker: 'NOH', coefficient: 0.042 },
+      { ticker: 'TAXI', coefficient: 0.042 },
+      { ticker: 'HANT', coefficient: 0.042 },
+      { ticker: 'GWON', coefficient: 0.042 },
+      { ticker: 'EUNH', coefficient: 0.042 },
+      { ticker: 'MNSK', coefficient: 0.042 },
+      { ticker: 'SUIT', coefficient: 0.042 },
+      { ticker: 'DOGH', coefficient: 0.042 },
+      { ticker: 'TOAD', coefficient: 0.042 },
+      { ticker: 'POLR', coefficient: 0.042 },
+    ],
+  },
+  {
+    name: 'Secret Friends Fund',
+    ticker: 'SCRT',
+    basePrice: 50,
+    dateAdded: '2026-02-20T00:03:00',
+    isETF: true,
+    description: 'Secret Friends ETF',
+    constituents: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
+    trailingFactors: [
+      { ticker: 'GOO', coefficient: 0.16 },
+      { ticker: 'LOGN', coefficient: 0.16 },
+      { ticker: 'SAM', coefficient: 0.16 },
+      { ticker: 'ALEX', coefficient: 0.16 },
+      { ticker: 'SHMN', coefficient: 0.16 },
+    ],
+  },
+  {
+    name: 'Hostel Fund',
+    ticker: 'HSTL',
+    basePrice: 34.2,
+    dateAdded: '2026-02-20T00:04:00',
+    isETF: true,
+    description: 'Hostel ETF',
+    constituents: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
+    trailingFactors: [
+      { ticker: 'ELI', coefficient: 0.114 },
+      { ticker: 'SLLY', coefficient: 0.114 },
+      { ticker: 'CHAE', coefficient: 0.114 },
+      { ticker: 'MAX', coefficient: 0.114 },
+      { ticker: 'DJO', coefficient: 0.114 },
+      { ticker: 'ZAMI', coefficient: 0.114 },
+      { ticker: 'RYAN', coefficient: 0.114 },
+    ],
+  },
+  {
+    name: 'WTJC Fund',
+    ticker: 'WTJC',
+    basePrice: 47.5,
+    dateAdded: '2026-02-20T00:05:00',
+    isETF: true,
+    description: 'WTJC ETF',
+    constituents: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
+    trailingFactors: [
+      { ticker: 'TOM', coefficient: 0.1 },
+      { ticker: 'SRMK', coefficient: 0.1 },
+      { ticker: 'SGUI', coefficient: 0.1 },
+      { ticker: 'YCHL', coefficient: 0.1 },
+      { ticker: 'SERA', coefficient: 0.1 },
+      { ticker: 'MMA', coefficient: 0.1 },
+      { ticker: 'LIAR', coefficient: 0.1 },
+      { ticker: 'NOH', coefficient: 0.1 },
+    ],
+  },
+  {
+    name: 'Workers Fund',
+    ticker: 'VVIP',
+    basePrice: 94.1,
+    dateAdded: '2026-02-20T00:06:00',
+    isETF: true,
+    description: 'Workers ETF',
+    constituents: [
+      'WRKR',
+      'BANG',
+      'CAPG',
+      'JYNG',
+      'NOMN',
+      'NEKO',
+      'DOOR',
+      'JINJ',
+      'DRMA',
+      'HYOT',
+      'OLDF',
+      'SHKO',
+      'HIKO',
+      'DOC',
+      'NO1',
+      'DOC2',
+      'TAEJ',
+      'HPRK',
+    ],
+    trailingFactors: [
+      { ticker: 'WRKR', coefficient: 0.044 },
+      { ticker: 'BANG', coefficient: 0.044 },
+      { ticker: 'CAPG', coefficient: 0.044 },
+      { ticker: 'JYNG', coefficient: 0.044 },
+      { ticker: 'NOMN', coefficient: 0.044 },
+      { ticker: 'NEKO', coefficient: 0.044 },
+      { ticker: 'DOOR', coefficient: 0.044 },
+      { ticker: 'JINJ', coefficient: 0.044 },
+      { ticker: 'DRMA', coefficient: 0.044 },
+      { ticker: 'HYOT', coefficient: 0.044 },
+      { ticker: 'OLDF', coefficient: 0.044 },
+      { ticker: 'SHKO', coefficient: 0.044 },
+      { ticker: 'HIKO', coefficient: 0.044 },
+      { ticker: 'DOC', coefficient: 0.044 },
+      { ticker: 'NO1', coefficient: 0.044 },
+      { ticker: 'DOC2', coefficient: 0.044 },
+      { ticker: 'TAEJ', coefficient: 0.044 },
+      { ticker: 'HPRK', coefficient: 0.044 },
+    ],
+  },
+  {
+    name: 'Yamazaki Fund',
+    ticker: 'YAMA',
+    basePrice: 84,
+    dateAdded: '2026-02-20T00:07:00',
+    isETF: true,
+    description: 'Yamazaki ETF',
+    constituents: [
+      'GUN',
+      'SHNG',
+      'SHRO',
+      'SHKO',
+      'HIKO',
+      'SOMI',
+      'YADV',
+      'REI',
+      'IJA',
+      'KMSH',
+      'SUMO',
+      'OYA',
+      'TCHI',
+      'IKO',
+      'YOKO',
+      'RED',
+      'URAM',
+      'BLUE',
+      'BRCR',
+      'GRVS',
+    ],
+    trailingFactors: [
+      { ticker: 'GUN', coefficient: 0.04 },
+      { ticker: 'SHNG', coefficient: 0.04 },
+      { ticker: 'SHRO', coefficient: 0.04 },
+      { ticker: 'SHKO', coefficient: 0.04 },
+      { ticker: 'HIKO', coefficient: 0.04 },
+      { ticker: 'SOMI', coefficient: 0.04 },
+      { ticker: 'YADV', coefficient: 0.04 },
+      { ticker: 'REI', coefficient: 0.04 },
+      { ticker: 'IJA', coefficient: 0.04 },
+      { ticker: 'KMSH', coefficient: 0.04 },
+      { ticker: 'SUMO', coefficient: 0.04 },
+      { ticker: 'OYA', coefficient: 0.04 },
+      { ticker: 'TCHI', coefficient: 0.04 },
+      { ticker: 'IKO', coefficient: 0.04 },
+      { ticker: 'YOKO', coefficient: 0.04 },
+      { ticker: 'RED', coefficient: 0.04 },
+      { ticker: 'URAM', coefficient: 0.04 },
+      { ticker: 'BLUE', coefficient: 0.04 },
+      { ticker: 'BRCR', coefficient: 0.04 },
+      { ticker: 'GRVS', coefficient: 0.04 },
+    ],
+  },
+  {
+    name: 'J High School ETF',
+    ticker: 'JWON',
+    basePrice: 117.2,
+    dateAdded: '2026-02-20T00:08:00',
+    isETF: true,
+    description: 'J High School ETF',
+    constituents: [
+      'BDNL',
+      'LDNL',
+      'ELI',
+      'ZACK',
+      'VSCO',
+      'VIN',
+      'JAY',
+      'LOGN',
+      '2SEC',
+      'CRYS',
+      'DUKE',
+      'DOO',
+      'JACE',
+      'MIRA',
+      'ZOE',
+      'JOY',
+      'JIHO',
+      'ENU',
+    ],
+    trailingFactors: [
+      { ticker: 'BDNL', coefficient: 0.044 },
+      { ticker: 'LDNL', coefficient: 0.044 },
+      { ticker: 'ELI', coefficient: 0.044 },
+      { ticker: 'ZACK', coefficient: 0.044 },
+      { ticker: 'VSCO', coefficient: 0.044 },
+      { ticker: 'VIN', coefficient: 0.044 },
+      { ticker: 'JAY', coefficient: 0.044 },
+      { ticker: 'LOGN', coefficient: 0.044 },
+      { ticker: '2SEC', coefficient: 0.044 },
+      { ticker: 'CRYS', coefficient: 0.044 },
+      { ticker: 'DUKE', coefficient: 0.044 },
+      { ticker: 'DOO', coefficient: 0.044 },
+      { ticker: 'JACE', coefficient: 0.044 },
+      { ticker: 'MIRA', coefficient: 0.044 },
+      { ticker: 'ZOE', coefficient: 0.044 },
+      { ticker: 'JOY', coefficient: 0.044 },
+      { ticker: 'JIHO', coefficient: 0.044 },
+      { ticker: 'ENU', coefficient: 0.044 },
+    ],
+  },
+  {
+    name: 'Kitae Kim Union',
+    ticker: 'SHDW',
+    basePrice: 155,
+    dateAdded: '2026-02-20T00:09:00',
+    isETF: true,
+    description: 'Kitae Kim Union ETF',
+    constituents: [
+      'KTAE',
+      'DG',
+      'GNTL',
+      'GOO',
+      'SAM',
+      'SHMN',
+      'SAMC',
+      'YONG',
+      'PAJU',
+      'PHNG',
+      'CROW',
+      'COP',
+      'RYU',
+      'SWMP',
+      'JEON',
+      'SCHN',
+      'SIN',
+      'TONG',
+      'ISU',
+      'SNGH',
+    ],
+    trailingFactors: [
+      { ticker: 'KTAE', coefficient: 0.04 },
+      { ticker: 'DG', coefficient: 0.04 },
+      { ticker: 'GNTL', coefficient: 0.04 },
+      { ticker: 'GOO', coefficient: 0.04 },
+      { ticker: 'SAM', coefficient: 0.04 },
+      { ticker: 'SHMN', coefficient: 0.04 },
+      { ticker: 'SAMC', coefficient: 0.04 },
+      { ticker: 'YONG', coefficient: 0.04 },
+      { ticker: 'PAJU', coefficient: 0.04 },
+      { ticker: 'PHNG', coefficient: 0.04 },
+      { ticker: 'CROW', coefficient: 0.04 },
+      { ticker: 'COP', coefficient: 0.04 },
+      { ticker: 'RYU', coefficient: 0.04 },
+      { ticker: 'SWMP', coefficient: 0.04 },
+      { ticker: 'JEON', coefficient: 0.04 },
+      { ticker: 'SCHN', coefficient: 0.04 },
+      { ticker: 'SIN', coefficient: 0.04 },
+      { ticker: 'TONG', coefficient: 0.04 },
+      { ticker: 'ISU', coefficient: 0.04 },
+      { ticker: 'SNGH', coefficient: 0.04 },
+    ],
+  },
+  { name: 'James Gong', ticker: 'JGNG', basePrice: 12.5, dateAdded: '2026-05-25T00:00:00', generation: '2nd' },
+  {
+    name: 'Jake Kim Alliance ETF',
+    ticker: 'JKAL',
+    basePrice: 137.4,
+    dateAdded: '2026-02-20T00:10:00',
+    isETF: true,
+    description: 'Jake Kim Alliance ETF',
+    constituents: [
+      'JAKE',
+      'LINE',
+      'BDNL',
+      'LDNL',
+      'TM',
+      'GONG',
+      'SEOK',
+      'WOLF',
+      'JAEG',
+      'YEUL',
+      'BUCH',
+      'UJBU',
+      'DAEJ',
+    ],
+    trailingFactors: [
+      { ticker: 'JAKE', coefficient: 0.062 },
+      { ticker: 'LINE', coefficient: 0.062 },
+      { ticker: 'BDNL', coefficient: 0.062 },
+      { ticker: 'LDNL', coefficient: 0.062 },
+      { ticker: 'TM', coefficient: 0.062 },
+      { ticker: 'GONG', coefficient: 0.062 },
+      { ticker: 'SEOK', coefficient: 0.062 },
+      { ticker: 'WOLF', coefficient: 0.062 },
+      { ticker: 'JAEG', coefficient: 0.062 },
+      { ticker: 'YEUL', coefficient: 0.062 },
+      { ticker: 'BUCH', coefficient: 0.062 },
+      { ticker: 'UJBU', coefficient: 0.062 },
+      { ticker: 'DAEJ', coefficient: 0.062 },
+    ],
+  },
+];
+
+// Stock splits. `splitFactor` on a character means it has been split that many
+// for one, in total (10 = one 10-for-1 split; a later 2-for-1 makes it 20). Its
+// basePrice is divided by it here, once, so the index ratio (price / basePrice)
+// and the neglect floor stay where they were, and liquidityFor multiplies its
+// liquidity by it so a dollar trade moves it the same percent as before.
+// `basePrice` above stays the original figure. The factor is added BEFORE the
+// split is run, with the market halted: see "Splitting a Stock" in CLAUDE.md.
+CHARACTERS.forEach((c) => {
+  if (c.splitFactor && c.splitFactor > 1) {
+    c.unsplitBasePrice = c.basePrice;
+    c.basePrice = c.basePrice / c.splitFactor;
+  }
+});
+
+// Create a map for quick lookup
+export const CHARACTER_MAP: Record<string, Character> = {};
+CHARACTERS.forEach((c) => {
+  CHARACTER_MAP[c.ticker] = c;
+});
+
+/**
+ * How many for one this stock has been split, in total (1 if never). Anything
+ * sized in SHARES rather than dollars (liquidity, order caps, bot and market
+ * maker orders, drop payouts, rarity rank) scales by it, so a split changes
+ * nothing but the share count and the price per share.
+ */
+export const splitFactorOf = (ticker: string | null | undefined): number =>
+  (ticker ? CHARACTER_MAP[ticker]?.splitFactor : undefined) || 1;
+
+// ============================================
+// MARKET STANDING (rarity tiers)
+// ============================================
+// This algorithm lives here (not in src/utils/) because the backend needs the
+// exact same tier math: npm run sync:chars copies this file to functions/, and
+// the dividend payout runs it on the frozen pre-halt price snapshot. The
+// frontend re-exports it from src/utils/rarity.js.
+//
+// A character's tier is its STANDING in the live market, not a fixed dollar
+// price. Rank every non-ETF character by current price, slice the ranking into
+// tiers by position, then nudge each tier boundary onto the nearest natural
+// price gap so a boundary never cuts through a tight price cluster.
+
+export const RARITY_ORDER: RarityTier[] = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+
+// Cumulative share of the roster, counting from the most expensive character down.
+interface RankedEntry {
+  ticker: string;
+  price: number;
+}
+
+const TIER_CUTOFFS: { tier: RarityTier; maxFraction: number }[] = [
+  { tier: 'legendary', maxFraction: 0.04 },
+  { tier: 'epic', maxFraction: 0.16 },
+  { tier: 'rare', maxFraction: 0.41 },
+  { tier: 'uncommon', maxFraction: 0.76 },
+  { tier: 'common', maxFraction: Infinity },
+];
+
+// Gap snapping — how far a boundary may slide off its rank cutoff, and what
+// counts as a "clear break" worth sliding to.
+const GAP_WINDOW_DOWN = 4; // slots a boundary may slide down (rounding characters UP into the higher tier)
+const GAP_WINDOW_UP = 5; // slots it may retreat up when the cluster extends past the down-window
+const GAP_BREAK_RATIO = 1.2; // a break must beat every gap it skips over by this factor
+const MIN_BREAK_GAP = 0.008; // ...and be at least a 0.8% relative price drop (ignores cluster noise)
+
+// Relative price drop between rank c-1 and rank c (prices are sorted descending).
+const relativeGap = (ranked: RankedEntry[], c: number): number => {
+  const above = ranked[c - 1]!.price;
+  return above > 0 ? (above - ranked[c]!.price) / above : 0;
+};
+
+// Slide one tier boundary from its nominal rank cutoff onto a natural price gap.
+// Walk down first (preferring to round borderline characters up into the higher
+// tier) and stop at the first clear break; if the cluster runs past the window,
+// fall back to walking up to the break above. `prev` (the boundary of the tier
+// above) is a hard floor so tiers can never overlap or reorder.
+const snapBoundary = (
+  ranked: RankedEntry[],
+  nominal: number,
+  prev: number,
+  upperSize: number,
+  lowerSize: number,
+): number => {
+  const n = ranked.length;
+  const base = Math.min(Math.max(nominal, prev + 1), n);
+  if (base >= n) return base;
+
+  // Cap the windows by tier size so a snap can't swallow half a neighboring tier.
+  const down = Math.min(GAP_WINDOW_DOWN, Math.floor(lowerSize / 2));
+  const up = Math.min(GAP_WINDOW_UP, Math.floor(upperSize / 2));
+
+  // Scan candidates one slot at a time. A candidate is a break when its gap
+  // clears the noise floor and beats every gap skipped so far by the ratio.
+  // After a break is found, keep sliding only while the very next candidate is
+  // an even clearer break; stop at the first that isn't.
+  const scanForBreak = (from: number, to: number, step: number): number => {
+    let maxSkipped = relativeGap(ranked, base);
+    let breakAt = 0;
+    let breakGap = 0;
+    for (let c = from; step > 0 ? c <= to : c >= to; c += step) {
+      const gap = relativeGap(ranked, c);
+      if (breakAt) {
+        if (gap < GAP_BREAK_RATIO * breakGap) break;
+      } else if (gap < MIN_BREAK_GAP || gap < GAP_BREAK_RATIO * maxSkipped) {
+        maxSkipped = Math.max(maxSkipped, gap);
+        continue;
+      }
+      breakAt = c;
+      breakGap = gap;
+    }
+    return breakAt;
+  };
+
+  return (
+    scanForBreak(base + 1, Math.min(base + down, n - 1), 1) ||
+    scanForBreak(base - 1, Math.max(base - up, prev + 1), -1) ||
+    base
+  );
+};
+
+/**
+ * Build a { ticker: tier } map from a price map (live prices on the frontend,
+ * the pre-halt snapshot in the dividend payout). ETFs are excluded, so ETF
+ * tickers simply won't appear as keys.
+ *
+ * Ranked on the pre-split price (price x splitFactor), so a split never moves a
+ * stock's tier or its dividend rate.
+ */
+export const computeRarityTiers = (
+  characters: { ticker: string; basePrice?: number; isETF?: boolean; splitFactor?: number }[],
+  prices: Record<string, number> | null | undefined,
+): Record<string, RarityTier> => {
+  const ranked = characters
+    .filter((c) => !c.isETF)
+    .map((c) => ({
+      ticker: c.ticker,
+      price: (prices?.[c.ticker] ?? c.basePrice ?? 0) * (c.splitFactor || 1),
+    }))
+    // Highest price first; ticker breaks ties so equal prices never reshuffle.
+    .sort((a, b) => b.price - a.price || (a.ticker < b.ticker ? -1 : 1));
+
+  const n = ranked.length;
+  const tiers: Record<string, RarityTier> = {};
+  if (!n) return tiers;
+
+  const nominals = TIER_CUTOFFS.slice(0, -1).map((t) => Math.ceil(t.maxFraction * n));
+
+  const bounds: number[] = [];
+  let prev = 0;
+  nominals.forEach((nominal, i) => {
+    const upperSize = nominal - (i ? nominals[i - 1]! : 0);
+    const lowerSize = (i + 1 < nominals.length ? nominals[i + 1]! : n) - nominal;
+    prev = snapBoundary(ranked, nominal, prev, upperSize, lowerSize);
+    bounds.push(prev);
+  });
+
+  ranked.forEach((entry, idx) => {
+    const k = bounds.findIndex((b) => idx < b);
+    tiers[entry.ticker] = (k === -1 ? TIER_CUTOFFS[TIER_CUTOFFS.length - 1]! : TIER_CUTOFFS[k]!).tier;
+  });
+  return tiers;
+};
+
+// ============================================
+// DIVIDEND SYSTEM
+// ============================================
+// Every stock pays a weekly dividend (Thursday 12:58 UTC, on the frozen
+// pre-halt snapshot so payout prices are non-gameable). The base yield is the
+// stock's rarity tier — its live market standing — so blue-chip rates follow
+// the market automatically. ETFs pay a flat mid-tier rate. Admin can still
+// override any ticker via Firestore dividendConfig/tierOverrides ('none'
+// forces 0%).
+//
+// On top of the base yield, each purchase lot climbs a loyalty ladder the
+// longer it is held. Under DIVIDEND_HOLD_DAYS a lot pays nothing (blocks
+// buy-before-payout farming); it then steps up to a 1.5x multiplier at 8 weeks.
+// Sanity anchor: max yield (legendary at 1.5x = 1.5%/week) stays well under
+// margin interest (0.5%/day), so borrowing to farm dividends always loses.
+
+export const DIVIDEND_HOLD_DAYS = 10;
+export const DIVIDEND_HOLD_MS = DIVIDEND_HOLD_DAYS * 24 * 60 * 60 * 1000;
+
+// Weekly base yield per tier, applied to (eligible shares × snapshot price).
+export type DividendTier = RarityTier | 'etf' | 'none';
+
+export const DIVIDEND_RATES: Record<DividendTier, number> = {
+  legendary: 0.01, // 1.00% / week
+  epic: 0.008, // 0.80% / week
+  rare: 0.006, // 0.60% / week
+  uncommon: 0.0045, // 0.45% / week
+  common: 0.003, // 0.30% / week
+  etf: 0.007, // 0.70% / week (flat, tier-independent)
+  none: 0, // admin override: stock pays nothing
+};
+
+// Admin override values written before the tier revamp map onto the new tiers.
+const LEGACY_TIER_ALIASES: Record<string, DividendTier> = {
+  'blue-chip': 'legendary',
+  dividend: 'uncommon',
+  growth: 'none',
+};
+
+// Loyalty ladder, checked top rung first. A lot younger than DIVIDEND_HOLD_DAYS
+// pays nothing.
+export const DIVIDEND_LOYALTY_LADDER = [
+  { minDays: 56, multiplier: 1.5 }, // 8+ weeks
+  { minDays: 28, multiplier: 1.25 }, // 4-8 weeks
+  { minDays: DIVIDEND_HOLD_DAYS, multiplier: 1.0 },
+];
+export const DIVIDEND_MAX_MULTIPLIER = DIVIDEND_LOYALTY_LADDER[0]!.multiplier;
+export const DIVIDEND_MATURE_MS = DIVIDEND_LOYALTY_LADDER[0]!.minDays * 24 * 60 * 60 * 1000;
+
+// When the loyalty ladder launched. `eligible` shares from before this date
+// have unknown exact ages (the old system only tracked the 10-day gate), so
+// they are treated as bought DIVIDEND_HOLD_DAYS before the epoch — the minimum
+// they could have been held — and climb the ladder from there. No free 1.5x.
+// Shares that genuinely mature (56d) fold into `eligible` no earlier than the
+// epoch ladder reaches 1.5x, so this stamp never underpays a real graduate.
+export const DIVIDEND_LADDER_EPOCH = Date.UTC(2026, 6, 19); // 2026-07-19 00:00 UTC
+const LEGACY_ELIGIBLE_ACQUIRED_AT = DIVIDEND_LADDER_EPOCH - DIVIDEND_HOLD_MS;
+
+export const dividendMultiplierForAgeMs = (ageMs: number): number => {
+  const days = ageMs / (24 * 60 * 60 * 1000);
+  const rung = DIVIDEND_LOYALTY_LADDER.find((r) => days >= r.minDays);
+  return rung ? rung.multiplier : 0;
+};
+
+// Exit loyalty: the same rungs as the dividend ladder, paying out as a discount
+// on the price impact a seller charges themselves. Holding longer means both a
+// bigger dividend and a cheaper way out, so players learn one set of ages.
+//
+// The discount never reaches 1. A seller who could exit at zero impact would be
+// able to unload any size without the market registering it, which is the hole
+// that makes off-market share swaps a wealth-transfer exploit. Leaving a large
+// position always has to cost something.
+export const EXIT_LOYALTY_LADDER = [
+  { minDays: 56, discount: 0.4 }, // 8+ weeks
+  { minDays: 28, discount: 0.25 }, // 4-8 weeks
+  { minDays: DIVIDEND_HOLD_DAYS, discount: 0.1 },
+];
+export const EXIT_LOYALTY_MAX_DISCOUNT = EXIT_LOYALTY_LADDER[0]!.discount;
+
+export const exitDiscountForAgeMs = (ageMs: number): number => {
+  const days = ageMs / (24 * 60 * 60 * 1000);
+  const rung = EXIT_LOYALTY_LADDER.find((r) => days >= r.minDays);
+  return rung ? rung.discount : 0;
+};
+
+// Both ladders sit on the same day boundaries, so a holding crossing one is
+// always crossing the other at the same moment. Notifications treat that as one
+// event and quote both rewards.
+export const LOYALTY_TIERS = [56, 28, DIVIDEND_HOLD_DAYS]; // descending
+export const LOYALTY_TIER_LABEL: Record<number, string> = {
+  56: '8 weeks',
+  28: '4 weeks',
+  [DIVIDEND_HOLD_DAYS]: '10 days',
+};
+// Below this, a levelled-up position isn't worth telling anyone about.
+export const LOYALTY_NOTIFY_MIN_SHARES = 1;
+
+/**
+ * Resolve a ticker's dividend tier name. `rarityTiers` is the output of
+ * computeRarityTiers for whatever price set applies (live or snapshot);
+ * `overrides` is the admin map from dividendConfig/tierOverrides.
+ */
+export const getDividendTier = (
+  ticker: string,
+  rarityTiers: Record<string, string> | null = {},
+  overrides: Record<string, string> | null = {},
+): DividendTier => {
+  const char = CHARACTER_MAP[ticker];
+  if (!char) return 'none';
+  const override = overrides && overrides[ticker];
+  if (override) return LEGACY_TIER_ALIASES[override] || (override as DividendTier);
+  if (char.isETF) return 'etf';
+  return (rarityTiers?.[ticker] as DividendTier | undefined) || 'common';
+};
+
+export const getDividendRate = (
+  ticker: string,
+  rarityTiers?: Record<string, string> | null,
+  overrides?: Record<string, string> | null,
+): number => DIVIDEND_RATES[getDividendTier(ticker, rarityTiers, overrides)] || 0;
+
+/**
+ * One cohort's lots as {shares, ageMs}, oldest first — the same order
+ * decrementCohort consumes them in, so anything walking this list sees the
+ * shares a sale would actually take.
+ *
+ * `eligible` shares are aged from the ladder epoch (see above): legacy shares
+ * climb the ladder from their minimum provable age instead of getting the top
+ * rung for free, and genuine 56-day graduates land after the epoch ladder has
+ * already topped out. Each pending lot uses its own age, derived from
+ * availableAt - the hold gate.
+ *
+ * Both the dividend weighting and the exit discount read ages through here.
+ * Two walks would eventually disagree about the same shares.
+ */
+export const cohortLots = (
+  cohort: HoldingCohort | null | undefined,
+  now: number,
+): { shares: number; ageMs: number }[] => {
+  if (!cohort) return [];
+  const lots: { shares: number; ageMs: number }[] = [];
+  if ((cohort.eligible || 0) > 0) {
+    lots.push({ shares: cohort.eligible!, ageMs: now - LEGACY_ELIGIBLE_ACQUIRED_AT });
+  }
+  const pending = [...(cohort.pending || [])].sort((a, b) => (a.availableAt || 0) - (b.availableAt || 0));
+  for (const p of pending) {
+    if (!((p.shares || 0) > 0)) continue;
+    lots.push({ shares: p.shares!, ageMs: now - ((p.availableAt || 0) - DIVIDEND_HOLD_MS) });
+  }
+  return lots;
+};
+
+/**
+ * Multiplier-weighted share count for one holding cohort at `now`.
+ * Weekly dividend = weightedShares × price × rate.
+ */
+export const dividendWeightedShares = (cohort: HoldingCohort | null | undefined, now: number): number =>
+  cohortLots(cohort, now).reduce((sum, lot) => sum + lot.shares * dividendMultiplierForAgeMs(lot.ageMs), 0);
+
+/**
+ * Weighted exit discount for selling `shares` out of one cohort, as a 0..1
+ * fraction of the seller's own price impact.
+ *
+ * Lots are consumed oldest first, matching decrementCohort, so a player holding
+ * 100 mature shares and 10,000 fresh ones gets the mature rate on 100 shares
+ * and nothing on the rest. Shares with no cohort record (a self-heal gap, or an
+ * admin edit) count as brand new and earn nothing, which is the safe direction.
+ */
+export const exitLoyaltyDiscount = (cohort: HoldingCohort | null | undefined, shares: number, now: number): number => {
+  if (!(shares > 0)) return 0;
+  let remaining = shares;
+  let weighted = 0;
+  for (const lot of cohortLots(cohort, now)) {
+    if (remaining <= 0) break;
+    const take = Math.min(lot.shares, remaining);
+    weighted += take * exitDiscountForAgeMs(lot.ageMs);
+    remaining -= take;
+  }
+  return weighted / shares;
+};
+
+/**
+ * The loyalty rung a holding has reached: the highest tier where the player
+ * holds at least LOYALTY_NOTIFY_MIN_SHARES that old. Returns tier 0 below the
+ * first rung.
+ *
+ * Reads ages through cohortLots for the same reason everything else does — a
+ * second age walk would eventually disagree with the rewards it announces.
+ */
+export const loyaltyTierFor = (
+  cohort: HoldingCohort | null | undefined,
+  now: number,
+): { tier: number; shares: number } => {
+  const lots = cohortLots(cohort, now);
+  const day = 24 * 60 * 60 * 1000;
+  for (const tier of LOYALTY_TIERS) {
+    const shares = lots.reduce((sum, lot) => sum + (lot.ageMs / day >= tier ? lot.shares : 0), 0);
+    if (shares >= LOYALTY_NOTIFY_MIN_SHARES) {
+      return { tier, shares: Math.round(shares * 10000) / 10000 };
+    }
+  }
+  return { tier: 0, shares: 0 };
+};

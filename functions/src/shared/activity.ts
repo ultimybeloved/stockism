@@ -1,14 +1,14 @@
-'use strict';
 // Heartbeats for scheduled jobs and player activity tracking.
 
-const admin = require('firebase-admin');
-const { reportError } = require('./sentry');
-const { TRADE_TX_TYPES, TRADE_RECORD_ACTIONS } = require('./constants');
+import * as admin from 'firebase-admin';
+import { reportError } from './sentry';
+import { TRADE_TX_TYPES, TRADE_RECORD_ACTIONS } from './constants';
+import type { StoredTime, UserData } from './types';
 const db = admin.firestore();
 
 // Where scheduled jobs record that they finished. One document, one field per
 // job, so the watchdog reads a single doc instead of a counter collection.
-const HEARTBEAT_DOC = () => admin.firestore().collection('admin').doc('heartbeats');
+export const HEARTBEAT_DOC = () => admin.firestore().collection('admin').doc('heartbeats');
 
 /**
  * Record that a scheduled job completed successfully.
@@ -19,9 +19,9 @@ const HEARTBEAT_DOC = () => admin.firestore().collection('admin').doc('heartbeat
  * Deliberately fail-soft and awaited nowhere critical: monitoring must never be
  * the reason a payout run fails.
  *
- * @param {string} job - export name of the scheduled function, e.g. 'payDividends'
+ * @param job - export name of the scheduled function, e.g. 'payDividends'
  */
-async function recordHeartbeat(job) {
+export async function recordHeartbeat(job: string) {
   try {
     await HEARTBEAT_DOC().set({ [job]: Date.now() }, { merge: true });
   } catch (err) {
@@ -31,11 +31,12 @@ async function recordHeartbeat(job) {
 
 // Coerce any of our timestamp shapes (Firestore Timestamp, epoch ms number,
 // or ISO string) to epoch ms; 0 if missing/unparseable.
-function toMs(ts) {
+export function toMs(ts: StoredTime | { seconds: number } | null | undefined): number {
   if (!ts) return 0;
   if (typeof ts === 'number') return ts;
-  if (typeof ts.toMillis === 'function') return ts.toMillis();
-  if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+  const stamp = ts as { toMillis?: () => number; seconds?: unknown };
+  if (typeof stamp.toMillis === 'function') return stamp.toMillis();
+  if (typeof stamp.seconds === 'number') return stamp.seconds * 1000;
   if (typeof ts === 'string') {
     const p = Date.parse(ts);
     return isNaN(p) ? 0 : p;
@@ -52,7 +53,7 @@ function toMs(ts) {
 // nobody is missed: lastActive (any write action), plus the older lastTradeTime
 // / lastCheckin stamps for accounts that predate it. Signups stamp lastActive
 // at creation, so brand-new accounts are covered too.
-function getLastActiveMs(userData) {
+export function getLastActiveMs(userData: UserData | null | undefined) {
   if (!userData) return 0;
   return Math.max(
     toMs(userData.lastSynced),
@@ -71,12 +72,12 @@ function getLastActiveMs(userData) {
 // there on a 7-day window, but bots only affect volume, not player counts.
 //
 // Returns per-player trade counts too, so callers can rank the top traders.
-async function sumMarketActivity({ sinceMs, users = [] }) {
+export async function sumMarketActivity({ sinceMs, users = [] }: { sinceMs: number; users?: UserData[] }) {
   const snap = await db.collection('trades').where('timestamp', '>', new Date(sinceMs)).get();
 
   let trades = 0;
   let volume = 0;
-  const tradesByUid = {};
+  const tradesByUid: Record<string, number> = {};
 
   snap.forEach((doc) => {
     const t = doc.data();
@@ -89,7 +90,7 @@ async function sumMarketActivity({ sinceMs, users = [] }) {
   users.forEach((u) => {
     if (!u.isBot) return;
     (u.transactionLog || []).forEach((tx) => {
-      if (!TRADE_TX_TYPES.has(tx.type) || !(tx.timestamp > sinceMs)) return;
+      if (!TRADE_TX_TYPES.has(tx.type) || !(tx.timestamp !== undefined && tx.timestamp > sinceMs)) return;
       trades++;
       volume += tx.totalCost || tx.totalRevenue || 0;
     });
@@ -106,14 +107,12 @@ async function sumMarketActivity({ sinceMs, users = [] }) {
 // write this already performs, so per-feature usage costs nothing extra — which
 // is the whole reason the usage report is built on this instead of its own
 // counters. weeklyFeatureUsage reads the stamps back.
-function touchLastActive(uid, feature) {
+export function touchLastActive(uid: string | null | undefined, feature?: string) {
   if (!uid) return;
-  const update = { lastActive: Date.now() };
+  const update: Record<string, number> = { lastActive: Date.now() };
   if (feature) update[`lastUsed.${feature}`] = Date.now();
   db.collection('users')
     .doc(uid)
     .update(update)
     .catch(() => {});
 }
-
-module.exports = { HEARTBEAT_DOC, recordHeartbeat, toMs, getLastActiveMs, sumMarketActivity, touchLastActive };

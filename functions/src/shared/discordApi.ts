@@ -1,10 +1,8 @@
-'use strict';
 // Discord REST calls: channel posts, DMs, market status alerts.
 
-const admin = require('firebase-admin');
-const axios = require('axios');
-const { reportError } = require('./sentry');
-const {
+import axios from 'axios';
+import { reportError } from './sentry';
+import {
   DISCORD_API_TIMEOUT_MS,
   CREW_EMOJIS,
   DISCORD_EMOJI_PATTERN,
@@ -13,23 +11,30 @@ const {
   msUntilWeekly,
   PRE_MARKET_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
-} = require('./constants');
+} from './constants';
+
+/** A Discord embed object, passed through to the API as is. */
+type Embed = Record<string, unknown>;
+
+/** A Discord API response body. Callers read whichever fields the endpoint returns. */
+type DiscordBody = { id?: string; message?: string; [field: string]: unknown };
 
 /**
  * The emoji that stands for a crew in Discord.
  *
  * Prefers the custom crew emoji (CREW_EMOJIS in constants.js) and falls back to
- * the Unicode emblem from crews.js, which is what the website shows. Returns ''
+ * the Unicode emblem from crews.ts, which is what the website shows. Returns ''
  * for an unknown crew id so callers can interpolate it blindly.
  *
  * Anything in CREW_EMOJIS that is not well-formed `<:name:id>` markup is treated
  * as absent: a half-pasted ID would otherwise print as literal angle brackets in
  * the middle of an embed, which looks far worse than the plain emblem.
  */
-function crewEmoji(crewId) {
-  const custom = CREW_EMOJIS[crewId];
+export function crewEmoji(crewId: string): string {
+  const custom = (CREW_EMOJIS as Record<string, string>)[crewId];
   if (custom && DISCORD_EMOJI_PATTERN.test(custom)) return custom;
-  return (CREWS[crewId] && CREWS[crewId].emblem) || '';
+  const crew = (CREWS as Record<string, { emblem?: string }>)[crewId];
+  return (crew && crew.emblem) || '';
 }
 
 /**
@@ -41,22 +46,26 @@ function crewEmoji(crewId) {
  * Only network failures and timeouts throw. A missing bot token comes back as
  * `{ status: 0 }` so callers have a single shape to handle.
  *
- * @param {string} method - 'get' | 'put' | 'delete' | 'post' | 'patch'
- * @param {string} path - API path after /v10, e.g. `/guilds/123/roles`
- * @param {Object} [opts] - { body, reason } — `reason` becomes the Discord
+ * @param method - 'get' | 'put' | 'delete' | 'post' | 'patch'
+ * @param path - API path after /v10, e.g. `/guilds/123/roles`
+ * @param opts - { body, reason } — `reason` becomes the Discord
  *        audit-log entry, which is how a server admin sees WHY the bot acted.
  */
-async function discordApi(method, path, opts = {}) {
+export async function discordApi(
+  method: 'get' | 'put' | 'delete' | 'post' | 'patch',
+  path: string,
+  opts: { body?: unknown; reason?: string; timeout?: number } = {},
+) {
   const botToken = process.env.DISCORD_BOT_TOKEN;
-  if (!botToken) return { status: 0, data: { message: 'DISCORD_BOT_TOKEN not configured' } };
+  if (!botToken) return { status: 0, data: { message: 'DISCORD_BOT_TOKEN not configured' } as DiscordBody };
 
-  const headers = { Authorization: `Bot ${botToken}` };
+  const headers: Record<string, string> = { Authorization: `Bot ${botToken}` };
   if (opts.reason) {
     // Discord requires this header URL-encoded and caps it at 512 chars.
     headers['X-Audit-Log-Reason'] = encodeURIComponent(String(opts.reason).slice(0, 512));
   }
 
-  return axios.request({
+  return axios.request<DiscordBody>({
     method,
     url: `https://discord.com/api/v10${path}`,
     data: opts.body || undefined,
@@ -68,11 +77,16 @@ async function discordApi(method, path, opts = {}) {
 
 /**
  * Helper function to send messages to Discord
- * @param {string} content - Message content (can be null if using embeds)
- * @param {Array} embeds - Array of Discord embed objects
- * @param {string} channelType - Channel type: 'default', 'signups', or custom channel ID
+ * @param content - Message content (can be null if using embeds)
+ * @param embeds - Array of Discord embed objects
+ * @param channelType - Channel type: 'default', 'signups', or custom channel ID
  */
-async function sendDiscordMessage(content, embeds = null, channelType = 'default', components = null) {
+export async function sendDiscordMessage(
+  content: string | null,
+  embeds: Embed[] | null = null,
+  channelType = 'default',
+  components: unknown[] | null = null,
+) {
   const botToken = process.env.DISCORD_BOT_TOKEN;
 
   // Determine which channel to use
@@ -91,7 +105,7 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
   }
 
   try {
-    const payload = { content };
+    const payload: { content: string | null; embeds?: Embed[]; components?: unknown[] } = { content };
     if (embeds) {
       payload.embeds = embeds;
     }
@@ -107,7 +121,12 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
     });
     console.log(`Discord message sent successfully to channel ${channelId} (${channelType})`);
   } catch (error) {
-    reportError(error, { where: 'sendDiscordMessage', channelId, channelType, response: error.response?.data });
+    reportError(error, {
+      where: 'sendDiscordMessage',
+      channelId,
+      channelType,
+      response: (error as { response?: { data?: unknown } }).response?.data,
+    });
   }
 }
 
@@ -127,12 +146,16 @@ async function sendDiscordMessage(content, embeds = null, channelType = 'default
  * Fail-soft on purpose: a failed notification must never take down the job that
  * produced it.
  *
- * @param {string} userId - Discord user ID (snowflake) to DM
- * @param {string} content - Message text (can be null when using embeds)
- * @param {Array} [embeds] - Optional Discord embed objects
- * @returns {boolean} whether the DM actually went out
+ * @param userId - Discord user ID (snowflake) to DM
+ * @param content - Message text (can be null when using embeds)
+ * @param embeds - Optional Discord embed objects
+ * @returns whether the DM actually went out
  */
-async function sendDiscordDM(userId, content, embeds = null) {
+export async function sendDiscordDM(
+  userId: string | null | undefined,
+  content: string | null,
+  embeds: Embed[] | null = null,
+) {
   if (!userId) return false;
 
   const open = await discordApi('post', '/users/@me/channels', {
@@ -149,7 +172,7 @@ async function sendDiscordDM(userId, content, embeds = null) {
     return false;
   }
 
-  const payload = { content };
+  const payload: { content: string | null; embeds?: Embed[] } = { content };
   if (embeds) payload.embeds = embeds;
 
   const sent = await discordApi('post', `/channels/${open.data.id}/messages`, { body: payload });
@@ -170,11 +193,11 @@ async function sendDiscordDM(userId, content, embeds = null) {
 
 /**
  * Send a market status announcement to Discord.
- * @param {string} kind - 'closed' | 'premarket' | 'open' | 'halted' | 'resumed'
- * @param {string} reason - optional reason text (used for manual halts)
+ * @param kind - 'closed' | 'premarket' | 'open' | 'halted' | 'resumed'
+ * @param reason - optional reason text (used for manual halts)
  */
-async function sendMarketStatusAlert(kind, reason = '') {
-  const presets = {
+export async function sendMarketStatusAlert(kind: string, reason = '') {
+  const presets: Record<string, { color: number; title: string; description: string }> = {
     closed: {
       color: 0xe74c3c,
       title: '🔴 Market Closed',
@@ -207,5 +230,3 @@ async function sendMarketStatusAlert(kind, reason = '') {
     },
   ]);
 }
-
-module.exports = { crewEmoji, discordApi, sendDiscordMessage, sendDiscordDM, sendMarketStatusAlert };

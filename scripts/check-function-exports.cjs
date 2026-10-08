@@ -121,7 +121,7 @@ CONSTANTS_SCAN.forEach(([file, label]) => {
   const source = stripNonCode(raw);
   // Collect EVERY destructured require, not just the one from constants.
   // Several names constants.js re-exports actually originate elsewhere (CREWS
-  // and the crew mission values come from crews.js), so a file importing one
+  // and the crew mission values come from crews.ts), so a file importing one
   // from its real source is correct and must not be reported as missing.
   const imported = [...raw.matchAll(/\{([^}]+)\}\s*(?:=\s*require\(|from\s)/g)].map((m) => m[1]).join(',');
   const missing = constantNames.filter(

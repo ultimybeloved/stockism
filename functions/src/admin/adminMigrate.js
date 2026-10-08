@@ -157,7 +157,7 @@ exports.splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(asy
 });
 
 /**
- * Initialize prices for any character in characters.js that doesn't have a
+ * Initialize prices for any character in characters.ts that doesn't have a
  * live price in Firestore yet. Skips IPO characters. Safe to run multiple
  * times — only writes missing entries.
  */

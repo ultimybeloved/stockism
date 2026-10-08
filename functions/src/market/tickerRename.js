@@ -84,7 +84,7 @@ const runPreflight = async ({ old, nw, marketData }) => {
     !!CHARACTER_MAP[nw],
     CHARACTER_MAP[nw]
       ? `${nw} is "${CHARACTER_MAP[nw].name}"`
-      : `${nw} is not in the deployed characters.js. Edit the source, run sync:chars, and deploy functions BEFORE renaming.`,
+      : `${nw} is not in the deployed characters.ts. Edit the source, run sync:chars, and deploy functions BEFORE renaming.`,
   );
 
   add(
@@ -92,7 +92,7 @@ const runPreflight = async ({ old, nw, marketData }) => {
     'Old ticker is gone from the deployed roster',
     !CHARACTER_MAP[old],
     CHARACTER_MAP[old]
-      ? `${old} is still in the deployed characters.js, so the deploy has not shipped yet.`
+      ? `${old} is still in the deployed characters.ts, so the deploy has not shipped yet.`
       : 'Confirms sync:chars and the functions deploy already ran.',
   );
 

@@ -44,13 +44,13 @@ const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../functions/src/
 const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/src/shared/characters');
 
 // Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
-// from characters.js: `ipoRequired` gets dropped once a stock actually launches
+// from characters.ts: `ipoRequired` gets dropped once a stock actually launches
 // (all five were cleared on 2026-08-07), and this test broke when it did.
 // Mutating the shared CHARACTER_MAP is enough — the engine reads the same
 // module instance in-process. It stays out of `usable` below because that
 // filter skips ipoRequired tickers.
 const IPO_TICKER = 'EUNH';
-if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.js`);
+if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.ts`);
 CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
 let failures = 0;

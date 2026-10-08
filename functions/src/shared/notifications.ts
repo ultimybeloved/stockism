@@ -1,8 +1,7 @@
-'use strict';
 // Player notifications and the public feed.
 
-const admin = require('firebase-admin');
-const { FEED_TTL_MS } = require('./constants');
+import * as admin from 'firebase-admin';
+import { FEED_TTL_MS } from './constants';
 const db = admin.firestore();
 
 // ============================================
@@ -10,7 +9,10 @@ const db = admin.firestore();
 // ============================================
 // Writes a notification doc to users/{uid}/notifications subcollection
 // Fire-and-forget — errors are logged but don't block the caller
-const writeNotification = async (uid, { type, title, message, data = {} }) => {
+export const writeNotification = async (
+  uid: string,
+  { type, title, message, data = {} }: { type: string; title: string; message: string; data?: Record<string, unknown> },
+) => {
   try {
     await db.collection('users').doc(uid).collection('notifications').add({
       type, // 'trade', 'alert', 'achievement', 'margin', 'system'
@@ -21,12 +23,27 @@ const writeNotification = async (uid, { type, title, message, data = {} }) => {
       data, // { ticker?, price?, orderId?, achievementId? }
     });
   } catch (err) {
-    console.error(`Failed to write notification for ${uid}:`, err.message);
+    console.error(`Failed to write notification for ${uid}:`, (err as Error).message);
   }
 };
 
+// One public feed entry. Optional fields are stored as null when absent.
+interface FeedEntry {
+  type: string;
+  userId: string;
+  displayName: string;
+  crew?: string | null;
+  message: string;
+  ticker?: string | null;
+  action?: string | null;
+  amount?: number | null;
+  price?: number | null;
+  achievementId?: string | null;
+  displayAfter?: unknown;
+}
+
 // Writes a feed doc to the global feed collection (fire-and-forget)
-const writeFeedEntry = async ({
+export const writeFeedEntry = async ({
   type,
   userId,
   displayName,
@@ -38,7 +55,7 @@ const writeFeedEntry = async ({
   price,
   achievementId,
   displayAfter,
-}) => {
+}: FeedEntry) => {
   try {
     // A Firestore TTL policy only acts on a TIMESTAMP field — it silently
     // ignores a numeric one. This was written as a plain number for as long as
@@ -65,8 +82,6 @@ const writeFeedEntry = async ({
       displayAfter: displayAfter || null,
     });
   } catch (err) {
-    console.error('Failed to write feed entry:', err.message);
+    console.error('Failed to write feed entry:', (err as Error).message);
   }
 };
-
-module.exports = { writeNotification, writeFeedEntry };

@@ -1,3 +1,4 @@
+// GENERATED from src/crews.ts by `npm run sync:chars`. Do not edit.
 // ============================================
 // CREWS SYSTEM
 // ============================================
