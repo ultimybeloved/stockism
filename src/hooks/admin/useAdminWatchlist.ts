@@ -10,14 +10,14 @@ import {
 } from '../../firebase';
 import type { AdminHookDeps } from './adminShared';
 import { errorMessage } from '../../utils/errors';
-import type { AdminReport } from '../../api/types';
+import type { IpHealthReport, WatchedUser, WatchlistAlert } from '../../api/types';
 import { useSignupReport } from './useSignupReport';
 
 // Watchlist tab: IP/alt-account watchlist, signup reports, username audits.
 export function useAdminWatchlist({ showMessage, setLoading }: Pick<AdminHookDeps, 'showMessage' | 'setLoading'>) {
   // Watchlist state
-  const [watchedUsers, setWatchedUsers] = useState<AdminReport[]>([]);
-  const [watchlistAlerts, setWatchlistAlerts] = useState<AdminReport[]>([]);
+  const [watchedUsers, setWatchedUsers] = useState<WatchedUser[]>([]);
+  const [watchlistAlerts, setWatchlistAlerts] = useState<WatchlistAlert[]>([]);
   const [watchlistLoaded, setWatchlistLoaded] = useState(false);
   const [watchAddUserId, setWatchAddUserId] = useState('');
   const [watchAddReason, setWatchAddReason] = useState('');
@@ -26,7 +26,7 @@ export function useAdminWatchlist({ showMessage, setLoading }: Pick<AdminHookDep
   const [watchLinkTarget, setWatchLinkTarget] = useState<string | null>(null);
   const [watchAddIPValue, setWatchAddIPValue] = useState('');
   const [watchAddIPTarget, setWatchAddIPTarget] = useState<string | null>(null);
-  const [ipHealth, setIpHealth] = useState<AdminReport | null>(null);
+  const [ipHealth, setIpHealth] = useState<IpHealthReport | null>(null);
 
   // ============================================
   // WATCHLIST HANDLERS

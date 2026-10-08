@@ -279,7 +279,7 @@ export const linkAltAccountFunction = callable<{ watchedUserId: string; altAccou
 );
 export const addWatchedIPFunction = callable<{ userId: string; ip: string }>('addWatchedIP');
 export const getWatchlistFunction = callable<void, Api.WatchlistResponse>('getWatchlist');
-export const getIpTrackingHealthFunction = callable<void, Api.AdminReport>('getIpTrackingHealth');
+export const getIpTrackingHealthFunction = callable<void, Api.IpHealthReport>('getIpTrackingHealth');
 export const getRecentSignupReportFunction = callable<{ hoursBack: number }, Api.SignupReport>('getRecentSignupReport');
 // Admin: proactive alt detection
 export const triggerAltScanFunction = callable<{ dryRun: boolean }, Api.AltScanResponse>('triggerAltScan');

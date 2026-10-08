@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { adminReturnDistributionFunction } from '../../../firebase';
 import { errorMessage } from '../../../utils/errors';
 import type { AdminCommonProps } from '../types';
-import type { ReturnDistributionReport, ReturnDistributionRow } from '../../../api/types';
+import type { ReturnDistributionReport } from '../../../api/types';
 
 type Row = ReturnDistributionReport['overall'] & { id: string; label: string };
 

@@ -579,9 +579,42 @@ export interface SeasonCheckpointResponse {
 /** Shape-only results the admin tabs render; fields typed as the tabs convert. */
 export type AdminReport = { [key: string]: unknown };
 
+/** watchlist/{uid}: a player under watch, with their known alts and addresses. */
+export interface WatchedUser {
+  id: string;
+  displayName: string;
+  reason?: string;
+  maxAccountsPerIP: number;
+  linkedAccounts: { uid: string; displayName?: string; linkedVia: string; ip?: string }[];
+  knownIPs: Record<string, { accounts?: string[] }>;
+}
+
+/** watchlist_alerts/{id}. */
+export interface WatchlistAlert {
+  id: string;
+  type: string;
+  severity?: string;
+  details: string;
+  timestamp?: number;
+  reviewed?: boolean;
+}
+
 export interface WatchlistResponse {
-  watchedUsers?: AdminReport[];
-  alerts?: AdminReport[];
+  watchedUsers?: WatchedUser[];
+  alerts?: WatchlistAlert[];
+}
+
+/** getIpTrackingHealth: whether the anti-alt defenses are firing. */
+export interface IpHealthReport {
+  signupIpCoverage: { coveragePercent: number; missingIp: number; realUsers: number };
+  ipTracking: {
+    accountsPerIpHistogram: Record<string, number>;
+    trackedIPs: number;
+    totalTombstones: number;
+    multiAccountIPs: { ip: string; liveAccounts: number; deletedAccounts: number }[];
+  };
+  alertsLast30d: { total: number; byType: Record<string, number> };
+  discordWall: { pending: number; lifted: number };
 }
 
 export interface AuditUsernamesResponse {
