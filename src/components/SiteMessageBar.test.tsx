@@ -10,7 +10,7 @@ vi.mock('../context/AppContext', () => ({
   useAppContext: () => mockContext(),
 }));
 
-const setup = (siteMessages: Record<string, unknown>[], darkMode = false) => {
+const setup = (siteMessages: Record<string, unknown>[] | undefined, darkMode = false) => {
   mockContext.mockReturnValue({ siteMessages, darkMode });
   return render(<SiteMessageBar />);
 };
