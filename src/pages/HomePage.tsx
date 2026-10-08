@@ -8,6 +8,35 @@ import MarketGrid from '../components/home/MarketGrid';
 import { useAppContext } from '../context/AppContext';
 import { getThemeClasses } from '../utils/theme';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
+import type { ComponentProps } from 'react';
+
+type GridProps = ComponentProps<typeof MarketGrid>;
+
+type HomePageProps = Pick<
+  GridProps,
+  | 'activeUserData'
+  | 'onTrade'
+  | 'onViewChart'
+  | 'onToggleWatchlist'
+  | 'tradeAnimation'
+  | 'limitOrderRequest'
+  | 'onClearLimitOrderRequest'
+  | 'onSetAlert'
+> &
+  Pick<
+    ComponentProps<typeof DashboardRail>,
+    'portfolioValue' | 'isGuest' | 'onShowLogin' | 'onShowPortfolio' | 'onShowBailout'
+  > &
+  Pick<ComponentProps<typeof IPOActiveCard>, 'onBuyIPO'> & {
+    /** In-flight action flags, keyed by action ('checkin', ...). */
+    actionLoading: Record<string, boolean | undefined>;
+    onCheckin: () => void;
+    onShowMissions: () => void;
+    onShowPinShop: () => void;
+    onShowCrews: () => void;
+    onShowMargin: () => void;
+    onShowAbout: () => void;
+  };
 
 // The market home page: sub-header shortcuts, IPO section, dashboard rail,
 // and the browsable character grid. Modal open/close state stays in App;
@@ -34,7 +63,7 @@ const HomePage = ({
   onShowLogin,
   onShowPortfolio,
   onShowBailout,
-}) => {
+}: HomePageProps) => {
   const {
     darkMode,
     user,
@@ -132,7 +161,7 @@ const HomePage = ({
             activeUserData={activeUserData}
             portfolioValue={portfolioValue}
             isGuest={isGuest}
-            checkinLoading={actionLoading.checkin}
+            checkinLoading={!!actionLoading.checkin}
             onCheckin={onCheckin}
             onShowLogin={onShowLogin}
             onShowPortfolio={onShowPortfolio}

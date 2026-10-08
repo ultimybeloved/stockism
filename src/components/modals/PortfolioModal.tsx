@@ -17,6 +17,27 @@ import { buildPortfolioItems, buildShortItems } from '../portfolio/buildPosition
 import { TIME_RANGES, filterHoldings, sortHoldings } from '../portfolio/shared';
 import { isWeeklyHalt } from '../../utils/marketHours';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import type { ComponentProps } from 'react';
+import type { TradeAction, UserData } from '../../types';
+import type { ChartHoverPoint, ShareInputs } from '../portfolio/shared';
+import type { IpoHoldingItem } from '../portfolio/IpoHoldingsList';
+
+type RowProps = ComponentProps<typeof HoldingRow>;
+
+interface PortfolioModalProps {
+  currentValue: number;
+  onClose: () => void;
+  onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
+  onLimitSell?: RowProps['onLimitSell'];
+  onOpenTradeHistory?: () => void;
+  ipoPurchases?: Record<string, number>;
+  holdingCohorts?: UserData['holdingCohorts'];
+  dividendTierOverrides?: Record<string, string>;
+  drip?: RowProps['drip'];
+  onToggleDrip?: RowProps['onToggleDrip'];
+}
+
+type PositionTab = 'long' | 'short';
 
 const PortfolioModal = ({
   currentValue,
@@ -29,7 +50,7 @@ const PortfolioModal = ({
   dividendTierOverrides = {},
   drip = {},
   onToggleDrip,
-}) => {
+}: PortfolioModalProps) => {
   useEscapeKey(onClose);
   const {
     darkMode,
@@ -46,29 +67,29 @@ const PortfolioModal = ({
     rarityTiers,
   } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const [sellAmounts, setSellAmounts] = useState({});
-  const [coverAmounts, setCoverAmounts] = useState({});
+  const [sellAmounts, setSellAmounts] = useState<ShareInputs>({});
+  const [coverAmounts, setCoverAmounts] = useState<ShareInputs>({});
   const [showChart, setShowChart] = useState(true);
   const [timeRange, setTimeRange] = useState('1d');
-  const [hoveredPoint, setHoveredPoint] = useState(null);
-  const [expandedTicker, setExpandedTicker] = useState(null);
-  const [expandedShortTicker, setExpandedShortTicker] = useState(null);
+  const [hoveredPoint, setHoveredPoint] = useState<ChartHoverPoint | null>(null);
+  const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
+  const [expandedShortTicker, setExpandedShortTicker] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('value');
-  const [sortDir, setSortDir] = useState('desc');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   // Long/short tab — open on whichever side the user actually has positions in.
-  const [positionTab, setPositionTab] = useState(() =>
+  const [positionTab, setPositionTab] = useState<PositionTab>(() =>
     Object.values(holdings || {}).some((s) => s > 0) ? 'long' : 'short',
   );
 
-  const switchPositionTab = (tab) => {
+  const switchPositionTab = (tab: PositionTab) => {
     setPositionTab(tab);
     setSearch(''); // a search for a long stock won't match shorts, so clear it
   };
 
   // Clicking the active sort flips direction; switching sort resets to a
   // sensible default (Z→A feels wrong for names, so Name defaults to A→Z).
-  const handleSortChange = (key) => {
+  const handleSortChange = (key: string) => {
     if (key === sortKey) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -122,16 +143,19 @@ const PortfolioModal = ({
   );
 
   // IPO holdings — only show active IPOs where user has purchases
-  const ipoItems = useMemo(() => {
+  const ipoItems = useMemo((): IpoHoldingItem[] => {
     if (!activeIPOs.length || !ipoPurchases) return [];
     const now = Date.now();
     return activeIPOs
       .filter(
         (ipo) =>
-          now >= ipo.ipoStartsAt && now < ipo.ipoEndsAt && ipo.sharesRemaining > 0 && ipoPurchases[ipo.ticker] > 0,
+          now >= ipo.ipoStartsAt &&
+          now < ipo.ipoEndsAt &&
+          (ipo.sharesRemaining ?? 0) > 0 &&
+          (ipoPurchases[ipo.ticker] ?? 0) > 0,
       )
       .map((ipo) => {
-        const shares = ipoPurchases[ipo.ticker];
+        const shares = ipoPurchases[ipo.ticker] ?? 0;
         const character = CHARACTER_MAP[ipo.ticker];
         const maxPerUser = ipo.maxPerUser || 10;
         return {
@@ -147,19 +171,19 @@ const PortfolioModal = ({
 
   const totalValue = portfolioItems.reduce((sum, item) => sum + item.value, 0);
 
-  const handleSell = (ticker, amount) => {
+  const handleSell = (ticker: string, amount: number) => {
     onTrade(ticker, 'sell', amount);
   };
 
-  const handleCover = (ticker, amount) => {
+  const handleCover = (ticker: string, amount: number) => {
     onTrade(ticker, 'cover', amount);
   };
 
-  const toggleExpand = (ticker) => {
+  const toggleExpand = (ticker: string) => {
     setExpandedTicker(expandedTicker === ticker ? null : ticker);
   };
 
-  const toggleShortExpand = (ticker) => {
+  const toggleShortExpand = (ticker: string) => {
     setExpandedShortTicker(expandedShortTicker === ticker ? null : ticker);
   };
 
@@ -248,10 +272,12 @@ const PortfolioModal = ({
               {(portfolioItems.length > 0 || shortItems.length > 0) && (
                 <>
                   <div className="flex gap-1 mb-3">
-                    {[
-                      { key: 'long', label: '📈 Long', count: portfolioItems.length },
-                      { key: 'short', label: '📉 Short', count: shortItems.length },
-                    ].map((t) => (
+                    {(
+                      [
+                        { key: 'long', label: '📈 Long', count: portfolioItems.length },
+                        { key: 'short', label: '📉 Short', count: shortItems.length },
+                      ] as const
+                    ).map((t) => (
                       <button
                         key={t.key}
                         onClick={() => switchPositionTab(t.key)}
