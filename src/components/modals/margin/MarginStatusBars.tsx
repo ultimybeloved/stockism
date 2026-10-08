@@ -2,13 +2,20 @@ import { MARGIN_WARNING_THRESHOLD, MARGIN_DANGER_THRESHOLD, MARGIN_CALL_THRESHOL
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import { useAppContext } from '../../../context/AppContext';
+import type { MarginStatus } from '../../../utils/calculations';
 
 /**
  * The two progress bars inside the margin status card: equity ratio and credit used.
  * Both fills are clamped to 0-100 so an out-of-range value can never emit an invalid
  * CSS width (which would silently render as a full bar).
  */
-const MarginStatusBars = ({ marginStatus, statusColorClass }) => {
+const MarginStatusBars = ({
+  marginStatus,
+  statusColorClass,
+}: {
+  marginStatus: MarginStatus;
+  statusColorClass: string;
+}) => {
   const { darkMode, userData } = useAppContext();
   const { mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -28,7 +35,7 @@ const MarginStatusBars = ({ marginStatus, statusColorClass }) => {
     { at: 100, color: colorBlindMode ? 'text-teal-500' : 'text-green-500' },
   ];
 
-  const tickStyle = (i, at) => {
+  const tickStyle = (i: number, at: number) => {
     if (i === 0) return { left: 0 };
     if (i === ticks.length - 1) return { right: 0 };
     return { left: `${at}%`, transform: 'translateX(-50%)' };

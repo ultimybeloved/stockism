@@ -30,6 +30,12 @@ export interface AppNotification {
   };
 }
 
+/** A notification as stored (users/{uid}/notifications/{id}). */
+export interface StoredNotification extends AppNotification {
+  id: string;
+  createdAt?: import('../types').TimestampLike;
+}
+
 export const NOTIFICATION_META: Record<string, NotificationMeta> = {
   trade: { icon: '📈', colorKey: 'green', category: 'Trades' },
   alert: { icon: '🔔', colorKey: 'blue', category: 'Alerts' },

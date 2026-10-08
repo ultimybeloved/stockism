@@ -6,9 +6,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, waitFor, cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
+import type { User } from 'firebase/auth';
+import type { AppContextValue } from '../context/AppContext';
 expect.extend(matchers);
 
-const h = vi.hoisted(() => ({ ctx: {}, docs: {} }));
+// Mutable fakes the mocks below read from; each test sets what it needs.
+const h = vi.hoisted(() => ({
+  ctx: {} as Partial<AppContextValue>,
+  docs: {} as Record<string, unknown>,
+}));
 
 vi.mock('../context/AppContext', () => ({
   useAppContext: () => h.ctx,
@@ -23,8 +29,8 @@ vi.mock('../firebase', () => ({
 }));
 
 vi.mock('firebase/firestore', () => ({
-  doc: vi.fn((db, col, id) => ({ col, id })),
-  onSnapshot: vi.fn((ref, cb) => {
+  doc: vi.fn((_db: unknown, col: string, id: string) => ({ col, id })),
+  onSnapshot: vi.fn((ref: { col: string }, cb: (snap: unknown) => void) => {
     const data = h.docs[ref.col];
     cb({ exists: () => data != null, data: () => data });
     return () => {};
@@ -48,7 +54,7 @@ describe('LadderGame', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     h.ctx = {
-      user: { uid: 'u1' },
+      user: { uid: 'u1' } as User,
       userData: {
         ladderTutorial2Completed: true,
         holdings: { XIAO: 10 },
@@ -129,7 +135,7 @@ describe('LadderGame', () => {
 
   it('plays a round: calls the server, deducts the bet immediately, animates to the result', async () => {
     vi.useFakeTimers();
-    playLadderGameFunction.mockResolvedValueOnce({
+    vi.mocked(playLadderGameFunction).mockResolvedValueOnce({
       data: { rungs: [2, 5, 8], result: 'odd', won: true, payout: 2, newBalance: 101, currentStreak: 3 },
     });
     render(<LadderGame onClose={vi.fn()} />);
@@ -156,7 +162,7 @@ describe('LadderGame', () => {
   });
 
   it('shows a notification when the server rejects a play', async () => {
-    playLadderGameFunction.mockRejectedValueOnce(new Error('Insufficient balance'));
+    vi.mocked(playLadderGameFunction).mockRejectedValueOnce(new Error('Insufficient balance'));
     render(<LadderGame onClose={vi.fn()} />);
     fireEvent.click(screen.getAllByText('X')[1]); // right side
     fireEvent.click(screen.getByText('EVEN'));
@@ -183,7 +189,7 @@ describe('LadderGame', () => {
   });
 
   it('withdraw tab: prefills full balance, previews tax, and withdraws', async () => {
-    withdrawFromLadderGameFunction.mockResolvedValueOnce({
+    vi.mocked(withdrawFromLadderGameFunction).mockResolvedValueOnce({
       data: { grossAmount: 100, totalTax: 5, netReceived: 95 },
     });
     render(<LadderGame onClose={vi.fn()} />);
@@ -206,7 +212,7 @@ describe('LadderGame', () => {
   });
 
   it('leaderboard modal loads and lists players', async () => {
-    getLadderLeaderboardFunction.mockResolvedValueOnce({
+    vi.mocked(getLadderLeaderboardFunction).mockResolvedValueOnce({
       data: { leaderboard: [{ username: 'Alice', balance: 5000, winRate: 60 }] },
     });
     render(<LadderGame onClose={vi.fn()} />);

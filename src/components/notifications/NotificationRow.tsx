@@ -2,10 +2,22 @@ import { getThemeClasses } from '../../utils/theme';
 import { formatTimeAgo, formatCurrency } from '../../utils/formatters';
 import { getNotificationMeta } from '../../utils/notifications';
 import { LOYALTY_TIER_LABEL } from '../../characters';
+import type { StoredNotification } from '../../utils/notifications';
+
+interface NotificationRowProps {
+  notification: StoredNotification;
+  darkMode: boolean;
+  expanded: boolean;
+  actionable: boolean;
+  canExpand: boolean;
+  onClick: (notification: StoredNotification) => void;
+  onToggleExpand: (id: string) => void;
+  onDelete: (id: string) => void;
+}
 
 // Left-border accent per notification color key. Kept here (not in theme.js)
 // because it's specific to this row's accent strip.
-const ACCENT = {
+const ACCENT: Record<string, string> = {
   green: 'border-l-green-500',
   blue: 'border-l-blue-500',
   amber: 'border-l-amber-500',
@@ -27,7 +39,7 @@ export default function NotificationRow({
   onClick,
   onToggleExpand,
   onDelete,
-}) {
+}: NotificationRowProps) {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const meta = getNotificationMeta(notification);
   const data = notification.data || {};
@@ -84,7 +96,7 @@ export default function NotificationRow({
 
           <p className={`text-xs mt-0.5 ${expanded ? '' : 'line-clamp-2'} ${mutedClass}`}>{notification.message}</p>
 
-          {expanded && (breakdown?.length > 0 || reinvested?.length > 0 || tiers?.length > 0) && (
+          {expanded && ((breakdown || []).length > 0 || (reinvested || []).length > 0 || (tiers || []).length > 0) && (
             <div className={`mt-2 space-y-0.5 text-[11px] ${mutedClass}`}>
               {breakdown?.map(([ticker, amount]) => (
                 <div key={`c-${ticker}`} className="flex justify-between">

@@ -3,18 +3,28 @@ import { changeDisplayNameFunction } from '../../firebase';
 import { getCosmeticStyles, getActiveTitle } from '../../utils/cosmetics';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
+import { errorMessage } from '../../utils/errors';
+import type { UserData } from '../../types';
 
 // Profile card header: display name (with cosmetics), the customization
 // shortcut, and the name-change form. Owns the name-edit state and the 2-week
 // cooldown logic.
-const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
+const ProfileHeader = ({
+  userData,
+  darkMode,
+  onOpenCustomization,
+}: {
+  userData: UserData | null;
+  darkMode: boolean;
+  onOpenCustomization: () => void;
+}) => {
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 
-  const nameChangedAt = userData?.nameChangedAt?.toDate?.() || null;
+  const nameChangedAt = (userData?.nameChangedAt as { toDate?: () => Date } | undefined)?.toDate?.() || null;
   const cooldownMs = 14 * 24 * 60 * 60 * 1000;
   const msSinceChange = nameChangedAt ? Date.now() - nameChangedAt.getTime() : Infinity;
   const daysUntilChange =
@@ -34,7 +44,7 @@ const ProfileHeader = ({ userData, darkMode, onOpenCustomization }) => {
       setEditingName(false);
       setNewName('');
     } catch (err) {
-      setNameError(err.message || 'Failed to change name.');
+      setNameError(errorMessage(err) || 'Failed to change name.');
     }
     setNameSaving(false);
   };

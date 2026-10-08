@@ -291,9 +291,63 @@ export interface SpikeRepairRequest {
   victims?: SpikeVictim | SpikeVictim[];
 }
 
+/** One player's diagnosis from the spike-repair tool. */
+export interface SpikeDiagnosis {
+  userId: string;
+  success?: boolean;
+  error?: string;
+  displayName?: string;
+  cash?: number;
+  portfolioValue?: number;
+  isBankrupt?: boolean;
+  bankruptAt?: number;
+  lastBailout?: number;
+  holdings?: Record<string, number>;
+  shorts?: Record<string, number | { shares?: number }>;
+  totalTrades?: number;
+  recentTrades?: {
+    action?: string;
+    ticker?: string;
+    amount?: number;
+    price?: number;
+    cashBefore?: number;
+    cashAfter?: number;
+    pnl?: number;
+    timestamp?: number;
+  }[];
+}
+
 export interface SpikeRepairResponse {
   victims?: SpikeVictim[];
-  results?: { success?: boolean; [key: string]: unknown }[];
+  results?: SpikeDiagnosis[];
+}
+
+export interface PreflightCheck {
+  id: string;
+  label: string;
+  pass: boolean;
+  detail?: string;
+}
+
+/** What renameTicker returns from a dry run, an execute, or a resume. */
+export interface RenameTickerResponse {
+  dryRun?: boolean;
+  blocked?: boolean;
+  oldTicker?: string;
+  newTicker?: string;
+  breakdown?: Record<string, number>;
+  notRewritten?: string[];
+  checks?: PreflightCheck[];
+  [key: string]: unknown;
+}
+
+/** market/renameJournal: progress of the rename in flight, if any. */
+export interface RenameJournal {
+  old?: string;
+  new?: string;
+  status?: string;
+  lastError?: string;
+  phases?: Record<string, { status?: string; done?: number }>;
 }
 
 export interface AdminSetCashRequest {
@@ -344,6 +398,7 @@ export interface SplitStockResponse {
   nextPhase?: string;
   alreadyComplete?: boolean;
   breakdown?: { holders: number; shorts: number; limitOrders: number; priceAlerts: number; trades: number };
+  checks?: PreflightCheck[];
   [key: string]: unknown;
 }
 

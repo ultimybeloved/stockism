@@ -159,6 +159,7 @@ export interface UserData {
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
   ladderTutorial2Completed?: boolean;
+  nameChangedAt?: TimestampLike;
   displayedAchievementPins?: unknown;
   displayedShopPins?: unknown;
   displayCrewPin?: boolean;

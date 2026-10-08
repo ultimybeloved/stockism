@@ -4,7 +4,12 @@
 // Split out of RecoveryRenameTicker.jsx to keep both files well under the
 // 400-line component limit.
 
-const PHASE_LABELS = {
+import type { PreflightCheck, RenameJournal, RenameTickerResponse } from '../../../api/types';
+import type { AdminCommonProps } from '../types';
+
+type PanelTheme = Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'darkMode'>;
+
+const PHASE_LABELS: Record<string, string> = {
   marketCurrent: 'Market document',
   priceHistory: 'Live price history',
   priceArchive: 'Archived history and daily closes',
@@ -19,7 +24,7 @@ const PHASE_LABELS = {
 };
 
 // What the dry run counts, in the order the phases run.
-const BREAKDOWN_ROWS = [
+const BREAKDOWN_ROWS: [string, string][] = [
   ['marketCurrent', 'Market document'],
   ['priceHistory', 'Live price history'],
   ['priceArchive', 'Archived price history'],
@@ -31,7 +36,12 @@ const BREAKDOWN_ROWS = [
   ['feed', 'Activity feed'],
 ];
 
-export const PreflightTable = ({ checks, textClass, mutedClass, darkMode }) => {
+export const PreflightTable = ({
+  checks,
+  textClass,
+  mutedClass,
+  darkMode,
+}: PanelTheme & { checks: PreflightCheck[] | null | undefined }) => {
   if (!checks?.length) return null;
   return (
     <div className="mb-3">
@@ -56,7 +66,12 @@ export const PreflightTable = ({ checks, textClass, mutedClass, darkMode }) => {
   );
 };
 
-export const DryRunBreakdown = ({ result, textClass, mutedClass, darkMode }) => {
+export const DryRunBreakdown = ({
+  result,
+  textClass,
+  mutedClass,
+  darkMode,
+}: PanelTheme & { result: RenameTickerResponse | null }) => {
   if (!result?.breakdown) return null;
   const total = Object.values(result.breakdown).reduce((s, n) => s + (n || 0), 0);
   return (
@@ -72,7 +87,7 @@ export const DryRunBreakdown = ({ result, textClass, mutedClass, darkMode }) => 
       <div className={`text-xs ${mutedClass} space-y-0.5 mb-2`}>
         {BREAKDOWN_ROWS.map(([key, label]) => (
           <p key={key}>
-            {label}: {result.breakdown[key] ?? 0}
+            {label}: {result.breakdown?.[key] ?? 0}
           </p>
         ))}
         <p className={`font-semibold ${textClass} pt-1`}>{total} documents in total</p>
@@ -89,7 +104,12 @@ export const DryRunBreakdown = ({ result, textClass, mutedClass, darkMode }) => 
   );
 };
 
-export const PhaseProgress = ({ journal, textClass, mutedClass, darkMode }) => {
+export const PhaseProgress = ({
+  journal,
+  textClass,
+  mutedClass,
+  darkMode,
+}: PanelTheme & { journal: RenameJournal | null }) => {
   if (!journal?.phases) return null;
   const entries = Object.entries(journal.phases);
   const complete = entries.filter(([, p]) => p.status === 'complete').length;

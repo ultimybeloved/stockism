@@ -4,7 +4,7 @@ import { db, createPriceAlertFunction, deletePriceAlertFunction } from '../fireb
 import { errorMessage } from '../utils/errors';
 import type { User } from 'firebase/auth';
 import type { AppContextValue } from '../context/AppContext';
-import type { AppNotification } from '../utils/notifications';
+import type { StoredNotification } from '../utils/notifications';
 import type { PriceAlert } from '../types';
 
 // The user's bell notifications and price alerts: live subscriptions plus
@@ -16,7 +16,7 @@ export function useUserAlerts({
   user: User | null;
   showNotification: AppContextValue['showNotification'];
 }) {
-  const [userNotifications, setUserNotifications] = useState<AppNotification[]>([]);
+  const [userNotifications, setUserNotifications] = useState<StoredNotification[]>([]);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]); // user's active price alerts
 
   // Subscribe to user notifications
@@ -33,7 +33,7 @@ export function useUserAlerts({
     const unsub = onSnapshot(
       notifQuery,
       (snap) => {
-        const notifs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const notifs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StoredNotification);
         setUserNotifications(notifs);
       },
       (err) => {

@@ -4,6 +4,7 @@ import { db } from '../../firebase';
 import { priceHistoryDocRef } from './adminShared';
 import type { AdminHookDeps } from './adminShared';
 import { errorMessage } from '../../utils/errors';
+import type { RenameTickerResponse } from '../../api/types';
 import type { LoggedTransaction, PriceHistory, UserData } from '../../types';
 
 export interface TickerHistoryRow {
@@ -21,7 +22,7 @@ export function useAdminRecoveryTools({ showMessage, setLoading }: Pick<AdminHoo
   // Rename ticker state
   const [renameOldTicker, setRenameOldTicker] = useState('');
   const [renameNewTicker, setRenameNewTicker] = useState('');
-  const [renameResult, setRenameResult] = useState<Record<string, unknown> | null>(null);
+  const [renameResult, setRenameResult] = useState<RenameTickerResponse | null>(null);
 
   // FULL MARKET ROLLBACK - Reverses all trades after a timestamp
   const executeFullRollback = async (rollbackTimestamp: number) => {

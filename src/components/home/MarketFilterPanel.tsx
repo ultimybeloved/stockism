@@ -2,6 +2,19 @@ import { CREWS, CREW_MAP } from '../../crews';
 import { GENERATIONS, GENERATION_FILTER_ALL, GENERATION_FILTER_UNASSIGNED } from '../../constants/generations';
 import { STATUSES } from '../../constants/statuses';
 import { CREW_FILTER_ALL } from '../../utils/marketFilters';
+import type { ReactNode } from 'react';
+import type { MarketFilters } from '../../utils/marketFilters';
+import type { UserData } from '../../types';
+
+interface MarketFilterPanelProps {
+  filters: MarketFilters;
+  setFilter: <K extends keyof MarketFilters>(key: K, value: MarketFilters[K]) => void;
+  userData: UserData | null;
+  darkMode: boolean;
+  chipClass: string;
+  mutedClass: string;
+  textClass: string;
+}
 
 // Crew, generation and status, in one collapsible panel.
 //
@@ -11,16 +24,24 @@ import { CREW_FILTER_ALL } from '../../utils/marketFilters';
 // see a single stock. Folding them away keeps that cost flat no matter how many
 // get added later, and the active count means a hidden filter is never a
 // mystery.
-const MarketFilterPanel = ({ filters, setFilter, userData, darkMode, chipClass, mutedClass, textClass }) => {
-  const pill = (isActive, activeClass = 'bg-orange-600 text-white') =>
+const MarketFilterPanel = ({
+  filters,
+  setFilter,
+  userData,
+  darkMode,
+  chipClass,
+  mutedClass,
+  textClass,
+}: MarketFilterPanelProps) => {
+  const pill = (isActive: boolean, activeClass = 'bg-orange-600 text-white') =>
     `px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${isActive ? activeClass : chipClass}`;
 
-  const toggleStatus = (id) => {
+  const toggleStatus = (id: string) => {
     const hidden = filters.statusHidden;
     setFilter('statusHidden', hidden.includes(id) ? hidden.filter((s) => s !== id) : [...hidden, id]);
   };
 
-  const group = (label, children) => (
+  const group = (label: string, children: ReactNode) => (
     <div className="mb-3 last:mb-0">
       <p className={`text-[10px] font-semibold uppercase tracking-wide mb-1.5 ${mutedClass}`}>{label}</p>
       <div className="flex flex-wrap gap-1.5">{children}</div>
@@ -39,7 +60,7 @@ const MarketFilterPanel = ({ filters, setFilter, userData, darkMode, chipClass, 
           </button>
           {userData?.crew && (
             <button
-              onClick={() => setFilter('crew', userData.crew)}
+              onClick={() => setFilter('crew', userData.crew as string)}
               className={pill(filters.crew === userData.crew)}
               style={
                 filters.crew === userData.crew ? { backgroundColor: CREW_MAP[userData.crew]?.color || '#f97316' } : {}

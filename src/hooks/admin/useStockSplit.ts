@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db, splitStockFunction } from '../../firebase';
 import { errorMessage } from '../../utils/errors';
-import type { SplitStockRequest, SplitStockResponse } from '../../api/types';
+import type { RenameJournal, SplitStockRequest, SplitStockResponse } from '../../api/types';
 import type { ShowMessage } from './adminShared';
 
 /** market/splitJournal: progress of the split in flight, if any. */
-interface SplitJournal {
+interface SplitJournal extends RenameJournal {
   status?: string;
   ticker?: string;
   ratio?: number;

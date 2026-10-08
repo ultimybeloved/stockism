@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useLadderData } from '../hooks/ladder/useLadderData';
 import { useLadderGameFlow } from '../hooks/ladder/useLadderGameFlow';
 import { useLadderModals } from '../hooks/ladder/useLadderModals';
@@ -12,7 +13,7 @@ import { bgMain, LADDER_CSS } from './ladder/ladderStyles';
 // Orchestrator only: wires the ladder hooks (src/hooks/ladder/) into the
 // board, side panel, and modals (src/components/ladder/). Game, animation,
 // and transfer logic all live in the hooks.
-const LadderGame = ({ onClose }) => {
+const LadderGame = ({ onClose }: { onClose?: () => void }) => {
   const { userLadderData, globalHistory, userStockismCash } = useLadderData();
   const modals = useLadderModals({ userLadderData, userStockismCash });
   const flow = useLadderGameFlow({
@@ -23,10 +24,10 @@ const LadderGame = ({ onClose }) => {
 
   const winRate =
     (userLadderData?.gamesPlayed || 0) > 0
-      ? Math.round(((userLadderData?.wins || 0) / userLadderData.gamesPlayed) * 100)
+      ? Math.round(((userLadderData?.wins || 0) / userLadderData!.gamesPlayed!) * 100)
       : 0;
 
-  const containerStyle = onClose
+  const containerStyle: CSSProperties = onClose
     ? {
         position: 'fixed',
         inset: 0,

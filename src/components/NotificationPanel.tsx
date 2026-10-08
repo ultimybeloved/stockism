@@ -9,6 +9,17 @@ import {
 } from '../utils/notifications';
 import NotificationRow from './notifications/NotificationRow';
 import { useEscapeKey } from '../hooks/useEscapeKey';
+import type { StoredNotification } from '../utils/notifications';
+
+interface NotificationPanelProps {
+  darkMode: boolean;
+  notifications: StoredNotification[];
+  onClose: () => void;
+  onMarkRead: (id: string) => void;
+  onMarkAllRead: (ids: string[]) => void;
+  onClearAll: (ids: string[]) => void;
+  onDelete: (id: string) => void;
+}
 
 export default function NotificationPanel({
   darkMode,
@@ -18,11 +29,11 @@ export default function NotificationPanel({
   onMarkAllRead,
   onClearAll,
   onDelete,
-}) {
+}: NotificationPanelProps) {
   useEscapeKey(onClose);
   const navigate = useNavigate();
   const [filter, setFilter] = useState('All');
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -33,7 +44,7 @@ export default function NotificationPanel({
   const visibleUnreadIds = visible.filter((n) => !n.read).map((n) => n.id);
   const scope = filter === 'All' ? 'All' : filter;
 
-  const handleRowClick = (notification) => {
+  const handleRowClick = (notification: StoredNotification) => {
     if (!notification.read) onMarkRead(notification.id);
     const route = getNotificationRoute(notification);
     if (route) {
@@ -115,7 +126,7 @@ export default function NotificationPanel({
                 actionable={!!getNotificationRoute(notification)}
                 canExpand={!getNotificationRoute(notification) && hasExpandableDetail(notification)}
                 onClick={handleRowClick}
-                onToggleExpand={(id) => setExpandedId((cur) => (cur === id ? null : id))}
+                onToggleExpand={(id: string) => setExpandedId((cur) => (cur === id ? null : id))}
                 onDelete={onDelete}
               />
             ))

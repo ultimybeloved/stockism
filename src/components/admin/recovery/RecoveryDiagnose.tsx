@@ -1,4 +1,7 @@
 // Extracted from RecoveryTab.jsx, which was past the 400-line component limit.
+import type { AdminCommonProps } from '../types';
+import type { useAdminSpikeRepair } from '../../../hooks/admin/useAdminSpikeRepair';
+
 const RecoveryDiagnose = ({
   darkMode,
   textClass,
@@ -8,7 +11,11 @@ const RecoveryDiagnose = ({
   diagnosing,
   diagnosisResults,
   handleDiagnoseUsers,
-}) => (
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> &
+  Pick<
+    ReturnType<typeof useAdminSpikeRepair>,
+    'diagnosisIds' | 'setDiagnosisIds' | 'diagnosing' | 'diagnosisResults' | 'handleDiagnoseUsers'
+  >) => (
   <div
     className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
   >
@@ -57,7 +64,7 @@ const RecoveryDiagnose = ({
                 <div className={`text-xs ${mutedClass} space-y-0.5`}>
                   <p>
                     Cash:{' '}
-                    <span className={u.cash < 0 ? 'text-red-400 font-semibold' : 'text-green-400 font-semibold'}>
+                    <span className={(u.cash ?? 0) < 0 ? 'text-red-400 font-semibold' : 'text-green-400 font-semibold'}>
                       ${u.cash?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>{' '}
                     · Portfolio: $
@@ -69,7 +76,7 @@ const RecoveryDiagnose = ({
                   {Object.keys(u.holdings || {}).length > 0 && (
                     <p>
                       Holdings:{' '}
-                      {Object.entries(u.holdings)
+                      {Object.entries(u.holdings || {})
                         .map(([t, s]) => `${t}: ${s}`)
                         .join(', ')}
                     </p>
@@ -77,8 +84,8 @@ const RecoveryDiagnose = ({
                   {Object.keys(u.shorts || {}).length > 0 && (
                     <p>
                       Shorts:{' '}
-                      {Object.entries(u.shorts)
-                        .map(([t, s]) => `${t}: ${typeof s === 'object' ? s.shares : s}`)
+                      {Object.entries(u.shorts || {})
+                        .map(([t, s]) => `${t}: ${typeof s === 'object' ? s?.shares : s}`)
                         .join(', ')}
                     </p>
                   )}
