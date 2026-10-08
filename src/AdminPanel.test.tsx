@@ -68,13 +68,14 @@ vi.mock('firebase/firestore', () => ({
 
 import AdminPanel from './AdminPanel';
 import { ADMIN_UIDS } from './constants';
+import type { User } from 'firebase/auth';
 
 const ADMIN_UID = ADMIN_UIDS[0];
 
-const renderPanel = (overrides = {}) =>
+const renderPanel = (overrides: Record<string, unknown> = {}) =>
   render(
     <AdminPanel
-      user={{ uid: ADMIN_UID }}
+      user={{ uid: ADMIN_UID } as User}
       predictions={[]}
       prices={{ JAKE: 50, GUN: 120 }}
       darkMode={false}

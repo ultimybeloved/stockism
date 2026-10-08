@@ -50,13 +50,25 @@ import { useAdminPortfolioSync } from './hooks/admin/useAdminPortfolioSync';
 import { useAdminDiscordMessages } from './hooks/admin/useAdminDiscordMessages';
 import { useAdminCashLog } from './hooks/admin/useAdminCashLog';
 import { useAdminSiteMessages } from './hooks/admin/useAdminSiteMessages';
+import type { User } from 'firebase/auth';
+import type { MarketData } from './context/AppContext';
+import type { PredictionDoc, PriceMap } from './types';
+
+interface AdminPanelProps {
+  user: User | null;
+  predictions: PredictionDoc[];
+  prices: PriceMap;
+  darkMode: boolean;
+  marketData: MarketData | null;
+  onClose: () => void;
+}
 
 // Orchestrator only: state and handlers live in src/hooks/admin/*, one hook per
 // domain, and each tab component receives its hook's return spread as props.
-const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }) => {
+const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }: AdminPanelProps) => {
   const [activeTab, setActiveTab] = useState('users');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState(null);
+  const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
 
@@ -67,7 +79,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
     ? 'bg-slate-900 border-slate-600 text-slate-100'
     : 'bg-white border-slate-300 text-slate-900';
 
-  const showMessage = (type, text) => {
+  const showMessage = (type: string, text: string) => {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 4000);
   };
@@ -263,7 +275,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                 }`}
               >
                 {tab.icon} {tab.label}
-                {tab.badge > 0 ? ` (${tab.badge})` : ''}
+                {(tab.badge ?? 0) > 0 ? ` (${tab.badge})` : ''}
               </button>
             ))}
           </div>
@@ -345,17 +357,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
 
           {/* MARKET TAB */}
           {activeTab === 'market' && (
-            <MarketTab
-              {...common}
-              setLoading={setLoading}
-              setMessage={setMessage}
-              user={user}
-              prices={prices}
-              {...marketTools}
-              {...scheduledJobs}
-              {...reviewJobs}
-              {...seasonOps}
-            />
+            <MarketTab {...common} prices={prices} {...marketTools} {...scheduledJobs} {...reviewJobs} {...seasonOps} />
           )}
 
           {/* WATCHLIST TAB */}
