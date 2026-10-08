@@ -1,5 +1,9 @@
 // Predictions tab, "Extend/Reopen Prediction" section (weekly predictions only).
 // Extracted from PredictionsTab to keep it under the component line limit.
+import type { AdminCommonProps } from './types';
+import type { useAdminPredictionManage } from '../../hooks/admin/useAdminPredictionManage';
+import type { PredictionDoc } from '../../types';
+
 const PredictionExtendForm = ({
   darkMode,
   textClass,
@@ -15,7 +19,11 @@ const PredictionExtendForm = ({
   setAllowAdditionalBets,
   getEndTime,
   handleExtendPrediction,
-}) => {
+}: AdminCommonProps &
+  ReturnType<typeof useAdminPredictionManage> & {
+    predictions: PredictionDoc[];
+    getEndTime: (days: number) => number;
+  }) => {
   return (
     <div className={`p-4 rounded-sm border-2 border-blue-500 ${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
       <h3 className={`font-semibold text-blue-500 mb-3`}>⏰ Extend/Reopen Prediction</h3>
@@ -29,7 +37,7 @@ const PredictionExtendForm = ({
           >
             <option value="">-- Choose prediction --</option>
             {predictions.map((p) => {
-              const isClosed = p.endsAt < Date.now();
+              const isClosed = p.endsAt !== undefined && p.endsAt < Date.now();
               const status = p.resolved ? '✅ Resolved' : isClosed ? '🔒 Closed' : '⏳ Active';
               return (
                 <option key={p.id} value={p.id}>

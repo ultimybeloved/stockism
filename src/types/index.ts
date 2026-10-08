@@ -150,6 +150,8 @@ export interface UserData {
   bets?: Record<string, UserBet>;
   transactionLog?: LoggedTransaction[];
   isBot?: boolean;
+  botPersonality?: string;
+  botCrew?: string;
   lastSyncedAt?: TimestampLike;
   lastMarginInterestCharge?: number;
   ipoPurchases?: Record<Ticker, number>;

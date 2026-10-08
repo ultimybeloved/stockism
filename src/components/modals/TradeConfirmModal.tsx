@@ -2,9 +2,17 @@ import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import type { TradeConfirmation } from '../../hooks/types';
+
+interface TradeConfirmModalProps {
+  confirmation: TradeConfirmation;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
 
 // Confirmation step for buy/sell/short/cover, shown before the trade executes.
-const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }) => {
+const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: TradeConfirmModalProps) => {
   useEscapeKey(onCancel);
   const { darkMode, userData } = useAppContext();
   const { borderClass, chipClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);

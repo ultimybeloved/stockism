@@ -1,9 +1,16 @@
 import { useCoordProfit } from '../../../hooks/admin/useCoordProfit';
 import { formatCurrency } from '../../../utils/formatters';
+import type { AdminCommonProps } from '../types';
+import type { SeasonCoordPlayer } from '../../../api/types';
 
 // Under one flagged player: what each coordinated push made them, and a way to
 // take it back. Nothing happens until the admin presses Remove.
-const CoordProfitPanel = ({ player, textClass, mutedClass, inputClass }) => {
+const CoordProfitPanel = ({
+  player,
+  textClass,
+  mutedClass,
+  inputClass,
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'inputClass'> & { player: SeasonCoordPlayer }) => {
   const { profit, amount, setAmount, memo, setMemo, preview, busy, error, done, load, checkAmount, remove } =
     useCoordProfit(player);
 
@@ -15,7 +22,7 @@ const CoordProfitPanel = ({ player, textClass, mutedClass, inputClass }) => {
     );
   }
 
-  const pct = (r) => `${Math.round(r * 100)}%`;
+  const pct = (r: number) => `${Math.round(r * 100)}%`;
 
   return (
     <div className={`text-xs ${mutedClass} mt-1 space-y-1`}>

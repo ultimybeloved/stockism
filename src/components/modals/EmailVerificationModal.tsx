@@ -2,8 +2,18 @@ import { useState } from 'react';
 import { sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';
+import type { User } from 'firebase/auth';
+import type { UserData } from '../../types';
 
-const EmailVerificationModal = ({ user, darkMode, userData }) => {
+const EmailVerificationModal = ({
+  user,
+  darkMode,
+  userData,
+}: {
+  user: User;
+  darkMode: boolean;
+  userData: UserData | null;
+}) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 

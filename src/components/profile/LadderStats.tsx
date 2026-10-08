@@ -4,15 +4,26 @@ import * as Sentry from '@sentry/react';
 import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
+import type { User } from 'firebase/auth';
+import type { LadderData } from '../../utils/ladderTax';
+import type { UserData } from '../../types';
 
 // Lifetime ladder game record: deposited, wagered, and won vs lost.
 // Reads the user's ladderGameUsers/{uid} doc directly (it isn't in global
 // context). A ladder win pays exactly 2x the stake, so totalWon (net winnings)
 // equals the amount staked-and-won, which makes totalWon + totalLost the total
 // wagered and totalWon - totalLost the net result.
-const LadderStats = ({ user, userData, darkMode }) => {
+const LadderStats = ({
+  user,
+  userData,
+  darkMode,
+}: {
+  user: User | null;
+  userData: UserData | null;
+  darkMode: boolean;
+}) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState<LadderData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -21,7 +32,7 @@ const LadderStats = ({ user, userData, darkMode }) => {
     getDoc(doc(db, 'ladderGameUsers', user.uid))
       .then((snap) => {
         if (cancelled) return;
-        setStats(snap.exists() ? snap.data() : null);
+        setStats(snap.exists() ? (snap.data() as LadderData) : null);
         setLoaded(true);
       })
       .catch((e) => {

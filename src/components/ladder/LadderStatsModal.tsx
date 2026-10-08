@@ -1,7 +1,20 @@
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
+import type { LadderData } from '../../utils/ladderTax';
+
+interface LadderStatsModalProps {
+  userLadderData: LadderData | null;
+  winRate: number | string;
+  setShowStatsModal: (show: boolean) => void;
+  setShowLadderTutorialReview: (show: boolean) => void;
+}
 
 // Personal stats modal, plus the "View Guide" entry into the tutorial review.
-const LadderStatsModal = ({ userLadderData, winRate, setShowStatsModal, setShowLadderTutorialReview }) => {
+const LadderStatsModal = ({
+  userLadderData,
+  winRate,
+  setShowStatsModal,
+  setShowLadderTutorialReview,
+}: LadderStatsModalProps) => {
   return (
     <div
       style={{

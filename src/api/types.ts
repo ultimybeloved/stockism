@@ -235,14 +235,31 @@ export interface TickerRecoveryResponse {
   [key: string]: unknown;
 }
 
-export interface CoordProfitResponse {
-  suggested: number;
-  preview?: CoordRemovalPreview | null;
-  preferTickers?: string[];
-  [key: string]: unknown;
+/** One flagged push a player traded in, and what it made them. */
+export interface CoordPush {
+  ticker: string;
+  days: string[];
+  lockedIn: number;
+  gainSince: number;
+  trades: number;
 }
 
-export type CoordRemovalPreview = { [key: string]: unknown };
+export interface CoordProfitResponse {
+  suggested: number;
+  pushes: CoordPush[];
+  preview?: CoordRemovalPreview | null;
+  preferTickers?: string[];
+}
+
+/** What removing an amount would take (or took): shares first, then cash, then margin debt. */
+export interface CoordRemovalPreview {
+  amount?: number;
+  shares: { ticker: string; shares: number }[];
+  fromCash: number;
+  toDebt: number;
+  equityRatioAfter: number;
+  marginCallLine: number;
+}
 
 export interface RemoveCoordProfitRequest {
   uid: string;

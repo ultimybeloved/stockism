@@ -1,6 +1,7 @@
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency, emphasisMarks } from '../../utils/formatters';
+import type { ReviewChange } from '../../utils/marketHours';
 
 // The chapter-review adjustment on a card in the Review tab.
 //
@@ -20,14 +21,14 @@ import { formatCurrency, emphasisMarks } from '../../utils/formatters';
 // Gold framing on purpose: it must not read as another up/down number. The
 // percentages keep the normal up/down colours (teal/purple in colour-blind
 // mode), and the frame never competes with them.
-const ReviewChangeBadge = ({ change, currentPrice }) => {
+const ReviewChangeBadge = ({ change, currentPrice }: { change: ReviewChange; currentPrice: number }) => {
   const { darkMode, userData } = useAppContext();
   const { mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
 
   if (!change || typeof change.percentChange !== 'number') return null;
 
-  const toneFor = (pct) =>
+  const toneFor = (pct: number) =>
     pct > 0
       ? colorBlindMode
         ? 'text-teal-400'
@@ -37,7 +38,7 @@ const ReviewChangeBadge = ({ change, currentPrice }) => {
           ? 'text-purple-400'
           : 'text-red-400'
         : mutedClass;
-  const signed = (pct) => `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
+  const signed = (pct: number) => `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
 
   const reviewPct = change.percentChange;
 

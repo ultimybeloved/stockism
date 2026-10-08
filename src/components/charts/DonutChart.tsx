@@ -10,7 +10,21 @@
  * @param {number} props.size - Chart diameter (default 200)
  * @param {boolean} props.darkMode - Dark mode flag
  */
-const DonutChart = ({ data = [], size = 200, darkMode = false }) => {
+export interface DonutSlice {
+  label: string;
+  value: number;
+  color: string;
+}
+
+const DonutChart = ({
+  data = [],
+  size = 200,
+  darkMode = false,
+}: {
+  data?: DonutSlice[];
+  size?: number;
+  darkMode?: boolean;
+}) => {
   const total = data.reduce((sum, d) => sum + d.value, 0);
   if (!data.length || total === 0) return null;
 

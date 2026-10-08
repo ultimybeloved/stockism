@@ -44,7 +44,7 @@ const MobileBottomNav = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const isActivePage = (path) => {
+  const isActivePage = (path: string) => {
     return location.pathname === path;
   };
 
@@ -80,7 +80,7 @@ const MobileBottomNav = () => {
           >
             <span className="text-2xl mb-1">{item.icon}</span>
             <span className="text-xs font-medium">{item.label}</span>
-            {item.badge > 0 && (
+            {!!item.badge && item.badge > 0 && (
               <span className="absolute top-1.5 right-1/2 translate-x-4 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
                 {item.badge > 9 ? '9+' : item.badge}
               </span>

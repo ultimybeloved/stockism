@@ -28,6 +28,8 @@ export interface LadderData {
   wins?: number;
   currentStreak?: number;
   bestStreak?: number;
+  totalDeposited?: number;
+  totalWon?: number;
   [key: string]: unknown;
 }
 
