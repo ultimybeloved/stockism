@@ -1,49 +1,43 @@
-'use strict';
 // Account lifecycle: creating an account and deleting one.
 //
 // Username/profile edits live in userProfile.js and the daily check-in reward
 // moved to missions.js — this file is only about an account coming into or
 // going out of existence, which is where the anti-abuse gates matter.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const {
+import {
   ADMIN_UID,
   STARTING_CASH,
   UNVERIFIED_STARTING_CASH,
   MAX_ACCOUNTS_PER_IP,
   IP_ACCOUNT_CAP_ENABLED,
   IP_SLOT_RELEASE_MS,
-} = require('../shared/constants');
-const {
-  isBannedUsername,
-  isTargetedHarassment,
-  containsProfanity,
-  validateUsernameFormat,
-  checkBanned,
-  isDiscordBindingLocked,
-  grantedValueUpdate,
-  readIndexNow,
-  networkKey,
-} = require('../shared/helpers');
-const { buildSeasonBaseline } = require('../season/seasonTiers');
-const { isDisposableEmailLive } = require('./disposableEmail');
-const { countIpAccounts } = require('./ipCap');
+} from '../shared/constants';
+import { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat } from '../shared/usernames';
+import { checkBanned, isDiscordBindingLocked, networkKey } from '../shared/accountGuards';
+import { grantedValueUpdate } from '../shared/equity';
+import { readIndexNow } from '../shared/marketData';
+import { buildSeasonBaseline } from '../season/seasonTiers';
+import { isDisposableEmailLive } from './disposableEmail';
+import { countIpAccounts } from './ipCap';
 
 // Deletes the orphaned Firebase Auth account left behind when a signup is hard-
 // blocked (disposable email, IP cap, watched IP). The browser creates the auth
 // login before calling createUser, so without this a blocked signup keeps a
 // usable login that can sit around and retry. Best-effort — never masks the
 // original block error. Never called for retryable failures (e.g. name taken).
-async function cleanupBlockedAuthUser(uid) {
+/** Why the per-network cap refused a signup, for the admin alert. */
+type CapBlockInfo = { effectiveAccounts: number; liveAccounts: number; recentlyDeleted: number };
+
+async function cleanupBlockedAuthUser(uid: string) {
   try {
     await admin.auth().deleteUser(uid);
   } catch (e) {
-    console.error(`Failed to delete blocked auth user ${uid}:`, e.message);
+    console.error(`Failed to delete blocked auth user ${uid}:`, (e as Error).message);
   }
 }
 
@@ -72,17 +66,17 @@ async function cleanupBlockedAuthUser(uid) {
  * minutes can pass while someone picks a name, and the Discord may have been
  * claimed in between.
  */
-const applyPendingDiscordLink = async (uid) => {
+const applyPendingDiscordLink = async (uid: string) => {
   const pendingRef = db.collection('discordPending').doc(uid);
   const pending = await pendingRef.get();
   if (!pending.exists) return false;
 
-  const { discordId, discordUsername } = pending.data();
+  const { discordId, discordUsername } = pending.data()!;
   await pendingRef.delete();
   if (!discordId) return false;
 
   const taken = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
-  if (!taken.empty && taken.docs[0].id !== uid) return false;
+  if (!taken.empty && taken.docs[0]!.id !== uid) return false;
   if (await isDiscordBindingLocked(discordId, uid)) return false;
 
   await db
@@ -100,7 +94,7 @@ const applyPendingDiscordLink = async (uid) => {
   return true;
 };
 
-exports.createUser = cf().https.onCall(async (data, context) => {
+export const createUser = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
@@ -151,7 +145,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
   // blocked without a deploy; on network failure it degrades to bundled lists.
   const signupEmail = (context.auth.token && context.auth.token.email) || null;
   if (await isDisposableEmailLive(signupEmail)) {
-    const emailDomain = signupEmail.slice(signupEmail.lastIndexOf('@') + 1).toLowerCase();
+    const emailDomain = signupEmail!.slice(signupEmail!.lastIndexOf('@') + 1).toLowerCase();
     await db.collection('watchlist_alerts').add({
       type: 'signup_blocked',
       relatedUID: uid,
@@ -180,24 +174,27 @@ exports.createUser = cf().https.onCall(async (data, context) => {
   // atomic: concurrent signups on the same IP serialize, so the 3rd correctly
   // sees 2 and is rejected. `requiresDiscordLink` is set there too.
   let requiresDiscordLink = false;
-  let capBlockInfo = null; // set by the transaction when the IP cap rejects this signup
+  let capBlockInfo: CapBlockInfo | null = null; // set by the transaction when the IP cap rejects this signup
 
   if (signupIp !== 'unknown') {
     try {
       // The exact address, then its whole connection. A phone's IPv6 address
       // changes through the day but its /64 prefix doesn't, so a watched network
       // is stored under networkKey and an exact-only lookup would miss it.
-      let watchedIpDoc = await db.collection('watchedIPs').doc(sanitizedSignupIp).get();
+      let watchedIpDoc = await db
+        .collection('watchedIPs')
+        .doc(sanitizedSignupIp as string)
+        .get();
       const signupNetwork = networkKey(signupIp);
       if (!watchedIpDoc.exists && signupNetwork && signupNetwork !== signupIp) {
         watchedIpDoc = await db.collection('watchedIPs').doc(signupNetwork.replace(/[.:/]/g, '_')).get();
       }
       if (watchedIpDoc.exists) {
-        const watchedIpData = watchedIpDoc.data();
+        const watchedIpData = watchedIpDoc.data()!;
         const watchedUserDoc = await db.collection('watchedUsers').doc(watchedIpData.watchedUserId).get();
 
-        if (watchedUserDoc.exists && watchedUserDoc.data().isActive) {
-          const watchedData = watchedUserDoc.data();
+        if (watchedUserDoc.exists && watchedUserDoc.data()!.isActive) {
+          const watchedData = watchedUserDoc.data()!;
           const maxAccounts = watchedData.maxAccountsPerIP || 1;
           const linkedAccounts = watchedData.linkedAccounts || [];
 
@@ -248,11 +245,11 @@ exports.createUser = cf().https.onCall(async (data, context) => {
     let signupIndex = 0;
     try {
       const seasonDoc = await db.collection('market').doc('season').get();
-      if (seasonDoc.exists && seasonDoc.data().status === 'active') {
+      if (seasonDoc.exists && seasonDoc.data()!.status === 'active') {
         signupIndex = (await readIndexNow()).value;
       }
     } catch (err) {
-      console.error('Season index read failed at signup:', err.message);
+      console.error('Season index read failed at signup:', (err as Error).message);
     }
 
     await db.runTransaction(async (transaction) => {
@@ -279,7 +276,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
       const dupSnap = await transaction.get(
         db.collection('users').where('displayNameLower', '==', displayNameLower).limit(1),
       );
-      if (!dupSnap.empty && dupSnap.docs[0].id !== uid) {
+      if (!dupSnap.empty && dupSnap.docs[0]!.id !== uid) {
         throw new functions.https.HttpsError('already-exists', 'This username is already taken.');
       }
 
@@ -320,7 +317,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
       // moment they start. Their starting cash is the baseline; the $2,000 the
       // Discord unlock adds later is booked as granted value and nets back out.
       const seasonSnap = await transaction.get(db.collection('market').doc('season'));
-      const activeSeason = seasonSnap.exists && seasonSnap.data().status === 'active' ? seasonSnap.data() : null;
+      const activeSeason = seasonSnap.exists && seasonSnap.data()!.status === 'active' ? seasonSnap.data() : null;
 
       const now = admin.firestore.FieldValue.serverTimestamp();
 
@@ -407,7 +404,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
         // Re-check for duplicates before linking (prevents duplicate entries from concurrent requests)
         const watchedSnap = await db.collection('watchedUsers').doc(autoLinkData.watchedUserId).get();
         const alreadyLinked =
-          watchedSnap.exists && (watchedSnap.data().linkedAccounts || []).some((a) => a.uid === uid);
+          watchedSnap.exists && (watchedSnap.data()!.linkedAccounts || []).some((a: { uid: string }) => a.uid === uid);
 
         if (!alreadyLinked) {
           const newLinked = {
@@ -452,18 +449,20 @@ exports.createUser = cf().https.onCall(async (data, context) => {
   } catch (error) {
     // IP cap rejected this signup: log the block alert and remove the orphaned
     // auth login (done here, outside the transaction, so it runs exactly once).
-    if (capBlockInfo) {
+    // Set inside the transaction callback, which TypeScript cannot see.
+    const blockInfo = capBlockInfo as CapBlockInfo | null;
+    if (blockInfo) {
       try {
         await db.collection('watchlist_alerts').add({
           type: 'signup_blocked',
           relatedUID: uid,
           ip: signupIp !== 'unknown' ? signupIp : null,
           action: 'blocked',
-          details: `Blocked signup "${trimmed}" — network already has ${capBlockInfo.effectiveAccounts} account(s) (${capBlockInfo.liveAccounts} active, ${capBlockInfo.recentlyDeleted} recently deleted; cap ${MAX_ACCOUNTS_PER_IP})`,
+          details: `Blocked signup "${trimmed}" — network already has ${blockInfo.effectiveAccounts} account(s) (${blockInfo.liveAccounts} active, ${blockInfo.recentlyDeleted} recently deleted; cap ${MAX_ACCOUNTS_PER_IP})`,
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (alertErr) {
-        console.error('Failed to write cap-block alert:', alertErr.message);
+        console.error('Failed to write cap-block alert:', (alertErr as Error).message);
       }
       await cleanupBlockedAuthUser(uid);
     }
@@ -488,7 +487,7 @@ exports.createUser = cf().https.onCall(async (data, context) => {
  * @param {string} confirmUsername - Must match the user's display name to confirm deletion
  * @returns {Object} - { success: true } or throws error
  */
-exports.deleteAccount = cf().https.onCall(async (data, context) => {
+export const deleteAccount = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   // Verify authentication
   if (!context.auth) {
@@ -512,7 +511,7 @@ exports.deleteAccount = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('not-found', 'User profile not found.');
     }
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
 
     // Banned accounts can't self-delete: deletion would erase the ban record
     // and free the account up for a fresh-cash remake.

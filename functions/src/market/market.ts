@@ -1,48 +1,34 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../shared/characters');
-const {
-  ADMIN_UID,
-  BID_ASK_SPREAD,
-  ETF_BID_ASK_SPREAD,
-  MAX_DAILY_IMPACT,
-  MAX_PRICE_CHANGE_PERCENT,
-  MAX_TRADES_PER_TICKER_24H,
+import { CHARACTERS } from '../shared/characters';
+import {
   TWENTY_FOUR_HOURS_MS,
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
   PRE_MARKET_LOCK_MINUTE,
   ACTIVE_USER_WINDOW_MS,
   ACTIVE_USER_WINDOW_DAYS,
-} = require('../shared/constants');
-const {
-  writeNotification,
-  writeFeedEntry,
-  sendDiscordMessage,
-  sendMarketStatusAlert,
-  calculateMarginalImpact,
-  pruneAndSumTradeHistory,
-  priceHistoryRef,
-  getReviewWindowChanges,
-  getLastActiveMs,
-  sumMarketActivity,
-  isRosterTicker,
-  reportError,
-  recordHeartbeat,
-  recordDailyCloses,
-} = require('../shared/helpers');
-const { writeReviewChanges } = require('./reviewChanges');
-const { indexConstituents, reconcileDivisor, computeIndexValue } = require('../shared/indexMaintenance');
+} from '../shared/constants';
+import { sendDiscordMessage, sendMarketStatusAlert } from '../shared/discordApi';
+import { priceHistoryRef, getReviewWindowChanges, recordDailyCloses } from '../shared/marketData';
+import { getLastActiveMs, sumMarketActivity, recordHeartbeat } from '../shared/activity';
+import { isRosterTicker } from '../shared/roster';
+import { reportError } from '../shared/sentry';
+import { writeReviewChanges } from './reviewChanges';
+import { indexConstituents, reconcileDivisor, computeIndexValue } from '../shared/indexMaintenance';
+import type { DocumentData } from 'firebase-admin/firestore';
+import type { PricePoint } from '../shared/types';
+
+type Mover = { ticker: string; price: number; change: number };
+type RecapLine = { ticker: string; before: number; after: number; change: number };
 
 // Builds and posts the daily market summary Discord embed. Shared by the
 // scheduled run and the admin re-trigger. Only the scheduled run records the
 // daily market-index point, so a manual re-run can't double-record it.
-async function doDailyMarketSummary({ recordIndexHistory }) {
+async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory: boolean }) {
   const marketRef = db.collection('market').doc('current');
   const marketSnap = await marketRef.get();
 
@@ -51,21 +37,21 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
     return { success: false, error: 'No market data found' };
   }
 
-  const marketData = marketSnap.data();
-  const prices = marketData.prices || {};
+  const marketData = marketSnap.data()!;
+  const prices: Record<string, number> = marketData.prices || {};
   const histSnap = await priceHistoryRef().get();
-  const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
+  const priceHistory: Record<string, PricePoint[]> = histSnap.exists ? histSnap.data() || {} : {};
 
   // Get all users for stats
   const usersSnap = await db.collection('users').get();
-  const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as DocumentData & { id: string });
 
   // Calculate 24h changes
   const now = Date.now();
-  const dayAgo = now - 24 * 60 * 60 * 1000;
-  const gainers = [];
-  const losers = [];
-  const athStocks = [];
+  const dayAgo = now - TWENTY_FOUR_HOURS_MS;
+  const gainers: Mover[] = [];
+  const losers: Mover[] = [];
+  const athStocks: string[] = [];
 
   Object.entries(prices).forEach(([ticker, currentPrice]) => {
     if (!isRosterTicker(ticker)) return;
@@ -73,10 +59,10 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
     if (history.length === 0) return;
 
     // Find price 24h ago
-    let price24hAgo = history[0].price;
+    let price24hAgo = history[0]!.price;
     for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].timestamp <= dayAgo) {
-        price24hAgo = history[i].price;
+      if (history[i]!.timestamp <= dayAgo) {
+        price24hAgo = history[i]!.price;
         break;
       }
     }
@@ -118,14 +104,14 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
       const indexValue = computeIndexValue(prices, constituents, divisor);
 
       hist.push({ t: now, v: Math.round(indexValue * 100) / 100 });
-      const idxUpdate = { history: hist, divisor, constituents };
+      const idxUpdate: Record<string, unknown> = { history: hist, divisor, constituents };
       if (adjusted) {
         idxUpdate.lastDivisorAdjustment = { at: now, reason, divisor, count: constituents.length };
         console.log(`Index divisor ${reason}: ${divisor} over ${constituents.length} constituents`);
       }
       await idxRef.set(idxUpdate, { merge: true });
     } catch (e) {
-      console.error('index history record failed:', e.message);
+      console.error('index history record failed:', (e as Error).message);
     }
 
   // Today's closing prices, one document per calendar month. The live
@@ -138,7 +124,7 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
     const closed = await recordDailyCloses(prices, now);
     console.log(`daily closes recorded: ${closed} tickers`);
   } catch (e) {
-    console.error('daily close record failed:', e.message);
+    console.error('daily close record failed:', (e as Error).message);
   }
 
   // Trading volume and counts. Bots count toward market volume but never
@@ -231,7 +217,7 @@ async function doDailyMarketSummary({ recordIndexHistory }) {
   return { success: true };
 }
 
-exports.dailyMarketSummary = cf()
+export const dailyMarketSummary = cf()
   .pubsub.schedule('0 21 * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -247,10 +233,10 @@ exports.dailyMarketSummary = cf()
 /**
  * Save pre-halt prices snapshot every Thursday at 12:55 UTC (5 min before halt)
  */
-exports.savePreHaltPrices = cf()
+export const savePreHaltPrices = cf()
   .pubsub.schedule('55 12 * * 4')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       const marketSnap = await db.collection('market').doc('current').get();
       if (!marketSnap.exists) {
@@ -258,7 +244,7 @@ exports.savePreHaltPrices = cf()
         return null;
       }
 
-      const marketData = marketSnap.data();
+      const marketData = marketSnap.data()!;
       const prices = marketData.prices || {};
 
       await db.collection('market').doc('preHaltSnapshot').set({
@@ -285,10 +271,10 @@ exports.savePreHaltPrices = cf()
  * adjustments, and anything moved by a trade or a bot, are excluded — see
  * getReviewWindowChanges. Adjustments made after this runs are not announced.
  */
-exports.chapterReviewRecap = cf()
+export const chapterReviewRecap = cf()
   .pubsub.schedule('30 20 * * 4')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       // Read pre-halt snapshot
       const snapshotRef = db.collection('market').doc('preHaltSnapshot');
@@ -299,7 +285,7 @@ exports.chapterReviewRecap = cf()
         return null;
       }
 
-      const beforePrices = snapshotSnap.data().prices || {};
+      const beforePrices = snapshotSnap.data()!.prices || {};
 
       // Read current prices
       const marketSnap = await db.collection('market').doc('current').get();
@@ -308,7 +294,7 @@ exports.chapterReviewRecap = cf()
         return null;
       }
 
-      const afterPrices = marketSnap.data().prices || {};
+      const afterPrices = marketSnap.data()!.prices || {};
 
       // This week's halt window (runs on Thursday, so it's today 13:00–21:00 UTC)
       const runAt = new Date();
@@ -317,7 +303,7 @@ exports.chapterReviewRecap = cf()
       const haltEnd = dayStart + WEEKLY_HALT_END_MINUTE * 60 * 1000;
 
       const histSnap = await priceHistoryRef().get();
-      const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
+      const priceHistory: Record<string, PricePoint[]> = histSnap.exists ? histSnap.data() || {} : {};
 
       // Everything the review moved, direct and knock-on. The pre-halt snapshot
       // is the opening price for a ticker with no surviving earlier point.
@@ -332,7 +318,7 @@ exports.chapterReviewRecap = cf()
       // number made the announcement disagree with the chart. Stocks that only
       // moved by knock-on are counted at the end rather than listed, so the
       // recap stays about decisions and does not run past Discord's field cap.
-      const adjustments = {};
+      const adjustments: typeof windowChanges = {};
       let knockOnOnlyCount = 0;
       for (const [ticker, change] of Object.entries(windowChanges)) {
         if (Math.abs(change.directChange) >= 0.01) adjustments[ticker] = change;
@@ -343,9 +329,9 @@ exports.chapterReviewRecap = cf()
       const etfTickers = new Set(CHARACTERS.filter((c) => c.isETF).map((c) => c.ticker));
 
       // Split into gainers/losers; a directly adjusted ETF is tracked separately
-      const gainers = [];
-      const losers = [];
-      const etfMovements = [];
+      const gainers: RecapLine[] = [];
+      const losers: RecapLine[] = [];
+      const etfMovements: RecapLine[] = [];
 
       for (const [ticker, adj] of Object.entries(adjustments)) {
         const entry = { ticker, before: adj.oldPrice, after: adj.newPrice, change: adj.percentChange };
@@ -373,7 +359,7 @@ exports.chapterReviewRecap = cf()
       // matched the site's index since the divisor was introduced. Same
       // function as the real one now, so the recap and the site agree.
       const idxSnap = await db.collection('market').doc('indexHistory').get();
-      const idxDivisor = idxSnap.exists ? idxSnap.data().divisor || 0 : 0;
+      const idxDivisor = idxSnap.exists ? idxSnap.data()!.divisor || 0 : 0;
       const idxConstituents = indexConstituents();
       const smiBefore = computeIndexValue(beforePrices, idxConstituents, idxDivisor);
       const smiAfter = computeIndexValue(afterPrices, idxConstituents, idxDivisor);
@@ -387,12 +373,12 @@ exports.chapterReviewRecap = cf()
         year: 'numeric',
       });
 
-      const formatLine = (s) =>
+      const formatLine = (s: RecapLine) =>
         `**${s.ticker}**  $${s.before.toFixed(2)} → $${s.after.toFixed(2)}  (${s.change > 0 ? '+' : ''}${s.change.toFixed(1)}%)`;
 
       // Discord caps a field value at 1024 chars; ~45 chars a line leaves room.
       const MAX_LINES = 20;
-      const formatList = (list) => {
+      const formatList = (list: RecapLine[]) => {
         const shown = list.slice(0, MAX_LINES).map(formatLine).join('\n');
         const extra = list.length - MAX_LINES;
         return extra > 0 ? `${shown}\n…and ${extra} more` : shown;
@@ -502,11 +488,8 @@ exports.chapterReviewRecap = cf()
  * that already rolled out of the live price history — it stitches the permanent
  * archive in front, so it works long after the live doc has been trimmed.
  */
-exports.triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   // Most recent Thursday halt, mirroring getMostRecentHaltWindow on the client.
   const now = new Date();
@@ -523,7 +506,7 @@ exports.triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(async (d
   // The pre-halt snapshot is deleted once the recap posts, so it is usually
   // gone by the time this runs. Use it when it happens to still be there.
   const snapshotSnap = await db.collection('market').doc('preHaltSnapshot').get();
-  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data().prices || {} : {};
+  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data()!.prices || {} : {};
 
   const payload = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices, includeArchive: true });
   return { success: true, tickerCount: payload.tickerCount, windowEnd: payload.windowEnd };
@@ -532,18 +515,15 @@ exports.triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(async (d
 /**
  * Manual trigger for daily market summary (admin only)
  */
-exports.triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
+export const triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
   // Admin check
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+  requireAdmin(context);
 
   try {
     return await doDailyMarketSummary({ recordIndexHistory: false });
   } catch (error) {
     console.error('Error in triggerDailyMarketSummary:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 });
 
@@ -556,7 +536,7 @@ exports.triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
 // ============================================
 
 // Weekly halt begins — Thursday 13:00 UTC
-exports.marketClosedAlert = cf()
+export const marketClosedAlert = cf()
   .pubsub.schedule('0 13 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -565,7 +545,7 @@ exports.marketClosedAlert = cf()
   });
 
 // Pre-market queue opens — Thursday 20:30 UTC
-exports.preMarketOpenAlert = cf()
+export const preMarketOpenAlert = cf()
   .pubsub.schedule('30 20 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -574,7 +554,7 @@ exports.preMarketOpenAlert = cf()
   });
 
 // Trading resumes — Thursday 21:00 UTC
-exports.marketOpenAlert = cf()
+export const marketOpenAlert = cf()
   .pubsub.schedule('0 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -585,11 +565,8 @@ exports.marketOpenAlert = cf()
 /**
  * Admin: manually halt or resume the market. Sets the flag and announces it on Discord.
  */
-exports.setMarketHalt = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can halt the market.');
-  }
+export const setMarketHalt = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Only admin can halt the market.');
 
   const halted = !!data.halted;
   const reason = typeof data.reason === 'string' ? data.reason.trim() : '';
@@ -605,7 +582,7 @@ exports.setMarketHalt = cf().https.onCall(async (data, context) => {
       marketHalted: halted,
       haltReason: halted ? reason : '',
       haltedAt: halted ? Date.now() : null,
-      haltedBy: halted ? context.auth.uid : null,
+      haltedBy: halted ? context.auth!.uid : null,
     });
 
   try {

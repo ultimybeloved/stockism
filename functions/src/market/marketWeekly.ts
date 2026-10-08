@@ -1,42 +1,54 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../shared/characters');
-const {
-  ADMIN_UID,
-  BID_ASK_SPREAD,
-  ETF_BID_ASK_SPREAD,
-  MAX_DAILY_IMPACT,
-  MAX_PRICE_CHANGE_PERCENT,
-  MAX_TRADES_PER_TICKER_24H,
+import {
+  ONE_WEEK_MS,
   TWENTY_FOUR_HOURS_MS,
   ACTIVE_USER_WINDOW_MS,
   ACTIVE_USER_WINDOW_DAYS,
   CREWS,
   CREW_UNDERDOG_MULT_MAX,
   CREW_HEAD_DYNASTY_WEEKS,
-} = require('../shared/constants');
-const {
-  writeNotification,
-  writeFeedEntry,
-  sendDiscordMessage,
-  calculateMarginalImpact,
-  pruneAndSumTradeHistory,
-  getLastActiveMs,
-  sumMarketActivity,
-  priceHistoryRef,
-  getWeekId,
-  reportError,
-  isRosterTicker,
-  recordHeartbeat,
-  crewEmoji,
-} = require('../shared/helpers');
-const { syncCrewHeadRoles, preflightCrewRoles } = require('../discord/discordRoles');
+} from '../shared/constants';
+import { writeNotification } from '../shared/notifications';
+import { sendDiscordMessage, crewEmoji } from '../shared/discordApi';
+import { getLastActiveMs, sumMarketActivity, recordHeartbeat } from '../shared/activity';
+import { priceHistoryRef } from '../shared/marketData';
+import { getWeekId } from '../shared/tradeRecords';
+import { reportError } from '../shared/sentry';
+import { isRosterTicker } from '../shared/roster';
+import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
+import type { DocumentData } from 'firebase-admin/firestore';
+import type { PricePoint } from '../shared/types';
+
+type UserRow = DocumentData & { id: string };
+
+/** One player's line in a crew's weekly ranking. */
+interface CrewMember {
+  uid: string;
+  username: string;
+  portfolioValue: number;
+  gain: number;
+  active: boolean;
+  discordId: string | null;
+  isBankrupt: boolean;
+  wasHead: boolean;
+  headStreak: number;
+  achievements: string[];
+}
+
+interface CrewTally {
+  id: string;
+  name: string;
+  emblem: string;
+  members: CrewMember[];
+  activeCount: number;
+  totalValue: number;
+  weeklyGain: number;
+  activeGain: number;
+}
 
 // Every system worth knowing the reach of, and the tag its callables pass to
 // touchLastActive. Add a feature here and stamp it at the callable; nothing else
@@ -62,10 +74,20 @@ const TRACKED_FEATURES = [
 // Distinct non-bot users per system over the window, written to admin/featureUsage
 // for the admin Stats tab. Best-effort: a failure here must never take down the
 // weekly report, which is the actual job.
-async function writeFeatureUsage({ users, tradesByUid, since, now }) {
+async function writeFeatureUsage({
+  users,
+  tradesByUid,
+  since,
+  now,
+}: {
+  users: UserRow[];
+  tradesByUid: Record<string, unknown> | null | undefined;
+  since: number;
+  now: number;
+}) {
   try {
     const humans = users.filter((u) => !u.isBot);
-    const counts = { trading: Object.keys(tradesByUid || {}).length };
+    const counts: Record<string, number> = { trading: Object.keys(tradesByUid || {}).length };
     for (const feature of TRACKED_FEATURES) {
       counts[feature] = humans.filter((u) => (u.lastUsed?.[feature] || 0) >= since).length;
     }
@@ -89,30 +111,30 @@ async function runWeeklyMarketSummary() {
 
     if (!marketSnap.exists) return { posted: false, error: 'No market data.' };
 
-    const marketData = marketSnap.data();
-    const prices = marketData.prices || {};
+    const marketData = marketSnap.data()!;
+    const prices: Record<string, number> = marketData.prices || {};
     const histSnap = await priceHistoryRef().get();
-    const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
+    const priceHistory: Record<string, PricePoint[]> = histSnap.exists ? histSnap.data() || {} : {};
 
     // Get all users
     const usersSnap = await db.collection('users').get();
-    const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as UserRow);
 
     // Calculate weekly stats
     const now = Date.now();
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const weekAgo = now - ONE_WEEK_MS;
 
     // Weekly price changes
-    const weeklyChanges = [];
+    const weeklyChanges: { ticker: string; change: number; price: number; priceWeekAgo: number }[] = [];
     Object.entries(prices).forEach(([ticker, currentPrice]) => {
       if (!isRosterTicker(ticker)) return;
       const history = priceHistory[ticker] || [];
       if (history.length === 0) return;
 
-      let priceWeekAgo = history[0].price;
+      let priceWeekAgo = history[0]!.price;
       for (let i = history.length - 1; i >= 0; i--) {
-        if (history[i].timestamp <= weekAgo) {
-          priceWeekAgo = history[i].price;
+        if (history[i]!.timestamp <= weekAgo) {
+          priceWeekAgo = history[i]!.price;
           break;
         }
       }
@@ -197,11 +219,11 @@ async function runWeeklyMarketSummary() {
     return { posted: true, activeUsers, weeklyTrades };
   } catch (error) {
     console.error('Error in weeklyMarketSummary:', error);
-    return { posted: false, error: error.message };
+    return { posted: false, error: (error as Error).message };
   }
 }
 
-exports.weeklyMarketSummary = cf()
+export const weeklyMarketSummary = cf()
   .pubsub.schedule('0 0 * * 1')
   .timeZone('UTC')
   .onRun(async () => {
@@ -214,21 +236,18 @@ exports.weeklyMarketSummary = cf()
  * Admin-only manual re-run of the weekly market report. Posts the same embed to
  * Discord immediately. Nothing else is written, so extra runs are harmless.
  */
-exports.triggerWeeklyMarketSummary = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const triggerWeeklyMarketSummary = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
   return runWeeklyMarketSummary();
 });
 
 /**
  * Weekly Leaderboard - Runs Mondays at 01:00 UTC
  */
-exports.weeklyLeaderboard = cf()
+export const weeklyLeaderboard = cf()
   .pubsub.schedule('0 1 * * 1')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       const usersSnapshot = await db.collection('users').get();
 
@@ -240,9 +259,9 @@ exports.weeklyLeaderboard = cf()
       // Calculate portfolio values and sort
       const activeCutoff = Date.now() - ACTIVE_USER_WINDOW_MS;
       let activeCount = 0;
-      const traders = [];
+      const traders: { username: string; portfolioValue: number }[] = [];
       usersSnapshot.forEach((doc) => {
-        const user = doc.data();
+        const user = doc.data()!;
         if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
         // Bots are excluded from all user-facing rankings
         if (!user.isBankrupt && !user.isBot) {
@@ -298,7 +317,7 @@ exports.weeklyLeaderboard = cf()
  * high multiplier by holding positions and claiming composition missions
  * without ever showing up in trade counts.
  */
-async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
+export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   const usersSnapshot = await db.collection('users').get();
 
   if (usersSnapshot.empty) {
@@ -312,10 +331,10 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   const prevWeekDates = [...Array(7)].map((_, i) => {
     const d = new Date(`${prevWeekId}T00:00:00Z`); // prevWeekId is that Monday
     d.setUTCDate(d.getUTCDate() + i);
-    return d.toISOString().split('T')[0];
+    return d.toISOString().split('T')[0]!;
   });
 
-  const wasActiveLastWeek = (user) => {
+  const wasActiveLastWeek = (user: DocumentData) => {
     const wm = user.weeklyMissions?.[prevWeekId];
     if (wm) {
       if ((wm.tradeCount || 0) > 0) return true;
@@ -328,7 +347,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     });
   };
 
-  const crews = {};
+  const crews: Record<string, CrewTally> = {};
   Object.values(CREWS).forEach((c) => {
     crews[c.id] = {
       id: c.id,
@@ -344,10 +363,10 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
 
   // Users flagged as crew head who no longer belong to a (valid) crew —
   // their crown is stale and gets cleared in the rotation below.
-  const staleHeads = [];
+  const staleHeads: string[] = [];
 
   usersSnapshot.forEach((doc) => {
-    const user = doc.data();
+    const user = doc.data()!;
     const crew = user.crew;
 
     // Bots and banned accounts are excluded from all user-facing rankings
@@ -360,7 +379,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       const gain = baseline > 0 ? portfolioValue - baseline : 0;
       const active = wasActiveLastWeek(user);
 
-      const c = crews[crew];
+      const c = crews[crew]!;
       c.members.push({
         uid: doc.id,
         username: user.displayName,
@@ -389,9 +408,9 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   // Underdog multipliers for the new week: the most active crew gets 1x,
   // an empty crew gets CREW_UNDERDOG_MULT_MAX, everyone else in between.
   const maxActive = Math.max(1, ...Object.values(crews).map((c) => c.activeCount));
-  const multipliers = {};
-  const activeCounts = {};
-  const memberCounts = {};
+  const multipliers: Record<string, number> = {};
+  const activeCounts: Record<string, number> = {};
+  const memberCounts: Record<string, number> = {};
   Object.values(crews).forEach((c) => {
     activeCounts[c.id] = c.activeCount;
     memberCounts[c.id] = c.members.length;
@@ -404,16 +423,22 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   // last week's active members. Staying active is still required, so a
   // dormant account can't sit on the crown forever. No eligible member =
   // vacant crown that week.
-  const heads = {}; // crewId -> { uid, displayName, portfolioValue }
+  const heads: Record<string, { uid: string; displayName?: string | null; portfolioValue: number }> = {}; // crewId -> { uid, displayName, portfolioValue }
   // Kept SEPARATE from `heads` on purpose: `heads` is written verbatim to
   // market/crewStats, which anyone can read. Discord IDs stay private.
-  const headDiscordIds = {}; // crewId -> discordId | null
-  const userUpdates = []; // [{ uid, update, note }]
+  const headDiscordIds: Record<string, string | null> = {}; // crewId -> discordId | null
+  const userUpdates: {
+    uid: string;
+    update: Record<string, unknown>;
+    note: Parameters<typeof writeNotification>[1] | null;
+  }[] = []; // [{ uid, update, note }]
   Object.values(crews).forEach((c) => {
     const prevHead = c.members.find((m) => m.wasHead) || null;
     const eligible = c.members.filter((m) => m.active && !m.isBankrupt);
     const winner =
-      eligible.length > 0 ? eligible.reduce((best, m) => (m.portfolioValue > best.portfolioValue ? m : best)) : null;
+      eligible.length > 0
+        ? eligible.reduce((best: CrewMember, m) => (m.portfolioValue > best.portfolioValue ? m : best))
+        : null;
 
     if (winner) {
       const kept = prevHead && prevHead.uid === winner.uid;
@@ -436,7 +461,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       )
         newAch.push('USURPER');
 
-      const update = { isCrewHead: true, crewHeadStreak: newStreak };
+      const update: Record<string, unknown> = { isCrewHead: true, crewHeadStreak: newStreak };
       if (newAch.length > 0) update.achievements = FieldValue.arrayUnion(...newAch);
       userUpdates.push({
         uid: winner.uid,
@@ -489,7 +514,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       await db.collection('users').doc(uid).update(update);
       if (note) await writeNotification(uid, note);
     } catch (err) {
-      console.error(`Crew head update failed for ${uid}:`, err.message);
+      console.error(`Crew head update failed for ${uid}:`, (err as Error).message);
     }
   }
 
@@ -505,7 +530,8 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       return b.avgActiveGain - a.avgActiveGain;
     });
 
-  const fmtMoney = (n) => `${n < 0 ? '-' : '+'}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  const fmtMoney = (n: number) =>
+    `${n < 0 ? '-' : '+'}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
   const fields = sortedCrews.map((crew, idx) => {
     const topGainers = crew.members
@@ -532,7 +558,7 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         `**Avg Gain per Active Member:** ${avgText}\n` +
         `**Crew Weekly Gain:** ${fmtMoney(crew.weeklyGain)}\n` +
         `**Total Value:** $${crew.totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}\n` +
-        `**Reward Bonus This Week:** x${mult}${mult > 1 ? ' 🔥' : ''}\n\n` +
+        `**Reward Bonus This Week:** x${mult}${mult! > 1 ? ' 🔥' : ''}\n\n` +
         `**Top Gainers:**\n${gainersText}`,
       inline: false,
     };
@@ -575,10 +601,10 @@ async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
 // 5 min rather than the 60s default: this scans every user doc and then makes
 // up to 18 Discord round-trips. Billed on actual runtime, so the headroom is
 // free unless something is genuinely slow.
-exports.weeklyCrewRankings = cf({ timeoutSeconds: 300 })
+export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
   .pubsub.schedule('30 1 * * 1')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     try {
       await runWeeklyCrewRankings();
       await recordHeartbeat('weeklyCrewRankings');
@@ -600,15 +626,15 @@ async function runCrewRoleSyncOnly({ dryRun = false } = {}) {
 
   const statsSnap = await db.collection('market').doc('crewStats').get();
   const stats = statsSnap.exists ? statsSnap.data() || {} : {};
-  const heads = stats.heads || {};
+  const heads: Record<string, { uid: string } | null> = stats.heads || {};
 
   // At most 10 docs (one per crew), so a single getAll beats ten reads.
   const entries = Object.entries(heads).filter(([, h]) => h && h.uid);
-  const discordIds = {};
+  const discordIds: Record<string, string | null> = {};
   if (entries.length > 0) {
-    const docs = await db.getAll(...entries.map(([, h]) => db.collection('users').doc(h.uid)));
+    const docs = await db.getAll(...entries.map(([, h]) => db.collection('users').doc(h!.uid)));
     entries.forEach(([crewId], i) => {
-      discordIds[crewId] = docs[i].exists ? docs[i].data().discordId || null : null;
+      discordIds[crewId] = docs[i]!.exists ? docs[i]!.data()!.discordId || null : null;
     });
   }
   return syncCrewHeadRoles({ heads, discordIds, weekId: stats.weekId || getWeekId() });
@@ -622,11 +648,8 @@ async function runCrewRoleSyncOnly({ dryRun = false } = {}) {
  * Pass { rolesOnly: true } to only re-sync the crew head Discord roles, or
  * { rolesOnly: true, dryRun: true } to just check the Discord setup.
  */
-exports.triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
   if (data && data.rolesOnly) return runCrewRoleSyncOnly({ dryRun: !!data.dryRun });
   return runWeeklyCrewRankings({ postToDiscord: !(data && data.skipDiscord) });
 });
@@ -634,7 +657,6 @@ exports.triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCall(asy
 // Exposed for scripts/test-crew-roles-emulator.cjs. Not a Cloud Function —
 // serviceLoader only copies exports carrying a trigger, so this never reaches
 // the deployed surface (same pattern as runLimitOrderCheck in limitOrders.js).
-exports.runWeeklyCrewRankings = runWeeklyCrewRankings;
 
 /**
  * Create bot traders - Admin only
