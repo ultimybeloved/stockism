@@ -11,7 +11,7 @@ export function useAdminCosmetics({
   setLoading,
   setSelectedUser,
 }: Pick<AdminHookDeps, 'showMessage' | 'setLoading' | 'setSelectedUser'>) {
-  const handleGrantCosmetic = async (userId: string, displayName: string, cosmeticId: string) => {
+  const handleGrantCosmetic = async (userId: string, displayName: string | undefined, cosmeticId: string) => {
     const cosmetic = COSMETIC_MAP[cosmeticId];
     if (!cosmetic) {
       showMessage('error', 'Pick a cosmetic first');
@@ -32,7 +32,7 @@ export function useAdminCosmetics({
     setLoading(false);
   };
 
-  const handleRevokeCosmetic = async (userId: string, displayName: string, cosmeticId: string) => {
+  const handleRevokeCosmetic = async (userId: string, displayName: string | undefined, cosmeticId: string) => {
     const cosmetic = COSMETIC_MAP[cosmeticId];
     if (!confirm(`Take "${cosmetic?.name || cosmeticId}" away from ${displayName}? It will also be unequipped.`))
       return;

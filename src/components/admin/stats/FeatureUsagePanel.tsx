@@ -2,12 +2,21 @@ import { localWeeklyTime } from '../../../utils/localTime';
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import type { AdminCommonProps } from '../types';
+
+/** admin/featureUsage: how many players have touched each feature. */
+interface FeatureUsageReport {
+  counts?: Record<string, number>;
+  totalUsers?: number;
+  generatedAt?: number;
+  [key: string]: unknown;
+}
 
 // Distinct players who touched each system in the last 7 days. Written by
 // weeklyMarketSummary (Monday 00:00 UTC) from data it already has in memory, so
 // reading it here is one document read and the report itself costs nothing.
 // Point of it: find the systems nobody uses, so they can be improved or retired.
-const LABELS = {
+const LABELS: Record<string, string> = {
   trading: 'Trading',
   ladder: 'Ladder game',
   predictions: 'Predictions',
@@ -25,15 +34,19 @@ const LABELS = {
   portfolio: 'Dust sweep',
 };
 
-const FeatureUsagePanel = ({ darkMode, textClass, mutedClass }) => {
-  const [report, setReport] = useState(null);
+const FeatureUsagePanel = ({
+  darkMode,
+  textClass,
+  mutedClass,
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'>) => {
+  const [report, setReport] = useState<FeatureUsageReport | null>(null);
   const [state, setState] = useState('loading');
 
   useEffect(() => {
     getDoc(doc(db, 'admin', 'featureUsage'))
       .then((snap) => {
         if (snap.exists()) {
-          setReport(snap.data());
+          setReport(snap.data() as FeatureUsageReport);
           setState('ready');
         } else {
           setState('empty');
@@ -53,7 +66,7 @@ const FeatureUsagePanel = ({ darkMode, textClass, mutedClass }) => {
       <h3 className={`font-semibold ${textClass} mb-1`}>📊 Feature Usage (last 7 days)</h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         {state === 'ready'
-          ? `Distinct players out of ${total}. Updated ${new Date(report.generatedAt).toLocaleDateString()}.`
+          ? `Distinct players out of ${total}. Updated ${new Date(report!.generatedAt as number).toLocaleDateString()}.`
           : 'Distinct players who used each system.'}
       </p>
 

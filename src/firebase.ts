@@ -94,9 +94,10 @@ export const fixBasePriceCliffsFunction = callable<Record<string, never>, Api.Fi
 export const triggerManualBackupFunction = callable<void, { filename?: string }>('triggerManualBackup');
 export const listBackupsFunction = callable<void, { backups?: Api.AdminReport[]; total?: number }>('listBackups');
 export const restoreBackupFunction = callable<{ backupName: string }, { tickersRestored?: number }>('restoreBackup');
-export const broadcastNotificationFunction = callable<{ title: string; message: string; predictionId?: string }>(
-  'broadcastNotification',
-);
+export const broadcastNotificationFunction = callable<
+  { title: string; message: string; predictionId?: string },
+  { sent?: number }
+>('broadcastNotification');
 // Trade execution & anti-exploit
 export const executeTradeFunction = callable<Api.ExecuteTradeRequest, Api.ExecuteTradeResponse>('executeTrade');
 export const sweepDustPositionsFunction = callable<void, Api.SweepDustResponse>('sweepDustPositions');

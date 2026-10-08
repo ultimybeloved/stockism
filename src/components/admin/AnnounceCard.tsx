@@ -9,6 +9,7 @@ import {
   isFreeSwitchTarget,
 } from '../../crews';
 import { formatUTCDateTime } from '../../utils/formatters';
+import { errorMessage } from '../../utils/errors';
 
 // Pre-filled only while a free-switch event is running, with the crew name,
 // rate and deadline read from the event itself so the text can never disagree
@@ -27,12 +28,12 @@ const DEFAULT_MESSAGE = eventCrew
   : '';
 
 // Admin tool: send a notification to every user's bell.
-export default function AnnounceCard({ darkMode }) {
+export default function AnnounceCard({ darkMode }: { darkMode: boolean }) {
   const { textClass, mutedClass, inputClass } = getThemeClasses(darkMode);
   const [title, setTitle] = useState(DEFAULT_TITLE);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const send = async () => {
     const t = title.trim();
@@ -45,7 +46,7 @@ export default function AnnounceCard({ darkMode }) {
       const res = await broadcastNotificationFunction({ title: t, message: m });
       setResult({ ok: true, text: `Sent to ${res.data.sent} users.` });
     } catch (e) {
-      setResult({ ok: false, text: e.message || 'Failed to send.' });
+      setResult({ ok: false, text: errorMessage(e) || 'Failed to send.' });
     } finally {
       setSending(false);
     }

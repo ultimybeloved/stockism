@@ -1,4 +1,6 @@
 import { ACHIEVEMENTS } from '../../constants/achievements';
+import type { AdminCommonProps } from './types';
+import type { useAdminBadges } from '../../hooks/admin/useAdminBadges';
 
 const BadgesTab = ({
   darkMode,
@@ -9,7 +11,7 @@ const BadgesTab = ({
   expandedBadge,
   setExpandedBadge,
   handleRemoveAchievement,
-}) => {
+}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'loading'> & ReturnType<typeof useAdminBadges>) => {
   return (
     <div className="space-y-4 p-4" onClick={(e) => e.stopPropagation()}>
       <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Achievement Badges</h3>
@@ -61,7 +63,7 @@ const BadgesTab = ({
                             </span>
                             {u.achievementDates[ach.id] && (
                               <span className={`ml-2 text-xs ${mutedClass}`}>
-                                {new Date(u.achievementDates[ach.id]).toLocaleDateString()}
+                                {new Date(u.achievementDates[ach.id]!).toLocaleDateString()}
                               </span>
                             )}
                           </div>

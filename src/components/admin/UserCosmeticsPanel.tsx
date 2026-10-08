@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { COSMETICS, COSMETIC_MAP, COSMETIC_TYPES, COSMETIC_TYPE_LABELS } from '../../constants/cosmetics';
+import type { AdminCommonProps } from './types';
+import type { AdminUser } from '../../hooks/admin/adminShared';
+import type { useAdminCosmetics } from '../../hooks/admin/useAdminCosmetics';
 
 // Cosmetics section of the selected-user card in the admin Users tab.
 // Give any cosmetic for free (giveaways) or take one back, no Firebase console needed.
@@ -12,7 +15,7 @@ const UserCosmeticsPanel = ({
   selectedUser,
   handleGrantCosmetic,
   handleRevokeCosmetic,
-}) => {
+}: AdminCommonProps & ReturnType<typeof useAdminCosmetics> & { selectedUser: AdminUser }) => {
   const [pickedCosmetic, setPickedCosmetic] = useState('');
 
   const owned = selectedUser.ownedCosmetics || [];

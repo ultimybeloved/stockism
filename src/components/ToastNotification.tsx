@@ -1,6 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 
-const ToastNotification = ({ notification, onDismiss, darkMode }) => {
+/** One toast on screen (App's notification queue). */
+export interface Toast {
+  id: number;
+  type: string;
+  message: string;
+  image?: string | null;
+}
+
+interface ToastNotificationProps {
+  notification: Toast;
+  onDismiss: () => void;
+  darkMode: boolean;
+}
+
+const ToastNotification = ({ notification, onDismiss, darkMode }: ToastNotificationProps) => {
   const [isExiting, setIsExiting] = useState(false);
   // Keep the latest onDismiss without restarting the timer: the container
   // passes a fresh arrow function every render, and with it in the effect
@@ -74,7 +88,15 @@ const ToastNotification = ({ notification, onDismiss, darkMode }) => {
   );
 };
 
-const ToastContainer = ({ notifications, onDismiss, darkMode }) => {
+const ToastContainer = ({
+  notifications,
+  onDismiss,
+  darkMode,
+}: {
+  notifications: Toast[];
+  onDismiss: (id: number) => void;
+  darkMode: boolean;
+}) => {
   return (
     <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 max-w-sm">
       {notifications.map((notif) => (

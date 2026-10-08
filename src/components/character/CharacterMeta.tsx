@@ -5,6 +5,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { CREWS } from '../../crews';
 import { CHARACTERS } from '../../characters';
 import { fundsContaining } from '../../utils/marketFilters';
+import type { Character } from '../../characters';
 
 // The metadata under a card's name: crew badge, the funds a character belongs
 // to, the description, and (for a fund) its constituents with a show-more
@@ -12,7 +13,7 @@ import { fundsContaining } from '../../utils/marketFilters';
 //
 // It owns the expand state and derives its own crew/fund lookups because
 // nothing else on the card reads them.
-const CharacterMeta = ({ character }) => {
+const CharacterMeta = ({ character }: { character: Character }) => {
   const { darkMode, prices } = useAppContext();
   const { mutedClass } = getThemeClasses(darkMode);
   const [etfExpanded, setEtfExpanded] = useState(false);

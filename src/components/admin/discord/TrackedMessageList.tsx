@@ -1,4 +1,14 @@
 import { formatDateTime } from '../../../utils/localTime';
+import type { AdminCommonProps } from '../types';
+import type { TrackedDiscordMessage } from '../../../api/types';
+
+type TrackedMessageListProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+  messages: TrackedDiscordMessage[];
+  activeId: string | null;
+  busy: boolean;
+  onEdit: (msg: TrackedDiscordMessage) => void;
+  onDelete: (msg: TrackedDiscordMessage, forget?: boolean) => void;
+};
 
 // Everything the panel can still edit. A message only appears here if it was
 // posted through the panel or imported — the bot's automated posts (daily drop,
@@ -12,7 +22,7 @@ export default function TrackedMessageList({
   busy,
   onEdit,
   onDelete,
-}) {
+}: TrackedMessageListProps) {
   if (!messages.length) {
     return (
       <p className={`text-sm ${mutedClass}`}>

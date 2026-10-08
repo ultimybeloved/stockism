@@ -1,4 +1,10 @@
 import { useState } from 'react';
+import type { AdminCommonProps } from '../types';
+
+type ImportMessageFormProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass' | 'inputClass'> & {
+  busy: boolean;
+  onImport: (target: { channelId: string; messageId: string; label?: string }) => Promise<boolean>;
+};
 
 // Adopt a message the bot already posted some other way — the rules script, or
 // an older one-off — so it becomes editable from here.
@@ -6,7 +12,14 @@ import { useState } from 'react';
 // Only the bot's own messages can be imported. Discord refuses to let a bot edit
 // anyone else's message, so importing one would just create a row that fails on
 // every save.
-export default function ImportMessageForm({ darkMode, textClass, mutedClass, inputClass, busy, onImport }) {
+export default function ImportMessageForm({
+  darkMode,
+  textClass,
+  mutedClass,
+  inputClass,
+  busy,
+  onImport,
+}: ImportMessageFormProps) {
   const [open, setOpen] = useState(false);
   const [channelId, setChannelId] = useState('');
   const [messageId, setMessageId] = useState('');

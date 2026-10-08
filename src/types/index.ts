@@ -133,6 +133,8 @@ export interface MissionDayState {
 /** users/{uid}. Only the fields typed code reads so far are listed. */
 export interface UserData {
   displayName?: string;
+  /** Pre-2026 accounts only; displayName replaced it. */
+  username?: string;
   cash?: number;
   holdings?: ShareMap;
   costBasis?: Record<Ticker, number>;

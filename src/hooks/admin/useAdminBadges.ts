@@ -9,7 +9,7 @@ export interface BadgeUserRow {
   id: string;
   displayName: string;
   achievements: string[];
-  achievementDates: Record<string, unknown>;
+  achievementDates: Record<string, number | string>;
   portfolioValue: number;
   isBot: boolean;
 }
@@ -29,7 +29,7 @@ export function useAdminBadges({ showMessage, setLoading }: Pick<AdminHookDeps, 
       const snapshot = await getDocs(collection(db, 'users'));
       const users: BadgeUserRow[] = [];
       snapshot.forEach((doc) => {
-        const data = doc.data() as UserData & { achievementDates?: Record<string, unknown> };
+        const data = doc.data() as UserData & { achievementDates?: Record<string, number | string> };
         if ((data.achievements || []).length > 0) {
           users.push({
             id: doc.id,

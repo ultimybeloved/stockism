@@ -2,6 +2,10 @@ import MessageComposer from './discord/MessageComposer';
 import TrackedMessageList from './discord/TrackedMessageList';
 import ImportMessageForm from './discord/ImportMessageForm';
 import AnnounceCard from './AnnounceCard';
+import type { AdminCommonProps } from './types';
+import type { useAdminDiscordMessages } from '../../hooks/admin/useAdminDiscordMessages';
+
+type DiscordTabProps = Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminDiscordMessages>;
 
 // Send and edit messages as the Stockism bot without touching code.
 //
@@ -30,7 +34,7 @@ export default function DiscordTab({
   sendDiscordDraft,
   deleteDiscordMessage,
   importDiscordMessage,
-}) {
+}: DiscordTabProps) {
   const common = { darkMode, textClass, mutedClass, inputClass };
 
   return (

@@ -406,6 +406,9 @@ export interface DiscordMessagePayload {
 /** A tracked bot message as the server returns it. */
 export type TrackedDiscordMessage = import('../hooks/admin/discordDraft').StoredDiscordMessage & {
   messageId?: string;
+  imported?: boolean;
+  channelName?: string;
+  updatedAt?: number;
   [key: string]: unknown;
 };
 

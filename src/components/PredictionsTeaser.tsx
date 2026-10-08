@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { getThemeClasses } from '../utils/theme';
+import type { PredictionDoc } from '../types';
 
 const ROTATE_MS = 6000;
 
@@ -10,7 +11,7 @@ const ROTATE_MS = 6000;
 // mistake them for live odds. Below them, the card features a real open
 // weekly question (rotating through them when there are several) so people
 // see what they are clicking for. The whole card is one click target.
-const PredictionsTeaser = ({ predictions = [] }) => {
+const PredictionsTeaser = ({ predictions = [] }: { predictions?: PredictionDoc[] }) => {
   const navigate = useNavigate();
   const { darkMode } = useAppContext();
   const { cardClass, mutedClass, textClass } = getThemeClasses(darkMode);
