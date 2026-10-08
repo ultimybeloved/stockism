@@ -1,0 +1,316 @@
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+const db = admin.firestore();
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { touchLastActive } from '../shared/activity';
+import { reportError } from '../shared/sentry';
+import { getLadderChips } from '../shared/ladderMath';
+import type { UserData } from '../shared/types';
+
+/** ladderGameUsers/{uid}: one player's ladder account and record. */
+interface LadderPlayer {
+  balance: number;
+  nonWithdrawable: number;
+  chipsMigrated: boolean;
+  totalDeposited: number;
+  totalWon: number;
+  totalLost: number;
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  currentStreak: number;
+  bestStreak: number;
+  highBetGames: number;
+  lastPlayed: admin.firestore.Timestamp | number | null;
+}
+import {
+  LADDER_GAME_INITIAL_BALANCE,
+  LADDER_MIN_BET,
+  LADDER_HIGH_BET_THRESHOLD,
+  LADDER_ACHIEVEMENT_PROFIT,
+  LADDER_ACHIEVEMENT_HIGH_BETS,
+  LADDER_LEADERBOARD_SIZE,
+  LADDER_LEADERBOARD_OVERFETCH,
+} from '../shared/constants';
+
+// Deposits, withdrawals (incl. the withdrawal tax), and admin transfers live in
+// ./ladderTransfers.js.
+
+export const playLadderGame = cf().https.onCall(
+  async (data: { startSide?: unknown; bet?: unknown; amount?: unknown }, context) => {
+    requireAppCheck(context);
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    }
+
+    const uid = context.auth.uid;
+    touchLastActive(uid, 'ladder');
+    const { startSide, bet } = data as { startSide: string; bet: string };
+    // Whole-dollar bets only: silently floor any decimals away. With no decimals in
+    // play there is nothing to round, so the old rounding exploit can't exist.
+    const amount = Math.floor(Number(data.amount));
+
+    // Validate inputs
+    if (!['left', 'right'].includes(startSide)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid start side.');
+    }
+    if (!['odd', 'even'].includes(bet)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid bet.');
+    }
+    if (!amount || !Number.isFinite(amount) || amount < LADDER_MIN_BET) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Minimum bet is $${LADDER_MIN_BET} (whole dollars only).`,
+      );
+    }
+
+    try {
+      const gameResult = await db.runTransaction(async (transaction) => {
+        const userRef = db.collection('ladderGameUsers').doc(uid);
+        const globalRef = db.collection('ladderGame').doc('global');
+        const mainUserRef = db.collection('users').doc(uid);
+
+        const [userDoc, globalDoc, mainUserDoc] = await Promise.all([
+          transaction.get(userRef),
+          transaction.get(globalRef),
+          transaction.get(mainUserRef),
+        ]);
+
+        // Get or create ladder game user
+        const userData: LadderPlayer = userDoc.exists
+          ? (userDoc.data() as LadderPlayer)
+          : {
+              balance: LADDER_GAME_INITIAL_BALANCE,
+              nonWithdrawable: LADDER_GAME_INITIAL_BALANCE,
+              chipsMigrated: true,
+              totalDeposited: 0,
+              totalWon: 0,
+              totalLost: 0,
+              gamesPlayed: 0,
+              wins: 0,
+              losses: 0,
+              currentStreak: 0,
+              bestStreak: 0,
+              highBetGames: 0,
+              lastPlayed: null,
+            };
+
+        const mainUser = mainUserDoc.data() as UserData | undefined;
+        checkBanned(mainUser);
+        checkDiscordWall(mainUser);
+        const username = mainUser?.displayName || 'Anonymous';
+
+        // Check balance
+        if (userData.balance < amount) {
+          throw new functions.https.HttpsError('failed-precondition', 'Insufficient balance.');
+        }
+
+        // Enforce 3-second cooldown
+        const now = admin.firestore.Timestamp.now();
+        if (userData.lastPlayed) {
+          const lastPlayed = userData.lastPlayed as admin.firestore.Timestamp | number;
+          const lastPlayedMs =
+            typeof lastPlayed === 'number'
+              ? lastPlayed
+              : lastPlayed.toMillis
+                ? lastPlayed.toMillis()
+                : (lastPlayed as unknown as number);
+          const timeSince = now.toMillis() - lastPlayedMs;
+          if (timeSince < 3000) {
+            throw new functions.https.HttpsError(
+              'failed-precondition',
+              `Cooldown: ${Math.ceil((3000 - timeSince) / 1000)}s remaining`,
+            );
+          }
+        }
+
+        // Server-side RNG
+        const numRungs = Math.random() < 0.5 ? 2 : 3;
+        const rungs = numRungs === 2 ? [3, 7] : [2, 5, 8];
+        const pathsCross = numRungs % 2 === 1;
+        const result = startSide === 'left' ? (pathsCross ? 'even' : 'odd') : pathsCross ? 'odd' : 'even';
+
+        const won = bet === result;
+        const payout = won ? amount * 2 : 0;
+
+        // Calculate odds distribution (for UI) - add randomness for visual variety
+        const globalData = globalDoc.exists ? globalDoc.data()! : { history: [], totalGamesPlayed: 0 };
+        const recentHistory: unknown[] = globalData.history || [];
+
+        // Generate random percentages with some constraints (between 30-70%)
+        const randomBase = 30 + Math.floor(Math.random() * 41); // 30-70
+        const variance = Math.floor(Math.random() * 11) - 5; // -5 to +5
+        const oddPct = Math.max(25, Math.min(75, randomBase + variance));
+        const evenPct = 100 - oddPct;
+
+        // Read the chip pile before the balance moves — the one-time repair inside
+        // getLadderChips caps chips at the balance, and that has to be the balance
+        // the chips were actually staked from.
+        const chipsBefore = getLadderChips(userData);
+        // Whole-dollar bets keep the balance an integer; floor here clears any stray
+        // cents left over from before (those cents just disappear, by design).
+        userData.balance = Math.floor(userData.balance - amount + payout);
+        // House chips (check-in grants, welcome stake) are staked before real
+        // balance, so a losing bet burns them first and they leave the account
+        // for good. A win returns the stake to the chip pile and pays the profit
+        // out as real, withdrawable money. So chips only ever go down, and the
+        // player can never cash out more free money than they were handed.
+        //
+        // This used to hold the lifetime granted total and never come down, which
+        // meant a player who went broke, got topped up and then won was still
+        // stuck under a floor built from chips that no longer existed.
+        userData.nonWithdrawable = won ? chipsBefore : Math.max(0, chipsBefore - amount);
+        userData.chipsMigrated = true;
+        userData.gamesPlayed += 1;
+        if (amount >= LADDER_HIGH_BET_THRESHOLD) userData.highBetGames = (userData.highBetGames || 0) + 1;
+        if (won) {
+          userData.wins += 1;
+          userData.totalWon += payout - amount;
+          userData.currentStreak += 1;
+          userData.bestStreak = Math.max(userData.bestStreak, userData.currentStreak);
+        } else {
+          userData.losses += 1;
+          userData.totalLost += amount;
+          userData.currentStreak = 0;
+        }
+        userData.lastPlayed = now;
+
+        transaction.set(userRef, userData);
+
+        // Update global history
+        const gameRecord = {
+          id: `${uid}_${Date.now()}`,
+          timestamp: now,
+          userId: uid,
+          username,
+          result,
+          bet,
+          amount,
+          won,
+          payout,
+          oddPct,
+          evenPct,
+        };
+
+        const updatedHistory = [gameRecord, ...recentHistory].slice(0, 5);
+        transaction.set(
+          globalRef,
+          {
+            history: updatedHistory,
+            totalGamesPlayed: (globalData.totalGamesPlayed || 0) + 1,
+          },
+          { merge: true },
+        );
+
+        // Check ladder game achievements
+        const currentAchievements = mainUser?.achievements || [];
+        const ladderNewAchievements: string[] = [];
+        const netProfit = userData.totalWon - userData.totalLost;
+        if (netProfit >= LADDER_ACHIEVEMENT_PROFIT && !currentAchievements.includes('COMPULSIVE_GAMBLER'))
+          ladderNewAchievements.push('COMPULSIVE_GAMBLER');
+        if ((userData.highBetGames || 0) >= LADDER_ACHIEVEMENT_HIGH_BETS && !currentAchievements.includes('ADDICTED'))
+          ladderNewAchievements.push('ADDICTED');
+        if ((userData.balance || 0) <= 0 && !currentAchievements.includes('JIHOISM'))
+          ladderNewAchievements.push('JIHOISM');
+
+        if (ladderNewAchievements.length > 0) {
+          const achUpdate: Record<string, unknown> = {
+            achievements: admin.firestore.FieldValue.arrayUnion(...ladderNewAchievements),
+          };
+          for (const achId of ladderNewAchievements) {
+            achUpdate[`achievementDates.${achId}`] = Date.now();
+          }
+          transaction.update(mainUserRef, achUpdate);
+        }
+
+        return {
+          rungs,
+          result,
+          won,
+          payout,
+          newBalance: userData.balance,
+          currentStreak: userData.currentStreak,
+          newAchievements: ladderNewAchievements,
+          checkCasinoChampion: !currentAchievements.includes('CASINO_CHAMPION'),
+        };
+      });
+
+      // Check Casino Champion after transaction (requires additional query)
+      if (gameResult.checkCasinoChampion) {
+        try {
+          const topSnap = await db.collection('ladderGameUsers').orderBy('balance', 'desc').limit(1).get();
+          if (!topSnap.empty && topSnap.docs[0]!.id === uid) {
+            await db
+              .collection('users')
+              .doc(uid)
+              .update({
+                achievements: admin.firestore.FieldValue.arrayUnion('CASINO_CHAMPION'),
+                'achievementDates.CASINO_CHAMPION': Date.now(),
+              });
+            gameResult.newAchievements.push('CASINO_CHAMPION');
+          }
+        } catch (err) {
+          reportError(err, { where: 'playLadderGame.casinoChampion', uid });
+        }
+      }
+      delete (gameResult as Partial<typeof gameResult>).checkCasinoChampion;
+
+      return gameResult;
+    } catch (error) {
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      }
+      reportError(error, { where: 'playLadderGame', uid });
+      throw new functions.https.HttpsError('internal', 'Game failed: ' + (error as Error).message);
+    }
+  },
+);
+
+export const getLadderLeaderboard = cf().https.onCall(async (_data: unknown, context) => {
+  requireAppCheck(context);
+  try {
+    // Over-fetch, then drop the entries that should not hold a slot and trim.
+    // A ladder doc is keyed by uid and outlives the account: deletions only
+    // recently started removing it, and a ban leaves it entirely. Both used to
+    // sit on this board — a deleted account as "Anonymous" with a real balance,
+    // a banned one under its own name — while the main leaderboard has always
+    // excluded bots and bans. Same rule here.
+    const ladderUsersSnap = await db
+      .collection('ladderGameUsers')
+      .orderBy('balance', 'desc')
+      .limit(LADDER_LEADERBOARD_SIZE * LADDER_LEADERBOARD_OVERFETCH)
+      .get();
+
+    const userIds = ladderUsersSnap.docs.map((doc) => doc.id);
+    const leaderboard: Record<string, unknown>[] = [];
+
+    const userRefs = userIds.map((id) => db.collection('users').doc(id));
+    const userDocs = userRefs.length > 0 ? await db.getAll(...userRefs) : [];
+    const userMap: Record<string, UserData> = {};
+    userDocs.forEach((doc) => {
+      if (doc.exists) userMap[doc.id] = doc.data() as UserData;
+    });
+
+    for (const doc of ladderUsersSnap.docs) {
+      if (leaderboard.length >= LADDER_LEADERBOARD_SIZE) break;
+      const ladderData = doc.data();
+      const userData = userMap[doc.id];
+      // No user doc = the account is gone; the balance is a leftover.
+      if (!userData || userData.isBanned || userData.isBot) continue;
+      leaderboard.push({
+        userId: doc.id,
+        username: userData.displayName || 'Anonymous',
+        balance: ladderData.balance || 0,
+        gamesPlayed: ladderData.gamesPlayed || 0,
+        wins: ladderData.wins || 0,
+        winRate: ladderData.gamesPlayed > 0 ? Math.round((ladderData.wins / ladderData.gamesPlayed) * 100) : 0,
+      });
+    }
+
+    return { leaderboard };
+  } catch (error) {
+    reportError(error, { where: 'getLadderLeaderboard' });
+    throw new functions.https.HttpsError('internal', 'Failed to get leaderboard: ' + (error as Error).message);
+  }
+});

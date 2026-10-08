@@ -1,4 +1,3 @@
-'use strict';
 // Coordinated-pressure detection.
 //
 // Why this file exists: altDetection.js asks "is this one person running many
@@ -29,36 +28,40 @@
 // Cost: one hourly pass reads COORD_SCAN_WINDOW_DAYS of trades (~1k docs) and
 // writes one state doc. It adds nothing to the trade path itself.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const {
-  ADMIN_UID,
+import {
   ADMIN_DISCORD_USER_ID,
   ALT_SCAN_MAX_TRADES,
   COORD_SCAN_WINDOW_DAYS,
   discordTime,
-} = require('../shared/constants');
-const { sendDiscordDM, reportError, recordHeartbeat } = require('../shared/helpers');
+  TWENTY_FOUR_HOURS_MS,
+} from '../shared/constants';
+import { sendDiscordDM } from '../shared/discordApi';
+import { reportError } from '../shared/sentry';
+import { recordHeartbeat } from '../shared/activity';
+import type { CoordRow } from './coordClustering';
 // Pure clustering lives apart so its thresholds can be tested without a
 // database. Internal module — not in servicePaths.js.
-const { clusterTrades, dayIdOf } = require('./coordClustering');
-const { applyGroupBlocks, markAllIn } = require('./coordEnforcement');
+import { clusterTrades, dayIdOf } from './coordClustering';
+import { applyGroupBlocks, markAllIn } from './coordEnforcement';
 
 const STATE_REF = () => db.collection('coordDetection').doc('state');
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const toMs = (ts) => {
+const DAY_MS = TWENTY_FOUR_HOURS_MS;
+// Also reads `_seconds`, the shape a Timestamp takes after a JSON round trip.
+const toMs = (ts: admin.firestore.Timestamp | number | { _seconds?: number; seconds?: number } | null | undefined) => {
   if (!ts) return 0;
   if (typeof ts === 'number') return ts;
-  if (typeof ts.toMillis === 'function') return ts.toMillis();
-  if (ts._seconds) return ts._seconds * 1000;
-  if (ts.seconds) return ts.seconds * 1000;
+  const stamp = ts as { toMillis?: () => number; _seconds?: number; seconds?: number };
+  if (typeof stamp.toMillis === 'function') return stamp.toMillis();
+  if (stamp._seconds) return stamp._seconds * 1000;
+  if (stamp.seconds) return stamp.seconds * 1000;
   return 0;
 };
-const pct = (n) => `${(n * 100).toFixed(1)}%`;
+const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
 
 /**
  * One pass. Returns the findings without writing when `dryRun` is set, so the
@@ -82,7 +85,7 @@ async function runCoordScan({ dryRun = false } = {}) {
     .limit(ALT_SCAN_MAX_TRADES)
     .get();
 
-  const rows = [];
+  const rows: (CoordRow & { ts: number })[] = [];
   snap.forEach((doc) => {
     const t = doc.data();
     rows.push({
@@ -99,26 +102,26 @@ async function runCoordScan({ dryRun = false } = {}) {
 
   // Resolve names only for what survived, so a quiet scan costs no user reads.
   const uids = [...new Set(candidates.flatMap((c) => c.uids))];
-  const names = {};
+  const names: Record<string, string> = {};
   await Promise.all(
     uids.map(async (uid) => {
       try {
         const d = await db.collection('users').doc(uid).get();
-        names[uid] = d.exists ? d.data().displayName || uid.slice(0, 6) : uid.slice(0, 6);
+        names[uid] = d.exists ? d.data()!.displayName || uid.slice(0, 6) : uid.slice(0, 6);
       } catch {
         names[uid] = uid.slice(0, 6);
       }
     }),
   );
   candidates.forEach((c) => {
-    c.names = c.uids.map((u) => names[u]);
+    c.names = c.uids.map((u) => names[u]!);
   });
 
   // Don't re-alert a cluster already reported. Keyed by ticker+day+direction,
   // which is stable: a later trade on the same day raises the combined number
   // but it is the same event, and a second alert would just be noise.
   const stateSnap = await STATE_REF().get();
-  const seen = (stateSnap.exists && stateSnap.data().seen) || {};
+  const seen: Record<string, number> = (stateSnap.exists && stateSnap.data()!.seen) || {};
   const fresh = candidates.filter((c) => !seen[`${c.ticker}|${c.day}|${c.direction}`]);
 
   if (dryRun) {
@@ -129,16 +132,16 @@ async function runCoordScan({ dryRun = false } = {}) {
   // first reported still gets blocked.
   const blocked = await applyGroupBlocks(candidates, now);
   const pricesSnap = await db.collection('market').doc('current').get();
-  await markAllIn(fresh, pricesSnap.exists ? pricesSnap.data().prices : {});
-  const nameOf = (uid) => names[uid] || uid.slice(0, 6);
-  const allInText = (c) =>
+  await markAllIn(fresh, pricesSnap.exists ? pricesSnap.data()!.prices : {});
+  const nameOf = (uid: string) => names[uid] || uid.slice(0, 6);
+  const allInText = (c: (typeof fresh)[number]) =>
     c.allIn?.length
       ? ` · all in on borrowed money: ${c.allIn.map((a) => `${nameOf(a.uid)} (${Math.round(a.share * 100)}% of holdings, ${Math.round(a.borrowed * 100)}% borrowed)`).join(', ')}`
       : '';
 
   // Keep only keys still inside the window, so this doc cannot grow forever.
   const keepAfter = dayIdOf(now - (COORD_SCAN_WINDOW_DAYS + 2) * DAY_MS);
-  const nextSeen = {};
+  const nextSeen: Record<string, number> = {};
   for (const [k, v] of Object.entries(seen)) {
     if ((k.split('|')[1] || '') >= keepAfter) nextSeen[k] = v;
   }
@@ -169,7 +172,7 @@ async function runCoordScan({ dryRun = false } = {}) {
       details:
         `${c.uids.length} accounts pushed $${c.ticker} ${arrow} ${pct(c.combined)} combined on ${c.day}` +
         `${c.tight ? `, all starting within ${Math.round(c.spreadMs / 60000)} min of each other` : ''}` +
-        ` — ${c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ')}` +
+        ` — ${c.names!.map((n, i) => `${n} ${pct(c.impacts[i]!)}`).join(', ')}` +
         allInText(c),
       ticker: c.ticker,
       day: c.day,
@@ -206,7 +209,7 @@ async function runCoordScan({ dryRun = false } = {}) {
             .map(
               (c) =>
                 `• **$${c.ticker}** ${c.direction} ${pct(c.combined)}, starting ${discordTime(c.startedAt, 'f')} — ` +
-                c.names.map((n, i) => `${n} ${pct(c.impacts[i])}`).join(', ') +
+                c.names!.map((n, i) => `${n} ${pct(c.impacts[i]!)}`).join(', ') +
                 `${c.tight ? ` _(all within ${Math.round(c.spreadMs / 60000)} min)_` : ''}` +
                 allInText(c) +
                 `${c.direction === 'down' && c.tight ? ' — **buy-back and shorting blocked 48h for all of them**' : ''}`,
@@ -234,7 +237,7 @@ async function runCoordScan({ dryRun = false } = {}) {
  * reported the morning after it was over. Kept off the top of the hour, away
  * from the 04:00 alt scan and the hourly jobs that run on :00.
  */
-exports.scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' })
+export const scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' })
   .pubsub.schedule('35 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -254,10 +257,9 @@ exports.scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' })
 /**
  * Admin "run now". Pass dryRun to look without writing alerts or pinging.
  */
-exports.triggerCoordScan = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
-  return runCoordScan({ dryRun: !!(data && data.dryRun) });
-});
+export const triggerCoordScan = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(
+  async (data: { dryRun?: unknown } | null, context) => {
+    requireAdmin(context, 'Admin only.');
+    return runCoordScan({ dryRun: !!(data && data.dryRun) });
+  },
+);

@@ -1,23 +1,47 @@
-'use strict';
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const {
+import {
   CREW_MEMBERS,
   CREW_SWITCH_PENALTY,
   CREW_REJOIN_LOCKOUT_MS,
   TWENTY_FOUR_HOURS_MS,
   isFreeSwitchTarget,
-} = require('../shared/constants');
-const { checkBanned, checkDiscordWall, touchLastActive, reportError } = require('../shared/helpers');
+} from '../shared/constants';
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { touchLastActive } from '../shared/activity';
+import { reportError } from '../shared/sentry';
+import type { UserData } from '../shared/types';
+
+/**
+ * The crew-change penalty: CREW_SWITCH_PENALTY of cash (floored to whole
+ * dollars) and of every holding. Shares are taken fractionally, rounded to 2 dp,
+ * because a whole-share floor would let small positions dodge the penalty.
+ */
+const crewPenalty = (userData: UserData, prices: Record<string, number>) => {
+  const penaltyRate = CREW_SWITCH_PENALTY;
+  const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
+  const cashTaken = (userData.cash || 0) - newCash;
+  const newHoldings: Record<string, number> = {};
+  let holdingsValueTaken = 0;
+  Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
+    if (shares > 0) {
+      const sharesToTake = Math.min(shares, Math.round(shares * penaltyRate * 100) / 100);
+      const sharesToKeep = Math.round((shares - sharesToTake) * 10000) / 10000;
+      newHoldings[ticker] = sharesToKeep;
+      holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
+    }
+  });
+  return { newCash, newHoldings, totalTaken: cashTaken + holdingsValueTaken };
+};
 
 /**
  * Switch Crew - Callable function
  * Handles crew joining/switching with a portfolio penalty for switches
  * (CREW_SWITCH_PENALTY, currently 5%)
  */
-exports.switchCrew = cf().https.onCall(async (data, context) => {
+export const switchCrew = cf().https.onCall(async (data: { crewId?: unknown }, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -43,7 +67,10 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
 
       if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-      const userData = userDoc.data();
+      const userData = userDoc.data() as UserData & {
+        crewLockouts?: Record<string, number>;
+        lastCrewChange?: number;
+      };
       checkBanned(userData);
       checkDiscordWall(userData);
 
@@ -86,7 +113,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
       }
 
       const now = Date.now();
-      const updateData = {
+      const updateData: Record<string, unknown> = {
         crew: crewId,
         crewJoinedAt: now,
         crewHistory: admin.firestore.FieldValue.arrayUnion(crewId),
@@ -114,27 +141,10 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
         updateData[`crewLockouts.${userData.crew}`] = now + CREW_REJOIN_LOCKOUT_MS;
         const marketRef = db.collection('market').doc('current');
         const marketDoc = await transaction.get(marketRef);
-        const prices = marketDoc.exists ? marketDoc.data().prices || {} : {};
-        const penaltyRate = CREW_SWITCH_PENALTY;
-
-        const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
-        const cashTaken = (userData.cash || 0) - newCash;
-
-        const newHoldings = {};
-        let holdingsValueTaken = 0;
-
-        Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
-          if (shares > 0) {
-            // Fractional take, rounded to 2 dp — a whole-share floor would let
-            // small positions dodge the penalty entirely.
-            const sharesToTake = Math.min(shares, Math.round(shares * penaltyRate * 100) / 100);
-            const sharesToKeep = Math.round((shares - sharesToTake) * 10000) / 10000;
-            newHoldings[ticker] = sharesToKeep;
-            holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
-          }
-        });
-
-        totalTaken = cashTaken + holdingsValueTaken;
+        const prices = marketDoc.exists ? marketDoc.data()!.prices || {} : {};
+        const penalty = crewPenalty(userData, prices);
+        const { newCash, newHoldings } = penalty;
+        totalTaken = penalty.totalTaken;
         const newPortfolioValue = Math.max(0, (userData.portfolioValue || 0) - totalTaken);
 
         updateData.cash = newCash;
@@ -152,7 +162,8 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    if (error.code === 10 || error.message?.includes('contention') || error.message?.includes('ABORTED')) {
+    const err = error as { code?: unknown; message?: string };
+    if (err.code === 10 || err.message?.includes('contention') || err.message?.includes('ABORTED')) {
       throw new functions.https.HttpsError('aborted', 'Crew change was busy. Please try again.');
     }
     reportError(error, { where: 'switchCrew', uid });
@@ -163,7 +174,7 @@ exports.switchCrew = cf().https.onCall(async (data, context) => {
 /**
  * Leave crew with the portfolio penalty (CREW_SWITCH_PENALTY, currently 5%)
  */
-exports.leaveCrew = cf().https.onCall(async (data, context) => {
+export const leaveCrew = cf().https.onCall(async (_data: unknown, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -179,7 +190,7 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
 
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as UserData;
     checkBanned(userData);
     checkDiscordWall(userData);
     if (!userData.crew) {
@@ -189,26 +200,8 @@ exports.leaveCrew = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Cannot leave crew while in debt.');
     }
 
-    const prices = marketDoc.exists ? marketDoc.data().prices || {} : {};
-    const penaltyRate = CREW_SWITCH_PENALTY;
-
-    // Cash penalty
-    const newCash = Math.floor((userData.cash || 0) * (1 - penaltyRate));
-
-    // Holdings penalty. Fractional take, rounded to 2 dp — a whole-share
-    // floor would let small positions dodge the penalty entirely.
-    const newHoldings = {};
-    let holdingsValueTaken = 0;
-    Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
-      if (shares > 0) {
-        const sharesToTake = Math.min(shares, Math.round(shares * penaltyRate * 100) / 100);
-        const sharesToKeep = Math.round((shares - sharesToTake) * 10000) / 10000;
-        newHoldings[ticker] = sharesToKeep;
-        holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
-      }
-    });
-
-    const totalTaken = (userData.cash || 0) - newCash + holdingsValueTaken;
+    const prices = marketDoc.exists ? marketDoc.data()!.prices || {} : {};
+    const { newCash, newHoldings, totalTaken } = crewPenalty(userData, prices);
     const newPortfolioValue = (userData.portfolioValue || 0) - totalTaken;
 
     transaction.update(userRef, {

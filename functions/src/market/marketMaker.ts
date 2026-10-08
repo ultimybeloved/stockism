@@ -1,29 +1,20 @@
-'use strict';
-
-const { cf } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import { cf } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { CHARACTERS, splitFactorOf } = require('../shared/characters');
-const {
-  BASE_IMPACT,
-  BASE_LIQUIDITY,
+import { CHARACTERS, splitFactorOf } from '../shared/characters';
+import {
   MAX_PRICE_CHANGE_PERCENT,
+  TWENTY_FOUR_HOURS_MS,
   MIN_PRICE,
   ADMIN_PRICE_PROTECTION_MS,
   isWeeklyTradingHalt,
-} = require('../shared/constants');
-const {
-  liquidityFor,
-  calculateMarginalImpact,
-  isPriceProtected,
-  isTickerPaused,
-  priceHistoryRef,
-  dailyClosesRef,
-  monthIdOf,
-  round2,
-  recordHeartbeat,
-} = require('../shared/helpers');
+} from '../shared/constants';
+import { liquidityFor, calculateMarginalImpact, isTickerPaused } from '../shared/impact';
+import { isPriceProtected, priceHistoryRef, dailyClosesRef, monthIdOf } from '../shared/marketData';
+import { round2 } from '../shared/money';
+import { recordHeartbeat } from '../shared/activity';
+import type { PricePoint } from '../shared/types';
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
 const DEVIATION_THRESHOLD = 0.12;
@@ -53,21 +44,21 @@ const NON_ETF_TICKERS = new Set(CHARACTERS.filter((c) => !c.isETF).map((c) => c.
  *
  * Returns { [ticker]: avgPrice }. Tickers with too little history are absent.
  */
-const buildReferencePrices = async (now) => {
+const buildReferencePrices = async (now: number): Promise<Record<string, number>> => {
   // Two months so a lookback that straddles the 1st still sees a full week.
-  const monthIds = [...new Set([monthIdOf(now - LOOKBACK_DAYS * 86400000), monthIdOf(now)])];
+  const monthIds = [...new Set([monthIdOf(now - LOOKBACK_DAYS * TWENTY_FOUR_HOURS_MS), monthIdOf(now)])];
   const snaps = await Promise.all(monthIds.map((m) => dailyClosesRef(m).get()));
 
   // { 'YYYY-MM-DD': { ticker: price } }, newest day last.
-  const byDay = {};
+  const byDay: Record<string, Record<string, number>> = {};
   for (const snap of snaps) {
     if (!snap.exists) continue;
-    Object.assign(byDay, snap.data().closes || {});
+    Object.assign(byDay, snap.data()!.closes || {});
   }
   const days = Object.keys(byDay).sort().slice(-LOOKBACK_DAYS);
   if (!days.length) return {};
 
-  const sums = {};
+  const sums: Record<string, { total: number; n: number }> = {};
   for (const d of days) {
     for (const [ticker, price] of Object.entries(byDay[d] || {})) {
       if (!(price > 0)) continue;
@@ -77,7 +68,7 @@ const buildReferencePrices = async (now) => {
     }
   }
 
-  const refs = {};
+  const refs: Record<string, number> = {};
   for (const [ticker, { total, n }] of Object.entries(sums)) {
     if (n >= MIN_CLOSE_DAYS) refs[ticker] = total / n;
   }
@@ -90,7 +81,7 @@ const buildReferencePrices = async (now) => {
  * either direction. Uses the same marginal-impact formula as real trades so the
  * correction is proportionate and can't overshoot.
  */
-exports.marketMakerCycle = cf()
+export const marketMakerCycle = cf()
   .pubsub.schedule('0 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -109,13 +100,13 @@ exports.marketMakerCycle = cf()
         return null;
       }
 
-      const marketData = marketSnap.data();
+      const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
         console.log('marketMakerCycle: skipping — manual halt active');
         return null;
       }
 
-      const prices = marketData.prices || {};
+      const prices: Record<string, number> = marketData.prices || {};
       const historySnap = await priceHistoryRef().get();
       const priceHistory = historySnap.exists ? historySnap.data() || {} : {};
 
@@ -129,8 +120,8 @@ exports.marketMakerCycle = cf()
         return null;
       }
 
-      const updates = {};
-      const historyPoints = {};
+      const updates: Record<string, number> = {};
+      const historyPoints: Record<string, PricePoint> = {};
       let interventionCount = 0;
 
       for (const ticker of NON_ETF_TICKERS) {
@@ -168,7 +159,7 @@ exports.marketMakerCycle = cf()
         );
         const clampedImpact = Math.min(impact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
 
-        let newPrice;
+        let newPrice: number;
         if (isSell) {
           newPrice = Math.max(MIN_PRICE, currentPrice - clampedImpact);
         } else {
@@ -211,7 +202,7 @@ exports.marketMakerCycle = cf()
         // Batch so the price change and its history point land atomically
         const batch = db.batch();
         batch.update(marketRef, updates);
-        const histUpdates = {};
+        const histUpdates: Record<string, admin.firestore.FieldValue> = {};
         for (const [t, p] of Object.entries(historyPoints)) {
           histUpdates[t] = admin.firestore.FieldValue.arrayUnion(p);
         }

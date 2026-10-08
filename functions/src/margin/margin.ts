@@ -1,13 +1,12 @@
-'use strict';
 // User-facing margin actions: repay, bailout, toggle, interest.
 //
 // The scheduled liquidation scanners that used to live here are in
 // marginScanners.js, and syncPortfolio moved to portfolio.js.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const {
+import {
   ADMIN_UID,
   TWENTY_FOUR_HOURS_MS,
   MARGIN_INTEREST_RATE,
@@ -17,12 +16,23 @@ const {
   MARGIN_MIN_CHECKINS,
   MARGIN_MIN_TRADES,
   MARGIN_MIN_PEAK_PORTFOLIO,
-} = require('../shared/constants');
-const { checkBanned, checkDiscordWall, touchLastActive, grantedValueUpdate } = require('../shared/helpers');
-// Seasons average margin owed over time, so every change to marginUsed logs it.
-const { seasonMarginUpdate } = require('../season/seasonTiers');
+} from '../shared/constants';
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { touchLastActive } from '../shared/activity';
+import { grantedValueUpdate } from '../shared/equity';
+import type { UserData } from '../shared/types';
 
-exports.repayMargin = cf().https.onCall(async (data, context) => {
+/** Margin and bailout fields the user doc carries beyond the shared shape. */
+type MarginUser = UserData & {
+  lastBailout?: number;
+  totalCheckins?: number;
+  totalTrades?: number;
+  lastMarginInterestCharge?: number;
+};
+// Seasons average margin owed over time, so every change to marginUsed logs it.
+import { seasonMarginUpdate } from '../season/seasonTiers';
+
+export const repayMargin = cf().https.onCall(async (data: { amount?: unknown }, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -30,7 +40,7 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'margin');
-  const { amount } = data;
+  const { amount } = data as { amount: number };
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid repay amount.');
@@ -42,7 +52,7 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as MarginUser;
     checkBanned(userData);
     checkDiscordWall(userData);
     const marginUsed = userData.marginUsed || 0;
@@ -72,7 +82,7 @@ exports.repayMargin = cf().https.onCall(async (data, context) => {
 /**
  * Bankruptcy bailout - wipes every position and resets cash to BAILOUT_CASH
  */
-exports.bailout = cf().https.onCall(async (data, context) => {
+export const bailout = cf().https.onCall(async (_data: unknown, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -86,7 +96,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as MarginUser;
     checkBanned(userData);
     checkDiscordWall(userData);
     if (!userData.isBankrupt) {
@@ -103,7 +113,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
 
     const currentCrew = userData.crew;
 
-    const bailoutUpdates = {
+    const bailoutUpdates: Record<string, unknown> = {
       cash: BAILOUT_CASH,
       // A bailout wipes the portfolio and hands back BAILOUT_CASH, so afterwards
       // the WHOLE balance is granted money. Book all of it, or the rebuild from
@@ -152,7 +162,7 @@ exports.bailout = cf().https.onCall(async (data, context) => {
 /**
  * Toggle margin trading (enable/disable)
  */
-exports.toggleMargin = cf().https.onCall(async (data, context) => {
+export const toggleMargin = cf().https.onCall(async (data: { enable?: unknown }, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -167,7 +177,7 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as MarginUser;
     checkBanned(userData);
     checkDiscordWall(userData);
 
@@ -219,7 +229,7 @@ exports.toggleMargin = cf().https.onCall(async (data, context) => {
 /**
  * Charge daily margin interest
  */
-exports.chargeMarginInterest = cf().https.onCall(async (data, context) => {
+export const chargeMarginInterest = cf().https.onCall(async (_data: unknown, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -232,7 +242,7 @@ exports.chargeMarginInterest = cf().https.onCall(async (data, context) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as MarginUser;
     const marginUsed = userData.marginUsed || 0;
 
     if (marginUsed <= 0 || !userData.marginEnabled) {

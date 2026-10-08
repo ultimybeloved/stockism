@@ -1,4 +1,3 @@
-'use strict';
 // Disposable / temp-mail domains blocked at signup. Aggressive by design — a few
 // legit users on these providers get blocked, which is the accepted trade for
 // shutting down throwaway-email alt rings.
@@ -15,10 +14,10 @@
 //
 // Matching covers subdomains (anything.mailinator.com matches mailinator.com).
 
-const PACKAGE_DOMAINS = require('disposable-email-domains');
+import PACKAGE_DOMAINS from 'disposable-email-domains';
 
 // Domains observed in our own signup reports that public lists missed at the time.
-const HAND_BLOCKED_DOMAINS = [
+export const HAND_BLOCKED_DOMAINS: string[] = [
   '0815.ru',
   '0clickemail.com',
   '10minutemail.com',
@@ -173,14 +172,14 @@ const REMOTE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // refresh the live list once a
 const REMOTE_RETRY_DELAY_MS = 10 * 60 * 1000; // after a failed fetch, don't retry for 10 minutes
 const REMOTE_FETCH_TIMEOUT_MS = 5000;
 
-let remoteDomains = null; // Set of domains from the live list (null until first successful fetch)
+let remoteDomains: Set<string> | null = null; // Set of domains from the live list (null until first successful fetch)
 let remoteFetchedAt = 0; // last successful fetch
 let remoteLastAttempt = 0; // last attempt, successful or not
 
 /**
  * Extracts the lowercased domain from an email, or null for garbage input.
  */
-function emailDomain(email) {
+function emailDomain(email: unknown): string | null {
   if (!email || typeof email !== 'string') return null;
   const at = email.lastIndexOf('@');
   if (at === -1) return null;
@@ -196,7 +195,7 @@ function emailDomain(email) {
  * (sub.mailinator.com matches mailinator.com). Walks the labels instead of
  * scanning the set, so it stays O(labels) against 100k+ entries.
  */
-function domainInSet(domain, set) {
+function domainInSet(domain: string, set: Set<string> | null) {
   if (!set) return false;
   const labels = domain.split('.');
   for (let i = 0; i < labels.length - 1; i++) {
@@ -226,7 +225,7 @@ async function refreshRemoteDomains() {
     remoteDomains = new Set(domains);
     remoteFetchedAt = now;
   } catch (err) {
-    console.error('Disposable email live list fetch failed (using bundled lists):', err.message);
+    console.error('Disposable email live list fetch failed (using bundled lists):', (err as Error).message);
   }
 }
 
@@ -234,10 +233,8 @@ async function refreshRemoteDomains() {
  * True if an email belongs to a known disposable / temp-mail provider, checked
  * against the bundled lists only (synchronous; used by tests and as the
  * fallback layer).
- * @param {string} email
- * @returns {boolean}
  */
-function isDisposableEmail(email) {
+export function isDisposableEmail(email: unknown): boolean {
   const domain = emailDomain(email);
   if (!domain) return false;
   return domainInSet(domain, BUNDLED_DOMAINS);
@@ -248,15 +245,11 @@ function isDisposableEmail(email) {
  * against the bundled lists plus the daily-updated live list. Never throws and
  * never blocks signup on a network failure — worst case it degrades to the
  * bundled coverage.
- * @param {string} email
- * @returns {Promise<boolean>}
  */
-async function isDisposableEmailLive(email) {
+export async function isDisposableEmailLive(email: unknown): Promise<boolean> {
   const domain = emailDomain(email);
   if (!domain) return false;
   if (domainInSet(domain, BUNDLED_DOMAINS)) return true;
   await refreshRemoteDomains();
   return domainInSet(domain, remoteDomains);
 }
-
-module.exports = { isDisposableEmail, isDisposableEmailLive, HAND_BLOCKED_DOMAINS };

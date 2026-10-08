@@ -1,23 +1,34 @@
-'use strict';
 // Everything a player changes about an existing account: username
 // availability, display-name changes, the one-off username migration, and
 // cosmetic purchases. Split out of users.js when it passed the 600-line limit.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ADMIN_UID, NAME_CHANGE_COST, NAME_CHANGE_COOLDOWN_MS, COSMETIC_CATALOG } = require('../shared/constants');
-const {
-  isBannedUsername,
-  isTargetedHarassment,
-  containsProfanity,
-  validateUsernameFormat,
-  touchLastActive,
-  reportError,
-} = require('../shared/helpers');
+import { NAME_CHANGE_COST, NAME_CHANGE_COOLDOWN_MS, COSMETIC_CATALOG, TWENTY_FOUR_HOURS_MS } from '../shared/constants';
+import { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat } from '../shared/usernames';
+import { touchLastActive } from '../shared/activity';
+import { reportError } from '../shared/sentry';
+import type { UserData } from '../shared/types';
+
+/** One account in a name group, for the username backfill. */
+interface NameEntry {
+  uid: string;
+  displayName: string;
+  currentLower: string | null;
+  createdAtMs: number;
+  portfolioValue: number;
+  isBot: boolean;
+}
+
+/** Profile fields the name and cosmetics callables read. */
+type ProfileUser = UserData & {
+  displayNameLower?: string;
+  nameChangedAt?: admin.firestore.Timestamp;
+  ownedCosmetics?: string[];
+};
 
 /**
  * Migrates existing users to the usernames collection.
@@ -25,23 +36,31 @@ const {
  *
  * @returns {Object} - { migrated: number, conflicts: Array, errors: Array }
  */
-exports.migrateUsernames = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Only admin can run this.');
-  }
+export const migrateUsernames = cf().https.onCall(async (data: { dryRun?: unknown } | null, context) => {
+  requireAdmin(context, 'Only admin can run this.');
 
   const dryRun = data && data.dryRun === true;
-  const results = { scanned: 0, usersUpdated: 0, reservationsWritten: 0, conflicts: [], errors: [], dryRun };
+  const results = {
+    scanned: 0,
+    usersUpdated: 0,
+    reservationsWritten: 0,
+    conflicts: [] as {
+      username: string;
+      keep: { uid: string; displayName: string; portfolioValue: number };
+      rename: { uid: string; displayName: string; portfolioValue: number; isBot: boolean }[];
+    }[],
+    errors: [] as { uid: string; error: string }[],
+    dryRun,
+  };
 
   try {
     const usersSnapshot = await db.collection('users').get();
     results.scanned = usersSnapshot.size;
 
     // Group every account by the lowercase form of its display name.
-    const groups = new Map(); // lower -> [{ uid, displayName, currentLower, createdAtMs, portfolioValue, isBot }]
+    const groups = new Map<string, NameEntry[]>(); // lower -> [{ uid, displayName, currentLower, createdAtMs, portfolioValue, isBot }]
     usersSnapshot.forEach((docSnap) => {
-      const u = docSnap.data();
+      const u = docSnap.data() as ProfileUser;
       if (!u.displayName || typeof u.displayName !== 'string') {
         results.errors.push({ uid: docSnap.id, error: 'No displayName' });
         return;
@@ -50,15 +69,15 @@ exports.migrateUsernames = cf().https.onCall(async (data, context) => {
 
       // Normalize createdAt to millis so the oldest account wins the name.
       let createdAtMs = Infinity;
-      const c = u.createdAt;
+      const c = u.createdAt as { toMillis?: () => number; _seconds?: number } | number | undefined;
       if (c) {
-        if (typeof c.toMillis === 'function') createdAtMs = c.toMillis();
+        if (typeof c !== 'number' && typeof c.toMillis === 'function') createdAtMs = c.toMillis();
         else if (typeof c === 'number') createdAtMs = c;
         else if (typeof c._seconds === 'number') createdAtMs = c._seconds * 1000;
       }
 
       if (!groups.has(lower)) groups.set(lower, []);
-      groups.get(lower).push({
+      groups.get(lower)!.push({
         uid: docSnap.id,
         displayName: u.displayName,
         currentLower: u.displayNameLower || null,
@@ -71,7 +90,7 @@ exports.migrateUsernames = cf().https.onCall(async (data, context) => {
     // Build all writes, committing in chunks well under Firestore's 500/batch cap.
     let batch = db.batch();
     let ops = 0;
-    const flush = async (force) => {
+    const flush = async (force: boolean) => {
       if (ops === 0) return;
       if (force || ops >= 450) {
         if (!dryRun) await batch.commit();
@@ -82,8 +101,10 @@ exports.migrateUsernames = cf().https.onCall(async (data, context) => {
 
     for (const [lower, entries] of groups) {
       // Rightful owner: prefer a real account over a bot, then the oldest, then uid.
-      entries.sort((a, b) => a.isBot - b.isBot || a.createdAtMs - b.createdAtMs || a.uid.localeCompare(b.uid));
-      const keeper = entries[0];
+      entries.sort(
+        (a, b) => Number(a.isBot) - Number(b.isBot) || a.createdAtMs - b.createdAtMs || a.uid.localeCompare(b.uid),
+      );
+      const keeper = entries[0]!;
 
       // Reserve (or repoint) the name to the keeper. A clean set, not a merge, so a
       // reservation a newer duplicate grabbed gets handed back to the rightful owner.
@@ -147,7 +168,7 @@ exports.migrateUsernames = cf().https.onCall(async (data, context) => {
     };
   } catch (error) {
     reportError(error, { where: 'migrateUsernames' });
-    throw new functions.https.HttpsError('internal', 'Backfill failed: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Backfill failed: ' + (error as Error).message);
   }
 });
 
@@ -158,7 +179,7 @@ exports.migrateUsernames = cf().https.onCall(async (data, context) => {
  * @param {string} displayName - The username to check
  * @returns {Object} - { available: boolean }
  */
-exports.checkUsername = cf().https.onCall(async (data, context) => {
+export const checkUsername = cf().https.onCall(async (data: { displayName?: unknown }, context) => {
   requireAppCheck(context);
   const displayName = data.displayName;
 
@@ -196,7 +217,7 @@ exports.checkUsername = cf().https.onCall(async (data, context) => {
   };
 });
 
-exports.changeDisplayName = cf().https.onCall(async (data, context) => {
+export const changeDisplayName = cf().https.onCall(async (data: { displayName?: unknown }, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -233,7 +254,7 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
   // name. Best-effort pre-check; the reservation doc read inside the transaction
   // is the authoritative uniqueness guard.
   const dupSnap = await db.collection('users').where('displayNameLower', '==', newNameLower).limit(1).get();
-  if (!dupSnap.empty && dupSnap.docs[0].id !== uid)
+  if (!dupSnap.empty && dupSnap.docs[0]!.id !== uid)
     throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
 
   // Single transaction so the $10k cost, the cooldown, and the username
@@ -243,7 +264,7 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
 
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as ProfileUser;
     if (userData.isBot || userData.isBanned)
       throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
 
@@ -251,7 +272,7 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
     if (userData.nameChangedAt) {
       const msSinceChange = Date.now() - userData.nameChangedAt.toMillis();
       if (msSinceChange < NAME_CHANGE_COOLDOWN_MS) {
-        const daysLeft = Math.ceil((NAME_CHANGE_COOLDOWN_MS - msSinceChange) / (24 * 60 * 60 * 1000));
+        const daysLeft = Math.ceil((NAME_CHANGE_COOLDOWN_MS - msSinceChange) / TWENTY_FOUR_HOURS_MS);
         throw new functions.https.HttpsError(
           'failed-precondition',
           `You can change your name again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
@@ -288,12 +309,12 @@ exports.changeDisplayName = cf().https.onCall(async (data, context) => {
   });
 });
 
-exports.purchaseCosmetic = cf().https.onCall(async (data, context) => {
+export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: string } | null, context) => {
   requireAppCheck(context);
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
   const { cosmeticId } = data || {};
-  const cosmetic = COSMETIC_CATALOG[cosmeticId];
+  const cosmetic = (COSMETIC_CATALOG as Record<string, { type: string; price: number }>)[cosmeticId as string];
   if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
 
   const uid = context.auth.uid;
@@ -306,10 +327,10 @@ exports.purchaseCosmetic = cf().https.onCall(async (data, context) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data() as ProfileUser;
     if (userData.isBot || userData.isBanned)
       throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
-    if ((userData.ownedCosmetics || []).includes(cosmeticId))
+    if ((userData.ownedCosmetics || []).includes(cosmeticId as string))
       throw new functions.https.HttpsError('already-exists', 'You already own this cosmetic.');
     if ((userData.cash || 0) < cosmetic.price)
       throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');

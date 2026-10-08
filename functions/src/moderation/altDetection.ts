@@ -1,4 +1,3 @@
-'use strict';
 // Proactive alt-account detection.
 //
 // Why this file exists: watchlist.js can only follow accounts an admin already
@@ -18,13 +17,12 @@
 // Cost: one scheduled pass reads ALT_SCAN_WINDOW_DAYS of trades (a few thousand
 // reads) and writes one state doc. It adds nothing to the trade path itself.
 
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const {
-  ADMIN_UID,
+import {
   ALT_SCAN_WINDOW_DAYS,
   ALT_SCAN_MAX_TRADES,
   ALT_CROWDED_NETWORK_LIMIT,
@@ -32,15 +30,30 @@ const {
   ALT_REALERT_MS,
   ALT_STATE_TTL_MS,
   ADMIN_DISCORD_USER_ID,
-} = require('../shared/constants');
-const { sendDiscordDM, reportError, networkKey, recordHeartbeat } = require('../shared/helpers');
+  TWENTY_FOUR_HOURS_MS,
+} from '../shared/constants';
+import { sendDiscordDM } from '../shared/discordApi';
+import { reportError } from '../shared/sentry';
+import { networkKey } from '../shared/accountGuards';
+import { recordHeartbeat } from '../shared/activity';
+import type { UserData } from '../shared/types';
+
+/** Two accounts seen on the same connections. */
+interface PairFinding {
+  key: string;
+  uids: [string, string];
+  sharedNetworks: number;
+  exclusiveNetworks: number;
+  severity: 'high' | 'medium';
+  networks: string[];
+}
 
 const STATE_REF = () => db.collection('altDetection').doc('state');
 
-const pairKey = (a, b) => [a, b].sort().join('|');
+const pairKey = (a: string, b: string) => [a, b].sort().join('|');
 // Firestore map keys can't contain '/', and a uid pair joined by '|' is safe
 // once the slashes from the network suffix are gone.
-const safeKey = (k) => k.replace(/[./]/g, '_');
+const safeKey = (k: string) => k.replace(/[./]/g, '_');
 
 /**
  * The scan itself, split out so both the schedule and the admin "run now"
@@ -51,7 +64,7 @@ const safeKey = (k) => k.replace(/[./]/g, '_');
  */
 async function runAltScan({ dryRun = false } = {}) {
   const now = Date.now();
-  const cutoff = new Date(now - ALT_SCAN_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const cutoff = new Date(now - ALT_SCAN_WINDOW_DAYS * TWENTY_FOUR_HOURS_MS);
 
   // Newest-first: an inequality query defaults to ASCENDING on that field, so
   // the limit was trimming the recent end of the window rather than the far end.
@@ -64,34 +77,42 @@ async function runAltScan({ dryRun = false } = {}) {
     .get();
 
   // network -> Set(uid), and uid -> Set(network)
-  const accountsByNetwork = new Map();
-  const networksByAccount = new Map();
+  const accountsByNetwork = new Map<string, Set<string>>();
+  const networksByAccount = new Map<string, Set<string>>();
 
   snap.forEach((doc) => {
     const { uid, ip } = doc.data();
     const key = networkKey(ip);
     if (!uid || !key) return;
     if (!accountsByNetwork.has(key)) accountsByNetwork.set(key, new Set());
-    accountsByNetwork.get(key).add(uid);
+    accountsByNetwork.get(key)!.add(uid);
     if (!networksByAccount.has(uid)) networksByAccount.set(uid, new Set());
-    networksByAccount.get(uid).add(key);
+    networksByAccount.get(uid)!.add(key);
   });
 
   // Build candidate pairs from every network that carried more than one account.
   // Networks shared by a crowd are recorded but not counted as evidence on their
   // own — a school or a mobile carrier legitimately puts strangers together.
-  const pairs = new Map();
+  const pairs = new Map<
+    string,
+    {
+      uids: [string, string];
+      networks: { network: string; accounts: number }[];
+      exclusive: number;
+      crowdedOnly: boolean;
+    }
+  >();
   for (const [network, uids] of accountsByNetwork) {
     if (uids.size < 2) continue;
     const crowded = uids.size > ALT_CROWDED_NETWORK_LIMIT;
     const list = [...uids];
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
-        const key = pairKey(list[i], list[j]);
+        const key = pairKey(list[i]!, list[j]!);
         if (!pairs.has(key)) {
-          pairs.set(key, { uids: [list[i], list[j]], networks: [], exclusive: 0, crowdedOnly: true });
+          pairs.set(key, { uids: [list[i]!, list[j]!], networks: [], exclusive: 0, crowdedOnly: true });
         }
-        const p = pairs.get(key);
+        const p = pairs.get(key)!;
         p.networks.push({ network, accounts: uids.size });
         if (uids.size === 2) p.exclusive++;
         if (!crowded) p.crowdedOnly = false;
@@ -101,7 +122,7 @@ async function runAltScan({ dryRun = false } = {}) {
 
   // Score what's left. A pair that only ever met on crowded infrastructure is
   // dropped entirely — that is the false-positive factory.
-  const findings = [];
+  const findings: PairFinding[] = [];
   for (const [key, p] of pairs) {
     if (p.crowdedOnly) continue;
     const solid = p.networks.filter((n) => n.accounts <= ALT_CROWDED_NETWORK_LIMIT);
@@ -116,7 +137,9 @@ async function runAltScan({ dryRun = false } = {}) {
     });
   }
 
-  findings.sort((a, b) => (b.severity === 'high') - (a.severity === 'high') || b.sharedNetworks - a.sharedNetworks);
+  findings.sort(
+    (a, b) => Number(b.severity === 'high') - Number(a.severity === 'high') || b.sharedNetworks - a.sharedNetworks,
+  );
 
   if (!findings.length) {
     return { scanned: snap.size, candidates: 0, reported: 0, findings: [] };
@@ -128,20 +151,26 @@ async function runAltScan({ dryRun = false } = {}) {
   const userDocs = await db.getAll(...uidsNeeded.map((uid) => db.collection('users').doc(uid)), {
     fieldMask: ['displayName', 'isBot', 'isBanned', 'crew', 'portfolioValue', 'holdings'],
   });
-  const users = new Map();
+  const users = new Map<string, UserData>();
   userDocs.forEach((d) => {
-    if (d.exists) users.set(d.id, d.data());
+    if (d.exists) users.set(d.id, d.data() as UserData);
   });
 
-  const enriched = [];
+  const enriched: (PairFinding & {
+    names: string[];
+    sameCrew: boolean;
+    sharedTickers: string[];
+    combinedValue: number;
+    alreadyBanned: boolean | undefined;
+  })[] = [];
   for (const f of findings) {
     const [a, b] = f.uids.map((uid) => users.get(uid));
     if (!a || !b) continue;
     if (a.isBot || b.isBot) continue; // bots share the server's address
     if (a.isBanned && b.isBanned) continue; // already dealt with
 
-    const holdingsA = Object.keys(a.holdings || {}).filter((t) => a.holdings[t] > 0);
-    const holdingsB = new Set(Object.keys(b.holdings || {}).filter((t) => b.holdings[t] > 0));
+    const holdingsA = Object.keys(a.holdings || {}).filter((t) => a.holdings![t]! > 0);
+    const holdingsB = new Set(Object.keys(b.holdings || {}).filter((t) => b.holdings![t]! > 0));
     const sharedTickers = holdingsA.filter((t) => holdingsB.has(t));
 
     enriched.push({
@@ -161,14 +190,14 @@ async function runAltScan({ dryRun = false } = {}) {
   // Only report pairs we haven't already nagged about recently, so the alert
   // list stays a list of news rather than the same two names every night.
   const stateSnap = await STATE_REF().get();
-  const seen = (stateSnap.exists ? stateSnap.data().pairs : null) || {};
+  const seen: Record<string, number> = (stateSnap.exists ? stateSnap.data()!.pairs : null) || {};
 
   const fresh = enriched.filter((f) => {
     const last = seen[safeKey(f.key)];
     return !last || now - last > ALT_REALERT_MS;
   });
 
-  const nextSeen = {};
+  const nextSeen: Record<string, number> = {};
   for (const [k, ts] of Object.entries(seen)) {
     if (now - ts < ALT_STATE_TTL_MS) nextSeen[k] = ts;
   }
@@ -248,7 +277,7 @@ async function runAltScan({ dryRun = false } = {}) {
  * Nightly sweep. 04:00 UTC — outside the Thursday halt window and away from the
  * market-open jobs, so it never competes with anything that has to be on time.
  */
-exports.scanForAltAccounts = cf({ timeoutSeconds: 540, memory: '1GB' })
+export const scanForAltAccounts = cf({ timeoutSeconds: 540, memory: '1GB' })
   .pubsub.schedule('0 4 * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -266,22 +295,18 @@ exports.scanForAltAccounts = cf({ timeoutSeconds: 540, memory: '1GB' })
 /**
  * Admin "run now". Pass dryRun to look without writing alerts or pinging.
  */
-exports.triggerAltScan = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
-  return runAltScan({ dryRun: !!(data && data.dryRun) });
-});
+export const triggerAltScan = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(
+  async (data: { dryRun?: unknown } | null, context) => {
+    requireAdmin(context, 'Admin only.');
+    return runAltScan({ dryRun: !!(data && data.dryRun) });
+  },
+);
 
 /**
  * Marks an alert as dealt with so it stops counting toward the admin badge.
  */
-exports.reviewWatchlistAlert = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const reviewWatchlistAlert = cf().https.onCall(async (data: { alertId?: unknown } | null, context) => {
+  requireAdmin(context, 'Admin only.');
   const { alertId } = data || {};
   if (!alertId || typeof alertId !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'alertId required');
