@@ -73,7 +73,6 @@ export default tseslint.config(
     files: [
       'src/App.{jsx,tsx}',
       'src/components/MarketIndex.{jsx,tsx}',
-      'src/components/modals/AboutModal.{jsx,tsx}',
       'src/pages/LeaderboardPage.{jsx,tsx}',
       'src/pages/StockPage.{jsx,tsx}',
     ],
