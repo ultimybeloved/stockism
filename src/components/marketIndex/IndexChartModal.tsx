@@ -1,148 +1,31 @@
-import { useState, useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import SimpleLineChart from './charts/SimpleLineChart';
-import { db } from '../firebase';
-import { getThemeClasses } from '../utils/theme';
-import { nonETFCharacters, TIME_RANGES, computeIndex, buildIndexSeries } from '../utils/marketIndex';
+import { getThemeClasses } from '../../utils/theme';
+import { TIME_RANGES } from '../../utils/marketIndex';
 
-const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode }) => {
-  const [expanded, setExpanded] = useState(false);
-  const [timeRange, setTimeRange] = useState('7d');
-  const [hoveredPoint, setHoveredPoint] = useState(null);
+export interface IndexPoint {
+  timestamp: number;
+  price: number;
+}
 
-  const { cardClass } = getThemeClasses(darkMode);
+export interface IndexHoverPoint {
+  price: number;
+  x: number;
+  y: number;
+  fullDate: string;
+}
 
-  // One read of market/indexHistory supplies both the 30-day reference point and
-  // the divisor. Without the divisor the live number would drift away from the
-  // recorded series the moment a character joins the roster.
-  const [index30dAgo, setIndex30dAgo] = useState(null);
-  const [divisor, setDivisor] = useState(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'market', 'indexHistory'));
-        if (cancelled || !snap.exists()) return;
-        const data = snap.data();
-        if (data.divisor > 0) setDivisor(data.divisor);
-        const hist = data.history || [];
-        if (hist.length === 0) return;
-        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        let ref = null;
-        for (let i = hist.length - 1; i >= 0; i--) {
-          if (hist[i].t <= cutoff) {
-            ref = hist[i];
-            break;
-          }
-        }
-        if (!ref) ref = hist[0];
-        if (!cancelled) setIndex30dAgo(ref.v);
-      } catch {
-        /* leave null — 30d line just hides, index falls back to the average */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+interface IndexChartModalProps {
+  chartData: IndexPoint[];
+  currentIndex: number;
+  timeRange: string;
+  setTimeRange: (key: string) => void;
+  hoveredPoint: IndexHoverPoint | null;
+  setHoveredPoint: (point: IndexHoverPoint | null) => void;
+  darkMode: boolean;
+  colorBlindMode: boolean;
+  onClose: () => void;
+}
 
-  const currentIndex = useMemo(() => computeIndex(prices, nonETFCharacters, divisor), [prices, divisor]);
-
-  // 24h sparkline data
-  const { change24h, changePct24h, sparklineData } = useMemo(() => {
-    const points = buildIndexSeries(priceHistory, currentIndex, 24, divisor);
-    if (points.length === 0) return { change24h: 0, changePct24h: 0, sparklineData: [] };
-    const idx24hAgo = points[0].price;
-    const change = currentIndex - idx24hAgo;
-    const pct = idx24hAgo !== 0 ? (change / idx24hAgo) * 100 : 0;
-    return { change24h: change, changePct24h: pct, sparklineData: points };
-  }, [priceHistory, currentIndex, divisor]);
-
-  // Expanded chart data
-  const chartData = useMemo(() => {
-    if (!expanded) return [];
-    const range = TIME_RANGES.find((r) => r.key === timeRange);
-    return buildIndexSeries(priceHistory, currentIndex, range.hours, divisor);
-  }, [expanded, timeRange, priceHistory, currentIndex, divisor]);
-
-  const isUp = change24h >= 0;
-  const upColor = colorBlindMode ? 'text-teal-400' : 'text-green-500';
-  const downColor = colorBlindMode ? 'text-purple-400' : 'text-red-500';
-  const changeColor = isUp ? upColor : downColor;
-  const change30dPct =
-    index30dAgo != null && index30dAgo > 0 ? ((currentIndex - index30dAgo) / index30dAgo) * 100 : null;
-  const thirtyIsUp = (change30dPct ?? 0) >= 0;
-  const thirtyColor = thirtyIsUp ? upColor : downColor;
-
-  return (
-    <>
-      {/* Banner card */}
-      <div
-        className={`${cardClass} border rounded-sm p-4 mb-4 cursor-pointer hover:border-orange-600 transition-colors`}
-        onClick={() => setExpanded(true)}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div
-              className={`text-xs font-semibold tracking-wider mb-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
-            >
-              STOCKISM MARKET INDEX
-            </div>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
-                {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className={`text-sm font-semibold ${changeColor}`}>
-                {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}
-                {change24h.toFixed(2)} ({isUp ? '+' : ''}
-                {changePct24h.toFixed(2)}%) 24h
-              </span>
-            </div>
-            {change30dPct != null && (
-              <div className={`text-xs mt-0.5 ${thirtyColor}`}>
-                {thirtyIsUp ? '\u2191' : '\u2193'} {Math.abs(change30dPct).toFixed(2)}% 30d
-              </div>
-            )}
-          </div>
-          {sparklineData.length >= 2 && (
-            <div className="w-full sm:w-40 h-10 flex-shrink-0">
-              <SimpleLineChart
-                data={sparklineData}
-                darkMode={darkMode}
-                colorBlindMode={colorBlindMode}
-                width={160}
-                height={40}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded chart modal — portaled to body so the sticky sidebar's
-          stacking context can't layer it under the market column */}
-      {expanded &&
-        createPortal(
-          <IndexChartModal
-            chartData={chartData}
-            currentIndex={currentIndex}
-            timeRange={timeRange}
-            setTimeRange={setTimeRange}
-            hoveredPoint={hoveredPoint}
-            setHoveredPoint={setHoveredPoint}
-            darkMode={darkMode}
-            colorBlindMode={colorBlindMode}
-            onClose={() => {
-              setExpanded(false);
-              setHoveredPoint(null);
-            }}
-          />,
-          document.body,
-        )}
-    </>
-  );
-};
-
+// The market index's full chart: range picker, area chart, and hover readout.
 const IndexChartModal = ({
   chartData,
   currentIndex,
@@ -153,7 +36,7 @@ const IndexChartModal = ({
   darkMode,
   colorBlindMode,
   onClose,
-}) => {
+}: IndexChartModalProps) => {
   const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
 
   if (chartData.length < 2) return null;
@@ -163,8 +46,9 @@ const IndexChartModal = ({
   const maxVal = Math.max(...indexValues);
   const valRange = maxVal - minVal || 1;
 
-  const firstVal = chartData[0].price;
-  const lastVal = chartData[chartData.length - 1].price;
+  // Two or more points from here on (checked above).
+  const firstVal = chartData[0]!.price;
+  const lastVal = chartData[chartData.length - 1]!.price;
   const periodChange = firstVal > 0 ? ((lastVal - firstVal) / firstVal) * 100 : 0;
   const isUp = lastVal >= firstVal;
 
@@ -184,12 +68,12 @@ const IndexChartModal = ({
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingY * 2;
 
-  const firstTs = chartData[0].timestamp;
-  const lastTs = chartData[chartData.length - 1].timestamp;
+  const firstTs = chartData[0]!.timestamp;
+  const lastTs = chartData[chartData.length - 1]!.timestamp;
   const timeSpan = lastTs - firstTs || 1;
 
-  const getX = (ts) => paddingX + ((ts - firstTs) / timeSpan) * chartWidth;
-  const getY = (val) => paddingY + chartHeight - ((val - minVal) / valRange) * chartHeight;
+  const getX = (ts: number) => paddingX + ((ts - firstTs) / timeSpan) * chartWidth;
+  const getY = (val: number) => paddingY + chartHeight - ((val - minVal) / valRange) * chartHeight;
 
   const pathData = chartData
     .map((d, i) => {
@@ -359,14 +243,14 @@ const IndexChartModal = ({
                 const rect = e.currentTarget.getBoundingClientRect();
                 const mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
 
-                let leftPoint = null;
-                let rightPoint = null;
+                let leftPoint: IndexPoint | null = null;
+                let rightPoint: IndexPoint | null = null;
                 for (let i = 0; i < chartData.length - 1; i++) {
-                  const x1 = getX(chartData[i].timestamp);
-                  const x2 = getX(chartData[i + 1].timestamp);
-                  if (mouseX >= x1 && mouseX <= x2) {
-                    leftPoint = chartData[i];
-                    rightPoint = chartData[i + 1];
+                  const left = chartData[i]!;
+                  const right = chartData[i + 1]!;
+                  if (mouseX >= getX(left.timestamp) && mouseX <= getX(right.timestamp)) {
+                    leftPoint = left;
+                    rightPoint = right;
                     break;
                   }
                 }
@@ -451,4 +335,4 @@ const IndexChartModal = ({
   );
 };
 
-export default MarketIndex;
+export default IndexChartModal;
