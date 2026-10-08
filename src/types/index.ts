@@ -2,8 +2,8 @@
 // the app reads (market/current, users/{uid}, ...) and the shapes passed between
 // hooks and components. Fields are added here as files are converted; anything
 // not listed yet is reachable through the index signatures on the doc types.
-
 import type { HoldingCohort } from '../characters';
+import type { DailyProgress, WeeklyProgress } from '../utils/missionProgress';
 import type { SeasonBaseline, SeasonWeekRecord } from '../utils/seasonWeeks';
 
 /** users/{uid}.seasonBaseline: the player's numbers when the season pinned them. */
@@ -199,8 +199,8 @@ export interface UserData {
   ownedShopPins?: string[];
   isCrewHead?: boolean;
   holdingCohorts?: Record<Ticker, HoldingCohort>;
-  dailyMissions?: Record<string, MissionDayState>;
-  weeklyMissions?: Record<string, MissionDayState & { rerolled?: boolean; rerollSeed?: number }>;
+  dailyMissions?: Record<string, MissionDayState & DailyProgress>;
+  weeklyMissions?: Record<string, MissionDayState & WeeklyProgress & { rerolled?: boolean; rerollSeed?: number }>;
   checkinStreak?: number;
   /** Best check-in streak ever reached. */
   maxCheckinStreak?: number;

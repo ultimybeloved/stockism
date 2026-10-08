@@ -21,21 +21,28 @@ const CHECKS = [
   'I accept full responsibility for my margin trades',
 ];
 
-const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
+interface MarginTutorialModalProps {
+  onClose: () => void;
+  /** Not needed when re-reading the guide (reviewMode). */
+  onComplete?: () => void;
+  reviewMode?: boolean;
+}
+
+const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: MarginTutorialModalProps) => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const [step, setStep] = useState(1);
-  const [checks, setChecks] = useState(Array(CHECKS.length).fill(false));
+  const [checks, setChecks] = useState<boolean[]>(Array(CHECKS.length).fill(false));
   const [confirmText, setConfirmText] = useState('');
 
   const allChecked = checks.every(Boolean);
   const confirmValid = confirmText.trim().toUpperCase() === 'MARGIN';
   const canFinish = allChecked && confirmValid;
 
-  const toggleCheck = (i) => setChecks((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
+  const toggleCheck = (i: number) => setChecks((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
 
   const handleComplete = () => {
-    onComplete();
+    onComplete?.();
     onClose();
   };
 
@@ -48,7 +55,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
             <p className={`text-xs font-semibold tracking-wide ${mutedClass}`}>
               {reviewMode ? 'MARGIN SAFETY GUIDE' : 'REQUIRED READING: MARGIN TRADING'}
             </p>
-            <h2 className={`text-base font-bold ${textClass} mt-0.5`}>{STEPS[step - 1].title}</h2>
+            <h2 className={`text-base font-bold ${textClass} mt-0.5`}>{STEPS[step - 1]?.title}</h2>
           </div>
           <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl leading-none`}>
             ×

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
+import type { FirebaseError } from 'firebase/app';
 import {
   signInWithPopup,
   signInWithEmailAndPassword,
@@ -10,7 +11,12 @@ import {
 import { auth, googleProvider, twitterProvider } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';
 
-const LoginModal = ({ onClose, darkMode }) => {
+interface LoginModalProps {
+  onClose: () => void;
+  darkMode: boolean;
+}
+
+const LoginModal = ({ onClose, darkMode }: LoginModalProps) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -28,7 +34,8 @@ const LoginModal = ({ onClose, darkMode }) => {
       // Don't close modal - let the username modal appear if needed
       // The auth state listener will handle the flow
       onClose();
-    } catch (err) {
+    } catch (caught) {
+      const err = caught as FirebaseError;
       if (err.code === 'auth/popup-closed-by-user') {
         // User closed popup, not an error
       } else if (err.code === 'auth/unauthorized-domain') {
@@ -46,7 +53,8 @@ const LoginModal = ({ onClose, darkMode }) => {
     try {
       await signInWithPopup(auth, twitterProvider);
       onClose();
-    } catch (err) {
+    } catch (caught) {
+      const err = caught as FirebaseError;
       if (err.code === 'auth/popup-closed-by-user') {
         // User closed popup, not an error
       } else if (err.code === 'auth/unauthorized-domain') {
@@ -67,7 +75,7 @@ const LoginModal = ({ onClose, darkMode }) => {
     window.location.href = discordAuthUrl;
   };
 
-  const handleEmailSubmit = async (e) => {
+  const handleEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
@@ -106,7 +114,8 @@ const LoginModal = ({ onClose, darkMode }) => {
         await signInWithEmailAndPassword(auth, email, password);
       }
       onClose();
-    } catch (err) {
+    } catch (caught) {
+      const err = caught as FirebaseError;
       if (err.code === 'auth/user-not-found') setError('No account found with this email');
       else if (err.code === 'auth/wrong-password') setError('Incorrect password');
       else if (err.code === 'auth/invalid-credential') setError('Invalid email or password');
@@ -116,7 +125,7 @@ const LoginModal = ({ onClose, darkMode }) => {
     setLoading(false);
   };
 
-  const handlePasswordReset = async (e) => {
+  const handlePasswordReset = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMessage('');
@@ -132,7 +141,8 @@ const LoginModal = ({ onClose, darkMode }) => {
       await sendPasswordResetEmail(auth, email);
       setSuccessMessage('Password reset email sent! Check your inbox.');
       setEmail('');
-    } catch (err) {
+    } catch (caught) {
+      const err = caught as FirebaseError;
       if (err.code === 'auth/user-not-found') setError('No account found with this email');
       else if (err.code === 'auth/invalid-email') setError('Invalid email address');
       else setError(err.message);

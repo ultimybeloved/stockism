@@ -12,6 +12,22 @@ import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 
+type ClaimReward = (missionId: string, reward: number) => unknown;
+type MissionTab = 'daily' | 'weekly' | 'crew';
+
+interface DailyMissionsModalProps {
+  onClose: () => void;
+  onClaimReward: ClaimReward;
+  onClaimWeeklyReward: ClaimReward;
+  onRerollMissions: () => unknown;
+  onOpenCrewSelection: () => void;
+  portfolioValue: number;
+  isGuest?: boolean;
+  claimLoading?: boolean;
+  claimWeeklyLoading?: boolean;
+  rerollLoading?: boolean;
+}
+
 const DailyMissionsModal = ({
   onClose,
   onClaimReward,
@@ -23,10 +39,10 @@ const DailyMissionsModal = ({
   claimLoading,
   claimWeeklyLoading,
   rerollLoading,
-}) => {
+}: DailyMissionsModalProps) => {
   useEscapeKey(onClose);
   const { darkMode, userData, prices, crewStats } = useAppContext();
-  const [activeTab, setActiveTab] = useState('daily');
+  const [activeTab, setActiveTab] = useState<MissionTab>('daily');
 
   const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } =
     getThemeClasses(darkMode);
@@ -44,7 +60,7 @@ const DailyMissionsModal = ({
 
   // Underdog bonus: rewards shown (and paid by the server) are the base
   // amounts times this week's crew multiplier from market/crewStats.
-  const crewMultiplier = getCrewMultiplier(crewStats, userCrew);
+  const crewMultiplier = getCrewMultiplier(crewStats, userCrew ?? '');
 
   const todaysMissions = getDailyMissions(today, userCrew, rerollSeed);
 
