@@ -1,4 +1,9 @@
 // Extracted from RecoveryTab.jsx, which was past the 400-line component limit.
+import type { AdminCommonProps } from '../types';
+import type { useAdminRecoveryTools } from '../../../hooks/admin/useAdminRecoveryTools';
+import type { Character } from '../../../characters';
+import type { PriceMap } from '../../../types';
+
 const RecoveryTradeRollback = ({
   darkMode,
   textClass,
@@ -17,7 +22,13 @@ const RecoveryTradeRollback = ({
   rollbackConfirm,
   setRollbackConfirm,
   executeFullRollback,
-}) => (
+}: AdminCommonProps &
+  ReturnType<typeof useAdminRecoveryTools> & {
+    tradeFilterTicker: string;
+    setTradeFilterTicker: (ticker: string) => void;
+    sortedCharacters: Character[];
+    prices: PriceMap;
+  }) => (
   <div
     className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
   >

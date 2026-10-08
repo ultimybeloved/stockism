@@ -1,4 +1,7 @@
 // Extracted from RecoveryTab.jsx, which was past the 400-line component limit.
+import type { AdminCommonProps } from '../types';
+import type { useAdminSpikeRepair } from '../../../hooks/admin/useAdminSpikeRepair';
+
 const RecoverySpikeRepair = ({
   darkMode,
   textClass,
@@ -10,7 +13,7 @@ const RecoverySpikeRepair = ({
   handleScanSpikeVictims,
   handleRepairAllSpikeVictims,
   handleRepairSpikeVictim,
-}) => (
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & ReturnType<typeof useAdminSpikeRepair>) => (
   <div
     className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
   >
@@ -82,7 +85,7 @@ const RecoverySpikeRepair = ({
                     {v.totalTrades || 0} trades
                     {v.bankruptAt && <> · Bankrupt: {new Date(v.bankruptAt).toLocaleDateString()}</>}
                   </div>
-                  {v.tookBailout && v.holdingsCount > 0 && (
+                  {v.tookBailout && (v.holdingsCount ?? 0) > 0 && (
                     <div className={`text-xs mt-0.5 ${mutedClass}`}>
                       Holdings to restore: {v.holdingsCount} stocks
                       {v.holdingsToRestore && (

@@ -2,6 +2,16 @@ import { useMemo } from 'react';
 import { CHARACTERS, getDividendTier, computeRarityTiers } from '../../characters';
 import { DIVIDEND_RATES } from '../../constants/economy';
 
+import type { AdminCommonProps } from './types';
+import type { DividendRunLog, useAdminDividends } from '../../hooks/admin/useAdminDividends';
+import type { PriceMap } from '../../types';
+
+// A Firestore Timestamp until the run is written, then a Date.
+const runTime = (run: DividendRunLog): Date | null => {
+  const at = run.ranAt as { toDate?: () => Date } | undefined;
+  return at?.toDate ? at.toDate() : null;
+};
+
 const OVERRIDE_TIERS = ['legendary', 'epic', 'rare', 'uncommon', 'common', 'none'];
 
 const DividendsTab = ({
@@ -20,7 +30,7 @@ const DividendsTab = ({
   dividendOverrides,
   saveDividendTier,
   prices,
-}) => {
+}: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminDividends> & { prices: PriceMap }) => {
   const rarityTiers = useMemo(() => computeRarityTiers(CHARACTERS, prices), [prices]);
   return (
     <div className="space-y-4">
@@ -87,7 +97,7 @@ const DividendsTab = ({
           <div className="space-y-1">
             {dividendLastRuns.map((run) => (
               <div key={run.id} className={`text-xs ${mutedClass} flex gap-3`}>
-                <span>{run.ranAt?.toDate ? run.ranAt.toDate().toLocaleString() : 'pending'}</span>
+                <span>{runTime(run)?.toLocaleString() ?? 'pending'}</span>
                 <span className="uppercase">{run.source}</span>
                 <span>
                   {run.usersPaid} paid / {run.usersConsidered} considered

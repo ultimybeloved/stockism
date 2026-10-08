@@ -214,7 +214,9 @@ export const adminChangeDisplayNameFunction = callable<{ userId: string; display
   'adminChangeDisplayName',
 );
 // Admin: 30-day return distribution, for calibrating season tier thresholds
-export const adminReturnDistributionFunction = callable('adminReturnDistribution');
+export const adminReturnDistributionFunction = callable<Record<string, never>, Api.ReturnDistributionReport>(
+  'adminReturnDistribution',
+);
 // Seasons — standings are public; the rest are admin-only
 export const getSeasonStandingsFunction = callable('getSeasonStandings');
 export const adminStartSeasonFunction = callable<
@@ -237,8 +239,12 @@ export const adminRemoveCoordProfitFunction = callable<Api.RemoveCoordProfitRequ
   'adminRemoveCoordProfit',
 );
 // Season dry runs — the weekly rehearsal that runs while no season is on
-export const triggerSeasonDryRunFunction = callable('triggerSeasonDryRun');
-export const adminSeasonDryRunReportFunction = callable('adminSeasonDryRunReport');
+export const triggerSeasonDryRunFunction = callable<Record<string, never>, { ran?: boolean; reason?: string }>(
+  'triggerSeasonDryRun',
+);
+export const adminSeasonDryRunReportFunction = callable<Record<string, never>, Api.SeasonDryRunReport>(
+  'adminSeasonDryRunReport',
+);
 export const adminSetCrewFunction = callable<{ userId: string; crewId: string | null }, { unchanged?: boolean }>(
   'adminSetCrew',
 );
@@ -274,7 +280,7 @@ export const linkAltAccountFunction = callable<{ watchedUserId: string; altAccou
 export const addWatchedIPFunction = callable<{ userId: string; ip: string }>('addWatchedIP');
 export const getWatchlistFunction = callable<void, Api.WatchlistResponse>('getWatchlist');
 export const getIpTrackingHealthFunction = callable<void, Api.AdminReport>('getIpTrackingHealth');
-export const getRecentSignupReportFunction = callable<{ hoursBack: number }, Api.AdminReport>('getRecentSignupReport');
+export const getRecentSignupReportFunction = callable<{ hoursBack: number }, Api.SignupReport>('getRecentSignupReport');
 // Admin: proactive alt detection
 export const triggerAltScanFunction = callable<{ dryRun: boolean }, Api.AltScanResponse>('triggerAltScan');
 export const reviewWatchlistAlertFunction = callable<{ alertId: string }>('reviewWatchlistAlert');

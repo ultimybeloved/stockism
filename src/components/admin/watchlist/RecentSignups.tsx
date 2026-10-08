@@ -2,6 +2,9 @@
 // email + signup IP server-side) and shows them grouped by shared signup IP,
 // email domain, and normalized gmail identity, so a VPN + temp-mail burst stands
 // out as clusters. Ban / watch actions reuse the existing admin callables.
+import type { AdminCommonProps } from '../types';
+import type { SignupCluster, SignupMember, SignupReport } from '../../../api/types';
+
 const RecentSignups = ({
   darkMode,
   textClass,
@@ -14,8 +17,15 @@ const RecentSignups = ({
   loadRecentSignups,
   onBan,
   onWatch,
+}: AdminCommonProps & {
+  signupReport: SignupReport | null;
+  signupHours: number;
+  setSignupHours: (hours: number) => void;
+  loadRecentSignups: () => void;
+  onBan: (uid: string, displayName: string | undefined) => void;
+  onWatch: (uid: string, displayName: string | undefined) => void;
 }) => {
-  const fmtAge = (ms) => {
+  const fmtAge = (ms: number | undefined) => {
     if (!ms) return '';
     const mins = Math.round((Date.now() - ms) / 60000);
     if (mins < 60) return `${mins}m ago`;
@@ -27,7 +37,7 @@ const RecentSignups = ({
   const rowBg = darkMode ? 'bg-slate-800' : 'bg-white';
   const clusterBg = darkMode ? 'bg-slate-900/60' : 'bg-red-50';
 
-  const MemberRow = ({ m }) => (
+  const MemberRow = ({ m }: { m: SignupMember }) => (
     <div className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs p-1.5 rounded ${rowBg} ${mutedClass}`}>
       <span className={`font-semibold ${textClass}`}>{m.displayName}</span>
       {m.isBanned && <span className="px-1 rounded text-[10px] bg-red-500/20 text-red-400">banned</span>}
@@ -53,7 +63,7 @@ const RecentSignups = ({
     </div>
   );
 
-  const ClusterGroup = ({ title, label, clusters }) => (
+  const ClusterGroup = ({ title, label, clusters }: { title: string; label: string; clusters: SignupCluster[] }) => (
     <div className="mb-3">
       <div className={`text-xs font-bold mb-1 ${textClass}`}>{title}</div>
       {!clusters || clusters.length === 0 ? (

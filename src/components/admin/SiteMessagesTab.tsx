@@ -9,6 +9,9 @@ const TONES = [
   { id: 'alert', label: 'Urgent' },
 ];
 
+import type { AdminCommonProps } from './types';
+import type { useAdminSiteMessages } from '../../hooks/admin/useAdminSiteMessages';
+
 const SiteMessagesTab = ({
   darkMode,
   textClass,
@@ -24,7 +27,7 @@ const SiteMessagesTab = ({
   addSiteMessage,
   removeSiteMessage,
   moveSiteMessage,
-}) => {
+}: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminSiteMessages>) => {
   const active = siteMessagesList.filter((m) => m.active && m.text?.trim());
   const card = `p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`;
   const rowCard = `p-3 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`;

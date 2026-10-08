@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { adminReturnDistributionFunction } from '../../../firebase';
+import { errorMessage } from '../../../utils/errors';
+import type { AdminCommonProps } from '../types';
+import type { ReturnDistributionReport, ReturnDistributionRow } from '../../../api/types';
 
-const CUTS = [
+type Row = ReturnDistributionReport['overall'] & { id: string; label: string };
+
+const CUTS: [string, string][] = [
   ['top1', 'Top 1%'],
   ['top5', 'Top 5%'],
   ['top10', 'Top 10%'],
@@ -12,10 +17,14 @@ const CUTS = [
 // market over the same days. Season tiers are shares of the season board rather
 // than fixed targets, so this is a health check on the field, not a threshold
 // picker.
-const ReturnDistributionPanel = ({ darkMode, textClass, mutedClass }) => {
-  const [report, setReport] = useState(null);
+const ReturnDistributionPanel = ({
+  darkMode,
+  textClass,
+  mutedClass,
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'>) => {
+  const [report, setReport] = useState<ReturnDistributionReport | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const run = async () => {
     setLoading(true);
@@ -25,18 +34,31 @@ const ReturnDistributionPanel = ({ darkMode, textClass, mutedClass }) => {
       setReport(data);
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(errorMessage(err));
     }
     setLoading(false);
   };
 
-  const fmt = (v) => (v === null || v === undefined ? '-' : `${v > 0 ? '+' : ''}${v}%`);
+  const fmt = (v: number | null | undefined) => (v === null || v === undefined ? '-' : `${v > 0 ? '+' : ''}${v}%`);
   const cellClass = `px-2 py-1 text-right tabular-nums ${textClass}`;
-  const share = (n, of) => (of ? `${Math.round((n / of) * 100)}%` : '-');
+  const share = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : '-');
 
-  const rows = report ? [{ ...report.overall, label: 'All players', id: 'overall' }, ...report.divisions] : [];
+  const rows: Row[] = report ? [{ ...report.overall, label: 'All players', id: 'overall' }, ...report.divisions] : [];
 
-  const table = (title, { cuts, median, up, upLabel }) => (
+  const table = (
+    title: string,
+    {
+      cuts,
+      median,
+      up,
+      upLabel,
+    }: {
+      cuts: (r: Row) => Record<string, number | null> | undefined;
+      median: (r: Row) => number | null | undefined;
+      up: (r: Row) => number;
+      upLabel: string;
+    },
+  ) => (
     <div className="overflow-x-auto mt-3">
       <p className={`text-xs font-semibold ${textClass} mb-1`}>{title}</p>
       <table className="w-full text-xs">
@@ -80,7 +102,6 @@ const ReturnDistributionPanel = ({ darkMode, textClass, mutedClass }) => {
   );
 
   const cov = report?.grantCoverage;
-  const skipped = report?.skipped;
 
   return (
     <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
@@ -119,9 +140,9 @@ const ReturnDistributionPanel = ({ darkMode, textClass, mutedClass }) => {
 
           <p className={`text-xs ${mutedClass} mt-3`}>
             {report.totalDocs} accounts scanned. Measured {report.overall.count} whose 30 days ended in the last week.
-            Skipped {skipped.staleWindow} not seen in the last week, {skipped.noSnapshot} with no 30-day history,{' '}
-            {skipped.belowBaseline} under ${report.minBaseline.toLocaleString()}, {skipped.bots} bots and{' '}
-            {skipped.banned} banned.
+            Skipped {report.skipped.staleWindow} not seen in the last week, {report.skipped.noSnapshot} with no 30-day
+            history, {report.skipped.belowBaseline} under ${report.minBaseline.toLocaleString()}, {report.skipped.bots}{' '}
+            bots and {report.skipped.banned} banned.
             {typeof report.marketLast30 === 'number' &&
               ` The market moved ${fmt(report.marketLast30)} over the last 30 days.`}
           </p>

@@ -26,6 +26,11 @@ export interface SeasonDoc {
   preseason?: boolean;
   preseasons?: number;
   rules?: Partial<import('../constants/seasons').SeasonRules>;
+  name?: string;
+  playersPinned?: number;
+  checkpointWeeks?: unknown[];
+  lastCheckpointAt?: number;
+  endedAt?: number;
   [key: string]: unknown;
 }
 

@@ -10,7 +10,11 @@ import type { TimestampLike } from '../../types';
 export interface DividendRunLog {
   id: string;
   ranAt?: TimestampLike;
-  [key: string]: unknown;
+  source?: string;
+  usersPaid?: number;
+  usersConsidered?: number;
+  totalPaid?: number;
+  durationMs?: number;
 }
 
 const ranAtMs = (run: DividendRunLog): number =>

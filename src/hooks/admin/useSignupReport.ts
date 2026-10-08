@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { getRecentSignupReportFunction, banUserFunction, addWatchedUserFunction } from '../../firebase';
 import { errorMessage } from '../../utils/errors';
-import type { AdminReport } from '../../api/types';
+import type { SignupReport } from '../../api/types';
 import type { AdminHookDeps } from './adminShared';
 
 /** The recent-signups report on the watchlist tab, and the ban/watch actions on its rows. */
@@ -10,7 +10,7 @@ export function useSignupReport({
   setLoading,
   onWatched,
 }: Pick<AdminHookDeps, 'showMessage' | 'setLoading'> & { onWatched: () => Promise<void> }) {
-  const [signupReport, setSignupReport] = useState<AdminReport | null>(null);
+  const [signupReport, setSignupReport] = useState<SignupReport | null>(null);
   const [signupHours, setSignupHours] = useState(48);
 
   const loadRecentSignups = async () => {
@@ -24,7 +24,7 @@ export function useSignupReport({
     setLoading(false);
   };
 
-  const handleBanFromReport = async (userId: string, displayName: string) => {
+  const handleBanFromReport = async (userId: string, displayName: string | undefined) => {
     if (!confirm(`Ban "${displayName}"? Their cash resets to $1,000 and they can no longer trade.`)) return;
     setLoading(true);
     try {
@@ -37,7 +37,7 @@ export function useSignupReport({
     }
   };
 
-  const handleWatchFromReport = async (userId: string, displayName: string) => {
+  const handleWatchFromReport = async (userId: string, displayName: string | undefined) => {
     if (!confirm(`Add "${displayName}" to the watchlist as the ring's reference account?`)) return;
     setLoading(true);
     try {

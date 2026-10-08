@@ -1,6 +1,9 @@
 // The gift-drop audit panel from the admin Diagnostic tab. Split out when
 // DiagnosticTab hit its 400-line limit; it is a self-contained lookup with
 // nothing in common with the ticker-rollback tooling it used to sit above.
+import type { AdminCommonProps } from '../types';
+import type { useAdminDiagnostics } from '../../../hooks/admin/useAdminDiagnostics';
+
 const DropAuditPanel = ({
   darkMode,
   textClass,
@@ -11,7 +14,11 @@ const DropAuditPanel = ({
   dropAuditRunning,
   handleDropAudit,
   dropAuditResult,
-}) => {
+}: Omit<AdminCommonProps, 'loading'> &
+  Pick<
+    ReturnType<typeof useAdminDiagnostics>,
+    'dropAuditQuery' | 'setDropAuditQuery' | 'dropAuditRunning' | 'handleDropAudit' | 'dropAuditResult'
+  >) => {
   return (
     <>
       {/* Drop Audit Section */}

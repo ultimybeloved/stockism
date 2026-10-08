@@ -2,35 +2,45 @@ import { useState } from 'react';
 import { adminSeasonDryRunReportFunction, triggerSeasonDryRunFunction } from '../../../firebase';
 import { SEASON_TIER_MAP } from '../../../constants/seasons';
 import { localWeeklyTime } from '../../../utils/localTime';
+import { errorMessage } from '../../../utils/errors';
+import type { AdminCommonProps } from '../types';
+import type { SeasonDryRunReport } from '../../../api/types';
 
 // The season rehearsal. A snapshot is taken every Thursday while no season is
 // running, and this scores those snapshots with the real tier rules, so the
 // tiers can be watched against live data before season 1 starts for real.
 // Nothing here changes a player's account.
-const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
-  const [report, setReport] = useState(null);
-  const [busy, setBusy] = useState(null);
-  const [error, setError] = useState(null);
+const SeasonDryRunPanel = ({
+  darkMode,
+  textClass,
+  mutedClass,
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'>) => {
+  const [report, setReport] = useState<SeasonDryRunReport | null>(null);
+  const [busy, setBusy] = useState<'report' | 'snapshot' | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const call = async (what, fn) => {
+  const call = async (
+    what: 'report' | 'snapshot',
+    fn: () => Promise<{ data: SeasonDryRunReport | { ran?: boolean; reason?: string } }>,
+  ) => {
     setBusy(what);
     setError(null);
     try {
       const { data } = await fn();
-      if (what === 'report') setReport(data);
-      else if (data.ran === false) setError(`Snapshot skipped: ${data.reason}.`);
+      if (what === 'report') setReport(data as SeasonDryRunReport);
+      else if ('ran' in data && data.ran === false) setError(`Snapshot skipped: ${data.reason}.`);
       else {
         const { data: fresh } = await adminSeasonDryRunReportFunction({});
         setReport(fresh);
       }
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(errorMessage(err));
     }
     setBusy(null);
   };
 
-  const pct = (v) => `${v > 0 ? '+' : ''}${v}%`;
+  const pct = (v: number | undefined) => `${(v ?? 0) > 0 ? '+' : ''}${v}%`;
   const btn = 'px-3 py-1 text-xs font-semibold rounded text-white disabled:opacity-50';
 
   return (
@@ -78,13 +88,13 @@ const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
               {(report.divisions || [])
                 .map((d) => `${d.label} ${d.players} players, ${d.platinum}/${d.diamond}`)
                 .join(' · ')}
-              {report.belowFloor > 0 && ` · ${report.belowFloor} under the $1,000 floor`}
+              {(report.belowFloor ?? 0) > 0 && ` · ${report.belowFloor} under the $1,000 floor`}
             </p>
 
             <div className="flex gap-3 flex-wrap mt-2">
               {['diamond', 'platinum', 'gold', 'silver', 'bronze'].map((id) => (
-                <span key={id} className="text-xs font-semibold" style={{ color: SEASON_TIER_MAP[id].color }}>
-                  {SEASON_TIER_MAP[id].name} {report.tierCounts[id] || 0}
+                <span key={id} className="text-xs font-semibold" style={{ color: SEASON_TIER_MAP[id]!.color }}>
+                  {SEASON_TIER_MAP[id]!.name} {report.tierCounts[id] || 0}
                 </span>
               ))}
             </div>
@@ -123,9 +133,9 @@ const SeasonDryRunPanel = ({ darkMode, textClass, mutedClass }) => {
                       </td>
                       <td
                         className="px-2 py-1 text-right font-semibold"
-                        style={{ color: p.tier ? SEASON_TIER_MAP[p.tier].color : undefined }}
+                        style={{ color: p.tier ? SEASON_TIER_MAP[p.tier]?.color : undefined }}
                       >
-                        {p.tier ? SEASON_TIER_MAP[p.tier].name : '-'}
+                        {p.tier ? SEASON_TIER_MAP[p.tier]?.name : '-'}
                       </td>
                     </tr>
                   ))}

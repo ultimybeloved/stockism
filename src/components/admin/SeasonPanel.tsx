@@ -3,6 +3,9 @@ import SeasonCoordFlags from './season/SeasonCoordFlags';
 
 // Start / end a season and see where the current one stands. Lives in the
 // Market tab because ending a season is tied to the chapter cycle.
+import type { AdminCommonProps } from './types';
+import type { useAdminSeason } from '../../hooks/admin/useAdminSeason';
+
 const SeasonPanel = ({
   darkMode,
   textClass,
@@ -18,7 +21,7 @@ const SeasonPanel = ({
   handleStartSeason,
   handleEndSeason,
   handleRunCheckpoint,
-}) => {
+}: Omit<AdminCommonProps, 'inputClass'> & ReturnType<typeof useAdminSeason>) => {
   const active = season?.status === 'active';
   const weeks = active ? Math.max(1, Math.ceil((Date.now() - season.startedAt) / (7 * 24 * 60 * 60 * 1000))) : 0;
 
@@ -88,7 +91,7 @@ const SeasonPanel = ({
         <>
           <p className={`text-xs ${mutedClass} mb-2`}>
             {season
-              ? `Last season: ${season.name} (ended ${new Date(season.endedAt).toLocaleDateString()}).`
+              ? `Last season: ${season.name} (ended ${new Date(season.endedAt as number).toLocaleDateString()}).`
               : 'No season has run yet.'}
           </p>
 

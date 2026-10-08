@@ -215,8 +215,93 @@ export interface CashLogResponse {
 }
 
 export interface DropAuditResponse {
+  uid: string;
+  displayName?: string;
+  cash: number;
   totalClaims: number;
-  [key: string]: unknown;
+  expectedClaims: number;
+  excessClaims: number;
+  firstClaimDate?: string;
+  totalGiftedValue: number;
+  claimsByDay: Record<string, number>;
+  suspiciousDays: { day: string; count: number }[];
+  giftedSharesByTicker: Record<string, { shares: number; price: number; value: number }>;
+}
+
+export interface SignupMember {
+  uid: string;
+  displayName?: string;
+  email?: string;
+  createdAt?: number;
+  hasDiscord?: boolean;
+  isBanned?: boolean;
+  requiresDiscordLink?: boolean;
+  signupIp?: string;
+}
+
+export interface SignupCluster {
+  key: string;
+  count: number;
+  members: SignupMember[];
+}
+
+export interface SignupReport {
+  windowHours: number;
+  totalSignups: number;
+  clustersByIp: SignupCluster[];
+  clustersByDomain: SignupCluster[];
+  clustersByGmail: SignupCluster[];
+}
+
+/** One row of the 30-day return distribution: everyone, or one size division. */
+export interface ReturnDistributionRow {
+  id: string;
+  label: string;
+  min?: number;
+  max?: number | null;
+  count: number;
+  cuts?: Record<string, number | null>;
+  median?: number | null;
+  positive: number;
+  excessCuts?: Record<string, number | null>;
+  excessMedian?: number | null;
+  beatMarket: number;
+}
+
+export interface ReturnDistributionReport {
+  overall: Omit<ReturnDistributionRow, 'id' | 'label'>;
+  divisions: ReturnDistributionRow[];
+  totalDocs: number;
+  minBaseline: number;
+  marketLast30?: number;
+  skipped: { staleWindow: number; noSnapshot: number; belowBaseline: number; bots: number; banned: number };
+  grantCoverage?: { exact: number; lowerBound: number; none: number; grantedTotal: number };
+}
+
+/** One player as the season dry run would score them. */
+export interface DryRunPlayer {
+  uid: string;
+  name: string;
+  division: string;
+  returnPercent: number;
+  excess: number;
+  beatWeeks: number;
+  weeks: number;
+  peakConcentration: number;
+  tier: string | null;
+}
+
+export interface SeasonDryRunReport {
+  weeks: number;
+  reports: number;
+  from?: string;
+  to?: string;
+  players?: number;
+  marketPercent?: number;
+  belowFloor?: number;
+  divisions?: { id: string; label: string; players: number; platinum: number; diamond: number }[];
+  tierCounts: Record<string, number>;
+  scored: DryRunPlayer[];
 }
 
 export interface TickerDiagnosticResponse {
@@ -281,7 +366,23 @@ export interface SpikeVictim {
   displayName: string;
   currentCash?: number;
   correctedCash?: number;
-  [key: string]: unknown;
+  isBankrupt?: boolean;
+  tookBailout?: boolean;
+  reason?: string;
+  totalTrades?: number;
+  bankruptAt?: number;
+  holdingsCount?: number;
+  holdingsToRestore?: Record<string, number>;
+  trades?: {
+    action?: string;
+    ticker?: string;
+    shares?: number;
+    price?: number;
+    cashBefore?: number;
+    cashAfter?: number;
+    pnl?: number;
+    timestamp?: number;
+  }[];
 }
 
 export interface SpikeRepairRequest {

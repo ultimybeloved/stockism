@@ -2,6 +2,10 @@ import { CHARACTERS } from '../../characters';
 import PositionSummary from './holders/PositionSummary';
 import ShortsList from './holders/ShortsList';
 
+import type { AdminCommonProps } from './types';
+import type { useAdminHolders } from '../../hooks/admin/useAdminHolders';
+import type { PriceMap } from '../../types';
+
 const HoldersTab = ({
   darkMode,
   textClass,
@@ -16,7 +20,7 @@ const HoldersTab = ({
   setShortsData,
   holdersLoading,
   loadHolders,
-}) => {
+}: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminHolders> & { prices: PriceMap }) => {
   return (
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-purple-50'}`}>
