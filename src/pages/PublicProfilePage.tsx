@@ -4,8 +4,9 @@ import { useAppContext } from '../context/AppContext';
 import { getPublicProfileFunction } from '../firebase';
 import { CREW_MAP } from '../crews';
 import { CHARACTER_MAP } from '../characters';
-import { getCosmeticStyles, getActiveTitle } from '../utils/cosmetics';
-import { ACHIEVEMENTS } from '../constants/achievements';
+import { getCosmeticStyles } from '../utils/cosmetics';
+import { ACHIEVEMENT_MAP } from '../constants/achievements';
+import type { PublicProfile } from '../api/types';
 import { formatCurrency } from '../utils/formatters';
 import PinDisplay from '../components/common/PinDisplay';
 import ProfileAdminPanel from '../components/profile/ProfileAdminPanel';
@@ -17,8 +18,8 @@ const PublicProfilePage = () => {
   const { username } = useParams();
   const { darkMode, user } = useAppContext();
   const viewerIsAdmin = user && ADMIN_UIDS.includes(user.uid);
-  const [profile, setProfile] = useState(null);
-  const [error, setError] = useState(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [error, setError] = useState<'private' | 'notfound' | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +28,7 @@ const PublicProfilePage = () => {
         const result = await getPublicProfileFunction({ username });
         setProfile(result.data);
       } catch (err) {
-        setError(err.code === 'functions/permission-denied' ? 'private' : 'notfound');
+        setError((err as { code?: string })?.code === 'functions/permission-denied' ? 'private' : 'notfound');
       } finally {
         setLoading(false);
       }
@@ -63,9 +64,12 @@ const PublicProfilePage = () => {
     );
   }
 
+  // Loading and errors are handled above, so a profile is here from now on.
+  if (!profile) return null;
+
   const crew = profile.crew ? CREW_MAP[profile.crew] : null;
   const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(profile.activeCosmetics);
-  const profileTitle = getActiveTitle(profile);
+  const profileTitle = profile.title;
   const crewColor = crew?.color || '#6b7280';
 
   // Portfolio sparkline data
@@ -77,15 +81,16 @@ const PublicProfilePage = () => {
   // Account age
   let accountAge = null;
   if (profile.stats?.createdAt) {
-    const created = profile.stats.createdAt._seconds
-      ? new Date(profile.stats.createdAt._seconds * 1000)
-      : new Date(profile.stats.createdAt);
+    const createdAt = profile.stats.createdAt;
+    const created = typeof createdAt === 'object' ? new Date(createdAt._seconds * 1000) : new Date(createdAt);
     const days = Math.floor((Date.now() - created.getTime()) / 86400000);
     accountAge = days < 1 ? 'today' : days === 1 ? '1 day' : `${days} days`;
   }
 
   // Earned achievements (lookup from constants)
-  const earnedAchievements = (profile.achievements || []).map((id) => ACHIEVEMENTS[id]).filter(Boolean);
+  const earnedAchievements = (profile.achievements || [])
+    .map((id) => ACHIEVEMENT_MAP[id])
+    .filter((a): a is NonNullable<typeof a> => !!a);
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-4">
@@ -143,7 +148,7 @@ const PublicProfilePage = () => {
         {/* Portfolio sparkline */}
         {sparklineData.length >= 2 && (
           <div className="mt-3">
-            <SimpleLineChart data={sparklineData} darkMode={darkMode} width={600} height={48} />
+            <SimpleLineChart data={sparklineData} width={600} height={48} />
           </div>
         )}
       </div>

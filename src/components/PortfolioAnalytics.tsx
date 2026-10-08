@@ -10,24 +10,47 @@ import { getThemeClasses } from '../utils/theme';
 
 import { CREW_TICKER_MAP, CREW_COLORS, OTHER_GROUP, ETF_GROUP } from '../constants/crewGroups';
 import { sharesOf } from '../utils/holdings';
+import type { PriceMap, ShareMap, ShortMap } from '../types';
+
+interface PortfolioAnalyticsProps {
+  darkMode?: boolean;
+  colorBlindMode?: boolean;
+  holdings?: ShareMap | null;
+  shorts?: ShortMap | null;
+  prices?: PriceMap;
+  costBasis?: Record<string, number> | null;
+  portfolioValue?: number;
+}
+
+interface AnalyticsPosition {
+  ticker: string;
+  shares: number;
+  price: number;
+  cost: number;
+  value: number;
+  pnl: number;
+  pnlPct: number;
+  crew: string;
+  type: 'long' | 'short';
+}
 
 const PortfolioAnalytics = ({
   darkMode = false,
   colorBlindMode = false,
-  holdings = {},
-  shorts = {},
+  holdings,
+  shorts,
   prices = {},
-  costBasis = {},
+  costBasis,
   portfolioValue = 0,
-}) => {
+}: PortfolioAnalyticsProps) => {
   const [expanded, setExpanded] = useState(false);
 
   // ---- Derived data ----
   const positionData = useMemo(() => {
-    const positions = [];
+    const positions: AnalyticsPosition[] = [];
 
     // Longs
-    Object.entries(holdings).forEach(([ticker, shares]) => {
+    Object.entries(holdings || {}).forEach(([ticker, shares]) => {
       if (!shares) return;
       const price = prices[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
       const cost = costBasis?.[ticker] || price;
@@ -39,7 +62,7 @@ const PortfolioAnalytics = ({
     });
 
     // Shorts
-    Object.entries(shorts).forEach(([ticker, shortData]) => {
+    Object.entries(shorts || {}).forEach(([ticker, shortData]) => {
       const shares = sharesOf(shortData);
       const entryPrice =
         typeof shortData === 'number' ? costBasis?.[ticker] || 0 : shortData?.entryPrice || costBasis?.[ticker] || 0;
@@ -57,7 +80,7 @@ const PortfolioAnalytics = ({
 
   // ---- Crew allocation ----
   const crewData = useMemo(() => {
-    const crewValues = {};
+    const crewValues: Record<string, number> = {};
     positionData
       .filter((p) => p.type === 'long')
       .forEach((p) => {
@@ -119,25 +142,25 @@ const PortfolioAnalytics = ({
   }, [positionData]);
 
   // ---- Helpers ----
-  const fmtMoney = (n) => {
+  const fmtMoney = (n: number) => {
     const sign = n >= 0 ? '+' : '';
     if (Math.abs(n) >= 1000) return `${sign}$${(n / 1000).toFixed(1)}k`;
     return `${sign}$${n.toFixed(2)}`;
   };
 
-  const pnlColor = (val) => {
+  const pnlColor = (val: number) => {
     if (val > 0) return colorBlindMode ? 'text-teal-400' : 'text-green-400';
     if (val < 0) return colorBlindMode ? 'text-purple-400' : 'text-red-400';
     return darkMode ? 'text-zinc-400' : 'text-zinc-500';
   };
 
-  const scoreColor = (score) => {
+  const scoreColor = (score: number) => {
     if (score >= 60) return colorBlindMode ? 'bg-teal-500' : 'bg-green-500';
     if (score >= 30) return 'bg-yellow-500';
     return colorBlindMode ? 'bg-purple-500' : 'bg-red-500';
   };
 
-  const scoreTextColor = (score) => {
+  const scoreTextColor = (score: number) => {
     if (score >= 60) return colorBlindMode ? 'text-teal-400' : 'text-green-400';
     if (score >= 30) return 'text-yellow-400';
     return colorBlindMode ? 'text-purple-400' : 'text-red-400';
@@ -336,7 +359,17 @@ const PortfolioAnalytics = ({
   );
 };
 
-const StatBox = ({ label, value, valueColor, darkMode }) => (
+const StatBox = ({
+  label,
+  value,
+  valueColor,
+  darkMode,
+}: {
+  label: string;
+  value: string | number;
+  valueColor?: string;
+  darkMode: boolean;
+}) => (
   <div className="text-center">
     <p className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{label}</p>
     <p className={`text-sm font-semibold mt-0.5 ${valueColor || (darkMode ? 'text-zinc-100' : 'text-slate-900')}`}>

@@ -233,8 +233,19 @@ export interface PredictionDoc {
   question?: string;
   options: string[];
   outcome?: string | null;
+  /** Every winning answer, when more than one won. */
+  outcomes?: string[];
   resolved?: boolean;
   endsAt?: number;
+  /** answer -> cash bet on it. Old predictions used yesPool/noPool instead. */
+  pools?: Record<string, number>;
+  yesPool?: number;
+  noPool?: number;
+  reopened?: boolean;
+  mayExtend?: boolean;
+  allowAdditionalBets?: boolean;
+  /** House money seeded into the pools at creation. */
+  seedTotal?: number;
   [key: string]: unknown;
 }
 
@@ -249,7 +260,6 @@ export interface SiteMessage {
 
 /** A long-term event market: a PredictionDoc priced by the LMSR market maker. */
 export interface EventMarketDoc extends PredictionDoc {
-  outcomes?: string[];
   b?: number;
   q?: number[];
   seedQ?: number[];
@@ -263,6 +273,8 @@ export interface EventMarketDoc extends PredictionDoc {
 export interface EventPosition {
   shares: Record<string, number>;
   payout?: number;
+  costBasis?: number;
+  settled?: boolean;
   [key: string]: unknown;
 }
 

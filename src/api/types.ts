@@ -679,6 +679,41 @@ export type TrackedDiscordMessage = import('../hooks/admin/discordDraft').Stored
   [key: string]: unknown;
 };
 
+/** getPublicProfile: what anyone can see about a player whose profile is public. */
+export interface PublicProfile {
+  displayName: string;
+  crew: string | null;
+  isCrewHead: boolean;
+  crewHeadColor: string | null;
+  displayCrewPin: boolean | null;
+  displayedAchievementPins: string[];
+  displayedShopPins: string[];
+  activeCosmetics: import('../types').ActiveCosmetics | null;
+  /** Only a title the server granted; never the raw client-written one. */
+  title: import('../types').SeasonTitle | null;
+  portfolioValue: number;
+  holdingsCount: number;
+  rank: number | null;
+  crewRank: number | null;
+  holdingTickers: string[];
+  topHoldings: string[];
+  shortTickers: string[];
+  totalShortValue: number;
+  portfolioHistory: { timestamp: number; value: number }[];
+  /** Only filled in when an admin is looking. */
+  adminData: import('../components/profile/ProfileAdminPanel').ProfileAdminData | null;
+  achievements: string[];
+  stats: {
+    totalTrades: number;
+    predictionWins: number;
+    totalCheckins: number;
+    checkinStreak: number;
+    peakPortfolioValue: number;
+    /** A serialized Firestore Timestamp ({_seconds}) or a millisecond time. */
+    createdAt: { _seconds: number } | number | null;
+  };
+}
+
 /** One player on the season board. */
 export interface SeasonStandingEntry {
   userId: string;

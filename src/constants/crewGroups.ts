@@ -31,7 +31,7 @@ export const CREW_TICKER_MAP = (() => {
 
 // Slice colours come from each crew's own colour, so a crew recolour carries
 // through to the chart automatically.
-export const CREW_COLORS = {
+export const CREW_COLORS: Record<string, string> = {
   ...Object.fromEntries(Object.values(CREWS).map((crew) => [crew.name, crew.color])),
   [OTHER_GROUP]: '#6b7280',
   [ETF_GROUP]: '#d946ef',

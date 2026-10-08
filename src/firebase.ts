@@ -129,7 +129,9 @@ export const getLeaderboardFunction = callable<Api.GetLeaderboardRequest, Api.Ge
 export const getLeaderboardMarginsFunction = callable<Api.LeaderboardMarginsRequest, Api.LeaderboardMarginsResponse>(
   'getLeaderboardMargins',
 );
-export const getPublicProfileFunction = callable('getPublicProfile');
+export const getPublicProfileFunction = callable<{ username: string | undefined }, Api.PublicProfile>(
+  'getPublicProfile',
+);
 // Discord alert functions
 export const achievementAlertFunction = callable<Api.AchievementAlertRequest>('achievementAlert');
 export const ipoAnnouncementAlertFunction = callable<Api.IpoAnnouncementRequest>('ipoAnnouncementAlert');

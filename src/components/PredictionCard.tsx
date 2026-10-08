@@ -1,10 +1,23 @@
 import { useState } from 'react';
-import { getThemeClasses } from '../utils/theme';
+import { getOutcomeColor, getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining, formatMultiplier } from '../utils/formatters';
 import { niceStep } from '../utils/calculations';
 import { isWeeklyHalt } from '../utils/marketHours';
 import { marketTimes } from '../utils/localTime';
 import { useAppContext } from '../context/AppContext';
+import type { PredictionDoc, UserBet } from '../types';
+
+interface PredictionCardProps {
+  prediction: PredictionDoc;
+  userBet?: UserBet;
+  onBet?: (predictionId: string, option: string, amount: number) => unknown;
+  isGuest?: boolean;
+  /** Asks for confirmation first. Used instead of onBet when given. */
+  onRequestBet?: (predictionId: string, option: string, amount: number, question?: string) => void;
+  betLimit?: number;
+  isAdmin?: boolean;
+  onHide?: (predictionId: string) => void;
+}
 
 const PredictionCard = ({
   prediction,
@@ -15,34 +28,34 @@ const PredictionCard = ({
   betLimit = 0,
   isAdmin = false,
   onHide,
-}) => {
+}: PredictionCardProps) => {
   const { darkMode, userData, marketData } = useAppContext();
   // Betting closes with the market, same as trading. Mirrors placeBet's guards.
   const bettingHalted = isWeeklyHalt() || !!marketData?.marketHalted;
   const [betAmount, setBetAmount] = useState(50);
-  const [selectedOption, setSelectedOption] = useState(null);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showBetUI, setShowBetUI] = useState(false);
 
   const { cardClass, textClass, mutedClass, subtleClass, chipClass } = getThemeClasses(darkMode);
   const betStep = niceStep(betLimit, 1);
 
-  const timeRemaining = prediction.endsAt - Date.now();
+  const timeRemaining = (prediction.endsAt ?? 0) - Date.now();
   const isActive = timeRemaining > 0 && !prediction.resolved;
 
   // Support both old (yesPool/noPool) and new (pools object) format
   const options = prediction.options || ['Yes', 'No'];
-  const pools = prediction.pools || {
+  const pools: Record<string, number> = prediction.pools || {
     Yes: prediction.yesPool || 0,
     No: prediction.noPool || 0,
   };
   const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
 
-  const getOptionPercent = (option) => {
+  const getOptionPercent = (option: string) => {
     if (totalPool === 0) return Math.floor(100 / options.length);
     return Math.floor(((pools[option] || 0) / totalPool) * 100);
   };
 
-  const calculatePayout = (option, amount) => {
+  const calculatePayout = (option: string, amount: number) => {
     const myPool = pools[option] || 0;
     const otherPools = totalPool - myPool;
     const newMyPool = myPool + amount;
@@ -53,7 +66,7 @@ const PredictionCard = ({
   // Odds are quoted against the amount the player is about to stake, so the number can
   // never promise a return the pool wouldn't actually pay. Floor of 1 avoids /0.
   const previewBet = Math.max(1, betAmount || 0);
-  const getOptionMultiplier = (option) => calculatePayout(option, previewBet) / previewBet;
+  const getOptionMultiplier = (option: string) => calculatePayout(option, previewBet) / previewBet;
   // Hidden on resolved/ended cards (the pools are history) and on an empty pool (every
   // option would read a meaningless 1.00x).
   const showOdds = isActive && totalPool > 0;
@@ -64,7 +77,7 @@ const PredictionCard = ({
       if (onRequestBet) {
         onRequestBet(prediction.id, selectedOption, betAmount, prediction.question);
       } else {
-        onBet(prediction.id, selectedOption, betAmount);
+        onBet?.(prediction.id, selectedOption, betAmount);
       }
       setShowBetUI(false);
       setSelectedOption(null);
@@ -77,18 +90,11 @@ const PredictionCard = ({
 
   // Color blind mode support - teal instead of green, purple instead of red
   const colorBlindMode = userData?.colorBlindMode || false;
-  const optionColors = [
-    colorBlindMode
-      ? { bg: 'bg-teal-600', border: 'border-teal-600', text: 'text-teal-500', fill: 'bg-teal-500' }
-      : { bg: 'bg-green-600', border: 'border-green-600', text: 'text-green-500', fill: 'bg-green-500' },
-    colorBlindMode
-      ? { bg: 'bg-purple-600', border: 'border-purple-600', text: 'text-purple-500', fill: 'bg-purple-500' }
-      : { bg: 'bg-red-600', border: 'border-red-600', text: 'text-red-500', fill: 'bg-red-500' },
-    { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-blue-500', fill: 'bg-blue-500' },
-    { bg: 'bg-amber-600', border: 'border-amber-600', text: 'text-amber-500', fill: 'bg-amber-500' },
-    { bg: 'bg-cyan-600', border: 'border-cyan-600', text: 'text-cyan-500', fill: 'bg-cyan-500' },
-    { bg: 'bg-violet-600', border: 'border-violet-600', text: 'text-violet-500', fill: 'bg-violet-500' },
-  ];
+  // An answer that isn't one of the options gets no colour (callers fall back to orange).
+  const colorOf = (option: string | null | undefined) => {
+    const i = option == null ? -1 : options.indexOf(option);
+    return i >= 0 ? getOutcomeColor(i, colorBlindMode) : undefined;
+  };
 
   return (
     <div className={`${cardClass} border rounded-sm p-4`}>
@@ -122,7 +128,7 @@ const PredictionCard = ({
         <div className={`flex justify-between items-baseline gap-2 text-xs ${mutedClass} mb-2`}>
           <span>
             Pool: {formatCurrency(totalPool)}
-            {prediction.seedTotal > 0 && (
+            {(prediction.seedTotal ?? 0) > 0 && (
               <span className="opacity-70"> (incl. {formatCurrency(prediction.seedTotal)} house seed)</span>
             )}
           </span>
@@ -131,7 +137,7 @@ const PredictionCard = ({
         <div className="space-y-2">
           {options.map((option, idx) => {
             const percent = getOptionPercent(option);
-            const colors = optionColors[idx % optionColors.length];
+            const colors = getOutcomeColor(idx, colorBlindMode);
             const winningOutcomes = prediction.outcomes || (prediction.outcome ? [prediction.outcome] : []);
             const isWinner = prediction.resolved && winningOutcomes.includes(option);
             return (
@@ -165,16 +171,14 @@ const PredictionCard = ({
       {userBet && (
         <div className={`mb-3 p-2 rounded-sm ${subtleClass}`}>
           <div className={`text-xs ${mutedClass}`}>Your bet</div>
-          <div
-            className={`font-semibold ${optionColors[options.indexOf(userBet.option) % optionColors.length]?.text || 'text-orange-500'}`}
-          >
+          <div className={`font-semibold ${colorOf(userBet.option)?.text || 'text-orange-500'}`}>
             {formatCurrency(userBet.amount)} on "{userBet.option}"
           </div>
           {isActive &&
             !prediction.resolved &&
             (() => {
               // Calculate current potential payout
-              const myPool = pools[userBet.option] || 0;
+              const myPool = pools[userBet.option ?? ''] || 0;
               const potentialPayout = myPool > 0 ? (userBet.amount / myPool) * totalPool : userBet.amount;
               const potentialMultiplier = userBet.amount > 0 ? potentialPayout / userBet.amount : 1;
               return (
@@ -219,7 +223,7 @@ const PredictionCard = ({
                 setShowBetUI(true);
                 // Pre-select their existing option if they're adding to bet
                 if (hasExistingBet && prediction.allowAdditionalBets) {
-                  setSelectedOption(userBet.option);
+                  setSelectedOption(userBet.option ?? null);
                 }
               }}
               className="w-full py-2 text-sm font-semibold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-sm"
@@ -236,7 +240,7 @@ const PredictionCard = ({
               )}
               <div className={`grid gap-2 ${options.length <= 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
                 {options.map((option, idx) => {
-                  const colors = optionColors[idx % optionColors.length];
+                  const colors = getOutcomeColor(idx, colorBlindMode);
                   const isLocked = hasExistingBet && prediction.allowAdditionalBets && option !== userBet.option;
                   return (
                     <button
@@ -348,10 +352,10 @@ const PredictionCard = ({
 
       {prediction.resolved && (
         <div
-          className={`text-center py-2 rounded-sm mt-2 ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.bg || 'bg-orange-600'} bg-opacity-20`}
+          className={`text-center py-2 rounded-sm mt-2 ${colorOf((prediction.outcomes || [prediction.outcome])[0])?.bg || 'bg-orange-600'} bg-opacity-20`}
         >
           <span
-            className={`font-semibold ${optionColors[options.indexOf((prediction.outcomes || [prediction.outcome])[0]) % optionColors.length]?.text || 'text-orange-500'}`}
+            className={`font-semibold ${colorOf((prediction.outcomes || [prediction.outcome])[0])?.text || 'text-orange-500'}`}
           >
             {(prediction.outcomes?.length ?? 1) > 1 ? 'Winners' : 'Winner'}:{' '}
             {(prediction.outcomes || [prediction.outcome]).join(' & ')}

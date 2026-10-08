@@ -112,3 +112,34 @@ export const getReadableCrewColor = <T extends string | null | undefined>(hex: T
   }
   return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
 };
+
+/** Class strings for one answer in a prediction or event market. */
+export interface OutcomeColor {
+  bg: string;
+  border: string;
+  text: string;
+  fill: string;
+}
+
+// Written out in full so Tailwind's scanner sees every class name.
+const OUTCOME_COLORS: OutcomeColor[] = [
+  { bg: 'bg-green-600', border: 'border-green-600', text: 'text-green-500', fill: 'bg-green-500' },
+  { bg: 'bg-red-600', border: 'border-red-600', text: 'text-red-500', fill: 'bg-red-500' },
+  { bg: 'bg-blue-600', border: 'border-blue-600', text: 'text-blue-500', fill: 'bg-blue-500' },
+  { bg: 'bg-amber-600', border: 'border-amber-600', text: 'text-amber-500', fill: 'bg-amber-500' },
+  { bg: 'bg-cyan-600', border: 'border-cyan-600', text: 'text-cyan-500', fill: 'bg-cyan-500' },
+  { bg: 'bg-violet-600', border: 'border-violet-600', text: 'text-violet-500', fill: 'bg-violet-500' },
+];
+
+// Colour-blind mode swaps the first two (green/red) for teal/purple.
+const OUTCOME_COLORS_CB: OutcomeColor[] = [
+  { bg: 'bg-teal-600', border: 'border-teal-600', text: 'text-teal-500', fill: 'bg-teal-500' },
+  { bg: 'bg-purple-600', border: 'border-purple-600', text: 'text-purple-500', fill: 'bg-purple-500' },
+  ...OUTCOME_COLORS.slice(2),
+];
+
+/** The colour for the answer at `index`, cycling when there are more answers than colours. */
+export const getOutcomeColor = (index: number, colorBlindMode: boolean): OutcomeColor => {
+  const palette = colorBlindMode ? OUTCOME_COLORS_CB : OUTCOME_COLORS;
+  return palette[index % palette.length]!;
+};

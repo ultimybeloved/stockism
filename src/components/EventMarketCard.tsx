@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getThemeClasses } from '../utils/theme';
+import { getOutcomeColor, getThemeClasses } from '../utils/theme';
 import { formatCurrency } from '../utils/formatters';
 import { useAppContext } from '../context/AppContext';
 import {
@@ -13,38 +13,50 @@ import {
 import { formatCountdown } from '../utils/marketHours';
 import { marketTimes } from '../utils/localTime';
 import { EVENT_AMM_LIQUIDITY } from '../constants/economy';
+import type { EventMarketDoc, EventPosition } from '../types';
+
+type TradeShares = (marketId: string, outcome: string, shares: number) => Promise<unknown>;
+
+interface EventMarketCardProps {
+  market: EventMarketDoc;
+  position?: EventPosition;
+  onBuy: TradeShares;
+  onSell: TradeShares;
+  isGuest?: boolean;
+  isHalted?: boolean;
+  isAdmin?: boolean;
+  onHide?: (marketId: string) => void;
+}
 
 // Long-term event-share market card. Each outcome is a share that pays $1 if it
 // is the confirmed result. Prices come from the house AMM (LMSR) and players can
 // buy or sell any time, except when the market is frozen during chapter review.
-const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = false, isAdmin = false, onHide }) => {
+const EventMarketCard = ({
+  market,
+  position,
+  onBuy,
+  onSell,
+  isGuest,
+  isHalted = false,
+  isAdmin = false,
+  onHide,
+}: EventMarketCardProps) => {
   const { darkMode, userData } = useAppContext();
   const { cardClass, textClass, mutedClass, subtleClass, chipClass } = getThemeClasses(darkMode);
 
   const colorBlindMode = userData?.colorBlindMode || false;
-  const outcomeColors = [
-    colorBlindMode
-      ? { border: 'border-teal-600', text: 'text-teal-500', fill: 'bg-teal-500', bg: 'bg-teal-600' }
-      : { border: 'border-green-600', text: 'text-green-500', fill: 'bg-green-500', bg: 'bg-green-600' },
-    colorBlindMode
-      ? { border: 'border-purple-600', text: 'text-purple-500', fill: 'bg-purple-500', bg: 'bg-purple-600' }
-      : { border: 'border-red-600', text: 'text-red-500', fill: 'bg-red-500', bg: 'bg-red-600' },
-    { border: 'border-blue-600', text: 'text-blue-500', fill: 'bg-blue-500', bg: 'bg-blue-600' },
-    { border: 'border-amber-600', text: 'text-amber-500', fill: 'bg-amber-500', bg: 'bg-amber-600' },
-    { border: 'border-cyan-600', text: 'text-cyan-500', fill: 'bg-cyan-500', bg: 'bg-cyan-600' },
-    { border: 'border-violet-600', text: 'text-violet-500', fill: 'bg-violet-500', bg: 'bg-violet-600' },
-  ];
 
   const outcomes = market.outcomes || ['Yes', 'No'];
   const b = market.b || EVENT_AMM_LIQUIDITY;
   const q = Array.isArray(market.q) && market.q.length === outcomes.length ? market.q : outcomes.map(() => 0);
-  const prices = lmsrPrices(q, b);
+  const lmsr = lmsrPrices(q, b);
+  const prices = (i: number) => lmsr[i] ?? 0;
 
   const resolved = !!market.resolved;
   const winning = market.outcome;
 
   const [selected, setSelected] = useState(0);
-  const [mode, setMode] = useState('buy');
+  const [mode, setMode] = useState<'buy' | 'sell'>('buy');
   const [shares, setShares] = useState(10);
   const [showTrade, setShowTrade] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -58,8 +70,8 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
     return () => clearInterval(t);
   }, [notYetOpen]);
 
-  const ownedFor = (o) => position?.shares?.[o] || 0;
-  const positionValue = outcomes.reduce((sum, o, i) => sum + ownedFor(o) * prices[i], 0);
+  const ownedFor = (o: string) => position?.shares?.[o] || 0;
+  const positionValue = outcomes.reduce((sum, o, i) => sum + ownedFor(o) * prices(i), 0);
   const hasPosition = outcomes.some((o) => ownedFor(o) > 0);
 
   // Long-term markets are capped at what the user has invested in stocks (same
@@ -74,8 +86,10 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
   const eventRoom = Math.max(0, totalInvested - activeEventCost);
   const noInvestment = totalInvested <= 0;
 
+  // The outcome buttons only ever select an index inside the list.
+  const selectedOutcome = outcomes[selected]!;
   const qty = Number(shares) || 0;
-  const ownedSelected = ownedFor(outcomes[selected]);
+  const ownedSelected = ownedFor(selectedOutcome);
   const preview =
     qty > 0 ? (mode === 'buy' ? lmsrBuyCost(q, b, selected, qty) : lmsrSellRefund(q, b, selected, qty)) : 0;
   const exceedsCap = mode === 'buy' && qty > 0 && preview > eventRoom + 1e-9;
@@ -97,9 +111,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
     setSubmitting(true);
     try {
       const res =
-        mode === 'buy'
-          ? await onBuy(market.id, outcomes[selected], qty)
-          : await onSell(market.id, outcomes[selected], qty);
+        mode === 'buy' ? await onBuy(market.id, selectedOutcome, qty) : await onSell(market.id, selectedOutcome, qty);
       if (res) {
         setShowTrade(false);
         setShares(10);
@@ -130,7 +142,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
       {!notYetOpen && (
         <div className="space-y-2 mb-3">
           {outcomes.map((o, i) => {
-            const colors = outcomeColors[i % outcomeColors.length];
+            const colors = getOutcomeColor(i, colorBlindMode);
             const isWinner = resolved && o === winning;
             return (
               <div key={o} className="flex items-center gap-2">
@@ -143,10 +155,10 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
                 <div className={`flex-1 h-4 rounded-sm overflow-hidden ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
                   <div
                     className={`h-full ${colors.fill} transition-all`}
-                    style={{ width: `${Math.round(prices[i] * 100)}%` }}
+                    style={{ width: `${Math.round(prices(i) * 100)}%` }}
                   />
                 </div>
-                <div className={`w-10 text-xs text-right ${mutedClass}`}>{Math.round(prices[i] * 100)}¢</div>
+                <div className={`w-10 text-xs text-right ${mutedClass}`}>{Math.round(prices(i) * 100)}¢</div>
               </div>
             );
           })}
@@ -161,7 +173,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
             (o, i) =>
               ownedFor(o) > 0 && (
                 <div key={o} className="flex justify-between text-xs">
-                  <span className={outcomeColors[i % outcomeColors.length].text}>
+                  <span className={getOutcomeColor(i, colorBlindMode).text}>
                     {ownedFor(o)} × {o}
                   </span>
                   {resolved ? (
@@ -169,7 +181,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
                       {o === winning ? `Won ${formatCurrency(ownedFor(o))}` : 'Expired'}
                     </span>
                   ) : (
-                    <span className={mutedClass}>{formatCurrency(ownedFor(o) * prices[i])}</span>
+                    <span className={mutedClass}>{formatCurrency(ownedFor(o) * prices(i))}</span>
                   )}
                 </div>
               ),
@@ -185,10 +197,10 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
       {/* Resolved banner */}
       {resolved && (
         <div
-          className={`text-center py-2 rounded-sm ${outcomeColors[Math.max(0, outcomes.indexOf(winning)) % outcomeColors.length].bg} bg-opacity-20`}
+          className={`text-center py-2 rounded-sm ${getOutcomeColor(Math.max(0, outcomes.indexOf(winning ?? '')), colorBlindMode).bg} bg-opacity-20`}
         >
           <span
-            className={`font-semibold ${outcomeColors[Math.max(0, outcomes.indexOf(winning)) % outcomeColors.length].text}`}
+            className={`font-semibold ${getOutcomeColor(Math.max(0, outcomes.indexOf(winning ?? '')), colorBlindMode).text}`}
           >
             Outcome: {winning}
           </span>
@@ -200,7 +212,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
         <div
           className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}
         >
-          🔒 Opens in {formatCountdown(market.opensAt - nowTs)}
+          🔒 Opens in {formatCountdown(market.opensAt! - nowTs)}
         </div>
       )}
 
@@ -230,7 +242,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
           {/* Outcome selector */}
           <div className="grid grid-cols-2 gap-2">
             {outcomes.map((o, i) => {
-              const colors = outcomeColors[i % outcomeColors.length];
+              const colors = getOutcomeColor(i, colorBlindMode);
               return (
                 <button
                   key={o}
@@ -241,7 +253,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
                       : `${colors.border} ${colors.text} hover:opacity-80`
                   }`}
                 >
-                  {o} · {Math.round(prices[i] * 100)}¢
+                  {o} · {Math.round(prices(i) * 100)}¢
                 </button>
               );
             })}
@@ -301,7 +313,7 @@ const EventMarketCard = ({ market, position, onBuy, onSell, isGuest, isHalted = 
             />
             {mode === 'sell' && (
               <div className={`text-xs ${mutedClass} mt-1`}>
-                You own {ownedSelected} {outcomes[selected]} shares
+                You own {ownedSelected} {selectedOutcome} shares
               </div>
             )}
           </div>

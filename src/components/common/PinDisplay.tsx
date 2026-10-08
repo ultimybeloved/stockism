@@ -3,11 +3,17 @@ import { ACHIEVEMENT_MAP } from '../../constants/achievements';
 import { SHOP_PINS } from '../../crews';
 import type { UserData } from '../../types';
 
+/** The fields pins are drawn from. A full user doc or a public profile both fit. */
+type PinSource = Pick<
+  UserData,
+  'crew' | 'isCrewHead' | 'achievements' | 'displayedAchievementPins' | 'displayedShopPins' | 'ownedShopPins'
+> & { displayCrewPin?: boolean | null };
+
 const PinDisplay = ({
   userData,
   size = 'sm',
 }: {
-  userData: UserData | null | undefined;
+  userData: PinSource | null | undefined;
   size?: 'sm' | 'md' | 'lg';
 }) => {
   if (!userData) return null;
