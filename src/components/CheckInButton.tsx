@@ -1,13 +1,32 @@
 import { useState, useEffect } from 'react';
 import { getTodayDateString, toUTCDateString, msUntilUTCMidnight } from '../utils/date';
 import { CHECKIN_STREAK_REWARDS } from '../constants/economy';
+import type { TimestampLike } from '../types';
 
 const CAP_DAY = CHECKIN_STREAK_REWARDS.length; // streak length where the reward stops climbing
 
 // Reward for a given streak day (1-based), capped at the last tier.
-const rewardForStreak = (streak) => CHECKIN_STREAK_REWARDS[Math.min(Math.max(streak, 1) - 1, CAP_DAY - 1)];
+const rewardForStreak = (streak: number) => CHECKIN_STREAK_REWARDS[Math.min(Math.max(streak, 1) - 1, CAP_DAY - 1)];
 
-const CheckInButton = ({ isGuest, lastCheckin, checkinStreak = 0, onCheckin, onSignIn, darkMode, loading }) => {
+interface CheckInButtonProps {
+  isGuest: boolean;
+  lastCheckin: TimestampLike;
+  checkinStreak?: number;
+  onCheckin: () => void;
+  onSignIn: () => void;
+  darkMode: boolean;
+  loading?: boolean;
+}
+
+const CheckInButton = ({
+  isGuest,
+  lastCheckin,
+  checkinStreak = 0,
+  onCheckin,
+  onSignIn,
+  darkMode,
+  loading,
+}: CheckInButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [timeUntilReset, setTimeUntilReset] = useState('');
 

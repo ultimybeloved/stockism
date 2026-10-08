@@ -6,18 +6,41 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 import RowPreview from './pinshop/RowPreview';
 import MyLookTab from './pinshop/MyLookTab';
 import ShopTab from './pinshop/ShopTab';
+import type { ShopPin } from '../../crews';
+import type { Cosmetic } from '../../constants/cosmetics';
+import type { PinAction } from '../../hooks/usePinShop';
+
+/** The purchase waiting on the confirm dialog. */
+export type PendingPurchase =
+  | { type: 'pin'; item: ShopPin; price: number }
+  | { type: 'cosmetic'; item: Cosmetic; price: number }
+  | { type: 'slot'; item: 'achievement' | 'shop'; price: number };
+
+interface PinShopModalProps {
+  onClose: () => void;
+  onPurchase: (action: PinAction, payload: unknown, cost?: number) => Promise<void>;
+  onPurchaseCosmetic: (cosmeticId: string) => Promise<void>;
+  onEquipCosmetic: (type: string, cosmeticId: string | null) => Promise<void>;
+  portfolioValue: number;
+}
 
 // Customization modal: a live preview of the user's leaderboard row pinned at
 // the top, then two tabs — My Look (equip everything you own) and Shop (buy
 // cosmetics, pins, slots). The purchase confirm dialog lives here so both tabs
 // share it.
-const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic, portfolioValue }) => {
+const PinShopModal = ({
+  onClose,
+  onPurchase,
+  onPurchaseCosmetic,
+  onEquipCosmetic,
+  portfolioValue,
+}: PinShopModalProps) => {
   useEscapeKey(onClose);
   const { darkMode, userData } = useAppContext();
   const [activeTab, setActiveTab] = useState('look');
-  const [confirmPurchase, setConfirmPurchase] = useState(null); // { type: 'pin' | 'slot' | 'cosmetic', item, price }
+  const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
   const [purchasing, setPurchasing] = useState(false);
-  const [tryOn, setTryOn] = useState(null); // shop cosmetic being previewed on the row
+  const [tryOn, setTryOn] = useState<Cosmetic | null>(null); // shop cosmetic being previewed on the row
 
   const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const cash = userData?.cash || 0;
@@ -61,10 +84,12 @@ const PinShopModal = ({ onClose, onPurchase, onPurchaseCosmetic, onEquipCosmetic
 
         {/* Tabs */}
         <div className={`flex border-b ${cardEdgeClass} mt-3`}>
-          {[
-            ['look', '✨ My Look'],
-            ['shop', '🛒 Shop'],
-          ].map(([tab, label]) => (
+          {(
+            [
+              ['look', '✨ My Look'],
+              ['shop', '🛒 Shop'],
+            ] as const
+          ).map(([tab, label]) => (
             <button
               key={tab}
               onClick={() => {

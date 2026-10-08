@@ -6,16 +6,25 @@ import { useAppContext } from '../../context/AppContext';
 import PriceChart, { TIME_RANGES } from '../PriceChart';
 import { usePriceHistory } from '../../hooks/usePriceHistory';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import type { Character } from '../../characters';
+import type { PricePoint } from '../../types';
 
-const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }) => {
+interface ChartModalProps {
+  character: Character;
+  currentPrice: number;
+  onClose: () => void;
+  defaultTimeRange?: string;
+}
+
+const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }: ChartModalProps) => {
   useEscapeKey(onClose);
   const { darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
-  const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
+  const [hoveredChartPoint, setHoveredChartPoint] = useState<PricePoint | null>(null);
   const { fullHistory } = usePriceHistory(character.ticker);
 
-  const getColors = (isPositive) => ({
+  const getColors = (isPositive: boolean) => ({
     text: colorBlindMode
       ? isPositive
         ? 'text-teal-500'
@@ -25,11 +34,12 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
         : 'text-red-500',
   });
 
-  const range = TIME_RANGES.find((r) => r.key === timeRange);
+  // timeRange only ever holds one of TIME_RANGES' keys.
+  const range = TIME_RANGES.find((r) => r.key === timeRange)!;
   const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
   const filtered = fullHistory.filter((p) => p.timestamp >= cutoff);
-  const firstPrice = filtered[0]?.price || (fullHistory.length > 0 ? fullHistory[0].price : currentPrice);
-  const lastPrice = filtered.length > 0 ? filtered[filtered.length - 1].price : currentPrice;
+  const firstPrice = filtered[0]?.price || (fullHistory.length > 0 ? fullHistory[0]!.price : currentPrice);
+  const lastPrice = filtered.length > 0 ? filtered[filtered.length - 1]!.price : currentPrice;
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;
 

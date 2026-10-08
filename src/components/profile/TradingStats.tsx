@@ -1,21 +1,50 @@
 import { formatCurrency } from '../../utils/formatters';
 import { calculatePortfolioValue } from '../../utils/calculations';
 import { getThemeClasses } from '../../utils/theme';
+import type { PriceMap, ShareMap, ShortMap, UserData } from '../../types';
+
+interface TradingStatsProps {
+  userData: UserData | null;
+  holdings: ShareMap;
+  shorts: ShortMap;
+  prices: PriceMap;
+  costBasis: Record<string, number>;
+  predictionWins: number;
+  betsPlaced: number;
+  darkMode: boolean;
+}
+
+interface StockReturn {
+  ticker: string;
+  returnPercent: number;
+  currentPrice: number;
+  avgCost: number;
+  shares: number;
+}
 
 // Stats summary (trades / predictions / bets) and the trading-stats breakdown.
 // Computes its own biggest / best / worst / most-shares holdings.
-const TradingStats = ({ userData, holdings, shorts, prices, costBasis, predictionWins, betsPlaced, darkMode }) => {
+const TradingStats = ({
+  userData,
+  holdings,
+  shorts,
+  prices,
+  costBasis,
+  predictionWins,
+  betsPlaced,
+  darkMode,
+}: TradingStatsProps) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 
-  const joinDate = userData?.createdAt?.toDate?.() || null;
+  const joinDate = (userData?.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() || null;
   // The stored peak only updates on backend sync, so never show it below the
   // live current value — a "peak" under the current number reads as broken.
   const peakPortfolio = Math.max(userData?.peakPortfolioValue || 1000, calculatePortfolioValue(userData, prices || {}));
 
   // Find biggest holding by value
-  let biggestHolding = null;
+  let biggestHolding: { ticker: string; shares: number; value: number } | null = null;
   let biggestValue = 0;
-  Object.entries(holdings || {}).forEach(([ticker, shares]) => {
+  for (const [ticker, shares] of Object.entries(holdings || {})) {
     if (shares > 0) {
       const currentPrice = prices[ticker] || 0;
       const value = shares * currentPrice;
@@ -24,15 +53,15 @@ const TradingStats = ({ userData, holdings, shorts, prices, costBasis, predictio
         biggestHolding = { ticker, shares, value };
       }
     }
-  });
+  }
 
   // Find best and worst performing stocks
-  let bestStock = null;
-  let worstStock = null;
+  let bestStock: StockReturn | null = null;
+  let worstStock: StockReturn | null = null;
   let bestReturn = -Infinity;
   let worstReturn = Infinity;
 
-  Object.entries(holdings || {}).forEach(([ticker, shares]) => {
+  for (const [ticker, shares] of Object.entries(holdings || {})) {
     if (shares > 0) {
       const currentPrice = prices[ticker] || 0;
       const avgCost = costBasis[ticker] || currentPrice;
@@ -47,17 +76,17 @@ const TradingStats = ({ userData, holdings, shorts, prices, costBasis, predictio
         worstStock = { ticker, returnPercent, currentPrice, avgCost, shares };
       }
     }
-  });
+  }
 
   // Find most shares held
-  let mostShares = null;
+  let mostShares: { ticker: string; shares: number } | null = null;
   let maxShares = 0;
-  Object.entries(holdings || {}).forEach(([ticker, shares]) => {
+  for (const [ticker, shares] of Object.entries(holdings || {})) {
     if (shares > maxShares) {
       maxShares = shares;
       mostShares = { ticker, shares };
     }
-  });
+  }
 
   return (
     <>

@@ -4,12 +4,22 @@ import { db, cancelPreMarketOrderFunction } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { errorMessage } from '../../utils/errors';
 
-const MyPreMarketOrdersModal = ({ onClose }) => {
+/** preMarketOrders/{id}: an order queued for the reopening auction. */
+interface PreMarketOrder {
+  id: string;
+  action: 'buy' | 'sell';
+  ticker: string;
+  shares: number;
+  allowPartialFills?: boolean;
+}
+
+const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
   const { darkMode, user, showNotification } = useAppContext();
-  const [orders, setOrders] = useState([]);
-  const [cancelling, setCancelling] = useState(null);
+  const [orders, setOrders] = useState<PreMarketOrder[]>([]);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const { textClass, mutedClass, borderClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
   useEffect(() => {
@@ -17,8 +27,8 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
     const preMarketStart = new Date();
     preMarketStart.setUTCHours(20, 30, 0, 0);
     const ts = Timestamp.fromDate(preMarketStart);
-    let buys = [],
-      sells = [];
+    let buys: PreMarketOrder[] = [],
+      sells: PreMarketOrder[] = [];
     const merge = () => setOrders([...buys, ...sells]);
 
     const qBuy = query(
@@ -36,11 +46,11 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
       where('createdAt', '>=', ts),
     );
     const unsubBuy = onSnapshot(qBuy, (snap) => {
-      buys = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      buys = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PreMarketOrder);
       merge();
     });
     const unsubSell = onSnapshot(qSell, (snap) => {
-      sells = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      sells = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PreMarketOrder);
       merge();
     });
     return () => {
@@ -49,13 +59,13 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
     };
   }, [user]);
 
-  const handleCancel = async (orderId) => {
+  const handleCancel = async (orderId: string) => {
     setCancelling(orderId);
     try {
       await cancelPreMarketOrderFunction({ orderId });
       showNotification('success', 'Order cancelled.');
     } catch (err) {
-      showNotification('error', err.message || 'Failed to cancel order.');
+      showNotification('error', errorMessage(err) || 'Failed to cancel order.');
     } finally {
       setCancelling(null);
     }
@@ -123,7 +133,21 @@ const MyPreMarketOrdersModal = ({ onClose }) => {
   );
 };
 
-const OrderRow = ({ order, onCancel, cancelling, darkMode, textClass, mutedClass }) => (
+const OrderRow = ({
+  order,
+  onCancel,
+  cancelling,
+  darkMode,
+  textClass,
+  mutedClass,
+}: {
+  order: PreMarketOrder;
+  onCancel: (orderId: string) => void;
+  cancelling: string | null;
+  darkMode: boolean;
+  textClass: string;
+  mutedClass: string;
+}) => (
   <div
     className={`flex items-center justify-between px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}
   >

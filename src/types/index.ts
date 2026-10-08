@@ -173,6 +173,7 @@ export interface UserData {
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
   ladderTutorial2Completed?: boolean;
+  isPublic?: boolean;
   nameChangedAt?: TimestampLike;
   displayedAchievementPins?: unknown;
   displayedShopPins?: unknown;
@@ -256,8 +257,20 @@ export interface IPO {
 /** One row of a leaderboard. */
 export interface LeaderRow {
   userId: string;
+  displayName?: string;
+  previousDisplayName?: string;
+  nameChangedAt?: number;
   portfolioValue?: number;
   marginUsed?: number;
+  weeklyGain?: number;
+  weeklyGainPercent?: number;
+  holdingsCount?: number;
+  crew?: string | null;
+  isCrewHead?: boolean;
+  crewHeadColor?: string;
+  isPublic?: boolean;
+  activeCosmetics?: ActiveCosmetics;
+  title?: SeasonTitle;
   [key: string]: unknown;
 }
 

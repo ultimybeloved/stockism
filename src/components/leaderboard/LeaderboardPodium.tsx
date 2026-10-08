@@ -6,9 +6,12 @@ import { formatCompactCurrency } from '../../utils/formatters';
 import PinDisplay from '../common/PinDisplay';
 import { getCosmeticStyles } from '../../utils/cosmetics';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
+import type { CSSProperties, Ref } from 'react';
+import type { User } from 'firebase/auth';
+import type { RankedLeader } from '../../hooks/useLeaderboard';
 
 // Gold / silver / bronze card treatments, keyed by podium place.
-const PLACE_STYLES = {
+const PLACE_STYLES: Record<number, { medal: string; dark: string; light: string }> = {
   1: {
     medal: '🥇',
     dark: 'border-yellow-500/60 bg-yellow-500/10',
@@ -26,7 +29,13 @@ const PLACE_STYLES = {
   },
 };
 
-const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
+interface PodiumCardProps {
+  leader: RankedLeader;
+  place: number;
+  sortBy: string;
+}
+
+const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place, sortBy }, ref) => {
   const { darkMode, user, userData } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -37,18 +46,20 @@ const PodiumCard = forwardRef(({ leader, place, sortBy }, ref) => {
   const userCrewColor = userData?.crew ? CREW_MAP[userData.crew]?.color : '#6b7280';
   const crew = leader.crew ? CREW_MAP[leader.crew] : null;
   const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(leader.activeCosmetics);
-  const placeStyle = PLACE_STYLES[place];
+  // place is always 1, 2 or 3.
+  const placeStyle = PLACE_STYLES[place]!;
   const isFirst = place === 1;
   // Crew-colored pulsing aura for crew heads; purchased glows always win.
   const crownGlow = leader.isCrewHead && crew && !leader.activeCosmetics?.rowGlow;
 
-  const style = {};
+  // --cgp feeds the crown-glow keyframes in index.css.
+  const style: CSSProperties & { '--cgp'?: string } = {};
   if (backdropColor) style.backgroundColor = darkMode ? `${backdropColor}18` : `${backdropColor}12`;
   const shadows = [];
   if (glowColor) shadows.push(`0 0 18px ${glowColor}50`);
   if (isCurrentUser) shadows.push(`0 0 0 2px ${userCrewColor}`);
   if (shadows.length) style.boxShadow = shadows.join(', ');
-  if (crownGlow) style['--cgp'] = crew.color;
+  if (crownGlow && crew) style['--cgp'] = crew.color;
 
   const nameStyle = nameClass
     ? undefined
@@ -130,11 +141,19 @@ PodiumCard.displayName = 'PodiumCard';
 // Olympic-style podium for the top 3: #1 center and largest with a gold sheen,
 // #2 left, #3 right. `userRowRef` attaches to the current user's card so the
 // page's scroll tracking (sticky rank bars) keeps working when they're on it.
-const LeaderboardPodium = ({ leaders, sortBy, user, userRowRef }) => {
+interface LeaderboardPodiumProps {
+  leaders: RankedLeader[];
+  sortBy: string;
+  user: User | null;
+  userRowRef: Ref<HTMLDivElement>;
+}
+
+const LeaderboardPodium = ({ leaders, sortBy, user, userRowRef }: LeaderboardPodiumProps) => {
   const arrangement = [
-    { leader: leaders[1], place: 2 },
-    { leader: leaders[0], place: 1 },
-    { leader: leaders[2], place: 3 },
+    // Only rendered once the top three exist.
+    { leader: leaders[1]!, place: 2 },
+    { leader: leaders[0]!, place: 1 },
+    { leader: leaders[2]!, place: 3 },
   ];
   return (
     <div className="flex items-end gap-1.5 sm:gap-2 p-2 sm:p-3">

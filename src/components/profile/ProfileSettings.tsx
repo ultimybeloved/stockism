@@ -3,9 +3,11 @@ import { db } from '../../firebase';
 import { getThemeClasses } from '../../utils/theme';
 import { STARTING_CASH } from '../../constants/economy';
 import { useDiscordLink } from '../../hooks/useDiscordLink';
+import type { User } from 'firebase/auth';
+import type { UserData } from '../../types';
 
 // Profile settings card: color-blind mode, public profile toggle, Discord link.
-const ProfileSettings = ({ userData, user, darkMode }) => {
+const ProfileSettings = ({ userData, user, darkMode }: { userData: UserData; user: User; darkMode: boolean }) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const { beginDiscordLink, unlinkDiscord, linking, error: linkError } = useDiscordLink();
 

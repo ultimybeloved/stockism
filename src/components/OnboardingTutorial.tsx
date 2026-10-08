@@ -49,16 +49,17 @@ const STEPS = [
   },
 ];
 
-export default function OnboardingTutorial({ onComplete }) {
+export default function OnboardingTutorial({ onComplete }: { onComplete: () => void }) {
   const { darkMode } = useAppContext();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [animating, setAnimating] = useState(false);
 
-  const current = STEPS[step];
+  // step is clamped to STEPS' range by goTo.
+  const current = STEPS[step]!;
 
   const goTo = useCallback(
-    (next) => {
+    (next: number) => {
       if (animating || next < 0 || next >= STEPS.length) return;
       setDirection(next > step ? 1 : -1);
       setAnimating(true);
