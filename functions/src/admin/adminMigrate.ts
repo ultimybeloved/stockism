@@ -58,7 +58,7 @@ export const renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onC
   if (!marketSnap.exists) {
     throw new functions.https.HttpsError('not-found', 'Market data not found');
   }
-  const marketData = marketSnap.data();
+  const marketData = marketSnap.data()!;
 
   if (mode === 'dryRun') {
     const { checks, blocked, journal } = await runPreflight({ old, nw, marketData });

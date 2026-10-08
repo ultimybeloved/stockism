@@ -1,4 +1,3 @@
-'use strict';
 // Ticker rename engine.
 //
 // INTERNAL MODULE — required directly by adminMigrate.js, deliberately absent
@@ -23,15 +22,17 @@
 //
 // 3. STAY HALTED on anything but success. The market reopens only after a
 //    verification scan finds zero occurrences of the old ticker.
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
 
 const db = admin.firestore();
 
-const { CHARACTERS, CHARACTER_MAP } = require('../shared/characters');
-const { CREWS } = require('../shared/crews');
-const { RENAME_TIME_BUDGET_MS, RENAME_PAGE_SIZE, RENAME_JOURNAL_DOC, TICKER_PATTERN } = require('../shared/constants');
-const { priceHistoryRef } = require('../shared/helpers');
+import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
+import { CREWS } from '../shared/crews';
+import { RENAME_TIME_BUDGET_MS, RENAME_PAGE_SIZE, RENAME_JOURNAL_DOC, TICKER_PATTERN } from '../shared/constants';
+import { priceHistoryRef } from '../shared/marketData';
+import type { DocumentData, DocumentReference, Query } from 'firebase-admin/firestore';
+import type { PricePoint } from '../shared/types';
 
 const DELETE = () => admin.firestore.FieldValue.delete();
 
@@ -40,7 +41,7 @@ const journalRef = () => db.collection('market').doc(RENAME_JOURNAL_DOC);
 
 // What a rename means for each document: pure helpers, in tickerRemap.js so
 // they test without an emulator.
-const {
+import {
   mapMoveUpdates,
   remapArrayOfStrings,
   remapObjectArray,
@@ -50,7 +51,7 @@ const {
   buildMarketUpdates,
   USER_TICKER_MAPS,
   MARKET_TICKER_MAPS,
-} = require('./tickerRemap');
+} from './tickerRemap';
 
 // ============================================
 // PREFLIGHT
@@ -64,9 +65,9 @@ const {
  * initNewCharacterPrices see the old ticker still in the roster with no price
  * and re-seed it at base price, producing a duplicate stock at the wrong price.
  */
-const runPreflight = async ({ old, nw, marketData }) => {
-  const checks = [];
-  const add = (id, label, pass, detail) => checks.push({ id, label, pass, detail });
+export const runPreflight = async ({ old, nw, marketData }: { old: string; nw: string; marketData: DocumentData }) => {
+  const checks: { id: string; label: string; pass: boolean; detail: string }[] = [];
+  const add = (id: string, label: string, pass: boolean, detail: string) => checks.push({ id, label, pass, detail });
 
   const prices = marketData.prices || {};
   const aliases = marketData.tickerAliases || {};
@@ -83,7 +84,7 @@ const runPreflight = async ({ old, nw, marketData }) => {
     'New ticker is in the deployed roster',
     !!CHARACTER_MAP[nw],
     CHARACTER_MAP[nw]
-      ? `${nw} is "${CHARACTER_MAP[nw].name}"`
+      ? `${nw} is "${CHARACTER_MAP[nw]!.name}"`
       : `${nw} is not in the deployed characters.ts. Edit the source, run sync:chars, and deploy functions BEFORE renaming.`,
   );
 
@@ -158,14 +159,14 @@ const runPreflight = async ({ old, nw, marketData }) => {
   );
 
   const jSnap = await journalRef().get();
-  const journal = jSnap.exists ? jSnap.data() : null;
+  const journal = jSnap.exists ? jSnap.data()! : null;
   const otherOpen = !!journal && journal.status !== 'complete' && !(journal.old === old && journal.new === nw);
   add(
     'journal',
     'No other rename is part-finished',
     !otherOpen,
     otherOpen
-      ? `${journal.old} -> ${journal.new} is ${journal.status}. Resume or abort it first.`
+      ? `${journal!.old} -> ${journal!.new} is ${journal!.status}. Resume or abort it first.`
       : 'No conflicting run.',
   );
 
@@ -176,7 +177,18 @@ const runPreflight = async ({ old, nw, marketData }) => {
 // PHASE HELPERS
 // ============================================
 // Shared with the stock split; see migrationWalk.js.
-const { drainQuery, walkCollection } = require('./migrationWalk');
+import { drainQuery, walkCollection } from './migrationWalk';
+import type { Budget, WalkResult } from './migrationWalk';
+
+/** What every phase is called with. */
+interface PhaseArgs {
+  old: string;
+  nw: string;
+  cursor?: string | null;
+  budget: Budget;
+}
+
+const byTimestamp = (a: PricePoint, b: PricePoint) => (a.timestamp || 0) - (b.timestamp || 0);
 
 // ============================================
 // PHASES
@@ -184,7 +196,7 @@ const { drainQuery, walkCollection } = require('./migrationWalk');
 // Order matters: market state first so the stock exists under its new name
 // before anything referring to it is touched, players next, then the records.
 
-const PHASES = [
+export const PHASES: { name: string; label: string; run: (args: PhaseArgs) => Promise<WalkResult> }[] = [
   {
     name: 'marketCurrent',
     label: 'Market document',
@@ -204,7 +216,7 @@ const PHASES = [
       if (data[old] === undefined) return { done: 0, complete: true };
       // Merge rather than overwrite: a crashed run may have written some of the
       // new key already, and losing chart points is not recoverable.
-      const merged = [...(data[nw] || []), ...data[old]].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      const merged = [...(data[nw] || []), ...data[old]].sort(byTimestamp);
       await priceHistoryRef().update({ [nw]: merged, [old]: DELETE() });
       return { done: 1, complete: true };
     },
@@ -221,7 +233,7 @@ const PHASES = [
         const newDoc = await archive.doc(nw).get();
         const oldHist = (oldDoc.data() || {}).history || [];
         const newHist = newDoc.exists ? (newDoc.data() || {}).history || [] : [];
-        const merged = [...newHist, ...oldHist].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        const merged = [...newHist, ...oldHist].sort(byTimestamp);
         await archive.doc(nw).set(
           {
             history: merged,
@@ -238,8 +250,8 @@ const PHASES = [
       const closesSnap = await db.collection('market').doc('current').collection('daily_closes').get();
       for (const doc of closesSnap.docs) {
         const closes = (doc.data() || {}).closes || {};
-        const updates = {};
-        for (const [day, byTicker] of Object.entries(closes)) {
+        const updates: Record<string, unknown> = {};
+        for (const [day, byTicker] of Object.entries(closes as Record<string, DocumentData | null>)) {
           if (byTicker && byTicker[old] !== undefined) {
             updates[`closes.${day}.${nw}`] = byTicker[old];
             updates[`closes.${day}.${old}`] = DELETE();
@@ -258,7 +270,7 @@ const PHASES = [
     label: 'Market side documents',
     run: async ({ old, nw }) => {
       let done = 0;
-      const move = async (ref, build) => {
+      const move = async (ref: DocumentReference, build: (data: DocumentData) => Record<string, unknown>) => {
         const snap = await ref.get();
         if (!snap.exists) return;
         const updates = build(snap.data() || {});
@@ -277,7 +289,7 @@ const PHASES = [
       // that one and a renamed stock looks un-shorted, which silently switches
       // its decay back on.
       await move(m.doc('tickerStats'), (d) => {
-        const updates = {};
+        const updates: Record<string, unknown> = {};
         if (d[old] !== undefined) {
           updates[nw] = d[old];
           updates[old] = DELETE();
@@ -379,7 +391,7 @@ const PHASES = [
       drainQuery(
         () => db.collection('feed').where('ticker', '==', old),
         (doc) => {
-          const updates = { ticker: nw };
+          const updates: Record<string, unknown> = { ticker: nw };
           const msg = remapMessage((doc.data() || {}).message, old, nw);
           if (msg) updates.message = msg;
           return updates;
@@ -394,9 +406,9 @@ const PHASES = [
 // ============================================
 
 /** Every place the old ticker could still be hiding. [] means clean. */
-const verifyClean = async (old) => {
-  const remaining = [];
-  const note = (where, count) => {
+export const verifyClean = async (old: string) => {
+  const remaining: { where: string; count: number }[] = [];
+  const note = (where: string, count: number) => {
     if (count) remaining.push({ where, count });
   };
 
@@ -420,14 +432,14 @@ const verifyClean = async (old) => {
     ['preHaltSnapshot', db.collection('market').doc('preHaltSnapshot')],
     ['reviewChanges', db.collection('market').doc('reviewChanges')],
     ['reviewDetail', db.collection('market').doc('reviewDetail')],
-  ]) {
+  ] as [string, DocumentReference][]) {
     const d = (await ref.get()).data() || {};
     const inner = d.prices || d.changes || d.detail || {};
     note(`market/${name}`, inner[old] !== undefined ? 1 : 0);
   }
 
   const idx = (await db.collection('market').doc('indexHistory').get()).data() || {};
-  note('market/indexHistory', (idx.constituents || []).some((c) => c.t === old) ? 1 : 0);
+  note('market/indexHistory', (idx.constituents || []).some((c: { t: string }) => c.t === old) ? 1 : 0);
 
   for (const [name, q] of [
     ['trades', db.collection('trades').where('ticker', '==', old)],
@@ -435,7 +447,7 @@ const verifyClean = async (old) => {
     ['preMarketOrders', db.collection('preMarketOrders').where('ticker', '==', old)],
     ['feed', db.collection('feed').where('ticker', '==', old)],
     ['priceAlerts', db.collectionGroup('priceAlerts').where('ticker', '==', old)],
-  ]) {
+  ] as [string, Query][]) {
     const snap = await q.limit(1).get();
     note(name, snap.size);
   }
@@ -447,8 +459,8 @@ const verifyClean = async (old) => {
 // DRY RUN
 // ============================================
 
-const countDryRun = async ({ old, nw }) => {
-  const breakdown = {};
+export const countDryRun = async ({ old, nw }: { old: string; nw: string }) => {
+  const breakdown: Record<string, number> = {};
   const market = (await marketRef().get()).data() || {};
   breakdown.marketCurrent = Object.keys(buildMarketUpdates(market, old, nw)).length ? 1 : 0;
 
@@ -459,7 +471,7 @@ const countDryRun = async ({ old, nw }) => {
   breakdown.priceArchive = archived.exists ? 1 : 0;
 
   let users = 0;
-  let cursor = null;
+  let cursor: string | null = null;
   for (;;) {
     let q = db.collection('users').orderBy(admin.firestore.FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
     if (cursor) q = q.startAfter(cursor);
@@ -468,12 +480,12 @@ const countDryRun = async ({ old, nw }) => {
     for (const doc of snap.docs) {
       if (Object.keys(buildUserUpdates(doc.data(), old, nw)).length) users++;
     }
-    cursor = snap.docs[snap.docs.length - 1].id;
+    cursor = snap.docs[snap.docs.length - 1]!.id;
     if (snap.size < RENAME_PAGE_SIZE) break;
   }
   breakdown.users = users;
 
-  const countQ = async (q) => (await q.count().get()).data().count;
+  const countQ = async (q: Query) => (await q.count().get()).data()!.count;
   breakdown.trades = await countQ(db.collection('trades').where('ticker', '==', old));
   breakdown.limitOrders = await countQ(db.collection('limitOrders').where('ticker', '==', old));
   breakdown.preMarketOrders = await countQ(db.collection('preMarketOrders').where('ticker', '==', old));
@@ -487,7 +499,17 @@ const countDryRun = async ({ old, nw }) => {
 // RUNNER
 // ============================================
 
-const freshJournal = ({ old, nw, uid, haltWasPreexisting }) => ({
+const freshJournal = ({
+  old,
+  nw,
+  uid,
+  haltWasPreexisting,
+}: {
+  old: string;
+  nw: string;
+  uid: string;
+  haltWasPreexisting: boolean;
+}) => ({
   old,
   new: nw,
   startedAt: Date.now(),
@@ -517,12 +539,24 @@ const HALT_FIELDS = () => ({
  * failed and leaves the market halted, because a partly renamed database is not
  * something to reopen trading on.
  */
-const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET_MS }) => {
+export const runRename = async ({
+  old,
+  nw,
+  mode,
+  uid,
+  timeBudgetMs = RENAME_TIME_BUDGET_MS,
+}: {
+  old: string;
+  nw: string;
+  mode: string;
+  uid: string;
+  timeBudgetMs?: number;
+}) => {
   const started = Date.now();
   const budget = { expired: () => Date.now() - started > timeBudgetMs };
 
   const jSnap = await journalRef().get();
-  let journal = jSnap.exists ? jSnap.data() : null;
+  let journal: DocumentData | null = jSnap.exists ? jSnap.data()! : null;
 
   if (mode === 'abort') {
     if (!journal) throw new functions.https.HttpsError('not-found', 'No rename to abort.');
@@ -544,9 +578,10 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
     }
   }
 
-  await journalRef().set(journal);
+  const j = journal!;
+  await journalRef().set(j);
 
-  const ctx = { old: journal.old, nw: journal.new };
+  const ctx = { old: j.old, nw: j.new };
 
   try {
     for (const phase of PHASES) {
@@ -607,9 +642,9 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
     };
   } catch (err) {
     if (err instanceof functions.https.HttpsError) throw err;
-    journal.status = 'failed';
-    journal.lastError = err.message;
-    await journalRef().set(journal);
+    j.status = 'failed';
+    j.lastError = (err as Error).message;
+    await journalRef().set(j);
     // Deliberately NOT un-halting. A half-renamed database with an open market
     // is the worst outcome available.
     //
@@ -620,18 +655,12 @@ const runRename = async ({ old, nw, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET
     await marketRef().update({ marketHalted: true, haltReason: HALT_REASON });
     throw new functions.https.HttpsError(
       'internal',
-      `Rename failed in progress: ${err.message}. Market stays halted. Resume from the admin panel.`,
+      `Rename failed in progress: ${(err as Error).message}. Market stays halted. Resume from the admin panel.`,
     );
   }
 };
 
-module.exports = {
-  PHASES,
-  runPreflight,
-  countDryRun,
-  runRename,
-  verifyClean,
-  // exported for unit tests
+export {
   mapMoveUpdates,
   remapArrayOfStrings,
   remapObjectArray,

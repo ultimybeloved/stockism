@@ -235,7 +235,7 @@ These specific patterns are banned. If you catch yourself writing any of them, s
 
 5. **Magic numbers** — `0.005`, `0.15`, `500`, `10000` scattered across backend files with no explanation. Every economy value needs a named constant.
 
-6. **Copy-paste across frontend/backend** — `src/characters.ts` and `functions/src/shared/characters.js` were allowed to diverge and caused trade bugs. Any logic that needs to exist in both places needs a sync mechanism or a single source of truth.
+6. **Copy-paste across frontend/backend** — `src/characters.ts` and `functions/src/shared/characters.ts` were allowed to diverge and caused trade bugs. Any logic that needs to exist in both places needs a sync mechanism or a single source of truth.
 
 ### When Adding a New Feature
 
@@ -303,57 +303,57 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/servicePaths.js` | Builds the full service list from every domain's `services.js`. A new domain folder is added to `DOMAINS` here |
 | `functions/src/<domain>/services.js` | The files in that domain that declare Cloud Functions. Never list internal modules |
 | `functions/src/serviceLoader.js` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
-| `functions/src/shared/sentry.js` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
+| `functions/src/shared/sentry.ts` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
 | `functions/src/shared/constants/` | All backend economy constants, one file per topic — add new ones to the right topic |
-| `functions/src/shared/helpers.js` | Re-exports the shared topic modules beside it (impact, cohorts, equity, usernames, ...) |
+| `functions/src/shared/helpers.ts` | Re-exports the shared topic modules beside it (impact, cohorts, equity, usernames, ...) |
 | `functions/src/shared/characters.ts` | **Generated file** — never edit directly, always via `npm run sync:chars` |
-| `functions/src/market/botTrader.js` | Bot trading scheduler |
-| `functions/src/trading/trading.js` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
-| `functions/src/users/users.js` | Account lifecycle: createUser, deleteAccount (anti-abuse gates live here) |
-| `functions/src/users/userProfile.js` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
-| `functions/src/market/market.js` | Daily Discord summary, pre-halt price snapshot, chapter recap + review rebuild, market open/close alerts, manual halt (setMarketHalt). 579 lines, near the 600 limit |
-| `functions/src/users/leaderboard.js` | Rankings, leaderboard computation |
-| `functions/src/market/dividends.js` | Dividend payouts |
-| `functions/src/market/alerts.js` | Price alerts |
-| `functions/src/discord/discord.js` | Discord OAuth and account linking (≤352 lines) |
-| `functions/src/discord/discordInteractions.js` | Discord slash command webhook handler |
-| `functions/src/discord/discordAdmin.js` | Discord-triggered admin diagnostics and recovery tools |
-| `functions/src/admin/admin.js` | banUser, fixBasePriceCliffs, createBots |
-| `functions/src/admin/adminBackups.js` | Market backup/restore/retention (restoreBackup overwrites live data) |
-| `functions/src/admin/adminOps.js` | Small direct admin ops: grant/revoke, set cash, broadcast, toggles, Discord unlink/move-link |
-| `functions/src/admin/adminUserEdit.js` | Direct edits to one player's game state: crew, achievements, margin, a single holding. Skips player-facing penalties/cooldowns on purpose |
-| `functions/src/admin/adminRepair.js` | Heavy bulk player-data repair (repairSpikeVictims, reconstructPortfolioHistory) |
-| `functions/src/admin/adminMigrate.js` | Ticker/roster migrations: renameTicker, initNewCharacterPrices |
-| `functions/src/margin/margin.js` | User-facing margin actions: repay, bailout, toggle, interest |
-| `functions/src/margin/marginScanners.js` | The two scheduled liquidation scanners (checkShortMarginCalls, checkMarginLending). Covered by test:trading sections J and K |
-| `functions/src/users/portfolio.js` | syncPortfolio, sweepDustPositions |
-| `functions/src/crews/crew.js` | switchCrew, leaveCrew |
-| `functions/src/orders/limitOrders.js` | createLimitOrder + the sweep schedule; engine is in `limitOrderMatching.js` (internal) |
-| `functions/src/missions/missions.js` | Daily/weekly mission logic + dailyCheckin |
-| `functions/src/predictions/predictions.js` | Prediction markets, IPO price jumps |
-| `functions/src/ladder/ladderGame.js` | Ladder game mechanics and leaderboard |
-| `functions/src/moderation/watchlist.js` | IP watchlist, fraud detection |
-| `functions/src/admin/archiving.js` | Data archiving and cleanup |
-| `functions/src/orders/marketOrders.js` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
-| `functions/src/orders/preMarket.js` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
-| `functions/src/orders/orderNetwork.js` | **Internal module, not in services.js.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |
-| `functions/src/market/marketWeekly.js` | Weekly market summary, leaderboard, crew rankings (scheduled) |
-| `functions/src/market/tickerRename.js` | **Internal module, not in services.js.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.js |
-| `functions/src/market/tickerRemap.js` | **Internal module, not in services.js.** The rename engine's pure helpers: which user/market maps a rename moves (`USER_TICKER_MAPS`, `MARKET_TICKER_MAPS`). Any new ticker-keyed field on a player or market/current must be added here |
-| `functions/src/market/tickerStats.js` | recordPriceExtremes — hourly all-time high/low sweep |
-| `functions/src/season/season.js` | Seasons: start/end, the Thursday checkpoint, the standings board. Scores live net equity at frozen prices, never the stored portfolioValue |
-| `functions/src/season/seasonRecords.js` | **Internal module, not in services.js.** The weekly record, board membership, and one player's board entry (incl. size division) |
-| `functions/src/season/seasonExclusions.js` | Admin: players flagged for coordination this season, and keeping one out of Platinum/Diamond (`seasonTopTierExclusion` on the user doc, private) |
-| `functions/src/moderation/coordDetection.js` | Hourly coordination scan (`35 * * * *`). Alerts + admin DM, then `coordEnforcement.js` (internal): 48h buy-back + short block for everyone in a TIGHT downward cluster, and the "all in on borrowed money" flag on upward ones. `npm run test:coord` |
-| `functions/src/moderation/coordReview.js` | Admin: what a flagged push made a player (math in `coordProfitMath.js`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
-| `functions/src/season/seasonTiers.js` | **Internal module, not in services.js.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Mirrored in `src/constants/seasons.ts` + `src/utils/seasonWeeks.ts`; `functions/src/season/seasonTiers.test.js` fails if the rules drift |
+| `functions/src/market/botTrader.ts` | Bot trading scheduler |
+| `functions/src/trading/trading.ts` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
+| `functions/src/users/users.ts` | Account lifecycle: createUser, deleteAccount (anti-abuse gates live here) |
+| `functions/src/users/userProfile.ts` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
+| `functions/src/market/market.ts` | Daily Discord summary, pre-halt price snapshot, chapter recap + review rebuild, market open/close alerts, manual halt (setMarketHalt). 595 lines, near the 600 limit |
+| `functions/src/users/leaderboard.ts` | Rankings, leaderboard computation |
+| `functions/src/market/dividends.ts` | Dividend payouts |
+| `functions/src/market/alerts.ts` | Price alerts |
+| `functions/src/discord/discord.ts` | Discord OAuth and account linking (≤352 lines) |
+| `functions/src/discord/discordInteractions.ts` | Discord slash command webhook handler |
+| `functions/src/discord/discordAdmin.ts` | Discord-triggered admin diagnostics and recovery tools |
+| `functions/src/admin/admin.ts` | banUser, fixBasePriceCliffs, createBots |
+| `functions/src/admin/adminBackups.ts` | Market backup/restore/retention (restoreBackup overwrites live data) |
+| `functions/src/admin/adminOps.ts` | Small direct admin ops: grant/revoke, set cash, broadcast, toggles, Discord unlink/move-link |
+| `functions/src/admin/adminUserEdit.ts` | Direct edits to one player's game state: crew, achievements, margin, a single holding. Skips player-facing penalties/cooldowns on purpose |
+| `functions/src/admin/adminRepair.ts` | Heavy bulk player-data repair (repairSpikeVictims, reconstructPortfolioHistory) |
+| `functions/src/admin/adminMigrate.ts` | Ticker/roster migrations: renameTicker, initNewCharacterPrices |
+| `functions/src/margin/margin.ts` | User-facing margin actions: repay, bailout, toggle, interest |
+| `functions/src/margin/marginScanners.ts` | The two scheduled liquidation scanners (checkShortMarginCalls, checkMarginLending). Covered by test:trading sections J and K |
+| `functions/src/users/portfolio.ts` | syncPortfolio, sweepDustPositions |
+| `functions/src/crews/crew.ts` | switchCrew, leaveCrew |
+| `functions/src/orders/limitOrders.ts` | createLimitOrder + the sweep schedule; engine is in `limitOrderMatching.js` (internal) |
+| `functions/src/missions/missions.ts` | Daily/weekly mission logic + dailyCheckin |
+| `functions/src/predictions/predictions.ts` | Prediction markets, IPO price jumps |
+| `functions/src/ladder/ladderGame.ts` | Ladder game mechanics and leaderboard |
+| `functions/src/moderation/watchlist.ts` | IP watchlist, fraud detection |
+| `functions/src/admin/archiving.ts` | Data archiving and cleanup |
+| `functions/src/orders/marketOrders.ts` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
+| `functions/src/orders/preMarket.ts` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
+| `functions/src/orders/orderNetwork.ts` | **Internal module, not in services.js.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |
+| `functions/src/market/marketWeekly.ts` | Weekly market summary, leaderboard, crew rankings (scheduled) |
+| `functions/src/market/tickerRename.ts` | **Internal module, not in services.js.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.js |
+| `functions/src/market/tickerRemap.ts` | **Internal module, not in services.js.** The rename engine's pure helpers: which user/market maps a rename moves (`USER_TICKER_MAPS`, `MARKET_TICKER_MAPS`). Any new ticker-keyed field on a player or market/current must be added here |
+| `functions/src/market/tickerStats.ts` | recordPriceExtremes — hourly all-time high/low sweep |
+| `functions/src/season/season.ts` | Seasons: start/end, the Thursday checkpoint, the standings board. Scores live net equity at frozen prices, never the stored portfolioValue |
+| `functions/src/season/seasonRecords.ts` | **Internal module, not in services.js.** The weekly record, board membership, and one player's board entry (incl. size division) |
+| `functions/src/season/seasonExclusions.ts` | Admin: players flagged for coordination this season, and keeping one out of Platinum/Diamond (`seasonTopTierExclusion` on the user doc, private) |
+| `functions/src/moderation/coordDetection.ts` | Hourly coordination scan (`35 * * * *`). Alerts + admin DM, then `coordEnforcement.js` (internal): 48h buy-back + short block for everyone in a TIGHT downward cluster, and the "all in on borrowed money" flag on upward ones. `npm run test:coord` |
+| `functions/src/moderation/coordReview.ts` | Admin: what a flagged push made a player (math in `coordProfitMath.js`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
+| `functions/src/season/seasonTiers.ts` | **Internal module, not in services.js.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Mirrored in `src/constants/seasons.ts` + `src/utils/seasonWeeks.ts`; `functions/src/season/seasonTiers.test.js` fails if the rules drift |
 
 ---
 
 ## Renaming a Ticker
 
 `renameTicker` (Admin -> Recovery -> Rename Ticker) rewrites a ticker everywhere
-the game computes on it. The engine is `functions/src/market/tickerRename.js`, an
+the game computes on it. The engine is `functions/src/market/tickerRename.ts`, an
 internal module not listed in its domain's `services.js`.
 
 **Order is enforced. Source edit and deploy come first, migration second.**
@@ -420,7 +420,7 @@ pre-rename backup resurrecting a retired ticker.
 
 `splitStock` (Admin -> Recovery -> Split Stock) splits one stock N-for-1: price
 / N, every holder's shares x N, nobody's money changes. The engine is
-`functions/src/market/stockSplit.js`, an internal module (not in
+`functions/src/market/stockSplit.ts`, an internal module (not in
 `services.js`). It rescales prices, chart history, daily closes, ATH/ATL,
 the pre-halt snapshot, review data, the index constituent's base, holdings,
 dividend lots, shorts, lockups, open limit orders, price alerts, trade records,
@@ -472,7 +472,7 @@ Frontend deploys automatically via Vercel on every push to `main`. Backend requi
 
 These are known gaps that were evaluated and deliberately left alone. Don't reopen them without a good reason.
 
-- ~~**`executeTrade` refactor**~~ **DONE 2026-07-19**: `functions/src/trading/trading.js` is now a ~315-line orchestrator; the logic lives in sibling modules `tradeGuards.js` (validation + anti-abuse gates), `tradeActions.js` (buy/sell/short/cover math), `tradePricing.js` (trailing/ETF propagation), `tradeState.js` (IP tracking + user-doc update assembly), `tradeEffects.js` (post-commit achievements/notifications/feed). Still ONE atomic transaction — all reads before writes, write order market → price history → trade record → ipTracking → user doc. `npm run test:trading` (155 checks) is the characterization suite — run before and after ANY change to these files. The internal modules are NOT exported through `functions/src/index.js`.
+- ~~**`executeTrade` refactor**~~ **DONE 2026-07-19**: `functions/src/trading/trading.ts` is now a ~315-line orchestrator; the logic lives in sibling modules `tradeGuards.js` (validation + anti-abuse gates), `tradeActions.js` (buy/sell/short/cover math), `tradePricing.js` (trailing/ETF propagation), `tradeState.js` (IP tracking + user-doc update assembly), `tradeEffects.js` (post-commit achievements/notifications/feed). Still ONE atomic transaction — all reads before writes, write order market → price history → trade record → ipTracking → user doc. `npm run test:trading` (155 checks) is the characterization suite — run before and after ANY change to these files. The internal modules are NOT exported through `functions/src/index.js`.
 - ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.tsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.tsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
 - ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.tsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.ts` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.tsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
 - ~~**End-to-end trade tests**~~ **DONE**: the emulator suites (`npm run test:trading`, `test:limitorders`, `test:premarket`, `test:season`, and ~15 more; see package.json) run the real function code against a local Firestore, and CI runs the money-path ones on every push to main (`.github/workflows/ci.yml`).
@@ -497,5 +497,5 @@ Pre-market timeline inside the Thursday halt: orders queue 20:30–20:55 UTC (`p
 - **`activeUserData` vs `userData`** in App.tsx: `userData` is the logged-in user's Firestore doc. `activeUserData` is derived from it with fallbacks. Always use `activeUserData` when reading holdings/shorts/cohorts, not `userData` directly.
 - **`colorBlindMode`**: Not stored directly in context — derive it everywhere as `const colorBlindMode = userData?.colorBlindMode || false`. It affects green/red color choices throughout the UI.
 - **Guest mode**: `isGuest` flag is true when a user is browsing without an account. Most write operations and modals should be gated behind `!isGuest`.
-- **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.ts`. The backend uses `calculateMarginalImpact` in `functions/src/shared/impact.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
+- **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.ts`. The backend uses `calculateMarginalImpact` in `functions/src/shared/impact.ts`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
 - **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF entries are identified by `isETF: true` in `src/characters.ts` (there is no `type` field).

@@ -195,7 +195,7 @@ export interface UserData {
   seasonMargin?: MarginTally;
   seasonWeeks?: WeekRecord[];
   seasonTier?: { seasonId: string; tier: string };
-  seasonActiveWeeks?: { seasonId: string; weeks?: number };
+  seasonActiveWeeks?: { seasonId: string; weeks?: number; lastWeek?: number | null };
   seasonTopTierExclusion?: { seasonId: string; at?: number };
   [field: string]: unknown;
 }

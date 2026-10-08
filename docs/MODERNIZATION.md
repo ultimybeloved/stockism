@@ -69,21 +69,27 @@ their public profile and the leaderboard.
    the predeploy hook, `check:functions`, `deploy:functions` and `emulators`.
    Emulator suites run through tsx; backend vitest files get tsx's require hook
    (`functions/test/setup.ts`, the `backend` vitest project).
-   **Converted:** all of `shared/` (constants, helper topics, barrels), the
-   roster copies (`sync:chars` now copies `src/characters.ts` and
-   `src/crews.ts` verbatim, types included), and ~30 small domain modules.
-   Document shapes live in `shared/types.ts`; add fields as code reads them.
-   Admin callables use `requireAdmin(context)` from `fnConfig` instead of the
-   inline check (63 copies to retire as files convert).
-   **Next:** the rest of the domain files, internal modules before the service
-   files that use them (season: seasonRecords, seasonDryRun, season; trading:
-   tradeGuards, tradeActions, tradeEffects, trading; orders; and so on). In
-   converted files, import from the topic module (`../shared/impact`), not the
-   `helpers` barrel. Write exports as `export const name = ...`; tsc emits
-   `exports.name = ...`, which serviceLoader's scan finds. A test that
-   reassigns a module export must swap the cached module instead (see
-   `test-drop-halt-emulator.cjs`): TS exports are read-only. When `allowJs` can
-   go, delete the `.js` branches in `check-function-exports.cjs`.
+   **Converted (done 2026-10-08):** every backend logic file: all of
+   `shared/`, the roster copies (`sync:chars` copies `src/characters.ts` and
+   `src/crews.ts` verbatim, types included), and every domain module. Document
+   shapes live in `shared/types.ts`; add fields as code reads them. Admin
+   callables use `requireAdmin(context)` from `fnConfig`. Imports go to the
+   topic module (`../shared/impact`), not the `helpers` barrel. Exports are
+   `export const name = ...`; tsc emits `exports.name = ...`, which
+   serviceLoader's scan finds. A test that reassigns a module export must swap
+   the cached module instead (see `test-drop-halt-emulator.cjs`): TS exports
+   are read-only.
+   **Left in JS:** the plumbing (`index.js`, `serviceLoader.js`,
+   `servicePaths.js`, each domain's `services.js`) and the backend
+   `*.test.js` files. Converting the plumbing means teaching
+   `serviceLoader`/`check-function-exports.cjs` to read `.ts` service lists;
+   after that `allowJs` and the `.js` branches in `check-function-exports.cjs`
+   can go.
+   **Over the 600-line limit, to split:** `season/season.ts`,
+   `market/marketWeekly.ts`, `market/tickerRename.ts`, `users/users.ts`.
+   **Known bug kept as-is:** `getLeaderboard` never returns a rank for a
+   player outside the top 50 (`users/leaderboard.ts`, marked in the code).
+   Fixing it changes what players see, so it needs a decision first.
 4. Replace `console.log` with `firebase-functions/logger`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored
