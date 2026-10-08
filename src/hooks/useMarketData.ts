@@ -24,7 +24,7 @@ export function useMarketData() {
   const [priceHistory, setPriceHistory] = useState<PriceHistory>({});
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [dividendTierOverrides, setDividendTierOverrides] = useState<Record<string, string>>({});
-  const [siteMessages, setSiteMessages] = useState<LooseDoc[]>([]);
+  const [siteMessages, setSiteMessages] = useState<AppContextValue['siteMessages']>([]);
   const [launchedTickers, setLaunchedTickers] = useState<string[]>([]);
   // IPOs in their hype or buying phase. Own hook: the phase windows turn over
   // on a clock rather than on a write to the doc, so it needs a ticker of its

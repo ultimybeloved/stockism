@@ -164,18 +164,34 @@ export interface LadderLeaderboardResponse {
   leaderboard?: { [key: string]: unknown }[];
 }
 
+/** One suspicious account pair from the alt scan. */
+export interface AltScanFinding {
+  key: string;
+  names?: string[];
+  severity?: 'high' | string;
+  sharedNetworks?: number;
+  exclusiveNetworks?: number;
+  sharedTickers?: string[];
+  sameCrew?: boolean;
+  alreadyBanned?: boolean;
+}
+
 export interface AltScanResponse {
   scanned: number;
   candidates: number;
   reported: number;
-  [key: string]: unknown;
+  dryRun?: boolean;
+  findings?: AltScanFinding[];
 }
 
 export interface SeasonCoordPlayer {
   uid: string;
   name: string;
   excluded?: boolean;
-  [key: string]: unknown;
+  /** How many coordination alerts named them this season. */
+  flags: number;
+  tickers: string[];
+  partners: { name: string; n: number }[];
 }
 
 // ---- Admin tools ----

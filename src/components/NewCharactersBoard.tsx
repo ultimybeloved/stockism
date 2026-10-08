@@ -2,8 +2,23 @@ import { CHARACTERS } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 import { getWeekStart } from '../utils/date';
 import { newThisWeek } from '../utils/marketFilters';
+import type { PriceHistory, PriceMap } from '../types';
 
-const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = false, launchedTickers = [] }) => {
+interface NewCharactersBoardProps {
+  prices: PriceMap;
+  priceHistory: PriceHistory;
+  darkMode: boolean;
+  colorBlindMode?: boolean;
+  launchedTickers?: string[];
+}
+
+const NewCharactersBoard = ({
+  prices,
+  priceHistory,
+  darkMode,
+  colorBlindMode = false,
+  launchedTickers = [],
+}: NewCharactersBoardProps) => {
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   const weekStart = getWeekStart();
@@ -13,7 +28,7 @@ const NewCharactersBoard = ({ prices, priceHistory, darkMode, colorBlindMode = f
   if (newCharacters.length === 0) return null;
 
   // Calculate weekly change for each new character
-  const getWeeklyChange = (ticker) => {
+  const getWeeklyChange = (ticker: string) => {
     const currentPrice = prices[ticker];
     const history = priceHistory[ticker] || [];
 

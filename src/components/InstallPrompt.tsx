@@ -3,17 +3,23 @@ import { useState, useEffect } from 'react';
 const DISMISS_KEY = 'stockism_install_dismissed';
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
-export default function InstallPrompt({ darkMode }) {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+/** Chrome's install event; not in the standard DOM typings yet. */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+export default function InstallPrompt({ darkMode }: { darkMode: boolean }) {
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const dismissed = localStorage.getItem(DISMISS_KEY);
     if (dismissed && Date.now() - Number(dismissed) < SEVEN_DAYS) return;
 
-    const handler = (e) => {
+    const handler = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       setVisible(true);
     };
 

@@ -1,8 +1,15 @@
 import { CREW_MAP } from '../../crews';
-import { ACHIEVEMENTS } from '../../constants/achievements';
+import { ACHIEVEMENT_MAP } from '../../constants/achievements';
 import { SHOP_PINS } from '../../crews';
+import type { UserData } from '../../types';
 
-const PinDisplay = ({ userData, size = 'sm' }) => {
+const PinDisplay = ({
+  userData,
+  size = 'sm',
+}: {
+  userData: UserData | null | undefined;
+  size?: 'sm' | 'md' | 'lg';
+}) => {
   if (!userData) return null;
 
   const pins = [];
@@ -38,8 +45,8 @@ const PinDisplay = ({ userData, size = 'sm' }) => {
   // malformed value must never crash every viewer's render.
   const achievementPins = Array.isArray(userData.displayedAchievementPins) ? userData.displayedAchievementPins : [];
   const earnedAchievements = Array.isArray(userData.achievements) ? userData.achievements : [];
-  achievementPins.forEach((achId, idx) => {
-    const achievement = ACHIEVEMENTS[achId];
+  achievementPins.forEach((achId: string, idx: number) => {
+    const achievement = ACHIEVEMENT_MAP[achId];
     if (achievement && earnedAchievements.includes(achId)) {
       pins.push(
         <span key={`ach-${idx}`} title={achievement.name} className={`inline-flex items-center ${sizeClass}`}>

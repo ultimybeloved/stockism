@@ -6,6 +6,10 @@ import MarketTicker from '../MarketTicker';
 import SiteMessageBar from '../SiteMessageBar';
 import { useAppContext } from '../../context/AppContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
+import type { ReactNode } from 'react';
+import type { HeaderProps } from './Header';
+
+type LayoutProps = HeaderProps & { children?: ReactNode };
 
 const Layout = ({
   children,
@@ -16,7 +20,7 @@ const Layout = ({
   notificationCount,
   onToggleNotifications,
   newCharacters,
-}) => {
+}: LayoutProps) => {
   const { darkMode } = useAppContext();
   usePageTitle();
   return (

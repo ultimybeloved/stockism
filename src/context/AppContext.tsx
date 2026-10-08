@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { User } from 'firebase/auth';
 import type { ReviewChanges } from '../utils/marketHours';
-import type { IPO, PriceHistory, PriceMap, ShareMap, ShortMap, UserData } from '../types';
+import type { IPO, PriceHistory, PriceMap, ShareMap, ShortMap, SiteMessage, UserData } from '../types';
 
 /** market/current. Fields are added as typed code reads them. */
 export interface MarketData {
@@ -47,7 +47,8 @@ export interface AppContextValue {
   crewStats: { multipliers?: Record<string, number>; [key: string]: unknown } | null;
   /** market/reviewChanges: the last chapter review's moves, rebuilt server-side. */
   storedReviewChanges: { windowEnd?: number; changes?: ReviewChanges } | null;
-  siteMessages: LooseDoc[];
+  /** Stored by admins, so treat every field as possibly missing. */
+  siteMessages: Partial<SiteMessage>[];
 }
 
 /**

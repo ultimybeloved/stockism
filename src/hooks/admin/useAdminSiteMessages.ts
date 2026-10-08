@@ -19,14 +19,7 @@ import { errorMessage } from '../../utils/errors';
  */
 const REF = () => doc(db, 'config', 'siteMessages');
 
-/** One entry in config/siteMessages.messages: a line in the announcement bar. */
-export interface SiteMessage {
-  id: string;
-  text: string;
-  link: string;
-  tone: string;
-  active: boolean;
-}
+import type { SiteMessage } from '../../types';
 
 const blank = (): SiteMessage => ({
   id: `m${Date.now().toString(36)}`,

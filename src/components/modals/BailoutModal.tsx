@@ -6,7 +6,13 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 
 // Bankruptcy bailout confirmation — destructive last resort (clears holdings,
 // permanent crew exile), so the consequences are spelled out before confirming.
-const BailoutModal = ({ onConfirm, onCancel, loading }) => {
+interface BailoutModalProps {
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+const BailoutModal = ({ onConfirm, onCancel, loading }: BailoutModalProps) => {
   useEscapeKey(onCancel);
   const { darkMode, userData } = useAppContext();
   const { ghostBtnClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);

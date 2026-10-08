@@ -10,7 +10,7 @@ vi.mock('../context/AppContext', () => ({
   useAppContext: () => mockContext(),
 }));
 
-const setup = (siteMessages, darkMode = false) => {
+const setup = (siteMessages: Record<string, unknown>[], darkMode = false) => {
   mockContext.mockReturnValue({ siteMessages, darkMode });
   return render(<SiteMessageBar />);
 };
@@ -81,7 +81,7 @@ describe('SiteMessageBar', () => {
       msg({ id: 'a', tone: 'info' }),
       msg({ id: 'b', text: 'Trading suspended', tone: 'alert' }),
     ]);
-    expect(container.firstChild.className).toMatch(/red/);
+    expect((container.firstChild as HTMLElement).className).toMatch(/red/);
   });
 
   it('skips inactive messages while showing active ones', () => {

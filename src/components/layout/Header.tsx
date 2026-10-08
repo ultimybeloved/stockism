@@ -11,6 +11,23 @@ import { useNewPredictions } from '../../hooks/useNewPredictions';
 import { useAdminAlerts } from '../../hooks/useAdminAlerts';
 import MyPreMarketOrdersModal from '../modals/MyPreMarketOrdersModal';
 import { getThemeClasses } from '../../utils/theme';
+import type { Character } from '../../characters';
+
+/** A character added this week, with its live price and change since the week opened. */
+export interface NewCharacter extends Character {
+  currentPrice: number;
+  weeklyChange: number;
+}
+
+export interface HeaderProps {
+  setDarkMode: (dark: boolean) => void;
+  onShowAdminPanel: () => void;
+  isGuest: boolean;
+  onShowLogin: () => void;
+  notificationCount: number;
+  onToggleNotifications: () => void;
+  newCharacters?: NewCharacter[];
+}
 
 // Ladder icon component - tan circle with X
 const LadderIcon = () => (
@@ -30,7 +47,7 @@ const Header = ({
   notificationCount,
   onToggleNotifications,
   newCharacters = [],
-}) => {
+}: HeaderProps) => {
   const { darkMode, user, userData, prices } = useAppContext();
   const { textClass } = getThemeClasses(darkMode);
   // Live value from current prices — the stored userData.portfolioValue only
@@ -71,11 +88,11 @@ const Header = ({
     const interval = setInterval(() => setInPreMarket(isPreMarketWindow()), 10000);
     return () => clearInterval(interval);
   }, []);
-  const newCharsRef = useRef(null);
+  const newCharsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (newCharsRef.current && !newCharsRef.current.contains(e.target)) {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (newCharsRef.current && !newCharsRef.current.contains(e.target as Node)) {
         setShowNewCharsPopout(false);
       }
     };
@@ -103,7 +120,7 @@ const Header = ({
     }
   };
 
-  const isActivePage = (path) => {
+  const isActivePage = (path: string) => {
     return location.pathname === path;
   };
 
@@ -154,7 +171,7 @@ const Header = ({
                 >
                   <span className="mr-1">{link.icon}</span>
                   {link.label}
-                  {link.badge > 0 && (
+                  {!!link.badge && link.badge > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
                       {link.badge > 9 ? '9+' : link.badge}
                     </span>

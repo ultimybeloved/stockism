@@ -1,9 +1,19 @@
 import { useState } from 'react';
 import { CREW_SWITCH_PENALTY } from '../../crews';
 import { getThemeClasses, getReadableCrewColor } from '../../utils/theme';
+import type { Crew } from '../../crews';
+import type { UserData } from '../../types';
+
+interface CrewSectionProps {
+  userCrew: string | null | undefined;
+  crewData: Crew | null | undefined;
+  userData: UserData | null;
+  darkMode: boolean;
+  onOpenCrewSelection: () => void;
+}
 
 // Collapsible crew card, or a "Join a Crew" button when the user has no crew.
-const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelection }) => {
+const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelection }: CrewSectionProps) => {
   const [showCrewSection, setShowCrewSection] = useState(false);
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
 
@@ -38,7 +48,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
           >
             {crewData.name}
           </span>
-          {userData.isCrewHead && <span title="Crew Head">🔱</span>}
+          {userData?.isCrewHead && <span title="Crew Head">🔱</span>}
         </div>
         <span className={mutedClass}>{showCrewSection ? '▼' : '▶'}</span>
       </button>

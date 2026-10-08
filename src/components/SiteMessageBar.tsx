@@ -11,7 +11,9 @@ import { useAppContext } from '../context/AppContext';
 //
 // Renders nothing at all when no message is active, so the layout is unchanged
 // in the normal case.
-const TONES = {
+type Tone = 'info' | 'warn' | 'alert';
+
+const TONES: Record<Tone, { dark: string; light: string }> = {
   info: { dark: 'bg-sky-900/60 text-sky-100', light: 'bg-sky-100 text-sky-900' },
   warn: { dark: 'bg-amber-900/60 text-amber-100', light: 'bg-amber-100 text-amber-900' },
   alert: { dark: 'bg-red-900/60 text-red-100', light: 'bg-red-100 text-red-900' },
@@ -26,7 +28,7 @@ const SiteMessageBar = () => {
 
   // Tone comes from the most severe message on screen, so one alert is not
   // softened by sitting next to two notices.
-  const tone = active.some((m) => m.tone === 'alert')
+  const tone: Tone = active.some((m) => m.tone === 'alert')
     ? 'alert'
     : active.some((m) => m.tone === 'warn')
       ? 'warn'
@@ -48,7 +50,7 @@ const SiteMessageBar = () => {
 
   // A single short message sits still and centred. Scrolling one line of text
   // back and forth is just harder to read.
-  const scrolls = active.length > 1 || active[0].text.length > 90;
+  const scrolls = active.length > 1 || (active[0]?.text?.length ?? 0) > 90;
 
   if (!scrolls) {
     return <div className={`w-full text-xs font-medium px-3 py-1.5 text-center ${toneClass}`}>{body}</div>;

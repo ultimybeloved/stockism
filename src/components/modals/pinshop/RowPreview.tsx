@@ -4,13 +4,14 @@ import { formatCurrency } from '../../../utils/formatters';
 import { useAppContext } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import PinDisplay from '../../common/PinDisplay';
+import type { Cosmetic } from '../../../constants/cosmetics';
 
 // Live preview of the user's leaderboard row. Uses the exact cosmetic layering
 // LeaderboardPage rows use (glow/backdrop inline styles + rowClass for animated
 // effects + name color/class + PinDisplay), so what shows here is what every
 // other player sees. Reads straight from userData, so it updates the moment
 // anything is equipped or purchased.
-const RowPreview = ({ portfolioValue, tryOn }) => {
+const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?: Cosmetic | null }) => {
   const { darkMode, userData, holdings } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   // `tryOn` is a shop item being browsed: layer it over the equipped set so the

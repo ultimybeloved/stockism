@@ -4,8 +4,16 @@
 // an answer now, and for the dry run, which reports what it would flag without
 // writing alerts or announcing anyone in Discord.
 import { localDailyTime } from '../../../utils/localTime';
+import type { AdminCommonProps } from '../types';
+import type { AltScanResponse } from '../../../api/types';
 
-const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runScan }) => {
+type AltScanCardProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+  scanning: boolean;
+  result: AltScanResponse | null;
+  runScan: (dryRun?: boolean) => void;
+};
+
+const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runScan }: AltScanCardProps) => {
   const buttonClass = `flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 ${
     darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
   }`;

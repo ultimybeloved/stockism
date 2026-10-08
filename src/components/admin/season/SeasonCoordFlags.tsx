@@ -1,10 +1,16 @@
 import { SEASON_REPEAT_COORD_FLAGS } from '../../../constants/seasons';
 import { useSeasonCoordFlags } from '../../../hooks/admin/useSeasonCoordFlags';
 import CoordProfitPanel from './CoordProfitPanel';
+import type { AdminCommonProps } from '../types';
 
 // Players flagged for coordinated trading this season. Repeat cases are marked,
 // but nothing happens to anyone until the admin presses the button.
-const SeasonCoordFlags = ({ darkMode, textClass, mutedClass, active }) => {
+const SeasonCoordFlags = ({
+  darkMode,
+  textClass,
+  mutedClass,
+  active,
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & { active: boolean }) => {
   const { players, loading, busyUid, error, reload, toggleExclusion } = useSeasonCoordFlags(active);
   if (!active) return null;
 

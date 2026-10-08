@@ -11,7 +11,7 @@ import {
 
 // Shows how a buy that dips into borrowed money changes the user's margin.
 // Returns null for pure-cash buys, so the parent can always render it.
-const MarginImpactPreview = ({ cost, userCash }) => {
+const MarginImpactPreview = ({ cost, userCash }: { cost: number; userCash: number }) => {
   const { darkMode, userData, prices, priceHistory } = useAppContext();
   const { textClass } = getThemeClasses(darkMode);
 
@@ -25,11 +25,11 @@ const MarginImpactPreview = ({ cost, userCash }) => {
 
   // Mirrors the backend buy: cash drops by (cost - borrowed) and holdings rise
   // by cost, so gross value rises by exactly the borrowed amount.
-  const grossAfter = grossValue + borrowed;
+  const grossAfter = (grossValue ?? 0) + borrowed;
   const equityAfter = grossAfter > 0 ? (grossAfter - (marginUsed + borrowed)) / grossAfter : 0;
   const limitPct = maxBorrowable > 0 ? Math.min(100, ((marginUsed + borrowed) / maxBorrowable) * 100) : 100;
 
-  const pct = (ratio) => `${Math.round(ratio * 100)}%`;
+  const pct = (ratio: number) => `${Math.round(ratio * 100)}%`;
 
   const afterColor =
     equityAfter <= MARGIN_DANGER_THRESHOLD

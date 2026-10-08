@@ -2,7 +2,23 @@ import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 
 // Ladder leaderboard modal. Data loading lives in useLadderModals (it fires
 // when the modal opens).
-const LadderLeaderboardModal = ({ leaderboard, leaderboardLoading, setShowLeaderboardModal }) => {
+interface LadderLeader {
+  username?: string;
+  balance?: number;
+  winRate?: number;
+}
+
+interface LadderLeaderboardModalProps {
+  leaderboard: LadderLeader[];
+  leaderboardLoading: boolean;
+  setShowLeaderboardModal: (show: boolean) => void;
+}
+
+const LadderLeaderboardModal = ({
+  leaderboard,
+  leaderboardLoading,
+  setShowLeaderboardModal,
+}: LadderLeaderboardModalProps) => {
   return (
     <div
       style={{
@@ -49,7 +65,7 @@ const LadderLeaderboardModal = ({ leaderboard, leaderboardLoading, setShowLeader
                   #{idx + 1} {player.username}
                 </span>
                 <span>
-                  ${player.balance.toLocaleString()} ({player.winRate}%)
+                  ${(player.balance ?? 0).toLocaleString()} ({player.winRate}%)
                 </span>
               </div>
             ))}

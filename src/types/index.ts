@@ -155,6 +155,9 @@ export interface UserData {
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
   ladderTutorial2Completed?: boolean;
+  displayedAchievementPins?: unknown;
+  displayedShopPins?: unknown;
+  displayCrewPin?: boolean;
   predictionWins?: number;
   portfolioValue?: number;
   grantedValue?: number;
@@ -206,6 +209,15 @@ export interface PredictionDoc {
   resolved?: boolean;
   endsAt?: number;
   [key: string]: unknown;
+}
+
+/** One line in the announcement bar (config/siteMessages.messages). */
+export interface SiteMessage {
+  id: string;
+  text: string;
+  link: string;
+  tone: string;
+  active: boolean;
 }
 
 /** One entry in market/ipos.list. */

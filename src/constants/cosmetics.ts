@@ -1,4 +1,18 @@
-export const COSMETICS = [
+export type CosmeticType = 'nameColor' | 'rowGlow' | 'rowBackdrop' | 'rowFrame';
+
+export interface Cosmetic {
+  id: string;
+  name: string;
+  type: CosmeticType;
+  color: string;
+  price: number;
+  description: string;
+  /** Animated cosmetics render through a CSS class instead of a static color. */
+  effectClass?: string;
+  rarity?: string;
+}
+
+export const COSMETICS: Cosmetic[] = [
   // Name Colors — $5,000
   {
     id: 'name_gold',
@@ -393,13 +407,13 @@ export const COSMETICS = [
   },
 ];
 
-export const COSMETIC_MAP = Object.fromEntries(COSMETICS.map((c) => [c.id, c]));
+export const COSMETIC_MAP: Record<string, Cosmetic> = Object.fromEntries(COSMETICS.map((c) => [c.id, c]));
 
-export const COSMETIC_TYPE_LABELS = {
+export const COSMETIC_TYPE_LABELS: Record<CosmeticType, string> = {
   nameColor: '✏️ Name Color',
   rowGlow: '✨ Row Glow',
   rowBackdrop: '🎨 Row Backdrop',
   rowFrame: '🔥 Row Frame',
 };
 
-export const COSMETIC_TYPES = ['nameColor', 'rowGlow', 'rowFrame', 'rowBackdrop'];
+export const COSMETIC_TYPES: CosmeticType[] = ['nameColor', 'rowGlow', 'rowFrame', 'rowBackdrop'];
