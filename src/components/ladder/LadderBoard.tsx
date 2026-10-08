@@ -1,4 +1,28 @@
 import { bgCard, bgCardInner, bgDark, btnGray, cornerBrown } from './ladderStyles';
+import type { useLadderGameFlow } from '../../hooks/ladder/useLadderGameFlow';
+
+type LadderBoardProps = Pick<
+  ReturnType<typeof useLadderGameFlow>,
+  | 'instruction'
+  | 'playing'
+  | 'complete'
+  | 'selectedStart'
+  | 'activeButton'
+  | 'activeResult'
+  | 'selectStart'
+  | 'selectBetAndPlay'
+  | 'tracksRef'
+  | 'showResultBanner'
+  | 'resultBannerFading'
+  | 'resultText'
+  | 'resultOutcome'
+  | 'resultWin'
+  | 'dismissBanner'
+  | 'showInitBanner'
+  | 'initBannerFading'
+  | 'setInitBannerFading'
+  | 'setShowInitBanner'
+>;
 
 // The main game panel: instruction header, the two X start buttons, the
 // tracks the animation draws into, ODD/EVEN buttons, and both overlay
@@ -23,7 +47,7 @@ const LadderBoard = ({
   initBannerFading,
   setInitBannerFading,
   setShowInitBanner,
-}) => {
+}: LadderBoardProps) => {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <div

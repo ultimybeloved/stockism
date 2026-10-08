@@ -9,6 +9,26 @@ import { getTotalInvested } from '../../utils/calculations';
 import { calculateLadderWithdrawTax, getLadderDepositFactor, getLadderWithdrawable } from '../../utils/ladderTax';
 import { useAppContext } from '../../context/AppContext';
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
+import type { useLadderModals } from '../../hooks/ladder/useLadderModals';
+import type { LadderData } from '../../utils/ladderTax';
+
+type LadderTransferModalProps = Pick<
+  ReturnType<typeof useLadderModals>,
+  | 'transferTab'
+  | 'setTransferTab'
+  | 'setShowTransferModal'
+  | 'depositAmount'
+  | 'setDepositAmount'
+  | 'withdrawAmount'
+  | 'setWithdrawAmount'
+  | 'depositLoading'
+  | 'withdrawLoading'
+  | 'handleDeposit'
+  | 'handleWithdraw'
+> & {
+  userLadderData: LadderData | null;
+  userStockismCash: number;
+};
 
 // Deposit/withdraw modal, including the invested-based deposit cap and the
 // live withdrawal tax preview (mirrors the server math; server is
@@ -27,7 +47,7 @@ const LadderTransferModal = ({
   withdrawLoading,
   handleDeposit,
   handleWithdraw,
-}) => {
+}: LadderTransferModalProps) => {
   const { userData } = useAppContext();
 
   const ladderBalance = userLadderData?.balance || 0;
@@ -50,7 +70,7 @@ const LadderTransferModal = ({
   const maxDeposit = Math.max(0, balanceCap - ladderBalance);
   const ladderFull = !noInvestment && maxDeposit <= 0;
   const capIsInvested = totalInvested < rampedMax;
-  const fmt = (n) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Withdrawal tax preview. Mirrors the server math exactly; the server result is authoritative.
   const withdrawAmt = parseFloat(withdrawAmount);
   const hasRecentDeposit = (userLadderData?.recentDeposits || []).some(
@@ -71,9 +91,9 @@ const LadderTransferModal = ({
   // deciding whether to deposit needs the same numbers BEFORE they commit,
   // otherwise the first time they learn winnings are taxed is on the way out.
   // Built from the rate constants so this text can never drift from the math.
-  const pct = (rate) => `${Math.round(rate * 100)}%`;
+  const pct = (rate: number) => `${Math.round(rate * 100)}%`;
   const profitBracketText = LADDER_WITHDRAW_PROFIT_BRACKETS.map((bracket, i) => {
-    const prev = i > 0 ? LADDER_WITHDRAW_PROFIT_BRACKETS[i - 1].upTo : 0;
+    const prev = LADDER_WITHDRAW_PROFIT_BRACKETS[i - 1]?.upTo ?? 0;
     if (!isFinite(bracket.upTo)) return `${pct(bracket.rate)} above $${prev.toLocaleString()}`;
     if (i === 0) return `${pct(bracket.rate)} on the first $${bracket.upTo.toLocaleString()}`;
     return `${pct(bracket.rate)} up to $${bracket.upTo.toLocaleString()}`;

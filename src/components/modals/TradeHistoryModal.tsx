@@ -1,5 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, where, orderBy, limit, getDocs, startAfter } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  startAfter,
+  type QueryConstraint,
+  type QueryDocumentSnapshot,
+} from 'firebase/firestore';
 import { db } from '../../firebase';
 import { formatCurrency } from '../../utils/formatters';
 import { CHARACTER_MAP } from '../../characters';
@@ -12,18 +22,30 @@ import {
   getTimestampDate,
   getTradeProfit,
   exportTradesToCSV,
+  type TradeRecord,
 } from '../../utils/tradeHistory';
+
+/** A trades/{id} doc as this list reads it. Dividend payouts carry a breakdown instead of a price. */
+interface TradeRow extends TradeRecord {
+  id: string;
+  source?: string;
+  totalAmount?: number;
+  /** Dividends: ticker -> cash paid. */
+  breakdown?: Record<string, number>;
+  /** Dividends: ticker -> shares bought back in (DRIP). */
+  reinvested?: Record<string, { shares: number; value: number }>;
+}
 
 const PAGE_SIZE = 30;
 
-const TradeHistoryModal = ({ onClose }) => {
+const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
   const { darkMode, user, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const [trades, setTrades] = useState([]);
+  const [trades, setTrades] = useState<TradeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [lastDoc, setLastDoc] = useState(null);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [filterAction, setFilterAction] = useState('all');
   const [searchTicker, setSearchTicker] = useState('');
@@ -37,42 +59,15 @@ const TradeHistoryModal = ({ onClose }) => {
     : 'bg-white border-amber-300 text-slate-900';
 
   const fetchTrades = useCallback(
-    async (afterDoc = null) => {
-      if (!user) return;
+    async (afterDoc: QueryDocumentSnapshot | null = null): Promise<TradeRow[]> => {
+      if (!user) return [];
       try {
-        const constraints = [
-          collection(db, 'trades'),
-          where('uid', '==', user.uid),
-          orderBy('timestamp', 'desc'),
-          limit(PAGE_SIZE),
-        ];
+        const constraints: QueryConstraint[] = [where('uid', '==', user.uid), orderBy('timestamp', 'desc')];
+        if (afterDoc) constraints.push(startAfter(afterDoc));
+        constraints.push(limit(PAGE_SIZE));
 
-        if (afterDoc) {
-          const q = query(
-            collection(db, 'trades'),
-            where('uid', '==', user.uid),
-            orderBy('timestamp', 'desc'),
-            startAfter(afterDoc),
-            limit(PAGE_SIZE),
-          );
-          const snap = await getDocs(q);
-          const newTrades = snap.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            _doc: doc,
-          }));
-          setHasMore(newTrades.length === PAGE_SIZE);
-          setLastDoc(snap.docs[snap.docs.length - 1] || null);
-          return newTrades;
-        }
-
-        const q = query(...constraints);
-        const snap = await getDocs(q);
-        const newTrades = snap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          _doc: doc,
-        }));
+        const snap = await getDocs(query(collection(db, 'trades'), ...constraints));
+        const newTrades = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as TradeRow);
         setHasMore(newTrades.length === PAGE_SIZE);
         setLastDoc(snap.docs[snap.docs.length - 1] || null);
         return newTrades;
@@ -101,14 +96,14 @@ const TradeHistoryModal = ({ onClose }) => {
     setLoadingMore(false);
   };
 
-  const getActionColor = (action) => {
+  const getActionColor = (action: string) => {
     if (action === 'buy' || action === 'cover' || action === 'dividend') {
       return colorBlindMode ? 'text-teal-500' : 'text-green-500';
     }
     return colorBlindMode ? 'text-purple-500' : 'text-red-500';
   };
 
-  const getActionBg = (action) => {
+  const getActionBg = (action: string) => {
     if (action === 'buy') return colorBlindMode ? 'bg-teal-900/20' : 'bg-green-900/20';
     if (action === 'sell') return colorBlindMode ? 'bg-purple-900/20' : 'bg-red-900/20';
     if (action === 'short') return 'bg-orange-900/20';
@@ -329,7 +324,7 @@ const TradeHistoryModal = ({ onClose }) => {
                           <span className={`text-xs font-bold uppercase ${getActionColor(trade.action)}`}>
                             {trade.action}
                           </span>
-                          {SOURCE_LABELS[trade.source] && (
+                          {trade.source && SOURCE_LABELS[trade.source] && (
                             <span className={`text-xs ${mutedClass}`}>{SOURCE_LABELS[trade.source]}</span>
                           )}
                         </div>

@@ -2,10 +2,22 @@ import { useState } from 'react';
 import { MARGIN_INTEREST_RATE } from '../../constants';
 import MarginStatusBars from './margin/MarginStatusBars';
 import { formatCurrency } from '../../utils/formatters';
-import { checkMarginEligibility, calculateMarginStatus } from '../../utils/calculations';
+import { checkMarginEligibility, calculateMarginStatus, type MarginStatusLevel } from '../../utils/calculations';
 import { getThemeClasses } from '../../utils/theme';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+
+interface MarginModalProps {
+  onClose: () => void;
+  onEnableMargin: () => unknown;
+  onDisableMargin: () => unknown;
+  onRepayMargin: (amount: number) => unknown;
+  isAdmin?: boolean;
+  enableLoading?: boolean;
+  disableLoading?: boolean;
+  repayLoading?: boolean;
+  onReviewTutorial: () => void;
+}
 
 const MarginModal = ({
   onClose,
@@ -17,7 +29,7 @@ const MarginModal = ({
   disableLoading,
   repayLoading,
   onReviewTutorial,
-}) => {
+}: MarginModalProps) => {
   useEscapeKey(onClose);
   const { darkMode, userData, prices, priceHistory } = useAppContext();
   const [repayAmount, setRepayAmount] = useState(0);
@@ -30,7 +42,7 @@ const MarginModal = ({
 
   const colorBlindMode = userData?.colorBlindMode || false;
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: MarginStatusLevel) => {
     switch (status) {
       case 'safe':
         return colorBlindMode ? 'text-teal-500' : 'text-green-500';
@@ -47,7 +59,7 @@ const MarginModal = ({
     }
   };
 
-  const getStatusLabel = (status) => {
+  const getStatusLabel = (status: MarginStatusLevel) => {
     switch (status) {
       case 'safe':
         return '✓ Safe';
@@ -64,7 +76,7 @@ const MarginModal = ({
     }
   };
 
-  const getStatusBg = (status) => {
+  const getStatusBg = (status: MarginStatusLevel) => {
     switch (status) {
       case 'safe':
         return colorBlindMode

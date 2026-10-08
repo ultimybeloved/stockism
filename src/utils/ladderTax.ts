@@ -30,6 +30,10 @@ export interface LadderData {
   bestStreak?: number;
   totalDeposited?: number;
   totalWon?: number;
+  principalWithdrawn?: number;
+  profitWithdrawn?: number;
+  /** Deposits inside the rush window, which raise the withdrawal tax. */
+  recentDeposits?: { ts: number; amount?: number }[];
   [key: string]: unknown;
 }
 
