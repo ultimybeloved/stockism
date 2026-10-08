@@ -10,15 +10,43 @@ import { formatShares, roundShares } from '../../utils/tradeLimits';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { marketTimes } from '../../utils/localTime';
+import { errorMessage } from '../../utils/errors';
+import type { Character } from '../../characters';
 
-const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 'buy', onClose }) => {
+type PreMarketAction = 'buy' | 'sell';
+
+interface PreMarketOrder {
+  id: string;
+  userId: string;
+  ticker: string;
+  action: PreMarketAction;
+  shares: number;
+}
+
+interface PreMarketModalProps {
+  character: Character;
+  price: number;
+  holdings?: number;
+  userCash: number;
+  initialAction?: PreMarketAction;
+  onClose: () => void;
+}
+
+const PreMarketModal = ({
+  character,
+  price,
+  holdings,
+  userCash,
+  initialAction = 'buy',
+  onClose,
+}: PreMarketModalProps) => {
   useEscapeKey(onClose);
   const { darkMode, user, showNotification } = useAppContext();
-  const [action, setAction] = useState(initialAction);
+  const [action, setAction] = useState<PreMarketAction>(initialAction);
   const [shares, setShares] = useState(1);
   const [submitting, setSubmitting] = useState(false);
-  const [cancelling, setCancelling] = useState(null);
-  const [allOrders, setAllOrders] = useState([]);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+  const [allOrders, setAllOrders] = useState<PreMarketOrder[]>([]);
   const [countdown, setCountdown] = useState('');
 
   const { textClass, mutedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
@@ -48,7 +76,9 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
       where('status', '==', 'PENDING'),
       where('createdAt', '>=', Timestamp.fromDate(preMarketStart)),
     );
-    const unsub = onSnapshot(q, (snap) => setAllOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+    const unsub = onSnapshot(q, (snap) =>
+      setAllOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PreMarketOrder)),
+    );
     return unsub;
   }, [character.ticker]);
 
@@ -83,8 +113,8 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
   // went in and then failed at the auction every week.
   const isSell = action === 'sell';
   const minShares = isSell ? Math.min(MIN_EXIT_SHARES, maxShares) : MIN_TRADE_SHARES;
-  const snap = (n) => roundShares(n, isSell);
-  const clampShares = (n) => Math.min(maxShares, Math.max(minShares, snap(n)));
+  const snap = (n: number) => roundShares(n, isSell);
+  const clampShares = (n: number) => Math.min(maxShares, Math.max(minShares, snap(n)));
 
   const handleSubmit = async () => {
     if (submitting || shares <= 0 || shares > maxShares) return;
@@ -93,19 +123,19 @@ const PreMarketModal = ({ character, price, holdings, userCash, initialAction = 
       await createPreMarketOrderFunction({ ticker: character.ticker, action, shares, allowPartialFills: true });
       showNotification('success', `${action === 'buy' ? 'Buy' : 'Sell'} order queued for the opening auction!`);
     } catch (err) {
-      showNotification('error', err.message || 'Failed to queue order');
+      showNotification('error', errorMessage(err) || 'Failed to queue order');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCancel = async (orderId) => {
+  const handleCancel = async (orderId: string) => {
     setCancelling(orderId);
     try {
       await cancelPreMarketOrderFunction({ orderId });
       showNotification('success', 'Order cancelled');
     } catch (err) {
-      showNotification('error', err.message || 'Failed to cancel order');
+      showNotification('error', errorMessage(err) || 'Failed to cancel order');
     } finally {
       setCancelling(null);
     }

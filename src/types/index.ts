@@ -202,6 +202,8 @@ export interface UserData {
   dailyMissions?: Record<string, MissionDayState>;
   weeklyMissions?: Record<string, MissionDayState & { rerolled?: boolean; rerollSeed?: number }>;
   checkinStreak?: number;
+  /** Best check-in streak ever reached. */
+  maxCheckinStreak?: number;
   crewLockouts?: Record<string, number>;
   darkMode?: boolean;
   isBankrupt?: boolean;

@@ -44,7 +44,12 @@ export interface AppContextValue {
   ipoRestrictedTickers: string[];
   launchedTickers: string[];
   rarityTiers: Record<string, string>;
-  crewStats: { multipliers?: Record<string, number>; [key: string]: unknown } | null;
+  crewStats: {
+    multipliers?: Record<string, number>;
+    /** crew -> players active this week. */
+    activeCounts?: Record<string, number>;
+    [key: string]: unknown;
+  } | null;
   /** market/reviewChanges: the last chapter review's moves, rebuilt server-side. */
   storedReviewChanges: { windowEnd?: number; changes?: ReviewChanges } | null;
   /** Stored by admins, so treat every field as possibly missing. */

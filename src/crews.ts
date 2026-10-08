@@ -27,6 +27,8 @@ export interface ShopPin {
   description: string;
   price: number;
   collection: string;
+  /** Only buyable once the player's best check-in streak reaches this. */
+  requiredCheckinStreak?: number;
 }
 
 export interface PinCollection {
@@ -243,7 +245,7 @@ export const getActiveShopPins = () => {
     .filter((c) => c.active)
     .map((c) => ({
       ...c,
-      pins: c.pins.map((id) => SHOP_PINS[id]).filter(Boolean),
+      pins: c.pins.map((id) => SHOP_PINS[id]).filter((p): p is ShopPin => !!p),
     }));
 };
 

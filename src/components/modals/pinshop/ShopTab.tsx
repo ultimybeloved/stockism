@@ -4,6 +4,18 @@ import { PIN_SLOT_COSTS, getActiveShopPins } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import { useAppContext } from '../../../context/AppContext';
+import type { Cosmetic } from '../../../constants/cosmetics';
+import type { PendingPurchase } from '../PinShopModal';
+
+type GlowVariant = 'standard' | 'pulse';
+
+interface ShopTabProps {
+  cash: number;
+  onEquipCosmetic: (type: string, cosmeticId: string | null) => unknown;
+  onRequestPurchase: (purchase: PendingPurchase) => void;
+  /** Previews a cosmetic on the sample row; null clears it. */
+  onTryOn: (cosmetic: Cosmetic | null) => void;
+}
 
 // Shop tab: everything money can buy. Cosmetics render as compact swatch rows
 // (tap a swatch to open a detail panel with description + buy/equip) instead of
@@ -13,26 +25,26 @@ import { useAppContext } from '../../../context/AppContext';
 // into wearing.
 
 const PULSE_PREFIX = 'glow_pulse_';
-const toPulse = (id) => (id.startsWith(PULSE_PREFIX) ? id : id.replace('glow_', PULSE_PREFIX));
-const toStandard = (id) => id.replace(PULSE_PREFIX, 'glow_');
+const toPulse = (id: string) => (id.startsWith(PULSE_PREFIX) ? id : id.replace('glow_', PULSE_PREFIX));
+const toStandard = (id: string) => id.replace(PULSE_PREFIX, 'glow_');
 
-const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }) => {
+const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabProps) => {
   const { darkMode, userData } = useAppContext();
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const ownedCosmetics = userData?.ownedCosmetics || [];
   const activeCosmetics = userData?.activeCosmetics || {};
   const ownedPins = userData?.ownedShopPins || [];
 
-  const [selectedId, setSelectedId] = useState(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   // Row glows exist in a standard and a pulsing variant of every color; the
   // toggle swaps the whole section between the two sets. Opens on whichever
   // set holds the equipped glow. Switching also re-targets the open detail
   // panel to the paired color so the selection follows the toggle.
-  const [glowVariant, setGlowVariant] = useState(() =>
-    COSMETIC_MAP[activeCosmetics.rowGlow]?.effectClass ? 'pulse' : 'standard',
+  const [glowVariant, setGlowVariant] = useState<GlowVariant>(() =>
+    COSMETIC_MAP[activeCosmetics.rowGlow ?? '']?.effectClass ? 'pulse' : 'standard',
   );
 
-  const switchGlowVariant = (variant) => {
+  const switchGlowVariant = (variant: GlowVariant) => {
     setGlowVariant(variant);
     if (selectedId && COSMETIC_MAP[selectedId]?.type === 'rowGlow') {
       const paired = variant === 'pulse' ? toPulse(selectedId) : toStandard(selectedId);
@@ -45,7 +57,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }) => {
 
   const pinCollections = getActiveShopPins();
   const panelClass = `mt-2 p-3 rounded-sm border ${borderClass} flex items-center justify-between gap-3`;
-  const buyBtnClass = (enabled) =>
+  const buyBtnClass = (enabled: boolean) =>
     `shrink-0 px-3 py-1.5 text-xs font-semibold rounded-sm ${
       enabled
         ? 'bg-orange-600 hover:bg-orange-700 text-white'
@@ -54,7 +66,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }) => {
           : 'bg-slate-100 text-slate-400 cursor-not-allowed'
     }`;
 
-  const renderDetailPanel = (cosmetic) => {
+  const renderDetailPanel = (cosmetic: Cosmetic) => {
     const owned = ownedCosmetics.includes(cosmetic.id);
     const equipped = activeCosmetics[cosmetic.type] === cosmetic.id;
     const canAfford = cash >= cosmetic.price;
@@ -114,10 +126,12 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }) => {
               </h3>
               {type === 'rowGlow' && (
                 <div className="flex gap-1">
-                  {[
-                    ['standard', 'Standard'],
-                    ['pulse', 'Pulsing'],
-                  ].map(([variant, label]) => (
+                  {(
+                    [
+                      ['standard', 'Standard'],
+                      ['pulse', 'Pulsing'],
+                    ] as const
+                  ).map(([variant, label]) => (
                     <button
                       key={variant}
                       onClick={() => switchGlowVariant(variant)}

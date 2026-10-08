@@ -1,10 +1,27 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, type MouseEvent, type TouchEvent } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { usePriceHistory } from '../hooks/usePriceHistory';
 import { formatAxisLabels } from '../utils/formatters';
 import { ADMIN_UIDS } from '../constants';
+import type { PricePoint } from '../types';
 
-const TIME_RANGES = [
+type PriceChartRange = '1d' | '7d' | '1m' | '3m' | '1y' | 'all';
+
+interface ChartPoint extends PricePoint {
+  fullDate: string;
+}
+
+interface PriceChartProps {
+  ticker: string;
+  basePrice: number;
+  currentPrice: number;
+  timeRange: string;
+  chartType?: 'area' | 'line' | 'bar';
+  /** Called with the point under the cursor, or null when it leaves. */
+  onHover?: (point: PricePoint | null) => void;
+}
+
+const TIME_RANGES: { key: PriceChartRange; label: string; hours: number }[] = [
   { key: '1d', label: 'Today', hours: 24 },
   { key: '7d', label: '7 Days', hours: 168 },
   { key: '1m', label: '1 Month', hours: 720 },
@@ -20,12 +37,12 @@ const PAD_Y = 30;
 const CHART_W = SVG_W - PAD_X * 2;
 const CHART_H = SVG_H - PAD_Y * 2;
 
-const getX = (i, total) => PAD_X + (i / Math.max(total - 1, 1)) * CHART_W;
-const getY = (price, min, range) => PAD_Y + CHART_H - ((price - min) / range) * CHART_H;
+const getX = (i: number, total: number) => PAD_X + (i / Math.max(total - 1, 1)) * CHART_W;
+const getY = (price: number, min: number, range: number) => PAD_Y + CHART_H - ((price - min) / range) * CHART_H;
 
-const LONG_TERM = new Set(['1m', '3m', '1y', 'all']);
+const LONG_TERM = new Set<string>(['1m', '3m', '1y', 'all']);
 
-const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area', onHover }) => {
+const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area', onHover }: PriceChartProps) => {
   const { darkMode, userData, user } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   // A chapter review is folded to one point on the chart, because the real run
@@ -41,14 +58,14 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     loadReviewDetail: isAdmin,
     showReviewDetail: isAdmin && showReviewSteps,
   });
-  const [hoveredPoint, setHoveredPoint] = useState(null);
-  const chartRef = useRef(null);
+  const [hoveredPoint, setHoveredPoint] = useState<(ChartPoint & { x: number; y: number }) | null>(null);
+  const chartRef = useRef<SVGSVGElement>(null);
 
   const currentData = useMemo(() => {
-    const range = TIME_RANGES.find((r) => r.key === timeRange);
+    const range = TIME_RANGES.find((r) => r.key === timeRange) ?? TIME_RANGES[0]!;
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
 
-    let data = fullHistory
+    let data: ChartPoint[] = fullHistory
       .filter((p) => p.timestamp >= cutoff)
       .map((p) => ({
         ...p,
@@ -66,13 +83,15 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       const startTime = range.hours === Infinity ? now - 7 * 86400000 : now - range.hours * 3600000;
       let startPrice = basePrice;
       for (let i = fullHistory.length - 1; i >= 0; i--) {
-        if (fullHistory[i].timestamp <= cutoff) {
-          startPrice = fullHistory[i].price;
+        const point = fullHistory[i]!;
+        if (point.timestamp <= cutoff) {
+          startPrice = point.price;
           break;
         }
       }
-      if (startPrice === basePrice && fullHistory.length > 0) startPrice = fullHistory[0].price;
-      const latestPrice = fullHistory.length > 0 ? fullHistory[fullHistory.length - 1].price : currentPrice;
+      const first = fullHistory[0];
+      if (startPrice === basePrice && first) startPrice = first.price;
+      const latestPrice = fullHistory[fullHistory.length - 1]?.price ?? currentPrice;
       data = [
         {
           timestamp: startTime,
@@ -121,11 +140,12 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       ? `${pathData} L ${getX(currentData.length - 1, currentData.length)} ${PAD_Y + CHART_H} L ${PAD_X} ${PAD_Y + CHART_H} Z`
       : '';
 
-  const handleMove = (e) => {
+  const handleMove = (e: MouseEvent<SVGSVGElement> | TouchEvent<SVGSVGElement>) => {
     if (!chartRef.current || currentData.length === 0) return;
-    if (e.touches) e.preventDefault();
+    const isTouch = 'touches' in e;
+    if (isTouch) e.preventDefault();
     const rect = chartRef.current.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientX = isTouch ? (e.touches[0]?.clientX ?? 0) : e.clientX;
     const svgX = ((clientX - rect.left) / rect.width) * SVG_W;
     const idx = Math.max(
       0,
@@ -204,7 +224,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
             const x = getX(i, currentData.length);
             const y = getY(d.price, minPrice, priceRange);
             const barBottom = PAD_Y + CHART_H;
-            const prevPrice = i > 0 ? currentData[i - 1].price : d.price;
+            const prevPrice = currentData[i - 1]?.price ?? d.price;
             const barUp = d.price >= prevPrice;
             const barW = Math.max(1, (CHART_W / currentData.length) * 0.75);
             return (

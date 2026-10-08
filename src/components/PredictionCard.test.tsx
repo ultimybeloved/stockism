@@ -14,18 +14,19 @@ vi.mock('../context/AppContext', () => ({ useAppContext: () => h.ctx }));
 // otherwise fail every Thursday between 13:00 and 21:00 UTC, when the card
 // swaps the bet UI for the chapter-review notice.
 vi.mock('../utils/marketHours', async (importOriginal) => ({
-  ...(await importOriginal()),
+  ...(await importOriginal<object>()),
   isWeeklyHalt: () => h.halted,
 }));
 
 import PredictionCard from './PredictionCard';
+import type { PredictionDoc } from '../types';
 
 const baseCtx = () => ({ darkMode: false, userData: { colorBlindMode: false }, marketData: {} });
 h.ctx = baseCtx();
 
 const HOUR = 60 * 60 * 1000;
 
-const makePrediction = (pools, overrides = {}) => ({
+const makePrediction = (pools: Record<string, number>, overrides: Partial<PredictionDoc> = {}): PredictionDoc => ({
   id: 'p1',
   question: 'Does Jake win the duel?',
   options: Object.keys(pools),
@@ -35,7 +36,7 @@ const makePrediction = (pools, overrides = {}) => ({
   ...overrides,
 });
 
-const renderCard = (prediction, props = {}) =>
+const renderCard = (prediction: PredictionDoc, props: Record<string, unknown> = {}) =>
   render(<PredictionCard prediction={prediction} betLimit={1000} {...props} />);
 
 afterEach(() => {

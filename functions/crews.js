@@ -202,7 +202,7 @@ export const getActiveShopPins = () => {
         .filter((c) => c.active)
         .map((c) => ({
         ...c,
-        pins: c.pins.map((id) => SHOP_PINS[id]).filter(Boolean),
+        pins: c.pins.map((id) => SHOP_PINS[id]).filter((p) => !!p),
     }));
 };
 // ============================================
