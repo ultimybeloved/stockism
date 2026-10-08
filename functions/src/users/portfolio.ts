@@ -1,15 +1,13 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 // Modular import (not admin.firestore.FieldValue): the emulator sandbox strips
 // the namespaced statics, and this form works in both prod and sandbox.
-const { FieldValue } = require('firebase-admin/firestore');
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
-const { CHARACTER_MAP, CHARACTERS } = require('../shared/characters');
-const {
+import { CHARACTER_MAP, CHARACTERS } from '../shared/characters';
+import {
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
@@ -21,17 +19,17 @@ const {
   ANIMAL_TICKERS,
   UNIFIER_FULL_SHARE_MIN,
   DIVIDEND_DEMON_HOLD_MS,
-} = require('../shared/constants');
-const {
-  touchLastActive,
-  lockedShares,
-  reportError,
-  checkDiscordWall,
-  checkBanned,
-  round2,
-} = require('../shared/helpers');
+} from '../shared/constants';
+import { touchLastActive } from '../shared/activity';
+import { lockedShares } from '../shared/cohorts';
+import { reportError } from '../shared/sentry';
+import { checkDiscordWall, checkBanned } from '../shared/accountGuards';
+import { round2 } from '../shared/money';
+import type { Cohort, ShortPosition } from '../shared/types';
 
-const getSpread = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
+type Holdings = Record<string, number>;
+
+const getSpread = (ticker: string) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD);
 
 /**
  * Dust cleanup: liquidate all of a user's tiny long positions (market value
@@ -48,7 +46,7 @@ const getSpread = (ticker) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_ASK_SPREAD
  * mission progress, so it can't be used to farm trade-count missions. Locked
  * shares (IPO / margin holds) are skipped entirely.
  */
-exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
+export const sweepDustPositions = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -75,14 +73,14 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
       }
       const marketSnap = await transaction.get(marketRef);
 
-      const userData = userSnap.data();
+      const userData = userSnap.data()!;
       if (userData.isBanned) {
         throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
       }
       // Suspected-alt wall: a dust sweep converts shares to cash like any sell
       checkDiscordWall(userData);
 
-      const marketData = marketSnap.exists ? marketSnap.data() : {};
+      const marketData = marketSnap.exists ? marketSnap.data()! : {};
       if (marketData.marketHalted) {
         throw new functions.https.HttpsError(
           'failed-precondition',
@@ -90,14 +88,14 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
         );
       }
 
-      const prices = marketData.prices || {};
+      const prices: Record<string, number> = marketData.prices || {};
       const haltedTickers = marketData.haltedTickers || {};
-      const holdings = userData.holdings || {};
+      const holdings: Record<string, number> = userData.holdings || {};
       const now = Date.now();
 
       let proceeds = 0;
       let swept = 0;
-      const updates = {};
+      const updates: Record<string, unknown> = {};
 
       for (const [ticker, sharesRaw] of Object.entries(holdings)) {
         const shares = sharesRaw || 0;
@@ -155,7 +153,7 @@ exports.sweepDustPositions = cf().https.onCall(async (data, context) => {
  * Updates portfolioValue, portfolioHistory, peakPortfolioValue, and achievements
  * Called by clients instead of writing these fields directly (blocked by security rules)
  */
-exports.syncPortfolio = cf().https.onCall(async (data, context) => {
+export const syncPortfolio = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -171,10 +169,10 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
   if (!marketDoc.exists) throw new functions.https.HttpsError('not-found', 'Market data not found.');
 
-  const userData = userDoc.data();
+  const userData = userDoc.data()!;
   checkBanned(userData);
   checkDiscordWall(userData);
-  const prices = marketDoc.data().prices || {};
+  const prices: Record<string, number> = marketDoc.data()!.prices || {};
   const now = Date.now();
 
   // Rate limit: once per 30 seconds per user
@@ -204,29 +202,32 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   }
 
   // Calculate portfolio value
-  const holdingsValue = Object.entries(userData.holdings || {}).reduce(
+  const holdingsValue = Object.entries((userData.holdings || {}) as Holdings).reduce(
     (sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares,
     0,
   );
 
-  const shortsValue = Object.entries(userData.shorts || {}).reduce((sum, [ticker, position]) => {
-    if (!position || typeof position !== 'object') return sum;
-    const shares = position.shares || 0;
-    if (shares <= 0) return sum;
-    const costBasis = position.costBasis || position.entryPrice || 0;
-    const currentPrice = prices[ticker] || costBasis;
-    const margin = position.margin || costBasis * shares * 0.5;
-    if ((position.system || 'v2') === 'v2') {
-      // v2: margin + unrealized P&L (no proceeds in cash)
-      return sum + margin + (costBasis - currentPrice) * shares;
-    }
-    // Legacy: margin collateral - cost to buy back shares
-    return sum + margin - currentPrice * shares;
-  }, 0);
+  const shortsValue = Object.entries((userData.shorts || {}) as Record<string, ShortPosition | null>).reduce(
+    (sum, [ticker, position]) => {
+      if (!position || typeof position !== 'object') return sum;
+      const shares = position.shares || 0;
+      if (shares <= 0) return sum;
+      const costBasis = position.costBasis || position.entryPrice || 0;
+      const currentPrice = prices[ticker] || costBasis;
+      const margin = position.margin || costBasis * shares * 0.5;
+      if ((position.system || 'v2') === 'v2') {
+        // v2: margin + unrealized P&L (no proceeds in cash)
+        return sum + margin + (costBasis - currentPrice) * shares;
+      }
+      // Legacy: margin collateral - cost to buy back shares
+      return sum + margin - currentPrice * shares;
+    },
+    0,
+  );
 
   const portfolioValue = Math.round(((userData.cash || 0) + holdingsValue + shortsValue) * 100) / 100;
 
-  const updateData = {
+  const updateData: Record<string, unknown> = {
     portfolioValue,
     lastSynced: now,
     // Track hourly sync count
@@ -239,7 +240,7 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   const syncWeekStart = new Date(syncNow);
   syncWeekStart.setDate(syncWeekStart.getDate() - syncWeekStart.getDay() + 1);
   if (syncWeekStart > syncNow) syncWeekStart.setDate(syncWeekStart.getDate() - 7);
-  const syncWeekId = syncWeekStart.toISOString().split('T')[0];
+  const syncWeekId = syncWeekStart.toISOString().split('T')[0]!;
   const weeklyData = userData.weeklyMissions?.[syncWeekId];
   if (!weeklyData || weeklyData.startPortfolioValue === undefined) {
     updateData[`weeklyMissions.${syncWeekId}.startPortfolioValue`] = portfolioValue;
@@ -251,7 +252,7 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   }
 
   // Track lowest price while holding for Diamond Hands achievement
-  const holdings = userData.holdings || {};
+  const holdings: Record<string, number> = userData.holdings || {};
   const lowestWhileHolding = userData.lowestWhileHolding || {};
   for (const [ticker, shares] of Object.entries(holdings)) {
     if (shares > 0 && prices[ticker]) {
@@ -319,16 +320,16 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
         .get();
       let value;
       if (!atOrBefore.empty) {
-        value = atOrBefore.docs[0].data().value;
+        value = atOrBefore.docs[0]!.data()!.value;
       } else {
         // Account younger than 30 days — compare against the earliest point on record.
         const earliest = await userRef.collection('portfolioHistory').orderBy('timestamp', 'asc').limit(1).get();
-        value = earliest.empty ? portfolioValue : earliest.docs[0].data().value;
+        value = earliest.empty ? portfolioValue : earliest.docs[0]!.data()!.value;
       }
       updateData.portfolioSnapshot30d = { refreshedAt: now, value };
     } catch (e) {
       // Non-fatal — keep the existing snapshot rather than blocking the sync.
-      console.error('30d snapshot refresh failed:', e.message);
+      console.error('30d snapshot refresh failed:', (e as Error).message);
     }
   }
 
@@ -336,7 +337,7 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   // (one map entry per active day/week otherwise accumulates for the account's
   // lifetime). Keys are YYYY-MM-DD strings, so a lexicographic sort is
   // chronological. Anything older than the 2 most recent can't be claimed.
-  const pruneMissionMap = (map, field) => {
+  const pruneMissionMap = (map: Record<string, unknown> | undefined, field: string) => {
     const keys = Object.keys(map || {}).sort();
     keys.slice(0, Math.max(0, keys.length - 2)).forEach((k) => {
       updateData[`${field}.${k}`] = admin.firestore.FieldValue.delete();
@@ -349,7 +350,7 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   const currentAchievements = userData.achievements || [];
   const newAchievements = [];
   const revokedAchievements = [];
-  const holdingsCount = Object.values(userData.holdings || {}).filter((shares) => shares > 0).length;
+  const holdingsCount = Object.values((userData.holdings || {}) as Holdings).filter((shares) => shares > 0).length;
   const totalTrades = userData.totalTrades || 0;
 
   if (totalTrades >= 1 && !currentAchievements.includes('FIRST_BLOOD')) newAchievements.push('FIRST_BLOOD');
@@ -375,13 +376,13 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
   // (excludes ETFs). Partial/fractional holdings do not count. Auto-revoked if
   // the user no longer qualifies — e.g. they sold below a full share or a new
   // character was added to the roster since they earned it.
-  const launchedTickers = marketDoc.data().launchedTickers || [];
+  const launchedTickers = marketDoc.data()!.launchedTickers || [];
   const tradeableCharacters = CHARACTERS.filter(
     (c) => !c.isETF && (!c.ipoRequired || launchedTickers.includes(c.ticker)),
   );
   const totalCharacters = tradeableCharacters.length;
   const characterTickers = new Set(tradeableCharacters.map((c) => c.ticker));
-  const ownedCharacterCount = Object.entries(userData.holdings || {}).filter(
+  const ownedCharacterCount = Object.entries((userData.holdings || {}) as Holdings).filter(
     ([ticker, shares]) => shares >= UNIFIER_FULL_SHARE_MIN && characterTickers.has(ticker),
   ).length;
   const qualifiesForUnifier = ownedCharacterCount >= totalCharacters && totalCharacters > 0;
@@ -404,9 +405,9 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
     try {
       const topSnap = await db.collection('users').orderBy('portfolioValue', 'desc').limit(10).get();
 
-      const topUsers = [];
+      const topUsers: string[] = [];
       topSnap.forEach((doc) => {
-        const d = doc.data();
+        const d = doc.data()!;
         if (!d.isBot && (d.portfolioValue || 0) >= MIN_PORTFOLIO_FOR_LEADERBOARD) {
           topUsers.push(doc.id);
         }
@@ -434,8 +435,8 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
     try {
       const topGainerSnap = await db.collection('users').orderBy('weeklyGain', 'desc').limit(1).get();
       if (!topGainerSnap.empty) {
-        const topDoc = topGainerSnap.docs[0];
-        const topGain = topDoc.data().weeklyGain || 0;
+        const topDoc = topGainerSnap.docs[0]!;
+        const topGain = topDoc.data()!.weeklyGain || 0;
         // Award if user's new gain beats the current top (or they ARE the current top)
         if (topDoc.id === uid || weeklyGain > topGain) {
           newAchievements.push('PROFIT_CHAMPION');
@@ -459,7 +460,7 @@ exports.syncPortfolio = cf().https.onCall(async (data, context) => {
     newAchievements.push('YOURE_A_WORKER');
 
   // Dividend Demon: held any ETF for 50 consecutive days
-  const holdingCohorts = userData.holdingCohorts || {};
+  const holdingCohorts: Record<string, Cohort> = userData.holdingCohorts || {};
   const hasHeldETF50Days = Object.entries(holdingCohorts).some(([t, cohort]) => {
     const char = CHARACTERS.find((c) => c.ticker === t);
     return char?.isETF && cohort?.firstHeldAt && now - cohort.firstHeldAt >= DIVIDEND_DEMON_HOLD_MS;

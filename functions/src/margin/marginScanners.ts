@@ -1,4 +1,3 @@
-'use strict';
 // Scheduled liquidation scanners. Split out of margin.js, which had grown past
 // the 600-line limit with three unrelated jobs in it.
 //
@@ -16,10 +15,10 @@
 // npm run test:trading covers both (sections J and K) — run it before and after
 // any change here.
 
-const { cf } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import { cf } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const {
+import {
   isWeeklyTradingHalt,
   WEEKLY_HALT_END_MINUTE,
   MARKET_OPEN_GRACE_PERIOD_MINUTES,
@@ -29,30 +28,28 @@ const {
   MARGIN_LIQUIDATION_SLIPPAGE,
   FORCED_COVERS_PER_TICKER_PER_CYCLE,
   FIRESTORE_BATCH_SIZE,
-} = require('../shared/constants');
-const {
-  writeNotification,
-  sendDiscordMessage,
-  reportError,
-  recordHeartbeat,
-  shortsEquity,
-  writeShortInterest,
-  isTickerPaused,
-  priceHistoryRef,
-} = require('../shared/helpers');
-const { seasonMarginUpdate } = require('../season/seasonTiers');
+} from '../shared/constants';
+import { writeNotification } from '../shared/notifications';
+import { sendDiscordMessage } from '../shared/discordApi';
+import { reportError } from '../shared/sentry';
+import { recordHeartbeat } from '../shared/activity';
+import { shortsEquity } from '../shared/equity';
+import { writeShortInterest, priceHistoryRef } from '../shared/marketData';
+import { isTickerPaused } from '../shared/impact';
+import { seasonMarginUpdate } from '../season/seasonTiers';
 // The per-position cover mechanics. Internal module, not in servicePaths.js.
-const { forceCoverShort, depositedMargin } = require('./marginForceCover');
+import { forceCoverShort, depositedMargin } from './marginForceCover';
+import type { ShortPosition } from '../shared/types';
 
 // Formatting for the player-facing notifications below. The thresholds are
 // interpolated rather than typed out so the message can never drift from the
 // number the scanner actually enforces.
-const money = (n) =>
+const money = (n: unknown) =>
   `$${(Number(n) || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
-const pct = (ratio) => `${Math.round((Number(ratio) || 0) * 100)}%`;
+const pct = (ratio: unknown) => `${Math.round((Number(ratio) || 0) * 100)}%`;
 
 /**
  * Server-side short margin call checker
@@ -60,10 +57,10 @@ const pct = (ratio) => `${Math.round((Number(ratio) || 0) * 100)}%`;
  * If equity ratio drops below 25%, force-covers the position
  * Uses 50% dampened price impact to prevent cascading short squeezes
  */
-exports.checkShortMarginCalls = cf()
+export const checkShortMarginCalls = cf()
   .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
       console.log('Skipping short margin calls — weekly trading halt active');
       return null;
@@ -92,12 +89,12 @@ exports.checkShortMarginCalls = cf()
         return null;
       }
 
-      const marketData = marketSnap.data();
+      const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
         console.log('Skipping short margin calls — emergency halt active');
         return null;
       }
-      const prices = marketData.prices || {};
+      const prices: Record<string, number> = marketData.prices || {};
       // One read per scan, for the admin-price-protection check below.
       const phSnap = await priceHistoryRef().get();
       const priceHistory = phSnap.exists ? phSnap.data() || {} : {};
@@ -120,13 +117,13 @@ exports.checkShortMarginCalls = cf()
           }
         };
         for (const doc of allUsers.docs) {
-          const shorts = doc.data().shorts || {};
+          const shorts: Record<string, ShortPosition> = doc.data()!.shorts || {};
           const has = Object.values(shorts).some((p) => p && p.shares > 0);
           if (has) {
             shortHolderDocs.push(doc);
             batch.update(doc.ref, { hasOpenShorts: true });
             pending++;
-          } else if (doc.data().hasOpenShorts) {
+          } else if (doc.data()!.hasOpenShorts) {
             batch.update(doc.ref, { hasOpenShorts: false });
             pending++;
           }
@@ -145,15 +142,15 @@ exports.checkShortMarginCalls = cf()
       let liquidatedCount = 0;
       let checkedCount = 0;
       let throttledCount = 0;
-      const tickerCoverCount = {};
+      const tickerCoverCount: Record<string, number> = {};
       // Total shares short per ticker. Free to collect here because this scan
       // already has every open short position in hand, and the neglect decay
       // needs it: a stock somebody is short is not a neglected stock.
-      const shortInterest = {};
+      const shortInterest: Record<string, number> = {};
 
       for (const userDoc of shortHolderDocs) {
-        const userData = userDoc.data();
-        const shorts = userData.shorts || {};
+        const userData = userDoc.data()!;
+        const shorts: Record<string, ShortPosition> = userData.shorts || {};
         const shortEntries = Object.entries(shorts).filter(([, pos]) => pos && pos.shares > 0);
 
         if (shortEntries.length === 0) {
@@ -252,10 +249,10 @@ exports.checkShortMarginCalls = cf()
  * Check Margin Lending - Scheduled every 30 minutes
  * Monitors users with margin debt and auto-liquidates if equity drops too low
  */
-exports.checkMarginLending = cf()
+export const checkMarginLending = cf()
   .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
       console.log('Skipping margin lending check — weekly trading halt active');
       return null;
@@ -273,12 +270,12 @@ exports.checkMarginLending = cf()
         return null;
       }
 
-      const marketSnapData = marketSnap.data();
+      const marketSnapData = marketSnap.data()!;
       if (marketSnapData.marketHalted) {
         console.log('Skipping margin lending check — emergency halt active');
         return null;
       }
-      const prices = marketSnapData.prices || {};
+      const prices: Record<string, number> = marketSnapData.prices || {};
 
       // Query users with margin enabled
       const usersSnap = await db.collection('users').where('marginEnabled', '==', true).get();
@@ -288,13 +285,13 @@ exports.checkMarginLending = cf()
       let checkedCount = 0;
 
       for (const userDoc of usersSnap.docs) {
-        const userData = userDoc.data();
+        const userData = userDoc.data()!;
         const marginUsed = userData.marginUsed || 0;
         if (marginUsed <= 0) continue;
         checkedCount++;
 
         const cash = userData.cash || 0;
-        const holdings = userData.holdings || {};
+        const holdings: Record<string, number> = userData.holdings || {};
 
         // Calculate holdings value
         let holdingsValue = 0;
@@ -333,12 +330,12 @@ exports.checkMarginLending = cf()
               ]);
               if (!freshUserDoc.exists || !freshMarketDoc.exists) return null;
 
-              const freshData = freshUserDoc.data();
+              const freshData = freshUserDoc.data()!;
               const freshMarginUsed = freshData.marginUsed || 0;
               if (freshMarginUsed <= 0) return null;
 
-              const freshHoldings = freshData.holdings || {};
-              const freshPrices = freshMarketDoc.data().prices || {};
+              const freshHoldings: Record<string, number> = freshData.holdings || {};
+              const freshPrices: Record<string, number> = freshMarketDoc.data()!.prices || {};
 
               // Re-check the ratio that triggered this. If they climbed back over
               // the liquidation line, leave them alone.
@@ -357,7 +354,7 @@ exports.checkMarginLending = cf()
               }
 
               let totalRecovered = 0;
-              const updateData = {};
+              const updateData: Record<string, unknown> = {};
 
               // Sell ALL positions at the forced-liquidation discount.
               //

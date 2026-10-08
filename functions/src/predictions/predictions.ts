@@ -1,30 +1,18 @@
-'use strict';
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const { CHARACTERS } = require('../shared/characters');
-const {
-  isWeeklyTradingHalt,
-  chapterReviewHaltMsg,
-  IPO_PRICE_JUMP,
-  IPO_SELL_LOCKUP_MS,
-} = require('../shared/constants');
-const {
-  checkBanned,
-  checkDiscordWall,
-  sendDiscordMessage,
-  getTotalInvested,
-  writeNotification,
-  reportError,
-  applyDueIPOJumps,
-  touchLastActive,
-  appendPriceHistory,
-  predictionFlowUpdate,
-  recordHeartbeat,
-} = require('../shared/helpers');
+import { CHARACTERS } from '../shared/characters';
+import { isWeeklyTradingHalt, chapterReviewHaltMsg, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } from '../shared/constants';
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { sendDiscordMessage } from '../shared/discordApi';
+import { getTotalInvested, predictionFlowUpdate } from '../shared/equity';
+import { writeNotification } from '../shared/notifications';
+import { reportError } from '../shared/sentry';
+import { applyDueIPOJumps, appendPriceHistory } from '../shared/marketData';
+import { touchLastActive, recordHeartbeat } from '../shared/activity';
 
-exports.placeBet = cf().https.onCall(async (data, context) => {
+export const placeBet = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -59,22 +47,22 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
     if (!predictionsDoc.exists) throw new functions.https.HttpsError('not-found', 'Predictions not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
     // Admin emergency halt, checked inside the transaction like the event
     // markets do so a halt landing mid-bet still stops it.
-    if (marketDoc.exists && marketDoc.data().marketHalted) {
+    if (marketDoc.exists && marketDoc.data()!.marketHalted) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        marketDoc.data().haltReason || 'Market is currently halted.',
+        marketDoc.data()!.haltReason || 'Market is currently halted.',
       );
     }
-    const predictionsData = predictionsDoc.data();
+    const predictionsData = predictionsDoc.data()!;
     const predictionsList = predictionsData.list || [];
 
     // Find the prediction
-    const predictionIndex = predictionsList.findIndex((p) => p.id === predictionId);
+    const predictionIndex = predictionsList.findIndex((p: { id: string }) => p.id === predictionId);
     if (predictionIndex === -1) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
 
     const prediction = predictionsList[predictionIndex];
@@ -148,7 +136,7 @@ exports.placeBet = cf().https.onCall(async (data, context) => {
 /**
  * Claim prediction payout (winning or losing)
  */
-exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
+export const claimPredictionPayout = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -172,13 +160,13 @@ exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
     if (!predictionsDoc.exists) throw new functions.https.HttpsError('not-found', 'Predictions not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
-    const predictionsData = predictionsDoc.data();
+    const predictionsData = predictionsDoc.data()!;
     const predictionsList = predictionsData.list || [];
 
-    const prediction = predictionsList.find((p) => p.id === predictionId);
+    const prediction = predictionsList.find((p: { id: string }) => p.id === predictionId);
     if (!prediction) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
     if (!prediction.resolved) throw new functions.https.HttpsError('failed-precondition', 'Not resolved yet.');
     predictionLabel = prediction.question || prediction.title || predictionLabel;
@@ -187,15 +175,15 @@ exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
     if (!userBet) throw new functions.https.HttpsError('not-found', 'No bet found.');
     if (userBet.paid) throw new functions.https.HttpsError('already-exists', 'Already paid out.');
 
-    const updates = {};
+    const updates: Record<string, unknown> = {};
 
     const winningOutcomes = prediction.outcomes || (prediction.outcome ? [prediction.outcome] : []);
     if (winningOutcomes.includes(userBet.option)) {
       // Winner - calculate payout
       const options = prediction.options || ['Yes', 'No'];
       const pools = prediction.pools || {};
-      const winningPool = winningOutcomes.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
-      const totalPool = options.reduce((sum, opt) => sum + (pools[opt] || 0), 0);
+      const winningPool = winningOutcomes.reduce((sum: number, opt: string) => sum + (pools[opt] || 0), 0);
+      const totalPool = options.reduce((sum: number, opt: string) => sum + (pools[opt] || 0), 0);
 
       let payout = userBet.amount;
       if (winningPool > 0 && totalPool > 0) {
@@ -265,7 +253,7 @@ exports.claimPredictionPayout = cf().https.onCall(async (data, context) => {
 /**
  * Buy IPO shares
  */
-exports.buyIPOShares = cf().https.onCall(async (data, context) => {
+export const buyIPOShares = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -309,13 +297,13 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
     if (!ipoDoc.exists) throw new functions.https.HttpsError('not-found', 'IPO data not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
-    const ipoData = ipoDoc.data();
+    const ipoData = ipoDoc.data()!;
     const ipoList = ipoData.list || [];
 
-    const ipo = ipoList.find((i) => i.ticker === ticker);
+    const ipo = ipoList.find((i: { ticker: string }) => i.ticker === ticker);
     if (!ipo) throw new functions.https.HttpsError('not-found', 'IPO not found.');
 
     const maxPerUser = ipo.maxPerUser || 10;
@@ -383,7 +371,7 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
     const newSharesRemaining = sharesRemaining - quantity;
     const soldOut = newSharesRemaining <= 0;
 
-    const updatedList = ipoList.map((i) =>
+    const updatedList = ipoList.map((i: { ticker: string }) =>
       i.ticker === ticker
         ? { ...i, sharesRemaining: newSharesRemaining, ...(soldOut ? { priceJumped: true } : {}) }
         : i,
@@ -402,7 +390,7 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
       });
     } else if (marketDoc.exists) {
       // Initialize price if not set
-      const marketData = marketDoc.data();
+      const marketData = marketDoc.data()!;
       if (!marketData.prices?.[ticker]) {
         transaction.update(marketRef, {
           [`prices.${ticker}`]: ipo.basePrice,
@@ -450,10 +438,10 @@ exports.buyIPOShares = cf().https.onCall(async (data, context) => {
  * Process IPO Price Jumps - Scheduled every 30 minutes
  * Checks for ended IPOs that haven't had their price jump applied
  */
-exports.processIPOPriceJumps = cf()
+export const processIPOPriceJumps = cf()
   .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
-  .onRun(async (context) => {
+  .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
       console.log('Skipping IPO price jumps — weekly trading halt active');
       return null;
@@ -462,7 +450,7 @@ exports.processIPOPriceJumps = cf()
     try {
       // Check emergency halt
       const marketSnap = await db.collection('market').doc('current').get();
-      if (marketSnap.exists && marketSnap.data().marketHalted) {
+      if (marketSnap.exists && marketSnap.data()!.marketHalted) {
         console.log('Skipping IPO price jumps — emergency halt active');
         return null;
       }

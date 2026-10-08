@@ -1,28 +1,17 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const axios = require('axios');
-const { verifyKey, InteractionType, InteractionResponseType } = require('discord-interactions');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
+import type { DocumentData } from 'firebase-admin/firestore';
 
-const { CHARACTERS } = require('../shared/characters');
-const {
-  ADMIN_UID,
-  STARTING_CASH,
-  BASE_IMPACT,
-  BASE_LIQUIDITY,
-  MAX_PRICE_CHANGE_PERCENT,
-} = require('../shared/constants');
-const { writeNotification, sendDiscordMessage, priceHistoryRef } = require('../shared/helpers');
+/** A trades doc plus its timestamp in ms and doc id. */
+type TradeRow = DocumentData & { _ts: number; id: string };
+
+import { priceHistoryRef } from '../shared/marketData';
 
 // ─── TICKER ROLLBACK DIAGNOSTIC ──────────────────────────────────────────────
-exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { ticker, startTimestamp } = data;
   if (!ticker || !startTimestamp) {
@@ -63,9 +52,9 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
     .where('timestamp', '>', startDate)
     .get();
 
-  const trades = [];
+  const trades: TradeRow[] = [];
   tradesSnap.forEach((doc) => {
-    const t = doc.data();
+    const t = doc.data()!;
     const ts = t.timestamp?._seconds
       ? t.timestamp._seconds * 1000
       : t.timestamp?.seconds
@@ -76,30 +65,30 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
   trades.sort((a, b) => a._ts - b._ts);
 
   // 3. Group by uid
-  const userMap = {};
+  const userMap: Record<string, Record<'buys' | 'sells' | 'shorts' | 'covers', TradeRow[]>> = {};
   for (const t of trades) {
     if (!userMap[t.uid]) {
       userMap[t.uid] = { buys: [], sells: [], shorts: [], covers: [] };
     }
     const action = (t.action || '').toLowerCase();
     if (action === 'buy') {
-      userMap[t.uid].buys.push(t);
+      userMap[t.uid]!.buys.push(t);
     } else if (action === 'sell') {
-      userMap[t.uid].sells.push(t);
+      userMap[t.uid]!.sells.push(t);
     } else if (action === 'short') {
-      userMap[t.uid].shorts.push(t);
+      userMap[t.uid]!.shorts.push(t);
     } else if (action === 'cover') {
-      userMap[t.uid].covers.push(t);
+      userMap[t.uid]!.covers.push(t);
     }
   }
 
   const uids = Object.keys(userMap);
 
   // Fetch user docs
-  const userDocs = {};
+  const userDocs: Record<string, DocumentData> = {};
   for (const uid of uids) {
     const snap = await db.collection('users').doc(uid).get();
-    if (snap.exists) userDocs[uid] = snap.data();
+    if (snap.exists) userDocs[uid] = snap.data()!;
   }
 
   // Build per-user breakdown
@@ -107,7 +96,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
   const profiteers = []; // users with positive net cash flow
 
   for (const uid of uids) {
-    const { buys, sells, shorts, covers } = userMap[uid];
+    const { buys, sells, shorts, covers } = userMap[uid]!;
     const userData = userDocs[uid] || {};
 
     const totalTrades = buys.length + sells.length + shorts.length + covers.length;
@@ -135,7 +124,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
     // Earliest cash-generating trade (sell or short)
     const firstCashInTs =
       [firstSellTs, firstShortTs].filter(Boolean).length > 0
-        ? Math.min(...[firstSellTs, firstShortTs].filter(Boolean))
+        ? Math.min(...([firstSellTs, firstShortTs].filter(Boolean) as number[]))
         : null;
 
     const entry = {
@@ -169,8 +158,11 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
   userBreakdowns.sort((a, b) => b.netCashFlow - a.netCashFlow);
 
   // 4. Ripple effects — what did profiteers buy after selling ticker?
-  const rippleByTicker = {};
-  const userRipples = {};
+  const rippleByTicker: Record<string, number> = {};
+  const userRipples: Record<
+    string,
+    { displayName: string; shroProfit: number; spentOnOtherStocks: number; breakdown: Record<string, number> }
+  > = {};
 
   for (const p of profiteers) {
     // Get all non-ticker trades after first cash-generating trade
@@ -181,10 +173,10 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
       .get();
 
     let spentOnOthers = 0;
-    const byTicker = {};
+    const byTicker: Record<string, number> = {};
 
     otherTradesSnap.forEach((doc) => {
-      const t = doc.data();
+      const t = doc.data()!;
       if (t.ticker === ticker) return; // skip same ticker
       const action = (t.action || '').toLowerCase();
       if (action !== 'buy') return;
@@ -208,7 +200,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
       const scale = spentOnOthers > 0 ? cappedSpent / spentOnOthers : 0;
       for (const [t, amount] of Object.entries(byTicker)) {
         const scaled = Math.round(amount * scale * 100) / 100;
-        userRipples[p.uid].breakdown[t] = scaled;
+        userRipples[p.uid]!.breakdown[t] = scaled;
         rippleByTicker[t] = (rippleByTicker[t] || 0) + scaled;
       }
     }
@@ -216,7 +208,7 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
 
   // Round ripple totals
   for (const t of Object.keys(rippleByTicker)) {
-    rippleByTicker[t] = Math.round(rippleByTicker[t] * 100) / 100;
+    rippleByTicker[t] = Math.round(rippleByTicker[t]! * 100) / 100;
   }
 
   // Sort ripple by amount
@@ -250,11 +242,8 @@ exports.diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
 });
 
 // ─── TICKER RECOVERY ────────────────────────────────────────────────────────
-exports.recoverTicker = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const recoverTicker = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { ticker, startTimestamp, rollbackToTimestamp, dryRun } = data;
   if (!ticker || !startTimestamp || !rollbackToTimestamp) {
@@ -291,7 +280,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   if (targetPrice === null) {
     const archiveSnap = await db.collection('market').doc('current').collection('price_history').doc(ticker).get();
     if (archiveSnap.exists) {
-      const archiveData = archiveSnap.data();
+      const archiveData = archiveSnap.data()!;
       const archiveHistory = archiveData.history || [];
       for (const entry of archiveHistory) {
         const entryTs = entry.timestamp?._seconds
@@ -322,9 +311,9 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
     .where('timestamp', '>', startDate)
     .get();
 
-  const trades = [];
+  const trades: TradeRow[] = [];
   tradesSnap.forEach((doc) => {
-    const t = doc.data();
+    const t = doc.data()!;
     const ts = t.timestamp?._seconds
       ? t.timestamp._seconds * 1000
       : t.timestamp?.seconds
@@ -334,25 +323,25 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   });
 
   // Group by uid
-  const userMap = {};
+  const userMap: Record<string, Record<'buys' | 'sells' | 'shorts' | 'covers', TradeRow[]>> = {};
   for (const t of trades) {
     if (!userMap[t.uid]) {
       userMap[t.uid] = { buys: [], sells: [], shorts: [], covers: [] };
     }
     const action = (t.action || '').toLowerCase();
-    if (action === 'buy') userMap[t.uid].buys.push(t);
-    else if (action === 'sell') userMap[t.uid].sells.push(t);
-    else if (action === 'short') userMap[t.uid].shorts.push(t);
-    else if (action === 'cover') userMap[t.uid].covers.push(t);
+    if (action === 'buy') userMap[t.uid]!.buys.push(t);
+    else if (action === 'sell') userMap[t.uid]!.sells.push(t);
+    else if (action === 'short') userMap[t.uid]!.shorts.push(t);
+    else if (action === 'cover') userMap[t.uid]!.covers.push(t);
   }
 
   const uids = Object.keys(userMap);
 
   // Fetch user docs
-  const userDocs = {};
+  const userDocs: Record<string, DocumentData> = {};
   for (const uid of uids) {
     const snap = await db.collection('users').doc(uid).get();
-    if (snap.exists) userDocs[uid] = snap.data();
+    if (snap.exists) userDocs[uid] = snap.data()!;
   }
 
   // Build per-user net cash flow
@@ -364,7 +353,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
   const recoveryId = `recover_${ticker}_${Date.now()}`;
 
   for (const uid of uids) {
-    const { buys, sells, shorts, covers } = userMap[uid];
+    const { buys, sells, shorts, covers } = userMap[uid]!;
     const userData = userDocs[uid] || {};
 
     // Skip bots
@@ -396,7 +385,7 @@ exports.recoverTicker = cf().https.onCall(async (data, context) => {
 
     // Check for existing recovery log (idempotent)
     const repairLog = userData._repairLog || [];
-    if (repairLog.some((entry) => entry.recoveryId === recoveryId)) continue;
+    if (repairLog.some((entry: { recoveryId?: string }) => entry.recoveryId === recoveryId)) continue;
 
     const previousCash = Math.round((userData.cash || 0) * 100) / 100;
     const clawbackAmount = Math.round(netCashFlow * 100) / 100;
