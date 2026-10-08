@@ -1,13 +1,18 @@
-'use strict';
 // Pre-trade validation and anti-abuse gates for executeTrade. Every function
 // here either passes silently or throws an HttpsError that aborts the trade.
 // Internal module — required by trading.js, not exported through index.js.
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const { CHARACTER_MAP } = require('../shared/characters');
-const { washRuleRemainingMs, shortAfterDumpRemainingMs, maxTradeSharesFor } = require('../shared/helpers');
-const {
+import { CHARACTER_MAP } from '../shared/characters';
+import { washRuleRemainingMs, shortAfterDumpRemainingMs, maxTradeSharesFor } from '../shared/impact';
+import type { UserData } from '../shared/types';
+
+/** A Timestamp or epoch ms, as the throttle stamps are stored. */
+type Stamp = admin.firestore.Timestamp | number;
+const stampMs = (s: Stamp) =>
+  (s as admin.firestore.Timestamp).toMillis ? (s as admin.firestore.Timestamp).toMillis() : (s as number);
+import {
   isWeeklyTradingHalt,
   MAX_TRADES_PER_TICKER_24H,
   MAX_ACCOUNTS_PER_IP,
@@ -23,14 +28,14 @@ const {
   MIN_EXIT_SHARES,
   TRADE_SHARE_DECIMALS,
   chapterReviewHaltMsg,
-} = require('../shared/constants');
+} from '../shared/constants';
 
 // Validate inputs - finite, bounded, sane share size — and reject trades during
 // the weekly halt window. Entries are held to whole-cent share counts; exits are
 // not, because holdings pick up fractional remainders from dividends and partial
 // fills and the player has to be able to sell every last speck of them.
-function validateTradeInput(data) {
-  const { ticker, action, amount } = data;
+export function validateTradeInput(data: { ticker?: unknown; action?: unknown; amount?: unknown }) {
+  const { ticker, action, amount } = data as { ticker: string; action: string; amount: number };
   const isExit = action === 'sell' || action === 'cover';
   const maxShares = maxTradeSharesFor(ticker);
 
@@ -74,7 +79,7 @@ function validateTradeInput(data) {
 // Anti-manipulation: Block shorting if user has a live SELL or STOP_LOSS limit
 // order on the same ticker. PARTIALLY_FILLED orders are still live and count.
 // (Type is filtered in code — a second 'in' clause isn't allowed in one query.)
-async function assertNoLiveSellOrders(uid, ticker, action) {
+export async function assertNoLiveSellOrders(uid: string, ticker: string, action: string) {
   if (action !== 'short') return;
 
   const liveOrders = await db
@@ -95,8 +100,8 @@ async function assertNoLiveSellOrders(uid, ticker, action) {
 
 // Market-level gates: unlaunched IPO tickers, emergency admin halt, and
 // per-ticker circuit breakers.
-function assertMarketTradable(marketData, ticker) {
-  const launchedTickers = marketData.launchedTickers || [];
+export function assertMarketTradable(marketData: admin.firestore.DocumentData, ticker: string) {
+  const launchedTickers: string[] = marketData.launchedTickers || [];
   const charMeta = CHARACTER_MAP[ticker];
   if (charMeta?.ipoRequired && !launchedTickers.includes(ticker)) {
     throw new functions.https.HttpsError(
@@ -123,7 +128,7 @@ function assertMarketTradable(marketData, ticker) {
 }
 
 // Bankrupt users may sell/cover to exit positions, but can't open new ones.
-function assertUserCanTrade(userData, action) {
+export function assertUserCanTrade(userData: UserData, action: string) {
   if (userData.isBankrupt || (userData.cash || 0) < 0) {
     if (action === 'buy' || action === 'short') {
       throw new functions.https.HttpsError('failed-precondition', 'Account is bankrupt. Use bailout to reset.');
@@ -133,7 +138,19 @@ function assertUserCanTrade(userData, action) {
 
 // Hard per-IP cap: at most MAX_ACCOUNTS_PER_IP distinct accounts may buy/short from
 // one IP per hour (admin exempt; sell/cover always allowed so users can exit).
-function assertIpAccountCap({ ip, uid, action, ipRecentTraders, now }) {
+export function assertIpAccountCap({
+  ip,
+  uid,
+  action,
+  ipRecentTraders,
+  now,
+}: {
+  ip: string;
+  uid: string;
+  action: string;
+  ipRecentTraders: Record<string, unknown>;
+  now: number;
+}) {
   if (IP_ACCOUNT_CAP_ENABLED && ip !== 'unknown' && uid !== ADMIN_UID && (action === 'buy' || action === 'short')) {
     const ONE_HOUR_MS = 60 * 60 * 1000;
     const recentTraderUids = new Set(
@@ -153,10 +170,10 @@ function assertIpAccountCap({ ip, uid, action, ipRecentTraders, now }) {
 
 // Global 3-second cooldown between trades, plus the 10-second same-ticker
 // cooldown on position-opening actions.
-function assertCooldowns(userData, ticker, action, now) {
-  const lastTradeTime = userData.lastTradeTime;
+export function assertCooldowns(userData: UserData, ticker: string, action: string, now: number) {
+  const lastTradeTime = userData.lastTradeTime as Stamp | undefined;
   if (lastTradeTime) {
-    const lastTradeMs = lastTradeTime.toMillis ? lastTradeTime.toMillis() : lastTradeTime;
+    const lastTradeMs = stampMs(lastTradeTime);
     const timeSinceLastTrade = now - lastTradeMs;
 
     if (timeSinceLastTrade < TRADE_COOLDOWN_MS) {
@@ -202,9 +219,9 @@ function assertCooldowns(userData, ticker, action, now) {
   }
 
   if (action === 'buy' || action === 'short') {
-    const lastTickerTradeTime = userData.lastTickerTradeTime?.[ticker];
+    const lastTickerTradeTime = (userData.lastTickerTradeTime as Record<string, Stamp> | undefined)?.[ticker];
     if (lastTickerTradeTime) {
-      const lastTickerMs = lastTickerTradeTime.toMillis ? lastTickerTradeTime.toMillis() : lastTickerTradeTime;
+      const lastTickerMs = stampMs(lastTickerTradeTime);
       const timeSinceTickerTrade = now - lastTickerMs;
       if (timeSinceTickerTrade < TICKER_COOLDOWN_MS) {
         const remainingMs = TICKER_COOLDOWN_MS - timeSinceTickerTrade;
@@ -225,7 +242,7 @@ function assertCooldowns(userData, ticker, action, now) {
 // counting them would lock a player out of a ticker because their own stop loss
 // fired. Fills are still bounded by the 24h per-ticker cap and the daily
 // price-impact cap, which they check for themselves at fill time.
-function countManualTrades(snap, action = null) {
+function countManualTrades(snap: admin.firestore.QuerySnapshot, action: string | null = null) {
   return snap.docs.filter((d) => {
     const t = d.data();
     if (t.source) return false;
@@ -237,7 +254,7 @@ function countManualTrades(snap, action = null) {
 // Trade velocity: hourly cap and 5-minute burst limit per ticker. Only
 // rate-limits position-opening actions (buy/short) — closing positions
 // (sell/cover) should never be blocked. Plain (non-transactional) queries.
-async function assertVelocityLimits(uid, ticker, action, now) {
+export async function assertVelocityLimits(uid: string, ticker: string, action: string, now: number) {
   if (action !== 'buy' && action !== 'short') return;
 
   const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -276,7 +293,7 @@ async function assertVelocityLimits(uid, ticker, action, now) {
 }
 
 // Rolling 24h cap on trades per ticker per action.
-function assertTradeCapNotHit(tradeCount, action, ticker) {
+export function assertTradeCapNotHit(tradeCount: number, action: string, ticker: string) {
   if (tradeCount >= MAX_TRADES_PER_TICKER_24H) {
     throw new functions.https.HttpsError(
       'failed-precondition',
@@ -284,14 +301,3 @@ function assertTradeCapNotHit(tradeCount, action, ticker) {
     );
   }
 }
-
-module.exports = {
-  validateTradeInput,
-  assertNoLiveSellOrders,
-  assertMarketTradable,
-  assertUserCanTrade,
-  assertIpAccountCap,
-  assertCooldowns,
-  assertVelocityLimits,
-  assertTradeCapNotHit,
-};

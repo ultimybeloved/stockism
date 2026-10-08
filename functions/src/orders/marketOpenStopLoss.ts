@@ -1,4 +1,3 @@
-'use strict';
 // The stop-loss sweep that runs at market open, right after the pre-market
 // auction sets opening prices. INTERNAL MODULE — required by marketOrders.js,
 // not exported through functions/src/index.js.
@@ -13,32 +12,28 @@
 //
 // npm run test:premarket covers this path.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES } = require('../shared/constants');
-const {
+import { MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES } from '../shared/constants';
+import {
   liquidityFor,
-  writeNotification,
-  writeFeedEntry,
   calculateMarginalImpact,
   getAccountAgeImpactFactor,
   pruneAndSumTradeHistory,
   sumDirectionalImpact,
-  appendPriceHistory,
-  lockedShares,
-  buildTradeCreditUpdates,
-  recordTrade,
-  round2,
-  spreadFor,
-  floorExitShares,
-  remainingShares,
-  cohortRemoveUpdate,
-} = require('../shared/helpers');
-const { updateCrewMissionProgress } = require('../crews/crewMissionProgress');
-const { computePriceUpdates, buildTrailingEntries } = require('../trading/tradePricing');
-const { pruneHistoryMap, appendTradeEntries } = require('../trading/tradeState');
-const { readOrderNetwork, networkImpactSpent, writeNetworkFill } = require('./orderNetwork');
+} from '../shared/impact';
+import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import { appendPriceHistory } from '../shared/marketData';
+import { lockedShares, floorExitShares, remainingShares, cohortRemoveUpdate } from '../shared/cohorts';
+import { buildTradeCreditUpdates, recordTrade } from '../shared/tradeRecords';
+import { round2 } from '../shared/money';
+import { spreadFor } from '../shared/roster';
+import type { LimitOrder, PricePoint, UserData } from '../shared/types';
+import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
+import { computePriceUpdates, buildTrailingEntries } from '../trading/tradePricing';
+import { pruneHistoryMap, appendTradeEntries } from '../trading/tradeState';
+import { readOrderNetwork, networkImpactSpent, writeNetworkFill } from './orderNetwork';
 
 /**
  * Fill one stop loss inside a transaction. Returns what the post-commit
@@ -50,22 +45,35 @@ const { readOrderNetwork, networkImpactSpent, writeNetworkFill } = require('./or
  * difference predates the split and is left as-is deliberately — changing it
  * changes what players are paid.
  */
-const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openingPrice }) => {
+const executeSweepFill = async (
+  transaction: admin.firestore.Transaction,
+  {
+    order,
+    orderDoc,
+    marketRef,
+    openingPrice,
+  }: {
+    order: LimitOrder;
+    orderDoc: admin.firestore.QueryDocumentSnapshot;
+    marketRef: admin.firestore.DocumentReference;
+    openingPrice: number;
+  },
+) => {
   const userRef = db.collection('users').doc(order.userId);
 
   const freshOrderSnap = await transaction.get(orderDoc.ref);
-  if (!freshOrderSnap.exists || !['PENDING', 'PARTIALLY_FILLED'].includes(freshOrderSnap.data().status)) {
+  if (!freshOrderSnap.exists || !['PENDING', 'PARTIALLY_FILLED'].includes(freshOrderSnap.data()!.status)) {
     throw new Error('Order already processed');
   }
-  const freshAlreadyFilled = freshOrderSnap.data().filledShares || 0;
+  const freshAlreadyFilled: number = freshOrderSnap.data()!.filledShares || 0;
   const userSnap = await transaction.get(userRef);
   const freshMarketSnap = await transaction.get(marketRef);
   // The connection that placed the stop: its down allowance is shared.
   const net = await readOrderNetwork(transaction, orderDoc.id);
   if (!userSnap.exists) throw new Error('User not found');
 
-  const userData = userSnap.data();
-  const freshPrices = freshMarketSnap.data().prices || {};
+  const userData = userSnap.data() as UserData;
+  const freshPrices: Record<string, number> = freshMarketSnap.data()!.prices || {};
   const freshPrice = freshPrices[order.ticker] || openingPrice;
 
   if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt');
@@ -157,7 +165,7 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
     marketPrice: freshPrice,
     now,
   });
-  const updates = {
+  const updates: Record<string, unknown> = {
     cash: admin.firestore.FieldValue.increment(executedPrice * fillShares),
     [`holdings.${order.ticker}`]: newHoldings,
     lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
@@ -192,8 +200,8 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
 
   const moved = Object.entries(priceUpdates);
   if (moved.length) {
-    const priceWrites = {};
-    const historyPoints = {};
+    const priceWrites: Record<string, number> = {};
+    const historyPoints: Record<string, PricePoint> = {};
     for (const [t, price] of moved) {
       priceWrites[`prices.${t}`] = price;
       historyPoints[t] = { timestamp: now, price };
@@ -225,7 +233,15 @@ const executeSweepFill = async (transaction, { order, orderDoc, marketRef, openi
  * Mutates `summary` (stopLossFilled / stopLossSkipped) the way the caller's
  * other sections do.
  */
-const runStopLossSweep = async ({ marketRef, openingPrices, summary }) => {
+export const runStopLossSweep = async ({
+  marketRef,
+  openingPrices,
+  summary,
+}: {
+  marketRef: admin.firestore.DocumentReference;
+  openingPrices: Record<string, number>;
+  summary: { stopLossFilled: number; stopLossSkipped: number };
+}) => {
   const ordersSnapshot = await db
     .collection('limitOrders')
     .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
@@ -234,11 +250,11 @@ const runStopLossSweep = async ({ marketRef, openingPrices, summary }) => {
   console.log(`runMarketOpenProcessing: checking ${ordersSnapshot.size} limit orders`);
 
   for (const orderDoc of ordersSnapshot.docs) {
-    const order = orderDoc.data();
+    const order = orderDoc.data() as LimitOrder;
     if (order.type !== 'STOP_LOSS') continue;
 
     const openingPrice = openingPrices[order.ticker];
-    if (!openingPrice || openingPrice > order.limitPrice) continue;
+    if (!openingPrice || openingPrice > order.limitPrice!) continue;
 
     try {
       const fill = await db.runTransaction((transaction) =>
@@ -275,10 +291,8 @@ const runStopLossSweep = async ({ marketRef, openingPrices, summary }) => {
       });
       summary.stopLossFilled++;
     } catch (err) {
-      console.log(`runMarketOpenProcessing: stop loss ${orderDoc.id} skipped — ${err.message}`);
+      console.log(`runMarketOpenProcessing: stop loss ${orderDoc.id} skipped — ${(err as Error).message}`);
       summary.stopLossSkipped++;
     }
   }
 };
-
-module.exports = { runStopLossSweep };

@@ -47,6 +47,8 @@ export interface Cluster {
   severity: 'high' | 'medium';
   startedAt: number;
   allIn?: { uid: string; share: number; borrowed: number }[];
+  // Display names, filled in by the scan for the alert text.
+  names?: string[];
 }
 
 // Sells and shorts push down, buys and covers push up. Same mapping the trade

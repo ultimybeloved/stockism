@@ -1,0 +1,293 @@
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+const db = admin.firestore();
+
+import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
+import {
+  PRE_MARKET_START_MINUTE,
+  PRE_MARKET_LOCK_MINUTE,
+  WEEKLY_HALT_END_MINUTE,
+  PRE_MARKET_MAX_BUY_BUFFER,
+  MIN_TRADE_SHARES,
+  MIN_EXIT_SHARES,
+  TRADE_SHARE_DECIMALS,
+  formatWait,
+  msUntilWeekly,
+} from '../shared/constants';
+import { touchLastActive } from '../shared/activity';
+import { lockedShares } from '../shared/cohorts';
+import { checkDiscordWall } from '../shared/accountGuards';
+import { maxTradeSharesFor } from '../shared/impact';
+import type { UserData } from '../shared/types';
+
+/** preMarketOrders/{uid}_{date}_{ticker}_{action}. */
+export interface PreMarketOrder {
+  userId: string;
+  ticker: string;
+  action: 'buy' | 'sell';
+  shares: number;
+  allowPartialFills?: boolean;
+  status: string;
+  [field: string]: unknown;
+}
+import { claimNetworkForOrder } from './orderNetwork';
+
+// Placement closes at the lock (20:55), not at market open — the auction
+// settles opening prices at 20:56 while the market is still halted.
+const isPreMarketWindow = () => {
+  const now = new Date();
+  if (now.getUTCDay() !== 4) return false;
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return utcMins >= PRE_MARKET_START_MINUTE && utcMins < PRE_MARKET_LOCK_MINUTE;
+};
+
+const getThisWeeksPreMarketStart = () => {
+  const now = new Date();
+  const d = new Date(now);
+  d.setUTCHours(20, 30, 0, 0);
+  return admin.firestore.Timestamp.fromDate(d);
+};
+
+export const createPreMarketOrder = cf().https.onCall(
+  async (data: { ticker?: unknown; action?: unknown; shares?: unknown; allowPartialFills?: unknown }, context) => {
+    requireAppCheck(context);
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    }
+
+    if (!isPreMarketWindow()) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Pre-market orders can only be placed in the 25 minutes before the Thursday open. The next window opens in ${formatWait(msUntilWeekly(PRE_MARKET_START_MINUTE))}.`,
+      );
+    }
+
+    const uid = context.auth.uid;
+    touchLastActive(uid, 'preMarket');
+    const {
+      ticker,
+      action,
+      shares,
+      allowPartialFills = false,
+    } = data as {
+      ticker: string;
+      action: string;
+      shares: number;
+      allowPartialFills?: boolean;
+    };
+
+    if (!ticker || !CHARACTERS.some((c) => c.ticker === ticker)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
+    }
+
+    if (!action || !['buy', 'sell'].includes(action)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Action must be buy or sell.');
+    }
+
+    // Sells allow fractional dust (a position has to be closable in full); buys
+    // stay on whole-cent share counts.
+    const minShares = action === 'sell' ? MIN_EXIT_SHARES : MIN_TRADE_SHARES;
+    const entryStep = 10 ** TRADE_SHARE_DECIMALS;
+    if (
+      !shares ||
+      !Number.isFinite(shares) ||
+      shares < minShares ||
+      shares > maxTradeSharesFor(ticker) ||
+      (action !== 'sell' && Math.round(shares * entryStep) / entryStep !== shares)
+    ) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid share quantity.');
+    }
+
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found.');
+    }
+    const userData = userDoc.data() as UserData;
+
+    if (userData.isBanned) {
+      throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
+    }
+    // Suspected-alt wall: same gate as executeTrade, or queued orders bypass it
+    checkDiscordWall(userData);
+    if (userData.isBankrupt) {
+      throw new functions.https.HttpsError('failed-precondition', 'Cannot place orders while bankrupt.');
+    }
+    if ((userData.cash || 0) < 0) {
+      throw new functions.https.HttpsError('failed-precondition', 'Cannot place orders while in debt.');
+    }
+
+    const preMarketStart = getThisWeeksPreMarketStart();
+
+    // Max 1 active buy and 1 active sell per ticker per user per session
+    const duplicate = await db
+      .collection('preMarketOrders')
+      .where('userId', '==', uid)
+      .where('ticker', '==', ticker)
+      .where('action', '==', action)
+      .where('status', '==', 'PENDING')
+      .where('createdAt', '>=', preMarketStart)
+      .limit(1)
+      .get();
+
+    if (!duplicate.empty) {
+      throw new functions.https.HttpsError(
+        'already-exists',
+        `You already have a pending ${action} order for $${ticker}. Cancel it first to replace it.`,
+      );
+    }
+
+    const marketSnap = await db.collection('market').doc('current').get();
+    const currentPrice = marketSnap.data()?.prices?.[ticker] || CHARACTER_MAP[ticker]?.basePrice || 0;
+
+    // Block orders on IPO-phase tickers that haven't launched — queued orders
+    // would otherwise bypass the IPO's per-user and supply limits entirely.
+    const launchedTickers: string[] = marketSnap.data()?.launchedTickers || [];
+    if (CHARACTER_MAP[ticker]?.ipoRequired && !launchedTickers.includes(ticker)) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `${ticker} is in IPO phase. Use the IPO panel to purchase shares.`,
+      );
+    }
+
+    // Anti-manipulation: no sell orders on a ticker you're short on (same rule as limit orders)
+    if (action === 'sell' && (userData.shorts?.[ticker]?.shares || 0) > 0) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Cannot place a sell order while you have an active short on this stock.',
+      );
+    }
+
+    if (action === 'buy') {
+      // Sum up cash already committed to other pending buy orders this session
+      const pendingBuys = await db
+        .collection('preMarketOrders')
+        .where('userId', '==', uid)
+        .where('action', '==', 'buy')
+        .where('status', '==', 'PENDING')
+        .where('createdAt', '>=', preMarketStart)
+        .get();
+
+      // Cost estimates include headroom for auction impact + spread, so a
+      // passing order can't become unaffordable at the opening ask.
+      const allPrices: Record<string, number> = marketSnap.data()?.prices || {};
+      const reservedCash =
+        Math.round(
+          pendingBuys.docs.reduce((sum, doc) => {
+            const o = doc.data() as PreMarketOrder;
+            return (
+              sum +
+              o.shares * (allPrices[o.ticker] || CHARACTER_MAP[o.ticker]?.basePrice || 0) * PRE_MARKET_MAX_BUY_BUFFER
+            );
+          }, 0) * 100,
+        ) / 100;
+
+      const estimatedCost = Math.round(shares * currentPrice * PRE_MARKET_MAX_BUY_BUFFER * 100) / 100;
+      const availableCash = Math.round(((userData.cash || 0) - reservedCash) * 100) / 100;
+
+      if (estimatedCost > availableCash) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          reservedCash > 0
+            ? `Insufficient cash. Estimated cost with opening-price headroom: $${estimatedCost.toFixed(2)}, reserved by other orders: $${reservedCash.toFixed(2)}, available: $${availableCash.toFixed(2)}.`
+            : `Insufficient cash. Estimated cost with opening-price headroom: $${estimatedCost.toFixed(2)}, available: $${availableCash.toFixed(2)}.`,
+        );
+      }
+    } else {
+      const currentHoldings = userData.holdings?.[ticker] || 0;
+
+      // Account for shares already reserved by other pending pre-market sells on this ticker
+      const pendingSells = await db
+        .collection('preMarketOrders')
+        .where('userId', '==', uid)
+        .where('ticker', '==', ticker)
+        .where('action', '==', 'sell')
+        .where('status', '==', 'PENDING')
+        .where('createdAt', '>=', preMarketStart)
+        .get();
+
+      const reservedShares = pendingSells.docs.reduce((sum, doc) => sum + (doc.data().shares || 0), 0);
+      // Locked shares (IPO / margin holds) can't be queued for sale either, so a
+      // pre-market order can't be used to dodge the hold.
+      const locked = lockedShares(userData, ticker).total;
+      const availableShares = Math.round((currentHoldings - reservedShares - locked) * 10000) / 10000;
+
+      if (availableShares < shares) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `Insufficient sellable shares. Holdings: ${currentHoldings}, reserved: ${reservedShares}, locked: ${locked}, available: ${availableShares}.`,
+        );
+      }
+    }
+
+    // Accounts-per-connection rule, same as executeTrade. The whole pre-market
+    // window is 25 minutes, inside the rule's one-hour memory, so checking here is
+    // enough: a ring can't queue buys from more accounts than one connection is
+    // allowed to trade from, and push the opening price with them.
+    await claimNetworkForOrder({ context, uid, isBuy: action === 'buy' });
+
+    const sessionDate = new Date().toISOString().slice(0, 10);
+    const orderId = `${uid}_${sessionDate}_${ticker}_${action}`;
+    await db.collection('preMarketOrders').doc(orderId).set({
+      userId: uid,
+      ticker,
+      action,
+      shares,
+      allowPartialFills,
+      status: 'PENDING',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      executedAt: null,
+      executedPrice: null,
+      filledShares: null,
+    });
+
+    return { success: true };
+  },
+);
+
+export const cancelPreMarketOrder = cf().https.onCall(async (data: { orderId?: unknown }, context) => {
+  requireAppCheck(context);
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+  }
+
+  // Orders lock 5 minutes before open — prevents spoofing via late cancellations
+  const now = new Date();
+  if (now.getUTCDay() === 4) {
+    const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    if (utcMins >= PRE_MARKET_LOCK_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Orders are locked in the final 5 minutes before market open. Your order will execute when the market opens in ${formatWait(msUntilWeekly(WEEKLY_HALT_END_MINUTE))}.`,
+      );
+    }
+  }
+
+  const uid = context.auth.uid;
+  touchLastActive(uid, 'preMarket');
+  const { orderId } = data as { orderId: string };
+
+  if (!orderId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Order ID required.');
+  }
+
+  const orderDoc = await db.collection('preMarketOrders').doc(orderId).get();
+  if (!orderDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Order not found.');
+  }
+
+  const order = orderDoc.data() as PreMarketOrder;
+  if (order.userId !== uid) {
+    throw new functions.https.HttpsError('permission-denied', "Cannot cancel another user's order.");
+  }
+  if (order.status !== 'PENDING') {
+    throw new functions.https.HttpsError('failed-precondition', 'Order is not pending and cannot be cancelled.');
+  }
+
+  await db.collection('preMarketOrders').doc(orderId).update({
+    status: 'CANCELED',
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  return { success: true };
+});

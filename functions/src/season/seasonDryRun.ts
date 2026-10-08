@@ -1,4 +1,3 @@
-'use strict';
 // Season dry run: what the season rules WOULD do, with no season running.
 //
 // The Thursdays before season 1 are test weeks. The flashback arc is wrapping
@@ -9,14 +8,17 @@
 // document a week, and a reader that scores those reports with the same
 // functions the real season uses (seasonTiers.js). Cost is one user scan and one
 // document write a week.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ADMIN_UID, ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } = require('../shared/constants');
-const { netEquityAt, getLastActiveMs, readIndexNow, round2, characterExposure } = require('../shared/helpers');
-const {
+import { ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } from '../shared/constants';
+import { netEquityAt, characterExposure } from '../shared/equity';
+import { getLastActiveMs } from '../shared/activity';
+import { readIndexNow } from '../shared/marketData';
+import { round2 } from '../shared/money';
+import type { SeasonRules, UserData } from '../shared/types';
+import {
   DEFAULT_SEASON_RULES,
   checkpointTier,
   finalTier,
@@ -24,11 +26,49 @@ const {
   divisionFor,
   divisionSlots,
   weekConcentration,
-} = require('./seasonTiers');
+} from './seasonTiers';
+import type { RankedPlayer } from './seasonTiers';
+
+/** One player in a dry-run report: v net equity, g granted counter, c largest holding, h all holdings. */
+export interface DryRunRow {
+  uid: string;
+  n: string;
+  v: number;
+  g: number;
+  c: number;
+  h: number;
+}
+
+/** seasonDryRuns/{weekId}. */
+export interface DryRunWeek {
+  weekId: string;
+  ranAt: number;
+  index: number;
+  players?: number;
+  rows: DryRunRow[];
+}
+
+/** One player's running tally across the reports. */
+interface DryRunState {
+  name: string;
+  base: number;
+  baseGranted: number;
+  baseIndex: number;
+  prev: DryRunRow;
+  prevIndex: number;
+  last: DryRunRow;
+  lastIndex: number;
+  beat: number;
+  appearances: number;
+  peak: number;
+}
+
+/** One scored player in the report. */
+type ScoredPlayer = RankedPlayer & { name: string; beatWeeks: number; weeks: number };
 
 const dryRuns = () => db.collection('seasonDryRuns');
 // Reports are keyed by the day they ran, so re-running one replaces it.
-const weekIdOf = (ms) => new Date(ms).toISOString().slice(0, 10);
+const weekIdOf = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 // Enough to cover any wait for an arc to finish without an unbounded read.
 const MAX_WEEKS_READ = 30;
 
@@ -39,7 +79,11 @@ const MAX_WEEKS_READ = 30;
  *
  *   v net equity   g the granted-value counter   c largest holding   h all holdings
  */
-const buildRow = (uid, u, prices) => {
+export const buildRow = (
+  uid: string,
+  u: UserData & { displayName?: string },
+  prices: Record<string, number>,
+): DryRunRow => {
   const { largest, total } = characterExposure(u, prices);
   return {
     uid,
@@ -62,13 +106,18 @@ const buildRow = (uid, u, prices) => {
  * holds players active in the last 14 days, so it is the same idea as the real
  * count without needing a season to be running.
  */
-const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
-  const ordered = [...(weeks || [])].filter((w) => w && Array.isArray(w.rows)).sort((a, b) => a.ranAt - b.ranAt);
+export const scoreDryRuns = (
+  weeks: (DryRunWeek | null)[] | null | undefined,
+  rules: SeasonRules = DEFAULT_SEASON_RULES,
+) => {
+  const ordered = [...(weeks || [])]
+    .filter((w): w is DryRunWeek => !!w && Array.isArray(w.rows))
+    .sort((a, b) => a.ranAt - b.ranAt);
   if (ordered.length < 2) {
     return { weeks: ordered.length, scored: [], tierCounts: {}, divisions: divisionSlots([], rules), belowFloor: 0 };
   }
 
-  const state = new Map();
+  const state = new Map<string, DryRunState>();
   for (const week of ordered) {
     for (const row of week.rows) {
       const seen = state.get(row.uid);
@@ -107,7 +156,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
   // Every gap between reports is a scored week, so a player who skipped some
   // is measured against the same denominator as everyone else.
   const scoredWeeks = ordered.length - 1;
-  const scored = [];
+  const scored: ScoredPlayer[] = [];
   let belowFloor = 0;
   for (const [uid, s] of state) {
     if (s.base < SEASON_MIN_BASELINE) {
@@ -136,7 +185,7 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
   // The same two functions the real season uses, so this is a rehearsal rather
   // than a second implementation that could disagree with it.
   const ranked = rankTopTiers(scored, rules);
-  const tierCounts = {};
+  const tierCounts: Record<string, number> = {};
   for (const p of scored) {
     p.tier = finalTier({ ...p, tier: checkpointTier({ activeWeeks: p.activeWeeks }, rules) }, ranked, rules);
     if (p.tier) tierCounts[p.tier] = (tierCounts[p.tier] || 0) + 1;
@@ -146,11 +195,11 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
   return {
     weeks: scoredWeeks,
     reports: ordered.length,
-    from: ordered[0].weekId,
-    to: ordered[ordered.length - 1].weekId,
+    from: ordered[0]!.weekId,
+    to: ordered[ordered.length - 1]!.weekId,
     marketPercent:
-      ordered[0].index > 0
-        ? Math.round(((ordered[ordered.length - 1].index - ordered[0].index) / ordered[0].index) * 1000) / 10
+      ordered[0]!.index > 0
+        ? Math.round(((ordered[ordered.length - 1]!.index - ordered[0]!.index) / ordered[0]!.index) * 1000) / 10
         : 0,
     scored,
     tierCounts,
@@ -160,9 +209,9 @@ const scoreDryRuns = (weeks, rules = DEFAULT_SEASON_RULES) => {
 };
 
 /** Take this week's snapshot. Skips itself once a real season is running. */
-const runSeasonDryRun = async () => {
+export const runSeasonDryRun = async () => {
   const seasonSnap = await db.collection('market').doc('season').get();
-  if (seasonSnap.exists && seasonSnap.data().status === 'active') {
+  if (seasonSnap.exists && seasonSnap.data()!.status === 'active') {
     return { ran: false, reason: 'a season is running' };
   }
 
@@ -188,9 +237,9 @@ const runSeasonDryRun = async () => {
       .get(),
   ]);
 
-  const rows = [];
+  const rows: DryRunRow[] = [];
   snap.forEach((doc) => {
-    const u = doc.data();
+    const u = doc.data() as UserData;
     if (u.isBot || u.isBanned) return;
     // Same field the season board uses, so the rehearsal has the same cast.
     if (getLastActiveMs(u) < now - ACTIVE_USER_WINDOW_MS) return;
@@ -212,14 +261,10 @@ const runSeasonDryRun = async () => {
   return { ran: true, weekId, players: rows.length, index: round2(indexValue) };
 };
 
-exports.buildRow = buildRow;
-exports.scoreDryRuns = scoreDryRuns;
-exports.runSeasonDryRun = runSeasonDryRun;
-
 // Thursday 14:05 UTC, five minutes after the real checkpoint's slot and inside
 // the halt, so prices are frozen and the rehearsal lines up with what a real
 // checkpoint would have seen.
-exports.seasonDryRun = cf({ timeoutSeconds: 540 })
+export const seasonDryRun = cf({ timeoutSeconds: 540 })
   .pubsub.schedule('5 14 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -227,23 +272,17 @@ exports.seasonDryRun = cf({ timeoutSeconds: 540 })
     return null;
   });
 
-exports.triggerSeasonDryRun = cf({ timeoutSeconds: 540 }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const triggerSeasonDryRun = cf({ timeoutSeconds: 540 }).https.onCall(async (_data: unknown, context) => {
+  requireAdmin(context);
   return runSeasonDryRun();
 });
 
 /** What the tiers would look like if this had been a real season. */
-exports.adminSeasonDryRunReport = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminSeasonDryRunReport = cf({ timeoutSeconds: 300 }).https.onCall(async (_data: unknown, context) => {
+  requireAdmin(context);
 
   const snap = await dryRuns().orderBy('ranAt', 'desc').limit(MAX_WEEKS_READ).get();
-  const report = scoreDryRuns(snap.docs.map((d) => d.data()));
+  const report = scoreDryRuns(snap.docs.map((d) => d.data() as DryRunWeek));
   return {
     success: true,
     generatedAt: Date.now(),

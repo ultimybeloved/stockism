@@ -1,12 +1,13 @@
-'use strict';
 // Season records: the weekly record each checkpoint writes, who belongs on the
 // board, and one player's board entry. Shared by season.js (start, checkpoint,
 // end, standings).
 //
 // INTERNAL MODULE — required by season.js, never listed in servicePaths.js.
-const { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS } = require('../shared/constants');
-const { getLastActiveMs, characterExposure } = require('../shared/helpers');
-const {
+import { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS } from '../shared/constants';
+import { getLastActiveMs } from '../shared/activity';
+import { characterExposure } from '../shared/equity';
+import type { SeasonDoc, UserData, WeekRecord } from '../shared/types';
+import {
   baselineIndexFor,
   seasonScore,
   weeklyRecordSummary,
@@ -17,7 +18,7 @@ const {
   grantedDaysSince,
   sideFlowsSince,
   isTopTierExcluded,
-} = require('./seasonTiers');
+} from './seasonTiers';
 
 // A season's weekly record is capped. Far longer than any arc, and it stops one
 // very long season from growing the user doc without bound.
@@ -41,7 +42,21 @@ const SEASON_WEEK_RECORD_CAP = 80;
  * Cumulative return, weekly return, excess over the index and concentration are
  * all derivable from consecutive entries. None of them are stored.
  */
-const buildWeekRecord = ({ season, weeks, userData, prices, indexValue, now = Date.now() }) => {
+export const buildWeekRecord = ({
+  season,
+  weeks,
+  userData,
+  prices,
+  indexValue,
+  now = Date.now(),
+}: {
+  season: SeasonDoc;
+  weeks: number;
+  userData: UserData;
+  prices: Record<string, number>;
+  indexValue: number;
+  now?: number;
+}): WeekRecord => {
   const { largest, total } = characterExposure(userData, prices);
   const baselineGranted = userData.seasonBaseline?.granted || 0;
   const grantedDays = grantedDaysSince(userData);
@@ -63,17 +78,19 @@ const buildWeekRecord = ({ season, weeks, userData, prices, indexValue, now = Da
 };
 
 /** Append this week's record, dropping any left over from an earlier season. */
-const appendWeekRecord = (existing, record) => {
-  const kept = (Array.isArray(existing) ? existing : []).filter((e) => e && e.s === record.s && e.w !== record.w);
+export const appendWeekRecord = (existing: unknown, record: WeekRecord) => {
+  const kept = (Array.isArray(existing) ? (existing as (WeekRecord | null)[]) : []).filter(
+    (e): e is WeekRecord => !!e && e.s === record.s && e.w !== record.w,
+  );
   return [...kept, record].slice(-SEASON_WEEK_RECORD_CAP);
 };
 
-const latestWeekRecord = (seasonWeeks, seasonId) =>
-  (Array.isArray(seasonWeeks) ? seasonWeeks : [])
-    .filter((r) => r && r.s === seasonId)
-    .reduce((latest, r) => (!latest || r.w > latest.w ? r : latest), null);
+export const latestWeekRecord = (seasonWeeks: unknown, seasonId: string) =>
+  (Array.isArray(seasonWeeks) ? (seasonWeeks as (WeekRecord | null)[]) : [])
+    .filter((r): r is WeekRecord => !!r && r.s === seasonId)
+    .reduce<WeekRecord | null>((latest, r) => (!latest || r.w > latest.w ? r : latest), null);
 
-const weeksElapsed = (startedAt) => Math.max(1, Math.ceil((Date.now() - startedAt) / ONE_WEEK_MS));
+export const weeksElapsed = (startedAt: number) => Math.max(1, Math.ceil((Date.now() - startedAt) / ONE_WEEK_MS));
 
 /**
  * Whether a player belongs on the season standings board.
@@ -88,8 +105,13 @@ const weeksElapsed = (startedAt) => Math.max(1, Math.ceil((Date.now() - startedA
  * first checkpoint, so recent activity covers week one. Same lastActive
  * definition the rest of the app uses.
  */
-const isSeasonParticipant = (userData, season, now = Date.now()) => {
-  const activeWeeks = userData?.seasonActiveWeeks?.seasonId === season?.id ? userData.seasonActiveWeeks.weeks || 0 : 0;
+export const isSeasonParticipant = (
+  userData: UserData | null | undefined,
+  season: SeasonDoc | null | undefined,
+  now = Date.now(),
+) => {
+  const activeWeeks =
+    userData?.seasonActiveWeeks?.seasonId === season?.id ? userData!.seasonActiveWeeks!.weeks || 0 : 0;
   if (activeWeeks > 0) return true;
   return getLastActiveMs(userData) >= now - ACTIVE_USER_WINDOW_MS;
 };
@@ -99,16 +121,37 @@ const isSeasonParticipant = (userData, season, now = Date.now()) => {
  * size division, and the two figures Diamond is judged on. Null if they can't be
  * scored.
  */
-const boardEntry = (uid, u, season, { value, indexNow, granted, grantedDays, sideFlows, margin, at }) => {
+export const boardEntry = (
+  uid: string,
+  u: UserData,
+  season: SeasonDoc,
+  {
+    value,
+    indexNow,
+    granted,
+    grantedDays,
+    sideFlows,
+    margin,
+    at,
+  }: {
+    value?: number;
+    indexNow?: number;
+    granted?: number;
+    grantedDays?: number;
+    sideFlows?: number;
+    margin?: number;
+    at?: number;
+  },
+) => {
   const score = seasonScore(u, season, { value, indexNow, granted, grantedDays, sideFlows, margin, at });
   if (!score) return null;
   const summary = weeklyRecordSummary(
     u.seasonWeeks,
     {
       seasonId: season.id,
-      baselineValue: u.seasonBaseline.value,
+      baselineValue: u.seasonBaseline!.value,
       baselineIndex: baselineIndexFor(u.seasonBaseline, season),
-      pinnedAt: u.seasonBaseline.pinnedAt,
+      pinnedAt: u.seasonBaseline!.pinnedAt!,
     },
     (season.checkpointWeeks || []).length,
   );
@@ -124,13 +167,4 @@ const boardEntry = (uid, u, season, { value, indexNow, granted, grantedDays, sid
     // Never sent to the public board; rankTopTiers reads it.
     topTierExcluded: isTopTierExcluded(u, season.id),
   };
-};
-
-module.exports = {
-  buildWeekRecord,
-  appendWeekRecord,
-  latestWeekRecord,
-  weeksElapsed,
-  isSeasonParticipant,
-  boardEntry,
 };

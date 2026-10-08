@@ -1,12 +1,11 @@
-'use strict';
 // Per-action computation for executeTrade. Each compute* function applies one
 // action's rules and price math, mutates the caller's newHoldings/newShorts
 // working copies in place, and returns the resulting price/cash numbers.
 // Rule violations throw HttpsError so the surrounding transaction aborts.
 // Internal module — required by trading.js, not exported through index.js.
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const {
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
+import {
   MIN_PRICE,
   MAX_PRICE_CHANGE_PERCENT,
   MAX_DAILY_IMPACT,
@@ -16,19 +15,54 @@ const {
   MAX_SHORTS_BEFORE_COOLDOWN,
   SHORT_COOLDOWN_WINDOW_MS,
   TRADE_HOLD_PERIOD_MS,
-  MIN_EXIT_SHARES,
-} = require('../shared/constants');
-const {
-  calculateMarginalImpact,
-  traderMarginalImpact,
-  liquidityFor,
-  lockedShares,
-  remainingShares,
-  shortsEquity,
-} = require('../shared/helpers');
-const { exitLoyaltyDiscount } = require('../shared/characters');
+} from '../shared/constants';
+import { calculateMarginalImpact, traderMarginalImpact, liquidityFor } from '../shared/impact';
+import { lockedShares, remainingShares } from '../shared/cohorts';
+import { shortsEquity } from '../shared/equity';
+import { exitLoyaltyDiscount } from '../shared/characters';
+import type { Lockup, ShortPosition, UserData } from '../shared/types';
 
-function computeBuy({
+/** A Timestamp or epoch ms, as the throttle stamps are stored. */
+type Stamp = admin.firestore.Timestamp | number;
+const stampMs = (s: Stamp) =>
+  (s as admin.firestore.Timestamp).toMillis ? (s as admin.firestore.Timestamp).toMillis() : (s as number);
+
+/** Everything executeTrade hands an action. Each action reads the fields it needs. */
+export interface ComputeArgs {
+  ticker: string;
+  amount: number;
+  now: number;
+  currentPrice: number;
+  prices: Record<string, number>;
+  effectiveSpread: number;
+  ageImpactFactor: number;
+  cumulativeVolume: number;
+  cumulativeDailyImpact: number;
+  ipCumulativeDailyImpact: number;
+  cash: number;
+  holdings: Record<string, number>;
+  shorts: Record<string, ShortPosition | null | undefined>;
+  userData: UserData;
+  marginEnabled: boolean;
+  marginUsed: number;
+  tierMultiplier: number;
+  newHoldings: Record<string, number>;
+  newShorts: Record<string, ShortPosition>;
+}
+
+/** What an action did: the price move, the fill and the new balances. */
+export interface ComputeResult {
+  priceImpact: number;
+  newPrice: number;
+  executionPrice: number;
+  totalCost: number;
+  newCash: number;
+  newMarginUsed: number;
+  marginLockUpdate: Lockup | null;
+  hitMaxImpact: boolean;
+}
+
+export function computeBuy({
   ticker,
   amount,
   now,
@@ -46,7 +80,7 @@ function computeBuy({
   marginUsed,
   tierMultiplier,
   newHoldings,
-}) {
+}: ComputeArgs): ComputeResult {
   // Two numbers, on purpose. The MARKET move is capped so one order cannot
   // spike a stock; the TRADER pays what moving this much actually costs. They
   // are the same number for any order under the cap — see rawMarginalImpact.
@@ -111,13 +145,13 @@ function computeBuy({
   // Lock the margin-funded shares from re-selling for a hold period, so
   // borrowed money can't spike a stock and bail before the price reverts.
   // Accumulates with any still-active lock; mirrors the IPO lockup.
-  let marginLockUpdate = null;
+  let marginLockUpdate: Lockup | null = null;
   if (marginToUse > 0 && executionPrice > 0) {
     const marginShares = Math.round((marginToUse / executionPrice) * 100) / 100;
     const existing = userData.marginLockup?.[ticker];
     const stillActive = existing && now < (existing.until || 0);
     marginLockUpdate = {
-      shares: Math.round(((stillActive ? existing.shares : 0) + marginShares) * 100) / 100,
+      shares: Math.round(((stillActive ? existing.shares! : 0) + marginShares) * 100) / 100,
       until: Math.max(existing?.until || 0, now + MARGIN_SELL_LOCKUP_MS),
     };
   }
@@ -125,7 +159,7 @@ function computeBuy({
   return { priceImpact, newPrice, executionPrice, totalCost, newCash, newMarginUsed, marginLockUpdate, hitMaxImpact };
 }
 
-function computeSell({
+export function computeSell({
   ticker,
   amount,
   now,
@@ -140,7 +174,7 @@ function computeSell({
   userData,
   marginUsed,
   newHoldings,
-}) {
+}: ComputeArgs): ComputeResult {
   // Validate holdings
   const currentHoldings = holdings[ticker] || 0;
   if (currentHoldings < amount) {
@@ -155,7 +189,7 @@ function computeSell({
     const parts = [];
     if (locks.ipo > 0) parts.push(`${locks.ipo} IPO-locked`);
     if (locks.margin > 0) {
-      const hrs = Math.max(1, Math.ceil((userData.marginLockup[ticker].until - now) / 3600000));
+      const hrs = Math.max(1, Math.ceil((userData.marginLockup![ticker]!.until! - now) / 3600000));
       parts.push(`${locks.margin} margin-locked (~${hrs}h left)`);
     }
     throw new functions.https.HttpsError(
@@ -165,9 +199,9 @@ function computeSell({
   }
 
   // Enforce 45-second hold period
-  const lastBuyTime = userData.lastBuyTime?.[ticker];
+  const lastBuyTime = (userData.lastBuyTime as Record<string, Stamp> | undefined)?.[ticker];
   if (lastBuyTime) {
-    const lastBuyMs = lastBuyTime.toMillis ? lastBuyTime.toMillis() : lastBuyTime;
+    const lastBuyMs = stampMs(lastBuyTime);
     const timeSinceBuy = now - lastBuyMs;
 
     if (timeSinceBuy < TRADE_HOLD_PERIOD_MS) {
@@ -232,7 +266,7 @@ function computeSell({
   };
 }
 
-function computeShort({
+export function computeShort({
   ticker,
   amount,
   now,
@@ -249,7 +283,7 @@ function computeShort({
   userData,
   marginUsed,
   newShorts,
-}) {
+}: ComputeArgs): ComputeResult {
   // Validate margin requirement
   if (cash < 0) {
     throw new functions.https.HttpsError('failed-precondition', 'Cannot open new positions while in debt.');
@@ -283,7 +317,8 @@ function computeShort({
 
   // Per-ticker concentration cap: one stock's total short value (existing
   // position + this trade) can't exceed half of portfolio equity
-  const existingTickerShortValue = shorts[ticker]?.shares > 0 ? shorts[ticker].shares * currentPrice : 0;
+  const tickerShort = shorts[ticker];
+  const existingTickerShortValue = tickerShort && tickerShort.shares > 0 ? tickerShort.shares * currentPrice : 0;
   if (existingTickerShortValue + currentPrice * amount > portfolioEquity * SHORT_CONCENTRATION_CAP) {
     throw new functions.https.HttpsError(
       'failed-precondition',
@@ -292,7 +327,7 @@ function computeShort({
   }
 
   // Check short cooldown (8-hour cooldown after 3rd short per ticker)
-  const shortHistory = userData.shortHistory?.[ticker] || [];
+  const shortHistory = (userData.shortHistory as Record<string, number[]> | undefined)?.[ticker] || [];
   const recentShorts = shortHistory.filter((ts) => now - ts < SHORT_COOLDOWN_WINDOW_MS);
 
   if (recentShorts.length >= MAX_SHORTS_BEFORE_COOLDOWN) {
@@ -336,8 +371,8 @@ function computeShort({
   const existingShort = shorts[ticker];
   if (existingShort && existingShort.shares > 0) {
     const totalShares = existingShort.shares + amount;
-    const totalValue = existingShort.costBasis * existingShort.shares + executionPrice * amount;
-    const existingMargin = existingShort.margin || existingShort.costBasis * existingShort.shares * 0.5;
+    const totalValue = existingShort.costBasis! * existingShort.shares + executionPrice * amount;
+    const existingMargin = existingShort.margin || existingShort.costBasis! * existingShort.shares * 0.5;
     newShorts[ticker] = {
       shares: totalShares,
       costBasis: totalShares > 0 ? totalValue / totalShares : executionPrice,
@@ -367,7 +402,7 @@ function computeShort({
   };
 }
 
-function computeCover({
+export function computeCover({
   ticker,
   amount,
   now,
@@ -381,7 +416,7 @@ function computeCover({
   shorts,
   marginUsed,
   newShorts,
-}) {
+}: ComputeArgs): ComputeResult {
   // Validate short position exists
   const shortPosition = shorts[ticker];
   if (!shortPosition || !shortPosition.shares || shortPosition.shares < amount) {
@@ -389,9 +424,9 @@ function computeCover({
   }
 
   // Enforce 45-second hold period
-  const openedAt = shortPosition.openedAt;
+  const openedAt = shortPosition.openedAt as Stamp | undefined;
   if (openedAt) {
-    const openedMs = openedAt.toMillis ? openedAt.toMillis() : openedAt;
+    const openedMs = stampMs(openedAt);
     const timeSinceOpen = now - openedMs;
 
     if (timeSinceOpen < TRADE_HOLD_PERIOD_MS) {
@@ -430,7 +465,7 @@ function computeCover({
   const marginToReturn = shortPosition.shares > 0 ? (totalPositionMargin / shortPosition.shares) * amount : 0;
 
   // Execute cover
-  let newCash;
+  let newCash: number;
   if ((shortPosition.system || 'v2') === 'v2') {
     // v2: get margin back + profit/loss (no proceeds were given at open)
     const shortProfit = (costBasis - executionPrice) * amount;
@@ -449,7 +484,7 @@ function computeCover({
     openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now(),
     system: shortPosition.system || 'v2',
   };
-  if (!newShorts[ticker].shares) {
+  if (!newShorts[ticker]!.shares) {
     delete newShorts[ticker];
   }
 
@@ -464,5 +499,3 @@ function computeCover({
     hitMaxImpact: false,
   };
 }
-
-module.exports = { computeBuy, computeSell, computeShort, computeCover };

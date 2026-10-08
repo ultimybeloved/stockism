@@ -1,26 +1,51 @@
-'use strict';
 // Post-trade side effects for executeTrade: achievement context + awarding,
 // trade-limit notifications, feed entries, crew mission progress, and
 // watched-IP fraud tracking. Everything here runs outside (or is computed for
 // use outside) the trade transaction and must never throw into the caller.
 // Internal module — required by trading.js, not exported through index.js.
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const { CHARACTERS } = require('../shared/characters');
-const {
+import { CHARACTERS } from '../shared/characters';
+import {
   MAX_TRADES_PER_TICKER_24H,
   ALL_CREW_TICKERS,
   UNIFIER_FULL_SHARE_MIN,
   MAX_SHORTS_BEFORE_COOLDOWN,
   SHORT_COOLDOWN_WINDOW_MS,
-} = require('../shared/constants');
-const { writeNotification, writeFeedEntry, reportError } = require('../shared/helpers');
-const { updateCrewMissionProgress } = require('../crews/crewMissionProgress');
-const { trackWatchedIpTrade } = require('../moderation/watchlist');
+} from '../shared/constants';
+import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import { reportError } from '../shared/sentry';
+import type { PricePoint, ShortPosition, UserData } from '../shared/types';
+
+/** What the trade did that an achievement might care about. */
+export interface AchievementCtx {
+  tradeValue: number;
+  isMonopoly?: boolean;
+  boughtBullishAtWeeklyLow?: boolean;
+  sellProfitPercent?: number;
+  isDiamondHands?: boolean;
+  npcProfit?: number;
+  droppedBelowFullShare?: boolean;
+  isDiscountDeacon?: boolean;
+  soldAtAllTimeHigh?: boolean;
+  animalProfit?: number;
+  isColdBlooded?: boolean;
+}
+
+/** The parts of executeTrade's result the side effects read and fill in. */
+export interface TradeResult {
+  achievementCtx?: AchievementCtx;
+  newAchievements?: string[];
+  executionPrice?: number;
+  totalCost?: number;
+  [field: string]: unknown;
+}
+import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
+import { trackWatchedIpTrade } from '../moderation/watchlist';
 
 // Compute achievement context inside the transaction (the caller has all the
 // data there; awarding happens after commit via processTradeAchievements).
-function buildAchievementCtx({
+export function buildAchievementCtx({
   action,
   ticker,
   amount,
@@ -35,8 +60,23 @@ function buildAchievementCtx({
   animalProfitTotal,
   now,
   recordedHigh = 0,
-}) {
-  const achievementCtx = { tradeValue: totalCost };
+}: {
+  action: string;
+  ticker: string;
+  amount: number;
+  totalCost: number;
+  hitMaxImpact: boolean;
+  priceHistory: Record<string, PricePoint[] | undefined>;
+  currentPrice: number;
+  executionPrice: number;
+  userData: UserData;
+  shorts: Record<string, ShortPosition | null | undefined>;
+  newHoldings: Record<string, number>;
+  animalProfitTotal: number | null;
+  now: number;
+  recordedHigh?: number;
+}): AchievementCtx {
+  const achievementCtx: AchievementCtx = { tradeValue: totalCost };
   if (action === 'buy') {
     achievementCtx.isMonopoly = hitMaxImpact;
     // That's a Big Deal: bought a bullish stock at its 7-day low
@@ -109,9 +149,19 @@ function buildAchievementCtx({
 
 // Warn if the next short on this ticker will trigger the cooldown. Uses the
 // pre-trade shortHistory (+1 for the short that was just executed).
-function buildShortWarning({ action, ticker, userData, now }) {
+export function buildShortWarning({
+  action,
+  ticker,
+  userData,
+  now,
+}: {
+  action: string;
+  ticker: string;
+  userData: UserData;
+  now: number;
+}): string | null {
   if (action !== 'short') return null;
-  const sh = userData.shortHistory?.[ticker] || [];
+  const sh = (userData.shortHistory as Record<string, number[]> | undefined)?.[ticker] || [];
   // +1 because this trade's timestamp hasn't been pushed yet when we read shortHistory
   const recentCount = sh.filter((ts) => now - ts < SHORT_COOLDOWN_WINDOW_MS).length + 1;
   if (recentCount >= MAX_SHORTS_BEFORE_COOLDOWN - 1) {
@@ -121,7 +171,12 @@ function buildShortWarning({ action, ticker, userData, now }) {
 }
 
 // Trade limit notifications (fire-and-forget, after transaction)
-async function sendTradeLimitNotifications(uid, action, ticker, remainingTrades) {
+export async function sendTradeLimitNotifications(
+  uid: string,
+  action: string,
+  ticker: string,
+  remainingTrades: number | null | undefined,
+) {
   const tradesUsed = MAX_TRADES_PER_TICKER_24H - (remainingTrades || 0);
   if (tradesUsed >= 7 && tradesUsed < MAX_TRADES_PER_TICKER_24H) {
     await writeNotification(uid, {
@@ -142,16 +197,18 @@ async function sendTradeLimitNotifications(uid, action, ticker, remainingTrades)
 
 // Award context-based achievements AFTER the transaction completes (can't do
 // additional queries inside the transaction). Mutates result.newAchievements.
-async function processTradeAchievements(uid, ticker, action, result) {
+export async function processTradeAchievements(uid: string, ticker: string, action: string, result: TradeResult) {
   try {
-    const ctx = result.achievementCtx || {};
+    const ctx: Partial<AchievementCtx> = result.achievementCtx || {};
     const userDoc = await db.collection('users').doc(uid).get();
     if (userDoc.exists) {
-      const currentAchievements = userDoc.data().achievements || [];
-      const newAchievements = [];
+      const userData = userDoc.data()!;
+      const currentAchievements: string[] = userData.achievements || [];
+      const newAchievements: string[] = [];
 
-      if (ctx.tradeValue >= 1000 && !currentAchievements.includes('SHARK')) newAchievements.push('SHARK');
-      if (ctx.sellProfitPercent >= 25 && !currentAchievements.includes('BULL_RUN')) newAchievements.push('BULL_RUN');
+      if ((ctx.tradeValue ?? 0) >= 1000 && !currentAchievements.includes('SHARK')) newAchievements.push('SHARK');
+      if ((ctx.sellProfitPercent ?? 0) >= 25 && !currentAchievements.includes('BULL_RUN'))
+        newAchievements.push('BULL_RUN');
       if (ctx.isDiamondHands && !currentAchievements.includes('DIAMOND_HANDS')) newAchievements.push('DIAMOND_HANDS');
       if (ctx.isColdBlooded && !currentAchievements.includes('COLD_BLOODED')) newAchievements.push('COLD_BLOODED');
       if (ctx.isMonopoly && !currentAchievements.includes('MONOPOLY')) newAchievements.push('MONOPOLY');
@@ -164,14 +221,13 @@ async function processTradeAchievements(uid, ticker, action, result) {
         newAchievements.push('ANIMAL_INSTINCT');
 
       // Plugged In: awarded once a Discord-linked user makes any trade
-      if (userDoc.data().discordId && !currentAchievements.includes('DISCORD_LINKED'))
-        newAchievements.push('DISCORD_LINKED');
+      if (userData.discordId && !currentAchievements.includes('DISCORD_LINKED')) newAchievements.push('DISCORD_LINKED');
 
       // NPC Lover: track cumulative profit from non-crew characters
-      const achievementUpdate = {};
-      if (ctx.npcProfit > 0) {
+      const achievementUpdate: Record<string, unknown> = {};
+      if (ctx.npcProfit !== undefined && ctx.npcProfit > 0) {
         achievementUpdate.npcProfit = admin.firestore.FieldValue.increment(ctx.npcProfit);
-        const currentNpcProfit = (userDoc.data().npcProfit || 0) + ctx.npcProfit;
+        const currentNpcProfit = (userData.npcProfit || 0) + ctx.npcProfit;
         if (currentNpcProfit >= 1000 && !currentAchievements.includes('NPC_LOVER')) newAchievements.push('NPC_LOVER');
       }
 
@@ -212,10 +268,24 @@ async function processTradeAchievements(uid, ticker, action, result) {
 
 // Fire-and-forget: trade feed entry, achievement notifications, crew mission
 // progress, and watched-IP fraud tracking.
-async function writeTradeSideEffects({ uid, ticker, action, amount, result, ip }) {
+export async function writeTradeSideEffects({
+  uid,
+  ticker,
+  action,
+  amount,
+  result,
+  ip,
+}: {
+  uid: string;
+  ticker: string;
+  action: string;
+  amount: number;
+  result: TradeResult;
+  ip: string;
+}) {
   try {
     const userDoc2 = await db.collection('users').doc(uid).get();
-    const uData = userDoc2.exists ? userDoc2.data() : {};
+    const uData: UserData & { displayName?: string } = (userDoc2.exists ? userDoc2.data() : {}) as UserData;
     const feedMsg =
       action === 'buy'
         ? `bought ${amount} $${ticker}`
@@ -272,11 +342,3 @@ async function writeTradeSideEffects({ uid, ticker, action, amount, result, ip }
     reportError(feedErr, { where: 'executeTrade.feedWrite', uid, ticker, action });
   }
 }
-
-module.exports = {
-  buildAchievementCtx,
-  buildShortWarning,
-  sendTradeLimitNotifications,
-  processTradeAchievements,
-  writeTradeSideEffects,
-};

@@ -1,4 +1,3 @@
-'use strict';
 // Limit-order matching engine. INTERNAL MODULE — not exported through
 // functions/src/index.js, same pattern as tradeGuards/tradeActions.
 //
@@ -15,11 +14,11 @@
 //
 // npm run test:limitorders covers this — run it before and after any change.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { ORDERS_PER_TICKER_PER_CYCLE } = require('../shared/constants');
-const {
+import { ORDERS_PER_TICKER_PER_CYCLE } from '../shared/constants';
+import {
   screenOrder,
   screenUser,
   isTickerHalted,
@@ -31,10 +30,12 @@ const {
   assertTradeLimit,
   resolveFillShares,
   readActionHistory,
-} = require('./limitOrderGuards');
-const { computeImpact, applyBuyFill, applySellFill, markOrderFilled } = require('./limitOrderFill');
-const { notifyCanceled, notifyExpired, publishFill } = require('./limitOrderEffects');
-const { readOrderNetwork, networkImpactSpent, assertNetworkSlot, writeNetworkFill } = require('./orderNetwork');
+} from './limitOrderGuards';
+import { computeImpact, applyBuyFill, applySellFill, markOrderFilled } from './limitOrderFill';
+import { notifyCanceled, notifyExpired, publishFill } from './limitOrderEffects';
+import { readOrderNetwork, networkImpactSpent, assertNetworkSlot, writeNetworkFill } from './orderNetwork';
+import type { FillCtx } from './limitOrderFill';
+import type { LimitOrder, UserData } from '../shared/types';
 
 // A failure inside the transaction either kills the order or defers it to the
 // next cycle. These are the ones the user cannot recover from by waiting;
@@ -49,7 +50,7 @@ const CANCEL_ON = [
   'Trade limit reached',
 ];
 
-const closeOrder = (orderId, fields) =>
+const closeOrder = (orderId: string, fields: Record<string, unknown>) =>
   db
     .collection('limitOrders')
     .doc(orderId)
@@ -62,7 +63,22 @@ const closeOrder = (orderId, fields) =>
  * Fill one order inside a transaction. Returns what the post-commit effects
  * need. Throws to cancel or defer — see CANCEL_ON.
  */
-const fillOrder = async (transaction, { order, orderId, marketRef, now, currentPrice }) => {
+const fillOrder = async (
+  transaction: admin.firestore.Transaction,
+  {
+    order,
+    orderId,
+    marketRef,
+    now,
+    currentPrice,
+  }: {
+    order: LimitOrder;
+    orderId: string;
+    marketRef: admin.firestore.DocumentReference;
+    now: number;
+    currentPrice: number;
+  },
+) => {
   const orderRef = db.collection('limitOrders').doc(orderId);
   const userRef = db.collection('users').doc(order.userId);
 
@@ -78,10 +94,10 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
   if (!userSnap.exists) throw new Error('User not found');
   if (!freshMarketSnap.exists) throw new Error('Market data not found');
 
-  const userData = userSnap.data();
+  const userData = userSnap.data() as UserData;
   // The whole map, not just this ticker: the fill propagates into related
   // characters and parent ETFs, and needs their prices to do it.
-  const freshPrices = freshMarketSnap.data().prices || {};
+  const freshPrices: Record<string, number> = freshMarketSnap.data()!.prices || {};
   const freshPrice = freshPrices[order.ticker] || currentPrice;
 
   assertLimitStillMet(order, freshPrice);
@@ -116,7 +132,7 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
     networkSpent: networkImpactSpent(net, order.ticker, action, now),
   });
 
-  const ctx = {
+  const ctx: FillCtx = {
     order,
     orderId,
     userRef,
@@ -164,7 +180,7 @@ const fillOrder = async (transaction, { order, orderId, marketRef, now, currentP
  * Check and Execute Limit Orders
  * Runs every 15 minutes to check if any pending limit orders should execute
  */
-const runLimitOrderCheck = async () => {
+export const runLimitOrderCheck = async () => {
   try {
     console.log('Checking limit orders...');
     const startTime = Date.now();
@@ -176,13 +192,13 @@ const runLimitOrderCheck = async () => {
       return { success: false, error: 'Market data missing' };
     }
 
-    const marketData = marketSnap.data();
+    const marketData = marketSnap.data()!;
     if (marketData.marketHalted) {
       console.log('Skipping limit order check — emergency halt active');
       return { success: true, skipped: true, reason: 'emergency_halt' };
     }
 
-    const prices = marketData.prices || {};
+    const prices: Record<string, number> = marketData.prices || {};
     const haltedTickersMap = marketData.haltedTickers || {};
     const launchedTickers = marketData.launchedTickers || [];
 
@@ -196,11 +212,11 @@ const runLimitOrderCheck = async () => {
     let canceled = 0;
     let expired = 0;
     const now = Date.now();
-    const tickerExecutionCount = {};
+    const tickerExecutionCount: Record<string, number> = {};
 
     for (const orderDoc of ordersSnapshot.docs) {
       try {
-        const order = orderDoc.data();
+        const order = orderDoc.data() as LimitOrder;
         const orderId = orderDoc.id;
 
         const orderVerdict = screenOrder(order, { now, launchedTickers });
@@ -216,7 +232,7 @@ const runLimitOrderCheck = async () => {
             await notifyExpired(order, orderId);
             expired++;
           } else {
-            await notifyCanceled(order, orderId, orderVerdict.reason);
+            await notifyCanceled(order, orderId, orderVerdict.reason!);
             canceled++;
           }
           continue;
@@ -224,11 +240,11 @@ const runLimitOrderCheck = async () => {
 
         const orderUserDoc = await db.collection('users').doc(order.userId).get();
         if (orderUserDoc.exists) {
-          const userVerdict = screenUser(orderUserDoc.data());
+          const userVerdict = screenUser(orderUserDoc.data() as UserData);
           if (userVerdict) {
             await closeOrder(orderId, { status: 'CANCELED', cancelReason: userVerdict.reason });
             console.log(`Cancelled order ${orderId}: ${userVerdict.log}`);
-            await notifyCanceled(order, orderId, userVerdict.reason);
+            await notifyCanceled(order, orderId, userVerdict.reason!);
             canceled++;
             continue;
           }
@@ -258,7 +274,7 @@ const runLimitOrderCheck = async () => {
             fillOrder(transaction, { order, orderId, marketRef, now, currentPrice }),
           );
         } catch (transactionError) {
-          const msg = transactionError.message || '';
+          const msg = (transactionError as Error).message || '';
           if (CANCEL_ON.some((reason) => msg.includes(reason))) {
             console.log(`Canceling order ${orderId}: ${msg}`);
             await closeOrder(orderId, { status: 'CANCELED', cancelReason: msg });
@@ -290,8 +306,6 @@ const runLimitOrderCheck = async () => {
     return result;
   } catch (error) {
     console.error('Limit order check failed:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: (error as Error).message };
   }
 };
-
-module.exports = { runLimitOrderCheck };

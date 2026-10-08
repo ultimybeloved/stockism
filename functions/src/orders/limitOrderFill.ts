@@ -1,4 +1,3 @@
-'use strict';
 // The fill itself: pricing, the user-doc write, the trade record, and the price
 // move. INTERNAL MODULE — not exported through functions/src/index.js, same pattern
 // as tradeActions.
@@ -7,31 +6,55 @@
 // reads; the orchestrator hands over data it already read, so the read-before-
 // write rule stays the caller's to keep.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 
-const { exitLoyaltyDiscount, CHARACTER_MAP } = require('../shared/characters');
-const { MAX_DAILY_IMPACT } = require('../shared/constants');
-const {
+import { exitLoyaltyDiscount, CHARACTER_MAP } from '../shared/characters';
+import { MAX_DAILY_IMPACT } from '../shared/constants';
+import {
   liquidityFor,
   calculateMarginalImpact,
   traderMarginalImpact,
   getAccountAgeImpactFactor,
-  appendPriceHistory,
-  buildTradeCreditUpdates,
-  recordTrade,
-  spreadFor,
-  remainingShares,
   sumDirectionalImpact,
   impactDirectionOf,
-  cohortAddUpdate,
-  cohortRemoveUpdate,
-} = require('../shared/helpers');
+} from '../shared/impact';
+import type { ImpactEntry } from '../shared/impact';
+import { appendPriceHistory } from '../shared/marketData';
+import { buildTradeCreditUpdates, recordTrade } from '../shared/tradeRecords';
+import { spreadFor } from '../shared/roster';
+import { remainingShares, cohortAddUpdate, cohortRemoveUpdate } from '../shared/cohorts';
+import { round2 } from '../shared/money';
+import type { LimitOrder, PricePoint, UserData } from '../shared/types';
+import type { TrailingEntries } from '../trading/tradePricing';
 // Same propagation executeTrade uses, so a fill moves related characters and
 // parent ETFs identically no matter which lane it came through.
-const { computePriceUpdates, buildTrailingEntries } = require('../trading/tradePricing');
-const { pruneHistoryMap, appendTradeEntries } = require('../trading/tradeState');
+import { computePriceUpdates, buildTrailingEntries } from '../trading/tradePricing';
+import { pruneHistoryMap, appendTradeEntries } from '../trading/tradeState';
 
-const round2 = (n) => Math.round(n * 100) / 100;
+/** Everything a fill needs, all of it read by the orchestrator before any write. */
+export interface FillCtx {
+  order: LimitOrder;
+  orderId: string;
+  userRef: admin.firestore.DocumentReference;
+  marketRef: admin.firestore.DocumentReference;
+  userData: UserData;
+  freshPrice: number;
+  freshPrices: Record<string, number>;
+  fillShares: number;
+  now: number;
+  effectiveImpact: number;
+  traderImpact: number;
+  impactPercent: number;
+  fillSource: string;
+}
+
+/** A committed fill: the price paid and what goes into the connection's history. */
+export interface FillResult {
+  executedPrice: number;
+  tradeValue: number;
+  historyEntry: ImpactEntry;
+  trailingEntries: TrailingEntries;
+}
 
 /**
  * Price impact for this fill, capped by whatever is left of the user's daily
@@ -41,7 +64,25 @@ const round2 = (n) => Math.round(n * 100) / 100;
  * account on the order's connection has used (orderNetwork.js); the larger of
  * the two applies, same as executeTrade.
  */
-const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVolume, now, networkSpent = 0 }) => {
+export const computeImpact = ({
+  userData,
+  ticker,
+  action,
+  freshPrice,
+  fillShares,
+  cumVolume,
+  now,
+  networkSpent = 0,
+}: {
+  userData: UserData;
+  ticker: string;
+  action: string;
+  freshPrice: number;
+  fillShares: number;
+  cumVolume: number;
+  now: number;
+  networkSpent?: number;
+}) => {
   const history = userData.tickerTradeHistory || {};
   const spent = Math.max(sumDirectionalImpact(history[ticker], now)[impactDirectionOf(action)], networkSpent);
   const remaining = Math.max(0, MAX_DAILY_IMPACT - spent);
@@ -67,7 +108,19 @@ const computeImpact = ({ userData, ticker, action, freshPrice, fillShares, cumVo
  * parent ETFs. Empty when the fill had no impact left in the daily allowance —
  * no price change means nothing to propagate.
  */
-const propagate = ({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshPrices }) =>
+const propagate = ({
+  effectiveImpact,
+  ticker,
+  freshPrice,
+  newMarketPrice,
+  freshPrices,
+}: {
+  effectiveImpact: number;
+  ticker: string;
+  freshPrice: number;
+  newMarketPrice: number;
+  freshPrices: Record<string, number>;
+}): Record<string, number> =>
   effectiveImpact > 0
     ? computePriceUpdates({ ticker, currentPrice: freshPrice, newPrice: newMarketPrice, prices: freshPrices })
     : {};
@@ -78,7 +131,23 @@ const propagate = ({ effectiveImpact, ticker, freshPrice, newMarketPrice, freshP
  * hand out free impact on related tickers) without counting toward the
  * 10-trades-per-ticker cap.
  */
-const buildHistory = ({ userData, ticker, action, fillShares, impactPercent, trailingEntries, now }) =>
+const buildHistory = ({
+  userData,
+  ticker,
+  action,
+  fillShares,
+  impactPercent,
+  trailingEntries,
+  now,
+}: {
+  userData: UserData;
+  ticker: string;
+  action: string;
+  fillShares: number;
+  impactPercent: number;
+  trailingEntries: TrailingEntries;
+  now: number;
+}) =>
   appendTradeEntries(
     pruneHistoryMap(userData.tickerTradeHistory || {}, now),
     ticker,
@@ -89,11 +158,15 @@ const buildHistory = ({ userData, ticker, action, fillShares, impactPercent, tra
 
 /** Write every moved price and its chart point. Dotted paths, so a concurrent
  *  write to another ticker in the same map survives. */
-const applyPriceUpdates = (transaction, marketRef, priceUpdates) => {
+const applyPriceUpdates = (
+  transaction: admin.firestore.Transaction,
+  marketRef: admin.firestore.DocumentReference,
+  priceUpdates: Record<string, number>,
+) => {
   const moved = Object.entries(priceUpdates);
   if (!moved.length) return;
-  const updates = {};
-  const historyPoints = {};
+  const updates: Record<string, number> = {};
+  const historyPoints: Record<string, PricePoint> = {};
   const timestamp = Date.now();
   for (const [t, price] of moved) {
     updates[`prices.${t}`] = price;
@@ -108,7 +181,7 @@ const applyPriceUpdates = (transaction, marketRef, priceUpdates) => {
  * Returns { executedPrice, tradeValue, historyEntry, trailingEntries }; the last
  * two go to the connection's shared history too.
  */
-const applyBuyFill = (transaction, ctx) => {
+export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: FillCtx): FillResult => {
   const {
     order,
     orderId,
@@ -134,12 +207,13 @@ const applyBuyFill = (transaction, ctx) => {
   // Limit semantics: never fill above the user's limit price. The trigger
   // checks the mid price, but execution pays the ask after impact — defer
   // until the ask itself is within the limit.
-  if (executedPrice > order.limitPrice) {
+  if (executedPrice > order.limitPrice!) {
     throw new Error('Ask price exceeds limit after impact and spread');
   }
 
   const totalCost = askPrice * fillShares;
-  if (userData.cash < totalCost) throw new Error('Insufficient cash after price impact');
+  const cash = userData.cash!;
+  if (cash < totalCost) throw new Error('Insufficient cash after price impact');
 
   const currentHoldings = userData.holdings?.[ticker] || 0;
   const currentCostBasis = userData.costBasis?.[ticker] || 0;
@@ -201,8 +275,8 @@ const applyBuyFill = (transaction, ctx) => {
     price: executedPrice,
     priceImpact: impactPercent,
     totalValue: totalCost,
-    cashBefore: userData.cash,
-    cashAfter: round2(userData.cash - totalCost),
+    cashBefore: cash,
+    cashAfter: round2(cash - totalCost),
     source: fillSource,
     orderId,
   });
@@ -226,7 +300,7 @@ const applyBuyFill = (transaction, ctx) => {
  * rule as tradeActions.computeSell).
  * Returns { executedPrice, tradeValue, historyEntry, trailingEntries }.
  */
-const applySellFill = (transaction, ctx) => {
+export const applySellFill = (transaction: admin.firestore.Transaction, ctx: FillCtx): FillResult => {
   const {
     order,
     orderId,
@@ -255,7 +329,7 @@ const applySellFill = (transaction, ctx) => {
 
   // Limit semantics for SELL only: never fill below the user's limit price.
   // Stop losses are exempt — they sell on the way down by design.
-  if (order.type === 'SELL' && executedPrice < order.limitPrice) {
+  if (order.type === 'SELL' && executedPrice < order.limitPrice!) {
     throw new Error('Bid price below limit after impact and spread');
   }
 
@@ -289,7 +363,7 @@ const applySellFill = (transaction, ctx) => {
     now,
   });
 
-  const updates = {
+  const updates: Record<string, unknown> = {
     cash: admin.firestore.FieldValue.increment(totalRevenue),
     [`holdings.${ticker}`]: newHoldings,
     lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
@@ -314,8 +388,8 @@ const applySellFill = (transaction, ctx) => {
     price: executedPrice,
     priceImpact: impactPercent,
     totalValue: totalRevenue,
-    cashBefore: userData.cash,
-    cashAfter: round2(userData.cash + totalRevenue),
+    cashBefore: userData.cash!,
+    cashAfter: round2(userData.cash! + totalRevenue),
     source: fillSource,
     orderId,
   });
@@ -337,10 +411,22 @@ const applySellFill = (transaction, ctx) => {
  * Mark the order filled. Runs in the same transaction as the balance change, so
  * a crash here can't leave it PENDING and double-fill it on the next cycle.
  */
-const markOrderFilled = (
-  transaction,
-  orderRef,
-  { freshFilled, fillShares, totalShares, allowPartialFills, executedPrice },
+export const markOrderFilled = (
+  transaction: admin.firestore.Transaction,
+  orderRef: admin.firestore.DocumentReference,
+  {
+    freshFilled,
+    fillShares,
+    totalShares,
+    allowPartialFills,
+    executedPrice,
+  }: {
+    freshFilled: number;
+    fillShares: number;
+    totalShares: number;
+    allowPartialFills?: boolean;
+    executedPrice: number;
+  },
 ) => {
   const newFilledTotal = freshFilled + fillShares;
   const isPartialFill = allowPartialFills && newFilledTotal < totalShares;
@@ -351,11 +437,4 @@ const markOrderFilled = (
     executedAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
-};
-
-module.exports = {
-  computeImpact,
-  applyBuyFill,
-  applySellFill,
-  markOrderFilled,
 };
