@@ -3,6 +3,7 @@ import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import type { AdminHookDeps, AdminUser } from './adminShared';
 import type { UserData } from '../../types';
+import { sharesOf } from '../../utils/holdings';
 
 // Containers the user card indexes into directly — UserPositions does
 // Object.keys(selectedUser.holdings) with no guard, and there are several more
@@ -110,9 +111,7 @@ export function useAdminUserList({
     let holdingsValue = 0;
     for (const [ticker, holdingData] of Object.entries(holdings)) {
       const currentPrice = prices[ticker] || 0;
-      // Very old accounts stored { shares } objects instead of plain counts.
-      const shares =
-        typeof holdingData === 'number' ? holdingData : (holdingData as { shares?: number } | null)?.shares || 0;
+      const shares = sharesOf(holdingData);
       holdingsValue += currentPrice * shares;
     }
 

@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { getThemeClasses } from '../../utils/theme';
 import { CHARACTER_MAP } from '../../characters';
+import type { PendingOrder } from './usePortfolioModalData';
+import type { PriceMap } from '../../types';
+
+interface PendingOrdersListProps {
+  orders: PendingOrder[];
+  prices: PriceMap;
+  onCancel: (orderId: string) => void;
+  loadingOrders: boolean;
+  darkMode: boolean;
+}
 
 // Pending limit / stop-loss orders section of the portfolio modal (renders nothing
 // when there are no pending orders).
-const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }) => {
+const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }: PendingOrdersListProps) => {
   // Two-step cancel so a stray tap can't kill an order.
-  const [confirmingId, setConfirmingId] = useState(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   if (!orders || orders.length === 0) return null;
 

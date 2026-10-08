@@ -1,5 +1,18 @@
+import { sharesOf } from '../../../utils/holdings';
+import type { AdminCommonProps } from '../types';
+import type { LoadedAdminUser } from '../../../hooks/admin/adminShared';
+import type { PriceMap } from '../../../types';
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
-const UserPositions = ({ darkMode, textClass, mutedClass, prices, selectedUser }) => (
+const UserPositions = ({
+  darkMode,
+  textClass,
+  mutedClass,
+  prices,
+  selectedUser,
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+  prices: PriceMap;
+  selectedUser: LoadedAdminUser;
+}) => (
   <>
     {/* Holdings */}
     {Object.keys(selectedUser.holdings).length > 0 && (
@@ -8,7 +21,7 @@ const UserPositions = ({ darkMode, textClass, mutedClass, prices, selectedUser }
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {Object.entries(selectedUser.holdings)
             .map(([ticker, shares]) => {
-              const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
+              const shareCount = sharesOf(shares);
               if (shareCount <= 0) return null;
 
               const currentPrice = prices[ticker] || 0;
@@ -105,8 +118,8 @@ const UserPositions = ({ darkMode, textClass, mutedClass, prices, selectedUser }
               <div className={`text-xs ${mutedClass}`}>
                 {bet.option}
                 {bet.paid && (
-                  <span className={bet.payout > 0 ? 'text-green-500 ml-2' : 'text-red-400 ml-2'}>
-                    {bet.payout > 0 ? `Won $${bet.payout.toFixed(2)}` : 'Lost'}
+                  <span className={(bet.payout ?? 0) > 0 ? 'text-green-500 ml-2' : 'text-red-400 ml-2'}>
+                    {(bet.payout ?? 0) > 0 ? `Won $${bet.payout!.toFixed(2)}` : 'Lost'}
                   </span>
                 )}
               </div>

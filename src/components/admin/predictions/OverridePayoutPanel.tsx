@@ -1,6 +1,10 @@
 // The stuck/incorrect payout recovery tool from the admin Predictions tab.
 // Split out when PredictionsTab hit its 400-line limit. State and handlers live
 // in useAdminBetRecovery and arrive as props, same as every other admin tab.
+import type { AdminCommonProps } from '../types';
+import type { useAdminBetRecovery } from '../../../hooks/admin/useAdminBetRecovery';
+import type { PredictionDoc } from '../../../types';
+
 const OverridePayoutPanel = ({
   darkMode,
   mutedClass,
@@ -17,7 +21,8 @@ const OverridePayoutPanel = ({
   setRecoveryWinner,
   handleScanForBets,
   handleOverridePayout,
-}) => {
+}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'inputClass' | 'loading'> &
+  ReturnType<typeof useAdminBetRecovery> & { predictions: PredictionDoc[] }) => {
   return (
     <div className={`p-4 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
       <h3 className="font-semibold text-red-500 mb-1">⚠️ Override Previous Decision</h3>
@@ -42,7 +47,7 @@ const OverridePayoutPanel = ({
             >
               <option value="">-- Choose prediction --</option>
               {predictions.map((p) => {
-                const status = p.resolved ? '✅' : p.endsAt < Date.now() ? '🔒' : '⏳';
+                const status = p.resolved ? '✅' : p.endsAt !== undefined && p.endsAt < Date.now() ? '🔒' : '⏳';
                 return (
                   <option key={p.id} value={p.id}>
                     {status} {p.question}

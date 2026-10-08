@@ -2,6 +2,19 @@ import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
 
+interface LimitOrderControlsProps {
+  action: string;
+  price: number;
+  isLimitOrder: boolean;
+  setIsLimitOrder: (on: boolean) => void;
+  isStopLoss: boolean;
+  setIsStopLoss: (on: boolean) => void;
+  limitPrice: string;
+  setLimitPrice: (price: string) => void;
+  allowPartialFills: boolean;
+  setAllowPartialFills: (on: boolean) => void;
+}
+
 // Limit-order / stop-loss toggles and their price + partial-fill settings.
 // Only rendered for buy/sell (short/cover don't support pending orders).
 const LimitOrderControls = ({
@@ -15,7 +28,7 @@ const LimitOrderControls = ({
   setLimitPrice,
   allowPartialFills,
   setAllowPartialFills,
-}) => {
+}: LimitOrderControlsProps) => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 

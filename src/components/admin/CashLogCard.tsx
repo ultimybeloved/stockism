@@ -1,6 +1,8 @@
 import { formatDateTime } from '../../utils/localTime';
+import type { AdminCommonProps } from './types';
+import type { useAdminCashLog } from '../../hooks/admin/useAdminCashLog';
 
-const money = (n) =>
+const money = (n: unknown) =>
   `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 // Every manual cash change, newest first. Answers "what have I handed out
@@ -22,7 +24,7 @@ export default function CashLogCard({
   cashLogLoading,
   cashLogLoaded,
   loadCashLog,
-}) {
+}: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminCashLog>) {
   const rowBorder = darkMode ? 'border-slate-700' : 'border-slate-200';
 
   return (

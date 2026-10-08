@@ -1,6 +1,7 @@
 import type { AdminCommonProps } from './types';
 import type { useAdminBots } from '../../hooks/admin/useAdminBots';
 import type { PriceMap } from '../../types';
+import { sharesOf } from '../../utils/holdings';
 
 const BotsTab = ({
   darkMode,
@@ -40,9 +41,7 @@ const BotsTab = ({
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {bots.map((bot) => {
               const holdingsValue = Object.entries(bot.holdings || {}).reduce((sum, [ticker, shares]) => {
-                // Very old accounts stored { shares } objects instead of plain counts.
-                const shareCount =
-                  typeof shares === 'number' ? shares : (shares as { shares?: number } | null)?.shares || 0;
+                const shareCount = sharesOf(shares);
                 return sum + (prices[ticker] || 0) * shareCount;
               }, 0);
 

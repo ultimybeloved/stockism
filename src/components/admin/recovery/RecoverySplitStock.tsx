@@ -1,8 +1,15 @@
 import { useStockSplit } from '../../../hooks/admin/useStockSplit';
 import { PreflightTable, PhaseProgress } from './RecoveryRenameStatus';
+import type { AdminCommonProps } from '../types';
+import type { ShowMessage } from '../../../hooks/admin/adminShared';
 
 // Admin front end for the stock split engine (functions/services/stockSplit.js).
-const RecoverySplitStock = ({ darkMode, textClass, mutedClass, showMessage }) => {
+const RecoverySplitStock = ({
+  darkMode,
+  textClass,
+  mutedClass,
+  showMessage,
+}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & { showMessage: ShowMessage }) => {
   const { ticker, setTicker, ratio, setRatio, result, busy, journal, incomplete, dryRun, execute, resume, abort } =
     useStockSplit(showMessage);
 
@@ -11,7 +18,7 @@ const RecoverySplitStock = ({ darkMode, textClass, mutedClass, showMessage }) =>
   }`;
   // Written out in full: Tailwind purges classes built from variables.
   const BTN = 'flex-1 px-4 py-2 text-white font-semibold rounded-sm disabled:opacity-50';
-  const btn = (color) =>
+  const btn = (color: 'blue' | 'red' | 'amber') =>
     `${BTN} ${
       {
         blue: 'bg-blue-600 hover:bg-blue-700',
@@ -40,7 +47,7 @@ const RecoverySplitStock = ({ darkMode, textClass, mutedClass, showMessage }) =>
 
       {incomplete && (
         <div className="p-2.5 rounded-sm mb-3 text-xs bg-red-900/40 border border-red-600 text-red-200">
-          <strong>SPLIT UNFINISHED.</strong> ${journal.ticker} {journal.ratio}-for-1 is {journal.status}. Resume it.
+          <strong>SPLIT UNFINISHED.</strong> ${journal?.ticker} {journal?.ratio}-for-1 is {journal?.status}. Resume it.
           Keep the market halted until it completes.
         </div>
       )}
@@ -98,9 +105,10 @@ const RecoverySplitStock = ({ darkMode, textClass, mutedClass, showMessage }) =>
           <PreflightTable checks={result.checks} textClass={textClass} mutedClass={mutedClass} darkMode={darkMode} />
           {result.breakdown && (
             <p className={`text-xs ${textClass}`}>
-              ${result.ticker} at {result.priceNow} becomes {(result.priceNow / result.ratio).toFixed(2)}. Touches{' '}
-              {result.breakdown.holders} holders, {result.breakdown.shorts} shorts, {result.breakdown.limitOrders} limit
-              orders, {result.breakdown.priceAlerts} alerts and {result.breakdown.trades} trade records.
+              ${result.ticker} at {result.priceNow} becomes{' '}
+              {((result.priceNow as number) / (result.ratio as number)).toFixed(2)}. Touches {result.breakdown.holders}{' '}
+              holders, {result.breakdown.shorts} shorts, {result.breakdown.limitOrders} limit orders,{' '}
+              {result.breakdown.priceAlerts} alerts and {result.breakdown.trades} trade records.
             </p>
           )}
         </>

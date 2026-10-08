@@ -9,11 +9,12 @@ import type { AppContextValue } from '../../context/AppContext';
 /** limitOrders/{id}: an open limit or stop-loss order. */
 export interface PendingOrder {
   id: string;
-  ticker?: string;
+  ticker: string;
   type?: string;
   status?: string;
   shares?: number;
-  limitPrice?: number;
+  filledShares?: number;
+  limitPrice: number;
   [key: string]: unknown;
 }
 
@@ -44,10 +45,7 @@ export function usePortfolioModalData(
         );
 
         const snapshot = await getDocs(q);
-        const orders = snapshot.docs.map((d): PendingOrder => ({
-          id: d.id,
-          ...d.data(),
-        }));
+        const orders = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as PendingOrder);
 
         setPendingOrders(orders);
       } catch (error) {

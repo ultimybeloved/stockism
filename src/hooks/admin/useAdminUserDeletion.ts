@@ -3,6 +3,7 @@ import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { CHARACTERS } from '../../characters';
 import { ADMIN_UIDS } from '../../constants';
+import { sharesOf } from '../../utils/holdings';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AdminHookDeps, AdminUser } from './adminShared';
 
@@ -61,8 +62,7 @@ export function useAdminUserDeletion({
       // Sum up holdings
       if (user.holdings) {
         Object.entries(user.holdings).forEach(([ticker, shares]) => {
-          // Very old accounts stored { shares } objects instead of plain counts.
-          const shareCount = typeof shares === 'number' ? shares : (shares as { shares?: number } | null)?.shares || 0;
+          const shareCount = sharesOf(shares);
           if (shareCount > 0) {
             totalShares += shareCount;
             holdingsSummary[ticker] = (holdingsSummary[ticker] || 0) + shareCount;

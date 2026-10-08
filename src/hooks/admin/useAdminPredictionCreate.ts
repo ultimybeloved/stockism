@@ -35,7 +35,8 @@ export function useAdminPredictionCreate({
   const endDate = new Date(getEndTime(daysUntilEnd));
 
   const [predictionType, setPredictionType] = useState('weekly'); // 'weekly' (cash) | 'event' (long-term AMM)
-  const [seedLiquidity, setSeedLiquidity] = useState(EVENT_AMM_LIQUIDITY);
+  // '' while the admin has cleared the box mid-edit.
+  const [seedLiquidity, setSeedLiquidity] = useState<number | ''>(EVENT_AMM_LIQUIDITY);
   const [openDelayHours, setOpenDelayHours] = useState(0); // announce-before-open delay; 0 = open immediately
   const [openingOdds, setOpeningOdds] = useState(['', '', '', '', '', '']); // % per option slot; all blank = even odds
 

@@ -200,6 +200,8 @@ export interface SeasonCoordPlayer {
 // are converted.
 
 export interface CashLogEntry {
+  id: string;
+  at?: number;
   userId?: string;
   displayName?: string;
   memo?: string;
@@ -341,6 +343,7 @@ export interface SplitStockResponse {
   paused?: boolean;
   nextPhase?: string;
   alreadyComplete?: boolean;
+  breakdown?: { holders: number; shorts: number; limitOrders: number; priceAlerts: number; trades: number };
   [key: string]: unknown;
 }
 

@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { MarketData } from '../../context/AppContext';
-import type { PriceMap, UserData } from '../../types';
+import type { PriceMap, ShareMap, ShortMap, UserBet, UserData } from '../../types';
 import { doc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
@@ -18,6 +18,14 @@ export type SetLoading = (loading: boolean) => void;
 /** A user doc as the admin panel holds it: the doc fields plus its id. */
 export interface AdminUser extends UserData {
   id: string;
+}
+
+/** A user doc loaded through the user list, where these fields are filled with defaults. */
+export interface LoadedAdminUser extends AdminUser {
+  holdings: ShareMap;
+  shorts: ShortMap;
+  bets: Record<string, UserBet>;
+  costBasis: Record<string, number>;
 }
 
 export type SetSelectedUser = Dispatch<SetStateAction<AdminUser | null>>;

@@ -8,6 +8,8 @@ import type { ShowMessage } from './adminShared';
 /** market/splitJournal: progress of the split in flight, if any. */
 interface SplitJournal {
   status?: string;
+  ticker?: string;
+  ratio?: number;
   [key: string]: unknown;
 }
 

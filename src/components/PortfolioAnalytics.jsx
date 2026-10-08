@@ -9,6 +9,7 @@ import { CHARACTER_MAP } from '../characters';
 import { getThemeClasses } from '../utils/theme';
 
 import { CREW_TICKER_MAP, CREW_COLORS, OTHER_GROUP, ETF_GROUP } from '../constants/crewGroups';
+import { sharesOf } from '../utils/holdings';
 
 const PortfolioAnalytics = ({
   darkMode = false,
@@ -39,7 +40,7 @@ const PortfolioAnalytics = ({
 
     // Shorts
     Object.entries(shorts).forEach(([ticker, shortData]) => {
-      const shares = typeof shortData === 'number' ? shortData : shortData?.shares || 0;
+      const shares = sharesOf(shortData);
       const entryPrice =
         typeof shortData === 'number' ? costBasis?.[ticker] || 0 : shortData?.entryPrice || costBasis?.[ticker] || 0;
       if (!shares) return;

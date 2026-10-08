@@ -1,3 +1,6 @@
+import type { AdminCommonProps } from '../types';
+import type { AdminUser } from '../../../hooks/admin/adminShared';
+import type { useAdminDiscordRecovery } from '../../../hooks/admin/useAdminDiscordRecovery';
 // Account recovery for players who lost their Discord account.
 //
 // Discord is a login provider here, so a Discord suspension locks the player out
@@ -21,7 +24,8 @@ const DiscordLinkTransfer = ({
   freeDiscordId,
   setFreeDiscordId,
   handleFreeDiscord,
-}) => {
+}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'loading'> &
+  ReturnType<typeof useAdminDiscordRecovery> & { selectedUser: AdminUser }) => {
   const targetName = selectedUser.displayName || selectedUser.username;
   const sameAccount = moveSource && moveSource.id === selectedUser.id;
 

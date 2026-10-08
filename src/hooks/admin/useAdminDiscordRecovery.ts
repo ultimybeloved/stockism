@@ -95,7 +95,7 @@ export function useAdminDiscordRecovery({
 
   // Moves the Discord link, not the portfolio. The player logs in with their new
   // Discord and lands in their original account.
-  const handleMoveDiscordLink = async (targetUserId: string, targetName: string) => {
+  const handleMoveDiscordLink = async (targetUserId: string, targetName: string | undefined) => {
     if (!moveSource) {
       showMessage('error', 'Look up the new account first');
       return;

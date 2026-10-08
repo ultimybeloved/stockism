@@ -4,6 +4,7 @@ import UserFinancials from './users/UserFinancials';
 import UserPositions from './users/UserPositions';
 import UserAdminActions from './users/UserAdminActions';
 import UserTradeAs from './users/UserTradeAs';
+import { sharesOf } from '../../utils/holdings';
 
 const UsersTab = ({
   darkMode,
@@ -155,7 +156,7 @@ const UsersTab = ({
 
                 if (user.holdings && Object.keys(user.holdings).length > 0) {
                   Object.entries(user.holdings).forEach(([ticker, shares]) => {
-                    const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
+                    const shareCount = sharesOf(shares);
                     if (shareCount > 0) {
                       totalShares += shareCount;
                       const character = CHARACTERS.find((c) => c.ticker === ticker);

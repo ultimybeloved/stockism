@@ -2,11 +2,27 @@ import { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
+import type { ShareMap, ShortMap } from '../../types';
+
+/** The admin-only block getPublicProfile adds when an admin views a profile. */
+export interface ProfileAdminData {
+  uid: string;
+  cash?: number;
+  holdings?: ShareMap;
+  shorts?: ShortMap;
+  isBanned?: boolean;
+  isBot?: boolean;
+  marginEnabled?: boolean;
+  marginUsed: number;
+  netEquity?: number;
+  weeklyGain: number;
+  weeklyGainPercent?: number;
+}
 
 // The admin-only block on a public profile. Extracted from PublicProfilePage.jsx
 // (past the 300-line page limit); it was also called `AdminPanel` there, which
 // collided with the real admin panel in src/AdminPanel.jsx.
-const ProfileAdminPanel = ({ data }) => {
+const ProfileAdminPanel = ({ data }: { data: ProfileAdminData }) => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const [copied, setCopied] = useState(false);
@@ -105,7 +121,7 @@ const ProfileAdminPanel = ({ data }) => {
                 <span className="text-red-500 font-bold">${ticker}</span>
                 <span className={textClass}>{pos.shares} shares</span>
                 <span className={mutedClass}>basis {formatCurrency(pos.costBasis)}</span>
-                {pos.margin > 0 && <span className="text-orange-400">margin {formatCurrency(pos.margin)}</span>}
+                {(pos.margin ?? 0) > 0 && <span className="text-orange-400">margin {formatCurrency(pos.margin)}</span>}
               </div>
             ))}
           </div>

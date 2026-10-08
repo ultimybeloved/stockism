@@ -1,3 +1,4 @@
+import { sharesOf } from '../../../utils/holdings';
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
 const UserFinancials = ({
   darkMode,
@@ -115,7 +116,7 @@ const UserFinancials = ({
       });
 
       const holdingsValue = Object.entries(selectedUser.holdings || {}).reduce((sum, [ticker, shares]) => {
-        const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
+        const shareCount = sharesOf(shares);
         return sum + (prices[ticker] || 0) * shareCount;
       }, 0);
 

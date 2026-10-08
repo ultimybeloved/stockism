@@ -2,6 +2,18 @@ import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { formatShares, roundShares } from '../../utils/tradeLimits';
 
+interface TradeAmountInputProps {
+  action: string;
+  /** '' while the box is cleared mid-edit. */
+  amount: number | '';
+  setAmount: (amount: number | '') => void;
+  partialShares: boolean;
+  setPartialShares: (on: boolean) => void;
+  maxShares: number;
+  marginLockedShares?: number;
+  marginLockHours?: number;
+}
+
 // Shares stepper for the trade modal: +/- buttons, direct entry, Max,
 // partial-share toggle, and the empty/locked hints under it.
 const TradeAmountInput = ({
@@ -11,16 +23,16 @@ const TradeAmountInput = ({
   partialShares,
   setPartialShares,
   maxShares,
-  marginLockedShares,
+  marginLockedShares = 0,
   marginLockHours,
-}) => {
+}: TradeAmountInputProps) => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   // Exits keep six decimals: holdings pick up fractional remainders from
   // dividends and partial fills, and rounding the box to cents would make the
   // last speck of a position untypeable (and so unsellable).
   const isExit = action === 'sell' || action === 'cover';
-  const roundEntered = (v) => roundShares(v, isExit);
+  const roundEntered = (v: number) => roundShares(v, isExit);
   const smallestStep = isExit ? Math.min(0.01, maxShares) : 0.01;
 
   return (

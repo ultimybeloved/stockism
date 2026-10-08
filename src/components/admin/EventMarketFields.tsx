@@ -4,6 +4,20 @@ import {
   EVENT_OPENING_ODDS_MIN_PCT,
   EVENT_OPENING_ODDS_MAX_PCT,
 } from '../../constants/economy';
+import type { AdminCommonProps } from './types';
+import type { useAdminPredictionCreate } from '../../hooks/admin/useAdminPredictionCreate';
+
+type EventMarketFieldsProps = Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'inputClass'> &
+  Pick<
+    ReturnType<typeof useAdminPredictionCreate>,
+    | 'seedLiquidity'
+    | 'setSeedLiquidity'
+    | 'openDelayHours'
+    | 'setOpenDelayHours'
+    | 'options'
+    | 'openingOdds'
+    | 'setOpeningOdds'
+  >;
 
 // Event-only create fields for the admin Predictions tab: house liquidity seed,
 // opening odds, and the announce-before-open delay. Extracted from PredictionsTab
@@ -19,12 +33,12 @@ const EventMarketFields = ({
   options,
   openingOdds,
   setOpeningOdds,
-}) => {
+}: EventMarketFieldsProps) => {
   const delay = Number(openDelayHours) || 0;
   const opensLabel =
     delay > 0 ? `Opens: ${new Date(Date.now() + delay * MS_PER_HOUR).toLocaleString()}` : 'Opens immediately';
 
-  const presetLabel = (h) => (h === 0 ? 'Off' : `${h}h`);
+  const presetLabel = (h: number) => (h === 0 ? 'Off' : `${h}h`);
 
   // Opening-odds inputs track option slots by index so they stay paired even if
   // a middle option slot is left blank.
