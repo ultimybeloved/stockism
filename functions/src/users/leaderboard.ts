@@ -1,11 +1,12 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
+import type { DocumentData, Query } from 'firebase-admin/firestore';
+// Rank counting lives in shared/equity — shared with the Discord bot's /profile.
+import { countRankAbove, grantedSince, netReturnPercent } from '../shared/equity';
 
-const {
+import {
   LEADERBOARD_CACHE_TTL,
   ADMIN_UID,
   FOURTEEN_DAYS_MS,
@@ -13,10 +14,11 @@ const {
   ONE_WEEK_MS,
   PUBLIC_PROFILE_SPARKLINE_MAX_POINTS,
   LEADERBOARD_PERCENT_MIN_BASELINE,
-} = require('../shared/constants');
+} from '../shared/constants';
 
 // In-memory cache — persists across invocations on same instance
-const leaderboardCache = {};
+type BoardEntry = DocumentData & { userId: string };
+const leaderboardCache: Record<string, { data: BoardEntry[]; timestamp: number }> = {};
 
 // Fields the leaderboard actually displays — projected with .select() so we
 // never pull heavy unused maps (holdings is needed for holdingsCount).
@@ -56,13 +58,13 @@ const LEADERBOARD_FIELDS = [
 // the player never earned/bought — or from stuffing junk types that would
 // crash rendering clients. Every public payload runs through this filter:
 // only owned/earned items survive, and malformed values collapse to empties.
-const asArray = (v) => (Array.isArray(v) ? v : []);
-const sanitizeDisplayFields = (userData) => {
+const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+const sanitizeDisplayFields = (userData: DocumentData) => {
   const achievements = asArray(userData.achievements);
   const ownedPins = asArray(userData.ownedShopPins);
   const ownedCosmetics = asArray(userData.ownedCosmetics);
   const active = userData.activeCosmetics;
-  let activeCosmetics = null;
+  let activeCosmetics: Record<string, unknown> | null = null;
   if (active && typeof active === 'object' && !Array.isArray(active)) {
     activeCosmetics = {};
     for (const [slot, id] of Object.entries(active)) {
@@ -91,10 +93,7 @@ const sanitizeDisplayFields = (userData) => {
   };
 };
 
-// Rank counting lives in helpers.js — shared with the Discord bot's /profile.
-const { countRankAbove, grantedSince, netReturnPercent } = require('../shared/helpers');
-
-exports.getLeaderboard = cf().https.onCall(async (data, context) => {
+export const getLeaderboard = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   try {
     const { crew, sortBy = 'value' } = data || {};
@@ -106,21 +105,21 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
     // Layer 1: in-memory cache (this warm instance). Layer 2: the shared
     // Firestore doc — written on every recompute so clients (and other
     // instances) can read the same result directly without recomputing.
-    let leaderboard;
+    let leaderboard: BoardEntry[] | undefined;
     const cached = leaderboardCache[cacheKey];
     if (cached && Date.now() - cached.timestamp < LEADERBOARD_CACHE_TTL) {
       leaderboard = cached.data;
     }
     if (!leaderboard) {
       const docSnap = await docRef.get();
-      if (docSnap.exists && Date.now() - (docSnap.data().generatedAt || 0) < LEADERBOARD_CACHE_TTL) {
-        leaderboard = docSnap.data().entries || [];
-        leaderboardCache[cacheKey] = { data: leaderboard, timestamp: docSnap.data().generatedAt };
+      if (docSnap.exists && Date.now() - (docSnap.data()!.generatedAt || 0) < LEADERBOARD_CACHE_TTL) {
+        leaderboard = docSnap.data()!.entries || [];
+        leaderboardCache[cacheKey] = { data: leaderboard!, timestamp: docSnap.data()!.generatedAt };
       }
     }
     if (!leaderboard) {
       if (gainSort) {
-        let query = db.collection('users');
+        let query: Query = db.collection('users');
         if (crew) {
           query = query.where('crew', '==', crew);
         }
@@ -135,9 +134,9 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         const snapshot = await query.get();
         const twoWeeksAgo = Date.now() - FOURTEEN_DAYS_MS;
 
-        const allUsers = [];
+        const allUsers: BoardEntry[] = [];
         snapshot.forEach((doc) => {
-          const userData = doc.data();
+          const userData = doc.data()!;
           // Banned accounts stay in Firestore (the ban record is evidence) but
           // must not keep a board slot — a wiped account otherwise shows up as a
           // huge percentage loss on the movers board.
@@ -191,7 +190,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         leaderboard = allUsers.slice(0, 50);
       } else {
         // Build query - use composite index for crew filtering
-        let query = db.collection('users');
+        let query: Query = db.collection('users');
 
         if (crew) {
           query = query.where('crew', '==', crew);
@@ -207,20 +206,20 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         // Filter out bots and return only safe fields
         leaderboard = [];
         snapshot.forEach((doc) => {
-          const userData = doc.data();
+          const userData = doc.data()!;
 
           // Skip bots and banned accounts
           if (userData.isBot || userData.isBanned) return;
 
           // Limit to top 50
-          if (leaderboard.length >= 50) return;
+          if (leaderboard!.length >= 50) return;
 
           // Count holdings (only non-zero positions)
           const holdingsCount = userData.holdings
             ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length
             : 0;
 
-          leaderboard.push({
+          leaderboard!.push({
             userId: doc.id,
             displayName: userData.displayName || 'Anonymous',
             portfolioValue: userData.portfolioValue || 0,
@@ -245,14 +244,14 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
       try {
         await docRef.set({ entries: leaderboard, generatedAt: now, key: cacheKey });
       } catch (e) {
-        console.error('leaderboard doc publish failed:', e.message);
+        console.error('leaderboard doc publish failed:', (e as Error).message);
       }
     }
 
     // Find caller's rank if authenticated (always per-request)
     let callerRank = null;
     if (context.auth) {
-      const callerIndex = leaderboard.findIndex((entry) => entry.userId === context.auth.uid);
+      const callerIndex = leaderboard!.findIndex((entry) => entry.userId === context.auth!.uid);
       if (callerIndex !== -1) {
         callerRank = callerIndex + 1;
       } else if (!gainSort) {
@@ -261,9 +260,13 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
         // Only for the net-worth sort: the aggregation ranks by portfolioValue,
         // which would be a wrong answer for either weekly-gain board.
         try {
+          // BUG (kept as-is during the TypeScript conversion, 2026-10-08): a
+          // DocumentReference has no select(), so this throws, the catch below
+          // swallows it, and callerRank stays null for anyone outside the top 50.
+          // @ts-expect-error -- see the note above
           const callerDoc = await db.collection('users').doc(context.auth.uid).select('isBot', 'portfolioValue').get();
-          if (callerDoc.exists && !callerDoc.data().isBot) {
-            callerRank = await countRankAbove(callerDoc.data().portfolioValue || 0, crew);
+          if (callerDoc.exists && !callerDoc.data()!.isBot) {
+            callerRank = await countRankAbove(callerDoc.data()!.portfolioValue || 0, crew);
           }
         } catch (e) {
           // Leave callerRank null if lookup fails
@@ -285,7 +288,7 @@ exports.getLeaderboard = cf().https.onCall(async (data, context) => {
 /**
  * Get public profile by username
  */
-exports.getPublicProfile = cf().https.onCall(async (data, context) => {
+export const getPublicProfile = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   const { username } = data || {};
   if (!username || typeof username !== 'string') {
@@ -296,7 +299,7 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
   let uid;
   const usernameDoc = await db.collection('usernames').doc(username.toLowerCase()).get();
   if (usernameDoc.exists) {
-    uid = usernameDoc.data().uid;
+    uid = usernameDoc.data()!.uid;
   } else {
     const fallbackSnap = await db
       .collection('users')
@@ -306,14 +309,14 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
     if (fallbackSnap.empty) {
       throw new functions.https.HttpsError('not-found', 'User not found');
     }
-    uid = fallbackSnap.docs[0].id;
+    uid = fallbackSnap.docs[0]!.id;
   }
 
   const userDoc = await db.collection('users').doc(uid).get();
   if (!userDoc.exists) {
     throw new functions.https.HttpsError('not-found', 'User not found');
   }
-  const userData = userDoc.data();
+  const userData = userDoc.data()!;
 
   const isOwner = context.auth?.uid === uid;
   const isCallerAdmin = context.auth?.uid === ADMIN_UID;
@@ -322,7 +325,7 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
   }
 
   const marketSnap = await db.collection('market').doc('current').get();
-  const prices = marketSnap.exists ? marketSnap.data().prices || {} : {};
+  const prices = marketSnap.exists ? marketSnap.data()!.prices || {} : {};
 
   // Compute global rank (count aggregation — cheap regardless of rank)
   let rank = null;
@@ -435,11 +438,8 @@ exports.getPublicProfile = cf().https.onCall(async (data, context) => {
  * The admin leaderboard toggle calls this with the uids it is already showing
  * and subtracts locally, so the public payload stays exactly as it was.
  */
-exports.getLeaderboardMargins = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const getLeaderboardMargins = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
   const { userIds } = data || {};
   if (!Array.isArray(userIds) || !userIds.length) {
     throw new functions.https.HttpsError('invalid-argument', 'userIds array required');
@@ -447,9 +447,9 @@ exports.getLeaderboardMargins = cf().https.onCall(async (data, context) => {
   // The board shows 50 at a time; the cap stops a caller asking for everyone.
   const ids = userIds.filter((id) => typeof id === 'string').slice(0, 100);
   const docs = await db.getAll(...ids.map((id) => db.collection('users').doc(id)), { fieldMask: ['marginUsed'] });
-  const margins = {};
+  const margins: Record<string, number> = {};
   docs.forEach((d) => {
-    if (d.exists) margins[d.id] = d.data().marginUsed || 0;
+    if (d.exists) margins[d.id] = d.data()!.marginUsed || 0;
   });
   return { margins };
 });

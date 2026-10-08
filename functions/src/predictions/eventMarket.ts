@@ -1,4 +1,3 @@
-'use strict';
 // Long-term event-share prediction markets (Polymarket / Robinhood style).
 // Each outcome is a share that redeems for $1 if it is the confirmed result and
 // $0 otherwise. Prices are quoted by a house-run LMSR automated market maker, so
@@ -7,38 +6,28 @@
 // odds open even). Admins create and resolve markets via direct writes in
 // the admin panel (same pattern as weekly predictions); buying, selling, and
 // settlement run here on the server.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
-const {
-  isWeeklyTradingHalt,
-  chapterReviewHaltMsg,
-  EVENT_AMM_LIQUIDITY,
-  EVENT_MIN_BUYIN,
-  ADMIN_UID,
-} = require('../shared/constants');
-const {
-  checkBanned,
-  checkDiscordWall,
-  writeNotification,
-  lmsrCost,
-  lmsrBuyCost,
-  lmsrSellRefund,
-  getTotalInvested,
-  touchLastActive,
-  round2,
-  reportError,
-  predictionFlowUpdate,
-  recordHeartbeat,
-} = require('../shared/helpers');
+import { isWeeklyTradingHalt, chapterReviewHaltMsg, EVENT_AMM_LIQUIDITY, EVENT_MIN_BUYIN } from '../shared/constants';
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { writeNotification } from '../shared/notifications';
+import { lmsrCost, lmsrBuyCost, lmsrSellRefund } from '../shared/lmsr';
+import { getTotalInvested, predictionFlowUpdate } from '../shared/equity';
+import { touchLastActive, recordHeartbeat } from '../shared/activity';
+import { round2 } from '../shared/money';
+import { reportError } from '../shared/sentry';
+
+/** One entry in predictions/current.list, the fields these lookups read. */
+type PredictionEntry = { id: string; type?: string; resolved?: boolean; settled?: boolean };
 
 // House-favor cent rounding for AMM trades: buy costs round UP, sell refunds
 // round DOWN. Round-to-nearest would let scripted micro-sells skim up to half a
 // cent per call from the AMM. The epsilon guards floating-point noise.
-const ceilCent = (n) => Math.ceil((n - 1e-9) * 100) / 100;
-const floorCent = (n) => Math.floor((n + 1e-9) * 100) / 100;
+const ceilCent = (n: number) => Math.ceil((n - 1e-9) * 100) / 100;
+const floorCent = (n: number) => Math.floor((n + 1e-9) * 100) / 100;
 
 // Throw if event-market trading is currently frozen. Mirrors stock trading: the
 // market freezes during the weekly chapter-review halt and any admin halt, so
@@ -48,7 +37,7 @@ const floorCent = (n) => Math.floor((n + 1e-9) * 100) / 100;
 /**
  * Buy event shares of one outcome at the current AMM price.
  */
-exports.buyEventShares = cf().https.onCall(async (data, context) => {
+export const buyEventShares = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -79,15 +68,15 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
     if (!predDoc.exists) throw new functions.https.HttpsError('not-found', 'Markets not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
-    if (marketDoc.exists && marketDoc.data().marketHalted) {
+    if (marketDoc.exists && marketDoc.data()!.marketHalted) {
       throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
     }
 
-    const list = predDoc.data().list || [];
-    const idx = list.findIndex((m) => m.id === marketId && m.type === 'event');
+    const list = predDoc.data()!.list || [];
+    const idx = list.findIndex((m: PredictionEntry) => m.id === marketId && m.type === 'event');
     if (idx === -1) throw new functions.https.HttpsError('not-found', 'Market not found.');
 
     const market = list[idx];
@@ -120,7 +109,9 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
     if (totalInvested <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Invest in stocks before buying prediction shares.');
     }
-    const activeEventCost = Object.values(userData.eventPositions || {}).reduce(
+    const activeEventCost = Object.values(
+      (userData.eventPositions || {}) as Record<string, { settled?: boolean; costBasis?: number } | null>,
+    ).reduce(
       // Max(0, …) guards any pre-clamp negative basis from older sells.
       (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0),
       0,
@@ -159,7 +150,7 @@ exports.buyEventShares = cf().https.onCall(async (data, context) => {
 /**
  * Sell event shares of one outcome back to the AMM at the current price.
  */
-exports.sellEventShares = cf().https.onCall(async (data, context) => {
+export const sellEventShares = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -190,15 +181,15 @@ exports.sellEventShares = cf().https.onCall(async (data, context) => {
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
     if (!predDoc.exists) throw new functions.https.HttpsError('not-found', 'Markets not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
-    if (marketDoc.exists && marketDoc.data().marketHalted) {
+    if (marketDoc.exists && marketDoc.data()!.marketHalted) {
       throw new functions.https.HttpsError('failed-precondition', chapterReviewHaltMsg());
     }
 
-    const list = predDoc.data().list || [];
-    const idx = list.findIndex((m) => m.id === marketId && m.type === 'event');
+    const list = predDoc.data()!.list || [];
+    const idx = list.findIndex((m: PredictionEntry) => m.id === marketId && m.type === 'event');
     if (idx === -1) throw new functions.https.HttpsError('not-found', 'Market not found.');
 
     const market = list[idx];
@@ -255,8 +246,8 @@ async function settleResolvedEventMarkets() {
   const predSnap = await predictionsRef.get();
   if (!predSnap.exists) return { settled: 0 };
 
-  const list = predSnap.data().list || [];
-  const toSettle = list.filter((m) => m.type === 'event' && m.resolved && !m.settled);
+  const list = predSnap.data()!.list || [];
+  const toSettle = list.filter((m: PredictionEntry) => m.type === 'event' && m.resolved && !m.settled);
   if (toSettle.length === 0) return { settled: 0 };
 
   // The full user scan only runs when something actually needs settling (rare).
@@ -268,9 +259,9 @@ async function settleResolvedEventMarkets() {
     let totalPaid = 0;
 
     for (const userDoc of usersSnap.docs) {
-      const snapPos = userDoc.data().eventPositions?.[market.id];
+      const snapPos = userDoc.data()!.eventPositions?.[market.id];
       if (!snapPos || snapPos.settled) continue;
-      const heldAny = Object.values(snapPos.shares || {}).some((s) => s > 0);
+      const heldAny = Object.values(snapPos.shares || {}).some((s) => (s as number) > 0);
       if (!heldAny) {
         await userDoc.ref.update({ [`eventPositions.${market.id}.settled`]: true });
         continue;
@@ -280,14 +271,14 @@ async function settleResolvedEventMarkets() {
       const paid = await db.runTransaction(async (tx) => {
         const fresh = await tx.get(userDoc.ref);
         if (!fresh.exists) return 0;
-        const ud = fresh.data();
+        const ud = fresh.data()!;
         const pos = ud.eventPositions?.[market.id];
         if (!pos || pos.settled) return 0;
 
         const winShares = (pos.shares && pos.shares[winning]) || 0;
         const payout = round2(winShares * 1);
 
-        const updates = {
+        const updates: Record<string, unknown> = {
           [`eventPositions.${market.id}.settled`]: true,
           [`eventPositions.${market.id}.payout`]: payout,
         };
@@ -336,8 +327,8 @@ async function settleResolvedEventMarkets() {
 
     await db.runTransaction(async (tx) => {
       const snap = await tx.get(predictionsRef);
-      const l = (snap.data().list || []).slice();
-      const i = l.findIndex((m) => m.id === market.id);
+      const l = (snap.data()!.list || []).slice();
+      const i = l.findIndex((m: PredictionEntry) => m.id === market.id);
       if (i !== -1) {
         l[i] = { ...l[i], settled: true, settledAt: Date.now(), houseCost };
         tx.update(predictionsRef, { list: l });
@@ -350,7 +341,7 @@ async function settleResolvedEventMarkets() {
   return { settled: marketsSettled };
 }
 
-exports.processEventSettlements = cf()
+export const processEventSettlements = cf()
   .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async () => {
@@ -367,11 +358,8 @@ exports.processEventSettlements = cf()
 /**
  * Admin: settle resolved markets immediately instead of waiting for the cron.
  */
-exports.triggerEventSettlements = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const triggerEventSettlements = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
   return await settleResolvedEventMarkets();
 });
 
@@ -382,11 +370,8 @@ exports.triggerEventSettlements = cf().https.onCall(async (data, context) => {
  * (which blocks further trading) and settled (so the settlement cron ignores
  * it). Safe to retry: positions already marked settled are skipped.
  */
-exports.cancelEventMarket = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
-  }
+export const cancelEventMarket = cf().https.onCall(async (data, context) => {
+  requireAdmin(context, 'Admin only.');
   const marketId = data && data.marketId;
   if (!marketId) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing market ID.');
@@ -399,8 +384,8 @@ exports.cancelEventMarket = cf().https.onCall(async (data, context) => {
   const market = await db.runTransaction(async (tx) => {
     const snap = await tx.get(predictionsRef);
     if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Markets not found.');
-    const list = (snap.data().list || []).slice();
-    const idx = list.findIndex((m) => m.id === marketId && m.type === 'event');
+    const list = (snap.data()!.list || []).slice();
+    const idx = list.findIndex((m: PredictionEntry) => m.id === marketId && m.type === 'event');
     if (idx === -1) throw new functions.https.HttpsError('not-found', 'Market not found.');
     const m = list[idx];
     if (m.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market already resolved.');
@@ -417,13 +402,13 @@ exports.cancelEventMarket = cf().https.onCall(async (data, context) => {
   let refundedTotal = 0;
 
   for (const userDoc of usersSnap.docs) {
-    const snapPos = userDoc.data().eventPositions?.[marketId];
+    const snapPos = userDoc.data()!.eventPositions?.[marketId];
     if (!snapPos || snapPos.settled) continue;
 
     const refund = await db.runTransaction(async (tx) => {
       const fresh = await tx.get(userDoc.ref);
       if (!fresh.exists) return 0;
-      const ud = fresh.data();
+      const ud = fresh.data()!;
       const pos = ud.eventPositions?.[marketId];
       if (!pos || pos.settled) return 0;
 
@@ -457,8 +442,8 @@ exports.cancelEventMarket = cf().https.onCall(async (data, context) => {
   // 3. Mark settled so processEventSettlements (resolved && !settled) never touches it.
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(predictionsRef);
-    const list = (snap.data().list || []).slice();
-    const idx = list.findIndex((m) => m.id === marketId);
+    const list = (snap.data()!.list || []).slice();
+    const idx = list.findIndex((m: PredictionEntry) => m.id === marketId);
     if (idx !== -1) {
       list[idx] = { ...list[idx], settled: true, settledAt: Date.now(), refundedTotal };
       tx.update(predictionsRef, { list });

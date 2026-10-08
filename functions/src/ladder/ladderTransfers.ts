@@ -1,33 +1,25 @@
-'use strict';
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const {
-  checkBanned,
-  checkDiscordWall,
-  getTotalInvested,
-  getLadderDepositFactor,
-  getLadderRampEndDate,
-  touchLastActive,
-  grantedFlowUpdate,
-  reportError,
-  getLadderChips,
-} = require('../shared/helpers');
-const {
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { getTotalInvested, grantedFlowUpdate } from '../shared/equity';
+import { getLadderDepositFactor, getLadderRampEndDate, getLadderChips } from '../shared/ladderMath';
+import { touchLastActive } from '../shared/activity';
+import { reportError } from '../shared/sentry';
+import {
   LADDER_GAME_MAX_BALANCE,
   LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
   LADDER_DEPOSIT_WINDOW_MS,
   LADDER_WITHDRAW_PRINCIPAL_FEE_RATE,
   LADDER_WITHDRAW_RUSH_RATE,
   LADDER_WITHDRAW_PROFIT_BRACKETS,
-  ADMIN_UID,
   formatWait,
-} = require('../shared/constants');
+} from '../shared/constants';
 
 // Round up to the cent (house favor). The epsilon guards against FP noise
 // (e.g. 50.000000000001) charging a phantom extra cent.
-const roundUpToCent = (x) => Math.ceil((x - 1e-9) * 100) / 100;
+const roundUpToCent = (x: number) => Math.ceil((x - 1e-9) * 100) / 100;
 
 // Mirror of calculateLadderWithdrawTax in src/utils/ladderTax.ts — keep both in sync.
 // Principal (the user's own deposits coming back) pays a flat fee; profit pays
@@ -39,6 +31,12 @@ const calculateLadderWithdrawTax = ({
   principalWithdrawn,
   profitWithdrawn,
   hasRecentDeposit,
+}: {
+  amount: number;
+  totalDeposited?: number;
+  principalWithdrawn?: number;
+  profitWithdrawn?: number;
+  hasRecentDeposit: boolean;
 }) => {
   const deposited = totalDeposited || 0;
   const principalSoFar = principalWithdrawn || 0;
@@ -79,7 +77,7 @@ const calculateLadderWithdrawTax = ({
 /**
  * Deposit from Stockism cash to ladder game balance (one-way)
  */
-exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
+export const depositToLadderGame = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -109,7 +107,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('not-found', 'User not found.');
       }
 
-      const mainUser = mainUserDoc.data();
+      const mainUser = mainUserDoc.data()!;
       checkBanned(mainUser);
       checkDiscordWall(mainUser);
       const cash = mainUser.cash || 0;
@@ -129,7 +127,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
       }
 
       const ladderData = ladderUserDoc.exists
-        ? ladderUserDoc.data()
+        ? ladderUserDoc.data()!
         : {
             balance: 0,
             totalDeposited: 0,
@@ -179,12 +177,14 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
 
       // Rolling deposit cap: at most LADDER_GAME_MAX_DEPOSIT_PER_WINDOW within the trailing window
       const now = Date.now();
-      const recent = (ladderData.recentDeposits || []).filter((d) => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
-      const windowTotal = recent.reduce((sum, d) => sum + d.amount, 0);
+      const recent = (ladderData.recentDeposits || []).filter(
+        (d: { ts: number; amount: number }) => now - d.ts < LADDER_DEPOSIT_WINDOW_MS,
+      );
+      const windowTotal = recent.reduce((sum: number, d: { amount: number }) => sum + d.amount, 0);
       const remaining = maxPerWindow - windowTotal;
       if (amount > remaining) {
         // soonest relief = when the oldest in-window deposit ages out
-        const oldest = recent.length ? Math.min(...recent.map((d) => d.ts)) : now;
+        const oldest = recent.length ? Math.min(...recent.map((d: { ts: number }) => d.ts)) : now;
         const freesIn = formatWait(oldest + LADDER_DEPOSIT_WINDOW_MS - now);
         throw new functions.https.HttpsError(
           'failed-precondition',
@@ -225,7 +225,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
       throw error;
     }
     reportError(error, { where: 'depositToLadderGame', uid });
-    throw new functions.https.HttpsError('internal', 'Deposit failed: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Deposit failed: ' + (error as Error).message);
   }
 });
 
@@ -234,7 +234,7 @@ exports.depositToLadderGame = cf().https.onCall(async (data, context) => {
  * Principal back pays a flat fee, profit pays lifetime bracket rates, and a
  * rush surcharge applies if any deposit landed within the last 12 hours.
  */
-exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
+export const withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -265,11 +265,11 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('not-found', 'No ladder game account found.');
       }
 
-      const mainUser = mainUserDoc.data();
+      const mainUser = mainUserDoc.data()!;
       checkBanned(mainUser);
       checkDiscordWall(mainUser);
 
-      const ladderData = ladderUserDoc.data();
+      const ladderData = ladderUserDoc.data()!;
       const balance = ladderData.balance ?? 0;
 
       // House chips (check-in grants / welcome stake) can be played but never
@@ -289,7 +289,9 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
       const principalWithdrawn = ladderData.principalWithdrawn || 0;
       const profitWithdrawn = ladderData.profitWithdrawn || 0;
       const now = Date.now();
-      const hasRecentDeposit = (ladderData.recentDeposits || []).some((d) => now - d.ts < LADDER_DEPOSIT_WINDOW_MS);
+      const hasRecentDeposit = (ladderData.recentDeposits || []).some(
+        (d: { ts: number }) => now - d.ts < LADDER_DEPOSIT_WINDOW_MS,
+      );
 
       const tax = calculateLadderWithdrawTax({
         amount,
@@ -334,7 +336,7 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
   } catch (error) {
     if (error instanceof functions.https.HttpsError) throw error;
     reportError(error, { where: 'withdrawFromLadderGame', uid });
-    throw new functions.https.HttpsError('internal', 'Withdrawal failed: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Withdrawal failed: ' + (error as Error).message);
   }
 });
 
@@ -345,11 +347,8 @@ exports.withdrawFromLadderGame = cf().https.onCall(async (data, context) => {
  * moves cash -> ladder; a negative amount moves balance back ladder -> cash.
  * Creates the ladder doc if the user has never played.
  */
-exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminTransferToLadder = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { userId } = data;
   const amount = Math.round(Number(data.amount) * 100) / 100;
@@ -374,11 +373,11 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('not-found', 'User not found.');
       }
 
-      const mainUser = mainUserDoc.data();
+      const mainUser = mainUserDoc.data()!;
       const cash = mainUser.cash || 0;
 
       const ladderData = ladderUserDoc.exists
-        ? ladderUserDoc.data()
+        ? ladderUserDoc.data()!
         : {
             balance: 0,
             totalDeposited: 0,
@@ -443,6 +442,6 @@ exports.adminTransferToLadder = cf().https.onCall(async (data, context) => {
   } catch (error) {
     if (error instanceof functions.https.HttpsError) throw error;
     reportError(error, { where: 'adminTransferToLadder' });
-    throw new functions.https.HttpsError('internal', 'Transfer failed: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Transfer failed: ' + (error as Error).message);
   }
 });

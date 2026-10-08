@@ -1,29 +1,23 @@
-'use strict';
-
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
-const { Timestamp, FieldValue } = require('firebase-admin/firestore');
+import * as functions from 'firebase-functions';
+import { cf, requireAppCheck } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
-const { CHECKIN_STREAK_REWARDS } = require('../shared/constants');
-const { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } = require('../shared/crews');
-const {
-  writeNotification,
-  writeFeedEntry,
-  checkBanned,
-  checkDiscordWall,
-  touchLastActive,
-  grantedValueUpdate,
-  reportError,
-  getLadderChips,
-} = require('../shared/helpers');
+import { CHECKIN_STREAK_REWARDS } from '../shared/constants';
+import { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } from '../shared/crews';
+import { writeFeedEntry } from '../shared/notifications';
+import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { touchLastActive } from '../shared/activity';
+import { grantedValueUpdate } from '../shared/equity';
+import { reportError } from '../shared/sentry';
+import { getLadderChips } from '../shared/ladderMath';
 
 // Mission completion rules live in ./missionChecks so the Discord bot's
 // /missions command reads the exact same logic instead of a second copy.
-const { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } = require('./missionChecks');
+import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from './missionChecks';
 
-exports.claimMissionReward = cf().https.onCall(async (data, context) => {
+export const claimMissionReward = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -50,18 +44,18 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
     ]);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
-    const prices = marketDoc.exists ? marketDoc.data().prices || {} : {};
+    const prices = marketDoc.exists ? marketDoc.data()!.prices || {} : {};
 
     // Get today's date and week ID
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0]!;
     const weekStart = new Date(now);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
     if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
-    const weekId = weekStart.toISOString().split('T')[0];
+    const weekId = weekStart.toISOString().split('T')[0]!;
 
     // Check if already claimed
     if (type === 'daily') {
@@ -115,7 +109,7 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
     }
 
     const newTotal = (userData.totalMissionsCompleted || 0) + 1;
-    const updates = {
+    const updates: Record<string, unknown> = {
       cash: (userData.cash || 0) + reward,
       totalMissionsCompleted: newTotal,
       // Free money: booked so percent-return boards can net it out.
@@ -157,7 +151,7 @@ exports.claimMissionReward = cf().https.onCall(async (data, context) => {
  * Reroll all missions (daily + weekly) for the current week
  * Costs $50, once per week, locked if any rewards claimed
  */
-exports.rerollMissions = cf().https.onCall(async (data, context) => {
+export const rerollMissions = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -171,7 +165,7 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
 
@@ -182,11 +176,11 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
 
     // Calculate week ID (same as claimMissionReward logic)
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0]!;
     const weekStart = new Date(now);
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
     if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
-    const weekId = weekStart.toISOString().split('T')[0];
+    const weekId = weekStart.toISOString().split('T')[0]!;
 
     const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
 
@@ -213,7 +207,7 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
     // Generate random seed offset
     const rerollSeed = Math.floor(Math.random() * 100000) + 1;
 
-    const updates = {
+    const updates: Record<string, unknown> = {
       cash: cash - 50,
       [`weeklyMissions.${weekId}.rerolled`]: true,
       [`weeklyMissions.${weekId}.rerollSeed`]: rerollSeed,
@@ -227,7 +221,7 @@ exports.rerollMissions = cf().https.onCall(async (data, context) => {
 /**
  * Purchase a pin or extra pin slot from the shop
  */
-exports.purchasePin = cf().https.onCall(async (data, context) => {
+export const purchasePin = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -243,14 +237,14 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
-    const userData = userDoc.data();
+    const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
 
     if (action === 'buyPin') {
       // J High pins were pulled (ripped official art). No purchasable shop pins
       // currently exist; any buy attempt is rejected below as an invalid pin.
-      const PIN_CATALOG = {};
+      const PIN_CATALOG: Record<string, { price: number; requiredCheckinStreak?: number }> = {};
       const pinInfo = PIN_CATALOG[pinId];
       if (!pinInfo) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid pin.');
@@ -277,7 +271,7 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
       return { success: true, cost: validCost };
     } else if (action === 'buySlot') {
       // Slot costs: achievement = $5000, shop = $7500
-      const slotCosts = { achievement: 5000, shop: 7500 };
+      const slotCosts: Record<string, number> = { achievement: 5000, shop: 7500 };
       const validCost = slotCosts[slotType];
       if (!validCost) throw new functions.https.HttpsError('invalid-argument', 'Invalid slot type.');
       if ((userData.cash || 0) < validCost) {
@@ -304,7 +298,7 @@ exports.purchasePin = cf().https.onCall(async (data, context) => {
 
 // Daily check-in reward. Lives here rather than users.js because the streak it
 // pays out on is the same daily-reward loop as the missions above.
-exports.dailyCheckin = cf().https.onCall(async (data, context) => {
+export const dailyCheckin = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -312,7 +306,6 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'dailyCheckin');
-  const { ladderTopUp } = data; // Boolean flag for first-time ladder initialization
 
   try {
     return await db.runTransaction(async (transaction) => {
@@ -323,11 +316,11 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('not-found', 'User not found.');
       }
 
-      const userData = userDoc.data();
+      const userData = userDoc.data()!;
       checkBanned(userData);
       checkDiscordWall(userData);
       const now = new Date();
-      const today = now.toISOString().split('T')[0];
+      const today = now.toISOString().split('T')[0]!;
 
       // Handle both string (old format) and Timestamp (new format)
       let lastCheckinDate = null;
@@ -337,14 +330,14 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
           // Convert to YYYY-MM-DD for comparison
           const parsedDate = new Date(userData.lastCheckin);
           if (!isNaN(parsedDate.getTime())) {
-            lastCheckinDate = parsedDate.toISOString().split('T')[0];
+            lastCheckinDate = parsedDate.toISOString().split('T')[0]!;
           }
         } else if (typeof userData.lastCheckin.toDate === 'function') {
           // New format: Firestore Timestamp
-          lastCheckinDate = userData.lastCheckin.toDate().toISOString().split('T')[0];
+          lastCheckinDate = userData.lastCheckin.toDate().toISOString().split('T')[0]!;
         } else if (userData.lastCheckin.seconds) {
           // Fallback: Plain timestamp object with seconds
-          lastCheckinDate = new Date(userData.lastCheckin.seconds * 1000).toISOString().split('T')[0];
+          lastCheckinDate = new Date(userData.lastCheckin.seconds * 1000).toISOString().split('T')[0]!;
         }
       }
 
@@ -356,7 +349,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
       // Calculate streak
       const yesterday = new Date(now);
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayDate = yesterday.toISOString().split('T')[0];
+      const yesterdayDate = yesterday.toISOString().split('T')[0]!;
 
       const currentStreak = userData.checkinStreak || 0;
       const newStreak = lastCheckinDate === yesterdayDate ? currentStreak + 1 : 1;
@@ -370,10 +363,10 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
       const weekStartDate = new Date(now);
       weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1);
       if (weekStartDate > now) weekStartDate.setDate(weekStartDate.getDate() - 7);
-      const checkinWeekId = weekStartDate.toISOString().split('T')[0];
+      const checkinWeekId = weekStartDate.toISOString().split('T')[0]!;
 
       // Update user document
-      const updates = {
+      const updates: Record<string, unknown> = {
         cash: (userData.cash || 0) + checkinReward,
         ...grantedValueUpdate(checkinReward),
         lastCheckin: Timestamp.now(),
@@ -416,7 +409,7 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
       } else {
         // Existing player — top up to $100 if below. The topped-up amount is also
         // non-withdrawable so it can fund play but never be cashed out.
-        const ladderBalance = ladderDoc.data().balance || 0;
+        const ladderBalance = ladderDoc.data()!.balance || 0;
         if (ladderBalance < 100) {
           ladderTopUpAmount = 100 - ladderBalance;
           // Add the fresh chips to what is actually left of the old ones, not to
@@ -456,6 +449,6 @@ exports.dailyCheckin = cf().https.onCall(async (data, context) => {
       throw error;
     }
     reportError(error, { where: 'dailyCheckin', uid });
-    throw new functions.https.HttpsError('internal', 'Checkin failed: ' + error.message);
+    throw new functions.https.HttpsError('internal', 'Checkin failed: ' + (error as Error).message);
   }
 });
