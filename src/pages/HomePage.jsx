@@ -156,7 +156,6 @@ const HomePage = ({
             />
             <MarketGrid
               displayedCharacters={browser.displayedCharacters}
-              change24h={browser.change24h}
               activeUserData={activeUserData}
               onTrade={onTrade}
               onViewChart={onViewChart}

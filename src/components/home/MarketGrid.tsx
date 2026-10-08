@@ -3,6 +3,32 @@ import CharacterCard from '../CharacterCard';
 import { useAppContext } from '../../context/AppContext';
 import { getThemeClasses } from '../../utils/theme';
 import { getSentiment } from '../../utils/marketStats';
+import type { ComponentProps } from 'react';
+import type { Character } from '../../characters';
+import type { UserData } from '../../types';
+import type { useMarketBrowser } from '../../hooks/useMarketBrowser';
+
+type CardProps = ComponentProps<typeof CharacterCard>;
+
+type MarketGridProps = Pick<
+  ReturnType<typeof useMarketBrowser>,
+  | 'displayedCharacters'
+  | 'reviewChanges'
+  | 'reviewSections'
+  | 'currentPage'
+  | 'setCurrentPage'
+  | 'totalPages'
+  | 'showAll'
+> &
+  Pick<
+    CardProps,
+    'onTrade' | 'onViewChart' | 'limitOrderRequest' | 'onClearLimitOrderRequest' | 'onToggleWatchlist' | 'onSetAlert'
+  > & {
+    activeUserData: UserData;
+    tradeAnimation?: CardProps['tradeAnimation'];
+    marketTab: string;
+    searchQuery: string;
+  };
 
 // The character card grid plus empty state and bottom pagination.
 //
@@ -13,7 +39,6 @@ import { getSentiment } from '../../utils/marketStats';
 // stock could climb 8% during a halt with nothing on screen explaining it.
 const MarketGrid = ({
   displayedCharacters,
-  change24h,
   activeUserData,
   onTrade,
   onViewChart,
@@ -30,7 +55,7 @@ const MarketGrid = ({
   setCurrentPage,
   totalPages,
   showAll,
-}) => {
+}: MarketGridProps) => {
   const { darkMode, userData, prices, priceHistory, marketData } = useAppContext();
   const { cardClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
   // Review tab only: 'all' shows every section stacked, which is the default.
@@ -41,18 +66,11 @@ const MarketGrid = ({
   const activeSection = reviewSections?.some((s) => s.id === openSection) ? openSection : 'all';
 
   // One card, wherever it is being rendered.
-  const renderCard = (character) => (
+  const renderCard = (character: Character) => (
     <CharacterCard
       key={character.ticker}
       character={character}
-      price={(() => {
-        const history = priceHistory[character.ticker];
-        if (history && history.length > 0) {
-          return history[history.length - 1].price;
-        }
-        return prices[character.ticker] || character.basePrice;
-      })()}
-      priceChange={change24h(character.ticker)}
+      price={priceHistory[character.ticker]?.at(-1)?.price ?? (prices[character.ticker] || character.basePrice)}
       sentiment={getSentiment(character.ticker, prices, priceHistory)}
       holdings={activeUserData.holdings?.[character.ticker] || 0}
       shortPosition={activeUserData.shorts?.[character.ticker]}
@@ -64,7 +82,7 @@ const MarketGrid = ({
       isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
       onToggleWatchlist={onToggleWatchlist}
       tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
-      haltInfo={marketData?.haltedTickers?.[character.ticker]}
+      haltInfo={marketData?.haltedTickers?.[character.ticker] as CardProps['haltInfo']}
       onSetAlert={onSetAlert}
       // Only in the Review tab: elsewhere the card's own price and 24h
       // change are the whole story.
@@ -73,7 +91,7 @@ const MarketGrid = ({
   );
 
   // Auto-fills as many ~300px+ columns as the screen allows.
-  const cardGrid = (list) => (
+  const cardGrid = (list: Character[]) => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
       {list.map(renderCard)}
     </div>
@@ -87,7 +105,7 @@ const MarketGrid = ({
               that was open is not in this week's review. */}
           {reviewSections.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              {[{ id: 'all', short: 'Show All' }, ...reviewSections].map((option) => (
+              {[{ id: 'all', short: 'Show All', characters: undefined }, ...reviewSections].map((option) => (
                 <button
                   key={option.id}
                   onClick={() => setOpenSection(option.id)}

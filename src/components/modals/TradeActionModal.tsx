@@ -11,6 +11,32 @@ import LimitOrderControls from '../trading/LimitOrderControls';
 import { isWeeklyHalt, getMarketClosedState } from '../../utils/marketHours';
 import { useAppContext } from '../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
+import { errorMessage } from '../../utils/errors';
+import type { Character } from '../../characters';
+import type { ShortPosition, TradeAction } from '../../types';
+
+/** Which order form the modal opens on; `true` is the old spelling of 'limit'. */
+export type OrderFormMode = boolean | 'limit' | 'stopLoss';
+
+interface TradeActionModalProps {
+  character: Character;
+  action: TradeAction;
+  price: number;
+  holdings: number;
+  shortPosition?: ShortPosition;
+  userCash: number;
+  onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
+  onClose: () => void;
+  defaultToLimitOrder?: OrderFormMode;
+  haltInfo?: { resumeAt?: number } | null;
+}
+
+interface ActionColors {
+  text: string;
+  bg: string;
+  bgHover?: string;
+  border?: string;
+}
 
 const TradeActionModal = ({
   character,
@@ -23,11 +49,11 @@ const TradeActionModal = ({
   onClose,
   defaultToLimitOrder = false,
   haltInfo,
-}) => {
+}: TradeActionModalProps) => {
   useEscapeKey(onClose);
   const { darkMode, userData, prices, priceHistory, showNotification, marketData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const [amount, setAmount] = useState(1);
+  const [amount, setAmount] = useState<number | ''>(1);
   const [partialShares, setPartialShares] = useState(false);
   const [isLimitOrder, setIsLimitOrder] = useState(defaultToLimitOrder === 'limit' || defaultToLimitOrder === true);
   const [isStopLoss, setIsStopLoss] = useState(defaultToLimitOrder === 'stopLoss');
@@ -40,7 +66,7 @@ const TradeActionModal = ({
   const { textClass, mutedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
   // Color blind friendly colors for price indicators (bid/ask displays)
-  const getColors = (isPositive) => {
+  const getColors = (isPositive: boolean): ActionColors => {
     if (colorBlindMode) {
       return isPositive
         ? { text: 'text-teal-400', bg: 'bg-teal-600', bgHover: 'hover:bg-teal-700' }
@@ -68,7 +94,7 @@ const TradeActionModal = ({
     includeMargin: useMarginMax,
   });
 
-  const handleToggleMarginMax = (checked) => {
+  const handleToggleMarginMax = (checked: boolean) => {
     setUseMarginMax(checked);
     if (!checked) {
       // Margin turned off: clamp the entered amount back to what cash covers.
@@ -85,7 +111,7 @@ const TradeActionModal = ({
         includeMargin: false,
       });
       const capped = partialShares ? cashMax : Math.floor(cashMax);
-      if (amount > capped) setAmount(capped);
+      if (amount !== '' && amount > capped) setAmount(capped);
     }
   };
   // A position smaller than one share (dividend dust, a partial fill) would
@@ -103,13 +129,24 @@ const TradeActionModal = ({
   // Active margin lock on this ticker (for the sell-side note below).
   const _mLock = userData?.marginLockup?.[character.ticker];
   const marginLockedShares = _mLock && Date.now() < (_mLock.until || 0) ? _mLock.shares || 0 : 0;
-  const marginLockHours = marginLockedShares > 0 ? Math.max(1, Math.ceil((_mLock.until - Date.now()) / 3600000)) : 0;
+  const marginLockHours =
+    marginLockedShares > 0 ? Math.max(1, Math.ceil(((_mLock?.until || 0) - Date.now()) / 3600000)) : 0;
   // Selling/covering: always allow full fractional position — prevents getting stuck
   // with unsellable dust shares when partial toggle is off.
   const maxShares = partialShares || action === 'sell' || action === 'cover' ? maxSharesFractional : maxSharesWhole;
-  const { bid, ask, spread } = getDynamicPrices(character, price, amount || 1, action, userData);
+  // The box is '' while being retyped; treat that as zero.
+  const amountNum = amount === '' ? 0 : amount;
+  const { bid, ask, spread } = getDynamicPrices(character, price, amountNum || 1, action, userData);
 
-  const getActionConfig = () => {
+  const getActionConfig = (): {
+    title: string;
+    colors: ActionColors;
+    buttonStyle: 'solid' | 'outline';
+    price: number;
+    total: number;
+    label: string;
+    disabled: boolean;
+  } => {
     const buyColors = getColors(true); // Buy colors (green/teal)
     const sellColors = getColors(false); // Sell colors (red/purple)
 
@@ -120,7 +157,7 @@ const TradeActionModal = ({
           colors: buyColors,
           buttonStyle: 'solid',
           price: ask,
-          total: ask * (amount || 1),
+          total: ask * (amountNum || 1),
           label: 'Cost',
           disabled: maxShares === 0,
         };
@@ -130,9 +167,9 @@ const TradeActionModal = ({
           colors: sellColors,
           buttonStyle: 'solid',
           price: bid,
-          total: bid * (amount || 1),
+          total: bid * (amountNum || 1),
           label: 'Revenue',
-          disabled: holdings < (amount || 1),
+          disabled: holdings < (amountNum || 1),
         };
       case 'short':
         return {
@@ -146,15 +183,15 @@ const TradeActionModal = ({
           price: bid,
           // Collateral is charged on the current mid price, not the impacted
           // bid — matches computeShort and estimateTradeTotal.
-          total: price * (amount || 1) * SHORT_MARGIN_REQUIREMENT,
+          total: price * (amountNum || 1) * SHORT_MARGIN_REQUIREMENT,
           label: 'Margin Required',
           disabled: maxShares === 0,
         };
       case 'cover': {
         const isV2 = shortPosition?.system === 'v2';
-        const coverShares = amount || 1;
-        let coverTotal;
-        let coverLabel;
+        const coverShares = amountNum || 1;
+        let coverTotal: number;
+        let coverLabel: string;
         if (isV2 && shortPosition) {
           // v2: show estimated return (margin back + P&L)
           const costBasis = shortPosition.costBasis || shortPosition.entryPrice || 0;
@@ -178,7 +215,7 @@ const TradeActionModal = ({
           price: ask,
           total: coverTotal,
           label: coverLabel,
-          disabled: !shortPosition || shortPosition.shares < (amount || 1),
+          disabled: !shortPosition || shortPosition.shares < (amountNum || 1),
         };
       }
       default:
@@ -196,13 +233,13 @@ const TradeActionModal = ({
 
   const config = getActionConfig();
 
-  const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
+  const isHalted = Date.now() < (haltInfo?.resumeAt ?? 0);
   const marketClosed = getMarketClosedState(marketData).closed;
   const tradeCount = getTradeCount(userData, character.ticker, action);
 
   const handleSubmit = async () => {
     const minAmount = partialShares || action === 'sell' || action === 'cover' ? 0.01 : 1;
-    if (config.disabled || amount < minAmount || amount > maxShares || submitting) return;
+    if (config.disabled || amountNum < minAmount || amountNum > maxShares || submitting) return;
 
     if (isHalted) {
       showNotification('error', `$${character.ticker} trading is halted (circuit breaker). Please wait.`);
@@ -237,7 +274,7 @@ const TradeActionModal = ({
           type: orderType,
           // Buys are whole-cent share counts; exits keep their fractional size so
           // a dust position can be queued in full.
-          shares: roundShares(parseFloat(amount), action === 'sell'),
+          shares: roundShares(amountNum, action === 'sell'),
           limitPrice: priceNum,
           allowPartialFills,
         });
@@ -249,13 +286,13 @@ const TradeActionModal = ({
         onClose();
       } catch (error) {
         console.error('Error creating order:', error);
-        showNotification('error', `Failed to create order: ${error.message}`);
+        showNotification('error', `Failed to create order: ${errorMessage(error)}`);
       } finally {
         setSubmitting(false);
       }
     } else {
       // Handle immediate trade
-      onTrade(character.ticker, action, amount);
+      onTrade(character.ticker, action, amountNum);
       onClose();
     }
   };
@@ -372,8 +409,8 @@ const TradeActionModal = ({
             disabled={
               marketClosed ||
               config.disabled ||
-              amount < (partialShares || action === 'sell' || action === 'cover' ? 0.01 : 1) ||
-              amount > maxShares ||
+              amountNum < (partialShares || action === 'sell' || action === 'cover' ? 0.01 : 1) ||
+              amountNum > maxShares ||
               submitting ||
               ((isLimitOrder || isStopLoss) && (!limitPrice || parseFloat(limitPrice) <= 0))
             }

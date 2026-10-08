@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../utils/formatters';
 import CharacterMeta from './character/CharacterMeta';
@@ -8,10 +8,59 @@ import { rarityClassFor } from '../utils/rarity';
 import { statusBadge, STATUS_MAP, statusOf } from '../constants/statuses';
 import SimpleLineChart from './charts/SimpleLineChart';
 import ShortRiskTag from './ShortRiskTag';
-import TradeActionModal from './modals/TradeActionModal';
+import TradeActionModal, { type OrderFormMode } from './modals/TradeActionModal';
 import PreMarketModal from './modals/PreMarketModal';
 import { useAppContext } from '../context/AppContext';
-import { isPreMarketWindow, getMarketClosedState } from '../utils/marketHours';
+import { isPreMarketWindow, getMarketClosedState, type ReviewChange } from '../utils/marketHours';
+import type { Character } from '../characters';
+import type { PricePoint, ShortPosition, TradeAction } from '../types';
+import type { LimitOrderRequest } from '../hooks/useUserActions';
+import type { TradeAnimation } from '../hooks/types';
+
+interface CharacterCardProps {
+  character: Character;
+  price: number;
+  sentiment: string;
+  holdings: number;
+  shortPosition?: ShortPosition;
+  onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
+  onViewChart: (character: Character, timeRange: string) => void;
+  userCash?: number;
+  limitOrderRequest?: LimitOrderRequest | null;
+  onClearLimitOrderRequest?: () => void;
+  isWatchlisted?: boolean;
+  onToggleWatchlist?: (ticker: string) => void;
+  tradeAnimation?: TradeAnimation | null;
+  /** Set while this one ticker is paused by the circuit breaker. */
+  haltInfo?: { resumeAt?: number } | null;
+  onSetAlert?: (ticker: string) => void;
+  reviewChange?: ReviewChange | null;
+}
+
+/**
+ * The mini chart's points since `since`. With fewer than two real points it
+ * draws a straight line from the price back then (or the oldest known price) to now.
+ */
+const chartSince = (data: PricePoint[], since: number, basePrice: number, price: number): PricePoint[] => {
+  const filtered = data.filter((p) => p.timestamp >= since);
+  if (filtered.length >= 2) return filtered;
+
+  let startPrice = basePrice;
+  for (let i = data.length - 1; i >= 0; i--) {
+    const point = data[i]!;
+    if (point.timestamp <= since) {
+      startPrice = point.price;
+      break;
+    }
+  }
+  const oldest = data[0];
+  if (startPrice === basePrice && oldest) startPrice = oldest.price;
+
+  return [
+    { timestamp: since, price: startPrice },
+    { timestamp: Date.now(), price },
+  ];
+};
 
 const CharacterCard = ({
   character,
@@ -30,19 +79,19 @@ const CharacterCard = ({
   haltInfo,
   onSetAlert,
   reviewChange,
-}) => {
+}: CharacterCardProps) => {
   const { darkMode, user, userData, priceHistory, marketData, rarityTiers } = useAppContext();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
-  const [tradeAction, setTradeAction] = useState(null); // 'buy', 'sell', 'short', or 'cover'
-  const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState(false);
+  const [tradeAction, setTradeAction] = useState<TradeAction | null>(null);
+  const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState<OrderFormMode>(false);
   const [showPreMarket, setShowPreMarket] = useState(false);
-  const [preMarketAction, setPreMarketAction] = useState('buy');
+  const [preMarketAction, setPreMarketAction] = useState<'buy' | 'sell'>('buy');
 
   // Check if this card should open in limit order or stop loss mode
   useEffect(() => {
     if (limitOrderRequest && limitOrderRequest.ticker === character.ticker) {
-      setTradeAction(limitOrderRequest.action);
-      setShouldOpenAsLimit(limitOrderRequest.mode || 'limit');
+      setTradeAction(limitOrderRequest.action as TradeAction);
+      setShouldOpenAsLimit((limitOrderRequest.mode as OrderFormMode) || 'limit');
       if (onClearLimitOrderRequest) {
         onClearLimitOrderRequest();
       }
@@ -52,10 +101,11 @@ const CharacterCard = ({
   const [haltCountdown, setHaltCountdown] = useState('');
 
   const owned = holdings > 0.001;
-  const shorted = shortPosition && shortPosition.shares > 0;
+  const shorted = !!shortPosition && shortPosition.shares > 0;
   const isETF = character.isETF;
   const colorBlindMode = userData?.colorBlindMode || false;
-  const isHalted = haltInfo && haltInfo.resumeAt && Date.now() < haltInfo.resumeAt;
+  const resumeAt = haltInfo?.resumeAt ?? 0;
+  const isHalted = Date.now() < resumeAt;
   const marketState = getMarketClosedState(marketData);
   const marketClosed = marketState.closed; // weekly review or admin halt (market-wide, not per-ticker)
 
@@ -66,7 +116,7 @@ const CharacterCard = ({
       return;
     }
     const tick = () => {
-      const remaining = haltInfo.resumeAt - Date.now();
+      const remaining = resumeAt - Date.now();
       if (remaining <= 0) {
         setHaltCountdown('');
         return;
@@ -78,10 +128,10 @@ const CharacterCard = ({
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [isHalted, haltInfo]);
+  }, [isHalted, resumeAt]);
 
   // Color blind friendly helper for Buy/Sell (solid buttons)
-  const getBuySellColors = (isBuy) => {
+  const getBuySellColors = (isBuy: boolean) => {
     if (colorBlindMode) {
       return isBuy
         ? { bg: 'bg-teal-600', bgHover: 'hover:bg-teal-700' }
@@ -118,65 +168,21 @@ const CharacterCard = ({
     }
   };
 
-  // Calculate 24h chart data
-  const chart24hData = useMemo(() => {
-    const data = priceHistory[character.ticker] || [];
-    const now = Date.now();
-    const dayAgo = now - 24 * 60 * 60 * 1000;
-    const filtered = data.filter((p) => p.timestamp >= dayAgo);
-
-    // If we have enough data, use it
-    if (filtered.length >= 2) {
-      return filtered;
-    }
-
-    // Find price from ~24h ago for synthetic chart
-    let price24hAgo = character.basePrice;
-    for (let i = data.length - 1; i >= 0; i--) {
-      if (data[i].timestamp <= dayAgo) {
-        price24hAgo = data[i].price;
-        break;
-      }
-    }
-    // If no history before 24h ago, use oldest available or basePrice
-    if (price24hAgo === character.basePrice && data.length > 0) {
-      price24hAgo = data[0].price;
-    }
-
-    return [
-      { timestamp: dayAgo, price: price24hAgo },
-      { timestamp: now, price: price },
-    ];
-  }, [priceHistory, character.ticker, character.basePrice, price]);
-
-  // Calculate 7d chart data
-  const chart7dData = useMemo(() => {
-    const data = priceHistory[character.ticker] || [];
-    const now = Date.now();
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-    const filtered = data.filter((p) => p.timestamp >= weekAgo);
-
-    if (filtered.length >= 2) {
-      return filtered;
-    }
-
-    // Find price from ~7d ago for synthetic chart
-    let price7dAgo = character.basePrice;
-    for (let i = data.length - 1; i >= 0; i--) {
-      if (data[i].timestamp <= weekAgo) {
-        price7dAgo = data[i].price;
-        break;
-      }
-    }
-    if (price7dAgo === character.basePrice && data.length > 0) {
-      price7dAgo = data[0].price;
-    }
-
-    return [
-      { timestamp: weekAgo, price: price7dAgo },
-      { timestamp: now, price: price },
-    ];
-  }, [priceHistory, character.ticker, character.basePrice, price]);
+  const chart24hData = useMemo(
+    () =>
+      chartSince(priceHistory[character.ticker] || [], Date.now() - 24 * 60 * 60 * 1000, character.basePrice, price),
+    [priceHistory, character.ticker, character.basePrice, price],
+  );
+  const chart7dData = useMemo(
+    () =>
+      chartSince(
+        priceHistory[character.ticker] || [],
+        Date.now() - 7 * 24 * 60 * 60 * 1000,
+        character.basePrice,
+        price,
+      ),
+    [priceHistory, character.ticker, character.basePrice, price],
+  );
 
   // Calculate 24h percentage change
   const chart24hFirstPrice = chart24hData[0]?.price || price;
@@ -202,12 +208,14 @@ const CharacterCard = ({
   // the ranking is computed once in App and shared via context. Tiered cards get
   // their frame + depth from .rarity-* in index.css; untiered (ETF) cards fall
   // back to the standard elevation token so they don't look flat next to them.
-  const rarityTier = isETF ? null : rarityTiers?.[character.ticker];
+  const rarityTier = isETF ? undefined : rarityTiers?.[character.ticker];
   const frameClass = rarityClassFor(rarityTier) || raisedClass;
   // Legendary frames tick every few seconds; offset each card by ticker so
   // multiple legendaries on screen never tick together.
   const rarityStyle =
-    rarityTier === 'legendary' ? { '--rarity-stagger': getRarityStagger(character.ticker) } : undefined;
+    rarityTier === 'legendary'
+      ? ({ '--rarity-stagger': getRarityStagger(character.ticker) } as CSSProperties)
+      : undefined;
 
   return (
     <>
@@ -282,11 +290,7 @@ const CharacterCard = ({
             </div>
           </div>
           <div className="mb-2">
-            <SimpleLineChart
-              data={miniChartData}
-              darkMode={darkMode}
-              colorBlindMode={userData?.colorBlindMode || false}
-            />
+            <SimpleLineChart data={miniChartData} colorBlindMode={colorBlindMode} />
           </div>
         </div>
 
