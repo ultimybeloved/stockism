@@ -25,13 +25,15 @@ const path = require('path');
 
 const FUNCTIONS_DIR = path.join(__dirname, '..', 'functions');
 const SRC_DIR = path.join(FUNCTIONS_DIR, 'src');
+// The compiled backend (npm run build:functions), which is what deploys.
+const LIB_DIR = path.join(FUNCTIONS_DIR, 'lib');
 
 // Every backend source file except tests, as [absolute path, label].
 const sourceFiles = (dir = SRC_DIR) =>
   fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) return sourceFiles(full);
-    if (!entry.name.endsWith('.js') || entry.name.includes('.test.')) return [];
+    if (!/\.(js|ts)$/.test(entry.name) || entry.name.includes('.test.')) return [];
     return [[full, path.relative(SRC_DIR, full).split(path.sep).join('/')]];
   });
 
@@ -68,11 +70,12 @@ if (leaked.length > 0) {
 // `exports.<name> =` rather than requiring them, so a function declared some
 // other way would not be found. That is fail-open (it falls back to loading
 // everything, costing startup time but never breaking), but it silently loses
-// the cold-start win — so flag it here instead of letting it rot.
-const servicePaths = require(path.join(SRC_DIR, 'servicePaths.js'));
+// the cold-start win — so flag it here instead of letting it rot. The runtime
+// scans the compiled output in lib/, so that is what this checks too.
+const servicePaths = require(path.join(LIB_DIR, 'servicePaths.js'));
 const scanFinds = (name) =>
   servicePaths.some((p) =>
-    new RegExp(`^exports\\.${name}\\s*=`, 'm').test(fs.readFileSync(path.join(SRC_DIR, `${p}.js`), 'utf8')),
+    new RegExp(`^exports\\.${name}\\s*=`, 'm').test(fs.readFileSync(path.join(LIB_DIR, `${p}.js`), 'utf8')),
   );
 
 const unscannable = Object.keys(exports_).filter((name) => !scanFinds(name));
@@ -88,7 +91,7 @@ if (unscannable.length > 0) {
 
 // --- 2. Constants imports ---------------------------------------------------
 
-const constantNames = Object.keys(require(path.join(SRC_DIR, 'shared', 'constants')));
+const constantNames = Object.keys(require(path.join(LIB_DIR, 'shared', 'constants')));
 
 // Counted separately from `problems` so a failure in an earlier check does not
 // hide whether this one actually passed.
@@ -109,7 +112,9 @@ const stripNonCode = (src) =>
 // constant used in it but never imported would only surface as a ReferenceError
 // on whichever path touched it — and in writeFeedEntry that path is inside a
 // try/catch, so feed entries would have stopped appearing with nothing logged.
-const CONSTANTS_SCAN = sourceFiles().filter(([, label]) => !['shared/constants/index.js', 'index.js'].includes(label));
+const CONSTANTS_SCAN = sourceFiles().filter(
+  ([, label]) => !['shared/constants/index.js', 'shared/constants/index.ts', 'index.js', 'index.ts'].includes(label),
+);
 
 CONSTANTS_SCAN.forEach(([file, label]) => {
   const raw = fs.readFileSync(file, 'utf8');
@@ -143,11 +148,11 @@ problems += constantsProblems;
 // "monthIdOf is not a function" on EVERY hourly run — the stabiliser was dead
 // and the only trace was a log line nobody was reading.
 
-const helperExports = new Set(Object.keys(require(path.join(SRC_DIR, 'shared', 'helpers.js'))));
+const helperExports = new Set(Object.keys(require(path.join(LIB_DIR, 'shared', 'helpers.js'))));
 let helperProblems = 0;
 
 for (const [file, label] of sourceFiles()) {
-  if (label === 'shared/helpers.js') continue;
+  if (label === 'shared/helpers.js' || label === 'shared/helpers.ts') continue;
   const raw = fs.readFileSync(file, 'utf8');
   for (const m of raw.matchAll(/const\s*\{([^}]+)\}\s*=\s*require\((['"])[^'"]*helpers\2\)/g)) {
     const missing = m[1]

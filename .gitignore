@@ -46,3 +46,6 @@ cleanup-backup-*.json
 
 # Personal working area: archived one-off scripts, local reports. Never committed.
 local/
+
+# Compiled backend (npm run build:functions)
+functions/lib/

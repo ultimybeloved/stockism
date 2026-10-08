@@ -73,6 +73,20 @@ export default tseslint.config(
     rules: { 'no-undef': 'error' },
   },
   { files: ['functions/**/*.test.js'], languageOptions: { sourceType: 'module' } },
-  { files: ['functions/src/**/*.js'], ignores: ['**/*.test.js', 'functions/src/shared/**'], rules: maxLines(600) },
-  { files: ['functions/src/index.js'], rules: maxLines(15) },
+  // Converted backend files (TypeScript, compiled to CommonJS by tsc).
+  {
+    files: ['functions/{src,test}/**/*.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', unusedVars],
+    },
+  },
+  {
+    files: ['functions/src/**/*.{js,ts}'],
+    ignores: ['**/*.test.*', 'functions/src/shared/**'],
+    rules: maxLines(600),
+  },
+  { files: ['functions/src/index.{js,ts}'], rules: maxLines(15) },
 );

@@ -75,14 +75,14 @@ const OPTIONAL = {
 // VITE_ keys that do not belong in .env.local.
 const VITE_ELSEWHERE = new Set(['VITE_USE_EMULATOR']);
 
-/** Every .js/.jsx file under a directory, skipping node_modules. */
+/** Every .js/.jsx/.ts file under a directory, skipping node_modules and build output. */
 function sourceFiles(dir) {
   const out = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === 'node_modules') continue;
+    if (entry.name === 'node_modules' || entry.name === 'lib') continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...sourceFiles(full));
-    else if (/\.(js|jsx)$/.test(entry.name)) out.push(full);
+    else if (/\.(js|jsx|ts)$/.test(entry.name)) out.push(full);
   }
   return out;
 }

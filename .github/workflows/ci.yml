@@ -26,7 +26,7 @@ jobs:
 
       - run: npm ci
 
-      # The export-purity check below loads functions/src/index.js for real, which
+      # The export-purity check below builds functions/lib and loads it for real, which
       # pulls in firebase-functions. Without this the step dies on a missing
       # module rather than on anything to do with the code, which is exactly
       # what reddened every run on this workflow until 2026-08-29.

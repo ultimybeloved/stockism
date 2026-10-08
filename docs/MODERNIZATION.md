@@ -63,9 +63,18 @@ their public profile and the leaderboard.
    import through the barrels; moving them to the topic modules can happen
    file by file during the TypeScript conversion. `indexMaintenance.js` moved
    to `shared/` too, since shared code needs it.
-3. TypeScript build: `functions/src/**/*.ts` → `tsc` → `functions/lib/`,
-   `main: lib/index.js`, build in the `firebase.json` predeploy hook. Emulator
-   suites import the built output or run through `tsx`.
+3. TypeScript build. **Build done 2026-10-08**: `functions/tsconfig.json`
+   (strict, `noUncheckedIndexedAccess`, `allowJs` so JS and TS mix),
+   `npm run build:functions` → `functions/lib/`, `main: lib/index.js`, built by
+   the predeploy hook, `check:functions`, `deploy:functions` and `emulators`.
+   Emulator suites run through tsx; backend vitest files get tsx's require hook
+   (`functions/test/setup.ts`, the `backend` vitest project). Converted so far:
+   `shared/money.ts`, `shared/lmsr.ts`.
+   **Next:** convert the rest, leaves first: `shared/` (constants, then the
+   helper topics), then each domain's internal modules, then its service
+   files. Write exports as `export const name = ...`; tsc emits
+   `exports.name = name`, which serviceLoader's scan finds. When `allowJs` can
+   go, delete the `.js` branches in `check-function-exports.cjs`.
 4. Replace `console.log` with `firebase-functions/logger`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored

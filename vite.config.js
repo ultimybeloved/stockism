@@ -54,5 +54,16 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    projects: [
+      { extends: true, test: { name: 'frontend', include: ['src/**/*.test.{ts,tsx}'] } },
+      {
+        extends: true,
+        test: {
+          name: 'backend',
+          include: ['functions/src/**/*.test.{js,ts}', 'scripts/**/*.test.js'],
+          setupFiles: ['functions/test/setup.ts'],
+        },
+      },
+    ],
   },
 });

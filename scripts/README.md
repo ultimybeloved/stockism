@@ -15,6 +15,12 @@ Scripts for managing Stockism database operations.
    npm install
    ```
 
+3. **Scripts that load backend code** (anything requiring `functions/src/...`) run
+   through tsx, because parts of the backend are TypeScript:
+   ```bash
+   npx tsx scripts/who-is.cjs <name>
+   ```
+
 ## Scripts
 
 ### check-data.cjs
@@ -72,7 +78,7 @@ player ("StitchSlaveCallmebot"). Three steps, read-only until the last one.
 
 **Usage:**
 ```bash
-node scripts/spam-name-audit.cjs     # find them (read-only)
+npx tsx scripts/spam-name-audit.cjs    # find them (read-only)
 node scripts/spam-name-detail.cjs    # activity + database footprint (read-only)
 node scripts/spam-name-purge.cjs     # dry run
 node scripts/spam-name-purge.cjs --confirm

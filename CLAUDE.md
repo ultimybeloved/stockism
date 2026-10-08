@@ -67,6 +67,8 @@ You are the **sole developer** of this codebase. The user (Darth YG) is a non-te
 
 ## Before Deploying Backend Functions
 
+The backend is compiled: `npm run build:functions` turns `functions/src/` (TypeScript, plus JavaScript not converted yet) into `functions/lib/`, which is what Firebase deploys and the emulator loads. Never edit `lib/`; it is gitignored and rebuilt by `check:functions`, `deploy:functions`, `emulators` and the `firebase.json` predeploy hook. The emulator suites and backend vitest files load `functions/src/` directly through tsx, and so must any script that requires backend code (`npx tsx scripts/<name>.cjs`).
+
 Run `npm run check:functions` before any `firebase deploy`. It exits non-zero and prints what to fix if any check fails:
 
 1. **Environment** — `functions/.env` must exist with every required key filled in (`scripts/check-env.cjs` owns the list). Also runs standalone as `npm run check:env`.
@@ -297,6 +299,7 @@ Quick reference so you know where to look and where to add things.
 | Path | What lives here |
 |---|---|
 | `functions/src/index.js` | Re-exports only — ≤15 lines, never add logic here |
+| `functions/lib/` | Build output of `npm run build:functions`. Never edit, never commit |
 | `functions/src/servicePaths.js` | Builds the full service list from every domain's `services.js`. A new domain folder is added to `DOMAINS` here |
 | `functions/src/<domain>/services.js` | The files in that domain that declare Cloud Functions. Never list internal modules |
 | `functions/src/serviceLoader.js` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
@@ -473,7 +476,7 @@ These are known gaps that were evaluated and deliberately left alone. Don't reop
 - ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.tsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.tsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
 - ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.tsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.ts` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.tsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
 - ~~**End-to-end trade tests**~~ **DONE**: the emulator suites (`npm run test:trading`, `test:limitorders`, `test:premarket`, `test:season`, and ~15 more; see package.json) run the real function code against a local Firestore, and CI runs the money-path ones on every push to main (`.github/workflows/ci.yml`).
-- **TypeScript migration**: APPROVED 2026-10-07 as a full conversion. The frontend (`src/`) is all TypeScript since 2026-10-08; the backend is next. Follow the order in `docs/MODERNIZATION.md`; don't convert files outside the current phase.
+- **TypeScript migration**: APPROVED 2026-10-07 as a full conversion. The frontend (`src/`) is all TypeScript since 2026-10-08; the backend is converting file by file (new backend files are `.ts`). Follow the order in `docs/MODERNIZATION.md`; don't convert files outside the current phase.
 
 ---
 
