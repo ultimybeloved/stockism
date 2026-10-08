@@ -36,7 +36,7 @@ export default tseslint.config(
 
   // ---- Frontend ----
   {
-    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
@@ -55,18 +55,16 @@ export default tseslint.config(
       'react-hooks/exhaustive-deps': 'warn',
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', unusedVars],
-      // Plain JS files are still being converted; don't demand TS syntax from them.
-      '@typescript-eslint/no-require-imports': 'off',
       'no-empty': 'warn',
     },
   },
-  { files: ['src/**/*.test.{js,jsx,ts,tsx}'], languageOptions: { globals: globals.node } },
+  { files: ['src/**/*.test.{ts,tsx}'], languageOptions: { globals: globals.node } },
 
   // File-size limits (CLAUDE.md). Split the file rather than raise these.
-  { files: ['src/components/**/*.{js,jsx,ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(400) },
-  { files: ['src/pages/**/*.{js,jsx,ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(300) },
-  { files: ['src/hooks/**/*.{js,jsx,ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(200) },
-  { files: ['src/App.{jsx,tsx}'], rules: maxLines(500) },
+  { files: ['src/components/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(400) },
+  { files: ['src/pages/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(300) },
+  { files: ['src/hooks/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(200) },
+  { files: ['src/App.tsx'], rules: maxLines(500) },
 
   // ---- Backend (Cloud Functions, CommonJS) ----
   {

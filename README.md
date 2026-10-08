@@ -276,12 +276,12 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 
 ```
 src/
-├── App.jsx                    Router, subscriptions, state and handler assembly
-├── AdminPanel.jsx             Admin orchestrator (state lives in hooks/admin/)
-├── characters.js              Source of truth: characters, ETFs, rarity, dividends
-├── crews.js                   Source of truth: crews, missions, pins, penalties
-├── firebase.js                Firebase config and callable wrappers
-├── context/AppContext.jsx     Global state: prices, user, holdings, market data
+├── App.tsx                    Router, subscriptions, state and handler assembly
+├── AdminPanel.tsx             Admin orchestrator (state lives in hooks/admin/)
+├── characters.ts              Source of truth: characters, ETFs, rarity, dividends
+├── crews.ts                   Source of truth: crews, missions, pins, penalties
+├── firebase.ts                Firebase config and callable wrappers
+├── context/AppContext.tsx     Global state: prices, user, holdings, market data
 ├── pages/                     Home, Leaderboard, Achievements, Ladder, Predictions,
 │                              Profile, PublicProfile, Stock
 ├── hooks/                     One concern per hook (trade, margin, crew, missions,
@@ -343,11 +343,11 @@ Hard limits that exist because this codebase was untangled from a set of god fil
 | `src/components/` | 400 lines |
 | `src/pages/` | 300 lines |
 | `src/hooks/` | 200 lines |
-| `src/App.jsx` | 500 lines |
+| `src/App.tsx` | 500 lines |
 | `functions/services/` | 600 lines |
 | `functions/index.js` | 15 lines, re-exporter only |
 
-Shared values live in exactly one place: price and portfolio math in `src/utils/calculations.js`, theme strings in `src/utils/theme.js`, backend economy numbers in `functions/constants.js`, character and crew data in `src/characters.ts` and `src/crews.ts`. See `CLAUDE.md` for the full rules.
+Shared values live in exactly one place: price and portfolio math in `src/utils/calculations.ts`, theme strings in `src/utils/theme.ts`, backend economy numbers in `functions/constants.js`, character and crew data in `src/characters.ts` and `src/crews.ts`. See `CLAUDE.md` for the full rules.
 
 ---
 

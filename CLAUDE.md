@@ -140,7 +140,7 @@ These rules exist because we spent significant effort cleaning up a codebase tha
 | Any frontend component (`src/components/`) | 400 lines | Split into sub-components |
 | Any page component (`src/pages/`) | 300 lines | Extract logic into a hook |
 | Any hook (`src/hooks/`) | 200 lines | Split by concern |
-| `src/App.jsx` | 500 lines | Stop and refactor before adding more |
+| `src/App.tsx` | 500 lines | Stop and refactor before adding more |
 | Any backend service (`functions/services/`) | 600 lines | Split by sub-domain |
 | `functions/index.js` | 15 lines | Re-exporter only. The service list lives in `functions/servicePaths.js` — never add logic here |
 
@@ -150,7 +150,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 
 **Components** (`src/components/`)
 - One component per file, named to match the file
-- Sub-components used only by one parent live in a subfolder: `src/components/portfolio/HoldingRow.jsx`
+- Sub-components used only by one parent live in a subfolder: `src/components/portfolio/HoldingRow.tsx`
 - Never put business logic in a component — extract to a hook
 
 **Hooks** (`src/hooks/`)
@@ -159,15 +159,15 @@ If a new feature would push a file past its limit, **split the file first, then 
 
 **Utilities** (`src/utils/`)
 - Pure functions only — no side effects, no Firebase, no React
-- Calculation logic → `src/utils/calculations.js` (already canonical — do not duplicate)
-- Theme/dark mode class strings → `src/utils/theme.js` (already canonical — do not duplicate)
-- Formatting → `src/utils/formatters.js`
+- Calculation logic → `src/utils/calculations.ts` (already canonical — do not duplicate)
+- Theme/dark mode class strings → `src/utils/theme.ts` (already canonical — do not duplicate)
+- Formatting → `src/utils/formatters.ts`
 
 **Constants** (`src/constants/`)
 - Named constants only — no magic numbers in components or hooks
-- Economy rules → `src/constants/economy.js`
+- Economy rules → `src/constants/economy.ts`
 
-**Context** (`src/context/AppContext.jsx`)
+**Context** (`src/context/AppContext.tsx`)
 - Global state that 3+ components need: `darkMode`, `user`, `userData`, `prices`, `priceHistory`, `holdings`, `shorts`, `costBasis`, `marketData`, `showNotification`, `activeIPOs`
 - **Never pass these as props.** Components call `useAppContext()`.
 - If you find yourself writing `darkMode={darkMode}` as a prop, stop — use context instead
@@ -220,9 +220,9 @@ preference and survives on purpose.
 
 These specific patterns are banned. If you catch yourself writing any of them, stop and do it the right way.
 
-1. **Inline duplicate functions** — `calculatePriceImpact`, `getBidAskPrices`, `getCurrentPrice` were each defined in 3–4 files simultaneously. Never define a function that already exists elsewhere. Check `src/utils/calculations.js` before writing any price/portfolio math.
+1. **Inline duplicate functions** — `calculatePriceImpact`, `getBidAskPrices`, `getCurrentPrice` were each defined in 3–4 files simultaneously. Never define a function that already exists elsewhere. Check `src/utils/calculations.ts` before writing any price/portfolio math.
 
-2. **Inline theme strings** — `const cardClass = darkMode ? 'bg-zinc-900 ...' : 'bg-white ...'` was copy-pasted 50+ times. Use `getThemeClasses(darkMode)` from `src/utils/theme.js`.
+2. **Inline theme strings** — `const cardClass = darkMode ? 'bg-zinc-900 ...' : 'bg-white ...'` was copy-pasted 50+ times. Use `getThemeClasses(darkMode)` from `src/utils/theme.ts`.
 
 3. **God files** — `App.jsx` at 3,900 lines, `AdminPanel.jsx` at 7,400 lines, `functions/index.js` at 11,000 lines. These took days to untangle. Never let a file grow past its limit without splitting it.
 
@@ -262,25 +262,25 @@ Quick reference so you know where to look and where to add things.
 
 | Path | What lives here |
 |---|---|
-| `src/App.jsx` | Router, top-level subscriptions, state/handler assembly — the modal stack itself is in `src/components/AppModals.jsx` |
-| `src/components/AppModals.jsx` | Every modal's render condition. App.jsx still owns the state and handlers; values already in context are read from context, not drilled |
-| `src/context/AppContext.jsx` | Global state: darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs, showNotification |
-| `src/hooks/useModalManager.js` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
-| `src/hooks/useTradeManagement.js` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.js`) |
-| `src/hooks/useMissionManagement.js` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
-| `src/hooks/useMarginManagement.js` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
-| `src/hooks/useCrewManagement.js` | handleCrewSelect, handleCrewLeave |
-| `src/hooks/usePredictionManagement.js` | handleBet |
-| `src/hooks/useIPOManagement.js` | handleBuyIPO |
-| `src/hooks/useDailyOperations.js` | handleDailyCheckin, handleBailout |
-| `src/hooks/usePinShop.js` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
-| `src/utils/calculations.js` | All price/portfolio math — canonical, do not duplicate. Includes `getShortRisk`/`getShortMargin` (mirror the backend force-cover check) and `getAccountAgeImpactFactor` |
-| `src/utils/theme.js` | Dark mode class strings via `getThemeClasses(darkMode)` — canonical, do not duplicate |
-| `src/utils/formatters.js` | Currency, number, percentage formatting |
-| `src/utils/marketHours.js` | Halt detection, countdown logic |
-| `src/constants/economy.js` | Frontend economy constants (dividend rates, hold times) |
-| `src/constants/achievements.js` | Achievement definitions |
-| `src/constants/cosmetics.js` | Cosmetic item definitions |
+| `src/App.tsx` | Router, top-level subscriptions, state/handler assembly — the modal stack itself is in `src/components/AppModals.tsx` |
+| `src/components/AppModals.tsx` | Every modal's render condition. App.tsx still owns the state and handlers; values already in context are read from context, not drilled |
+| `src/context/AppContext.tsx` | Global state: darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs, showNotification |
+| `src/hooks/useModalManager.ts` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
+| `src/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.js`) |
+| `src/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
+| `src/hooks/useMarginManagement.ts` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
+| `src/hooks/useCrewManagement.ts` | handleCrewSelect, handleCrewLeave |
+| `src/hooks/usePredictionManagement.ts` | handleBet |
+| `src/hooks/useIPOManagement.ts` | handleBuyIPO |
+| `src/hooks/useDailyOperations.ts` | handleDailyCheckin, handleBailout |
+| `src/hooks/usePinShop.ts` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
+| `src/utils/calculations.ts` | All price/portfolio math — canonical, do not duplicate. Includes `getShortRisk`/`getShortMargin` (mirror the backend force-cover check) and `getAccountAgeImpactFactor` |
+| `src/utils/theme.ts` | Dark mode class strings via `getThemeClasses(darkMode)` — canonical, do not duplicate |
+| `src/utils/formatters.ts` | Currency, number, percentage formatting |
+| `src/utils/marketHours.ts` | Halt detection, countdown logic |
+| `src/constants/economy.ts` | Frontend economy constants (dividend rates, hold times) |
+| `src/constants/achievements.ts` | Achievement definitions |
+| `src/constants/cosmetics.ts` | Cosmetic item definitions |
 | `src/characters.ts` | **Source of truth** for all character/ETF data — edit here only |
 | `src/components/admin/` | Admin panel split into focused components |
 | `src/components/ladder/` | Ladder game UI: board, side panel, modals, shared style constants |
@@ -339,7 +339,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/services/seasonExclusions.js` | Admin: players flagged for coordination this season, and keeping one out of Platinum/Diamond (`seasonTopTierExclusion` on the user doc, private) |
 | `functions/services/coordDetection.js` | Hourly coordination scan (`35 * * * *`). Alerts + admin DM, then `coordEnforcement.js` (internal): 48h buy-back + short block for everyone in a TIGHT downward cluster, and the "all in on borrowed money" flag on upward ones. `npm run test:coord` |
 | `functions/services/coordReview.js` | Admin: what a flagged push made a player (math in `coordProfitMath.js`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
-| `functions/services/seasonTiers.js` | **Internal module, not in servicePaths.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Mirrored in `src/constants/seasons.js` + `src/utils/seasonWeeks.js`; `functions/seasonTiers.test.js` fails if the rules drift |
+| `functions/services/seasonTiers.js` | **Internal module, not in servicePaths.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Mirrored in `src/constants/seasons.ts` + `src/utils/seasonWeeks.ts`; `functions/seasonTiers.test.js` fails if the rules drift |
 
 ---
 
@@ -466,17 +466,17 @@ Frontend deploys automatically via Vercel on every push to `main`. Backend requi
 These are known gaps that were evaluated and deliberately left alone. Don't reopen them without a good reason.
 
 - ~~**`executeTrade` refactor**~~ **DONE 2026-07-19**: `functions/services/trading.js` is now a ~315-line orchestrator; the logic lives in sibling modules `tradeGuards.js` (validation + anti-abuse gates), `tradeActions.js` (buy/sell/short/cover math), `tradePricing.js` (trailing/ETF propagation), `tradeState.js` (IP tracking + user-doc update assembly), `tradeEffects.js` (post-commit achievements/notifications/feed). Still ONE atomic transaction — all reads before writes, write order market → price history → trade record → ipTracking → user doc. `npm run test:trading` (155 checks) is the characterization suite — run before and after ANY change to these files. The internal modules are NOT exported through `functions/index.js`.
-- ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.jsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.jsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
-- ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.jsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.js` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.jsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
+- ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.tsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.tsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
+- ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.tsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.ts` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.tsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
 - ~~**End-to-end trade tests**~~ **DONE**: the emulator suites (`npm run test:trading`, `test:limitorders`, `test:premarket`, `test:season`, and ~15 more; see package.json) run the real function code against a local Firestore, and CI runs the money-path ones on every push to main (`.github/workflows/ci.yml`).
-- **TypeScript migration**: APPROVED 2026-10-07 as a full conversion, in progress. Follow the order in `docs/MODERNIZATION.md`; don't convert files outside the current phase.
+- **TypeScript migration**: APPROVED 2026-10-07 as a full conversion. The frontend (`src/`) is all TypeScript since 2026-10-08; the backend is next. Follow the order in `docs/MODERNIZATION.md`; don't convert files outside the current phase.
 
 ---
 
 ## Weekly Halt Schedule
 
 The market halts every **Thursday 13:00–21:00 UTC** for chapter review. This is enforced in:
-- Frontend: `src/utils/marketHours.js` (`isWeeklyHalt()`)
+- Frontend: `src/utils/marketHours.ts` (`isWeeklyHalt()`)
 - Backend: `functions/constants.js` (`WEEKLY_HALT_DAY`, `WEEKLY_HALT_START_HOUR`, `WEEKLY_HALT_END_HOUR`)
 
 Manual halts can also be triggered by an admin via the admin panel, which sets `marketData.marketHalted` in Firestore. Both halt types block all trades.
@@ -487,8 +487,8 @@ Pre-market timeline inside the Thursday halt: orders queue 20:30–20:55 UTC (`p
 
 ## Common Gotchas
 
-- **`activeUserData` vs `userData`** in App.jsx: `userData` is the logged-in user's Firestore doc. `activeUserData` is derived from it with fallbacks. Always use `activeUserData` when reading holdings/shorts/cohorts, not `userData` directly.
+- **`activeUserData` vs `userData`** in App.tsx: `userData` is the logged-in user's Firestore doc. `activeUserData` is derived from it with fallbacks. Always use `activeUserData` when reading holdings/shorts/cohorts, not `userData` directly.
 - **`colorBlindMode`**: Not stored directly in context — derive it everywhere as `const colorBlindMode = userData?.colorBlindMode || false`. It affects green/red color choices throughout the UI.
 - **Guest mode**: `isGuest` flag is true when a user is browsing without an account. Most write operations and modals should be gated behind `!isGuest`.
-- **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.js`. The backend uses `calculateMarginalImpact` in `functions/helpers.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
+- **Price impact**: Every trade moves the price. The preview calculation uses `calculatePriceImpactDollars` in `src/utils/calculations.ts`. The backend uses `calculateMarginalImpact` in `functions/helpers.js`. Both use the same marginal sqrt formula. If you change the formula, change it in both places and re-run `npm test`.
 - **ETFs**: ETF prices trail their constituent characters. This is handled in `executeTrade` via trailing effects. ETF entries are identified by `isETF: true` in `src/characters.ts` (there is no `type` field).

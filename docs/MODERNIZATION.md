@@ -20,54 +20,30 @@ backend lint and `format:check` in CI, the 5 missing emulator suites in CI,
 file-size limits as `max-lines` lint rules, finished one-off moderation scripts
 moved out of the repo (copies in the ignored `local/archive/`).
 
-Open item: 8 frontend files exceed their limit after reformatting and are
-warn-only in `.eslintrc.cjs`. They get split in Phase 4. Remove each from that
-list as it is split.
+## Phase 2: Frontend TypeScript (done 2026-10-08)
 
-## Phase 2: Frontend TypeScript (in progress)
+All of `src/` is TypeScript (strict, `noUncheckedIndexedAccess`; `allowJs` is
+off). Conventions for new code:
 
-Done: `tsconfig.json` (strict, `noUncheckedIndexedAccess`, `allowJs` until the
-last file converts), `npm run typecheck` in CI, ESLint 9 flat config
-(`eslint.config.js`, one config for src + functions), `src/types/` domain
-types, 19 small utils/constants, and `src/characters.ts` + `src/crews.ts`.
+- Callables are typed in `src/firebase.ts` via `callable<Req, Res>('name')`,
+  shapes in `src/api/types.ts`.
+- Firestore doc shapes live in `src/types/index.ts`; add fields as code reads them.
+- Props passed straight from a hook are typed `Pick<ReturnType<typeof useX>, ...>`.
+- Action hooks take `ActionHookDeps` (`src/hooks/types.ts`); admin hooks take
+  `AdminHookDeps` (`hooks/admin/adminShared.ts`).
+- Tests typecheck under `tsconfig.test.json` (relaxes `noUncheckedIndexedAccess`).
+- `npm run sync:chars` strips types from `src/characters.ts` + `src/crews.ts`
+  into `functions/`; Node scripts read the roster through
+  `scripts/lib/sharedSource.cjs` `load()`.
 
-The roster files are TypeScript now; `npm run sync:chars` strips the types into
-`functions/*.js` via `scripts/lib/sharedSource.cjs`, and Node scripts read the
-roster through its `load()`. Any script that needs a converted `src/` file must
-go through `load()` too (`check-data.cjs` is the example).
+Every file is within its size limit; the warn-only list in `eslint.config.js`
+is gone.
 
-Conversion rule: rename `.js`→`.ts` (`.jsx`→`.tsx`) with `git mv`, type every
-parameter, no `any` (lint rejects it), use `!` only where an index is proven in
-range. Tests convert with their subject. Add fields to `src/types/index.ts` as
-code needs them.
+Left for Phase 4: ProfileChart and PortfolioChart duplicate their drawing code.
 
-Done also: all of `src/constants/` and `src/utils/` (except `dividends.test.js`).
-`npm run typecheck` runs both tsconfigs.
-
-Also done: `firebase.ts`, `monitoring.ts`, `context/AppContext.tsx` (typed
-`AppContextValue`), all top-level hooks, `src/hooks/ladder/`. Callables are typed in
-`src/firebase.ts` via `callable<Req, Res>('name')` with shapes in
-`src/api/types.ts`; type a callable when converting the code that reads it.
-Action hooks take `ActionHookDeps` from `src/hooks/types.ts`.
-
-All of `src/hooks/` is done, admin included (shared admin types in
-`hooks/admin/adminShared.ts`: `AdminHookDeps`, `AdminUser`). Admin callable
-results that only the admin tabs render are typed `AdminReport` for now;
-tighten each one when its tab converts.
-
-Tests typecheck under `tsconfig.test.json`, which only relaxes
-`noUncheckedIndexedAccess`.
-
-Remaining, in order:
-1. The last 26 JS files (`git ls-files 'src/*.jsx' 'src/*.js'`). Admin panel is
-   done. Next batch: PreMarketModal, CrewSelectionModal, ShopTab, PriceChart,
-   PredictionCard.test. MarketGrid waits on CharacterCard. App.jsx (662 lines)
-   must be split while converting; also split MarketIndex, AboutModal,
-   LeaderboardPage, StockPage (on the eslint warn list).
-   Noted for later: ProfileChart and PortfolioChart duplicate their drawing code
-   (merge in Phase 4). Backend bug: getPublicProfile sends `displayCrewPin || null`,
-   so a player who hid their crew pin still shows it on their public profile.
-2. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
+Backend bug found during the conversion, not fixed yet (needs a deploy of
+`getPublicProfile` only): it sends `displayCrewPin || null`, so a player who hid
+their crew pin still shows it on their public profile.
 
 ## Phase 3: Backend restructure + TypeScript
 
@@ -100,7 +76,8 @@ Remaining, in order:
    re-rendering everything).
 4. Tailwind `dark:` variant instead of `getThemeClasses(darkMode)`; removes the
    63 `darkMode={darkMode}` props. Verify with the screenshot rig.
-5. Break `App.jsx` into router, shell, providers.
+5. Break `App.tsx` further into router and providers (the shell, status screens and
+   small state hooks already moved out on 2026-10-08).
 
 ## Phase 5: Library upgrades (one per commit)
 

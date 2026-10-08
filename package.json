@@ -87,7 +87,7 @@
     "vitest": "^4.1.5"
   },
   "lint-staged": {
-    "src/**/*.{js,jsx,ts,tsx}": [
+    "src/**/*.{ts,tsx}": [
       "eslint --no-warn-ignored",
       "prettier --write"
     ],
