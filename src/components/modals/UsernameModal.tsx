@@ -3,6 +3,8 @@ import { createUserFunction, checkUsernameFunction } from '../../firebase';
 import { containsProfanity, getProfanityMessage } from '../../utils/profanity';
 import { validateUsername } from '../../utils/username';
 import { getThemeClasses } from '../../utils/theme';
+import type { FormEvent } from 'react';
+import { errorMessage } from '../../utils/errors';
 
 // Wait this long after the last keystroke before asking the server. Without it
 // every character typed would be its own function call.
@@ -11,7 +13,7 @@ const CHECK_DEBOUNCE_MS = 600;
 // Why a Discord name can't be carried over, or null if it can. Discord allows
 // characters and lengths this site doesn't, so a signup's suggested name is
 // often unusable — saying which rule it broke beats an empty box with no reason.
-const suggestionProblem = (name) => {
+const suggestionProblem = (name: string) => {
   if (!name) return null;
   const formatError = validateUsername(name);
   if (formatError) return formatError;
@@ -19,7 +21,15 @@ const suggestionProblem = (name) => {
   return null;
 };
 
-const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
+const UsernameModal = ({
+  onComplete,
+  darkMode,
+  suggestedName = '',
+}: {
+  onComplete: () => void;
+  darkMode: boolean;
+  suggestedName?: string;
+}) => {
   const suggestion = (suggestedName || '').trim();
   const rejectedReason = suggestionProblem(suggestion);
   // Prefill only a name that could actually be used; otherwise start empty and
@@ -28,7 +38,7 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   // null = nothing to say yet, otherwise 'checking' | 'available' | 'taken'
-  const [availability, setAvailability] = useState(null);
+  const [availability, setAvailability] = useState<'checking' | 'available' | 'taken' | null>(null);
 
   const trimmedName = username.trim();
   // Only ask the server about names that already pass the local rules — a name
@@ -61,7 +71,7 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
     };
   }, [trimmedName, locallyValid]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -91,10 +101,11 @@ const UsernameModal = ({ onComplete, darkMode, suggestedName = '' }) => {
       onComplete();
     } catch (err) {
       // Handle specific error codes from Cloud Function
-      if (err.code === 'functions/already-exists') {
+      const code = (err as { code?: string })?.code;
+      if (code === 'functions/already-exists') {
         setError('This username is already taken. Please choose another.');
-      } else if (err.code === 'functions/invalid-argument') {
-        setError(err.message || 'Invalid username.');
+      } else if (code === 'functions/invalid-argument') {
+        setError(errorMessage(err) || 'Invalid username.');
       } else {
         setError('Failed to create account. Please try again.');
         console.error(err);

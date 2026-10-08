@@ -4,12 +4,20 @@ import { getThemeClasses } from '../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../constants';
 import { useAppContext } from '../context/AppContext';
+import type { IPO } from '../types';
 
-const IPOActiveCard = ({ ipo, onBuyIPO }) => {
+const IPOActiveCard = ({
+  ipo,
+  onBuyIPO,
+}: {
+  ipo: IPO;
+  onBuyIPO: (ticker: string, quantity: number) => Promise<boolean | undefined>;
+}) => {
   const { darkMode, userData, user } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const isGuest = !user;
-  const [quantity, setQuantity] = useState(1);
+  // '' while the box is cleared mid-edit.
+  const [quantity, setQuantity] = useState<number | ''>(1);
   // The buy goes through a Cloud Function, which is not instant. Without this
   // the button looked inert the whole time and people clicked it again.
   const [buyState, setBuyState] = useState('idle'); // 'idle' | 'buying' | 'bought'

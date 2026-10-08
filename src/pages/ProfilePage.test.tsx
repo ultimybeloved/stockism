@@ -52,7 +52,7 @@ afterEach(cleanup);
 describe('ProfilePage', () => {
   it('renders the main sections for a signed-in user', async () => {
     h.ctx = baseCtx();
-    render(<ProfilePage onOpenCrewSelection={noop} onDeleteAccount={noop} />);
+    render(<ProfilePage onOpenCrewSelection={noop} onDeleteAccount={async () => {}} onOpenCustomization={noop} />);
 
     expect(await screen.findByText('TestTrader')).toBeInTheDocument();
     expect(screen.getByText('Portfolio Value')).toBeInTheDocument();
@@ -68,7 +68,7 @@ describe('ProfilePage', () => {
 
   it('shows a sign-in prompt when logged out', () => {
     h.ctx = { ...baseCtx(), user: null, userData: null };
-    render(<ProfilePage onOpenCrewSelection={noop} onDeleteAccount={noop} />);
+    render(<ProfilePage onOpenCrewSelection={noop} onDeleteAccount={async () => {}} onOpenCustomization={noop} />);
 
     expect(screen.getByText(/Please sign in/)).toBeInTheDocument();
   });

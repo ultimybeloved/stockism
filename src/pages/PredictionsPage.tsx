@@ -7,6 +7,21 @@ import { isWeeklyHalt } from '../utils/marketHours';
 import PredictionCard from '../components/PredictionCard';
 import EventMarketCard from '../components/EventMarketCard';
 import { marketTimes } from '../utils/localTime';
+import type { EventMarketDoc } from '../types';
+import type { usePredictionManagement } from '../hooks/usePredictionManagement';
+
+type PredictionHandlers = ReturnType<typeof usePredictionManagement>;
+
+interface PredictionsPageProps {
+  predictions?: EventMarketDoc[];
+  isGuest: boolean;
+  isAdmin?: boolean;
+  onBet: PredictionHandlers['handleBet'];
+  onRequestBet: (predictionId: string, option: string, amount: number, question?: string) => void;
+  onHidePrediction: (predictionId: string) => void;
+  onBuyEventShares: PredictionHandlers['handleBuyEventShares'];
+  onSellEventShares: PredictionHandlers['handleSellEventShares'];
+}
 
 // Dedicated predictions page. Two sections: weekly cash predictions and
 // long-term event-share markets (the AMM-priced ones) — weekly first on
@@ -21,7 +36,7 @@ const PredictionsPage = ({
   onHidePrediction,
   onBuyEventShares,
   onSellEventShares,
-}) => {
+}: PredictionsPageProps) => {
   const { darkMode, userData, marketData } = useAppContext();
   const { bgClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -34,8 +49,8 @@ const PredictionsPage = ({
   const isHalted = isWeeklyHalt() || !!marketData?.marketHalted;
 
   // Coming-soon (announced, not yet open) first, then open, resolved last.
-  const rank = (m) => (m.resolved ? 2 : m.opensAt && Date.now() < m.opensAt ? 0 : 1);
-  const byStatus = (arr) => [...arr].sort((a, b) => rank(a) - rank(b));
+  const rank = (m: EventMarketDoc) => (m.resolved ? 2 : m.opensAt && Date.now() < m.opensAt ? 0 : 1);
+  const byStatus = (arr: EventMarketDoc[]) => [...arr].sort((a, b) => rank(a) - rank(b));
 
   const eventMarkets = byStatus(predictions.filter((p) => p.type === 'event' && !p.cancelled && !p.hidden));
   const weekly = byStatus(
@@ -44,11 +59,11 @@ const PredictionsPage = ({
         p.type !== 'event' &&
         !p.hidden &&
         !p.cancelled &&
-        (!p.resolved || Date.now() - p.endsAt < 7 * 24 * 60 * 60 * 1000),
+        (!p.resolved || Date.now() - (p.endsAt ?? 0) < 7 * 24 * 60 * 60 * 1000),
     ),
   );
 
-  const getUserBet = (id) => userData?.bets?.[id];
+  const getUserBet = (id: string) => userData?.bets?.[id];
   const betLimit = Math.min(
     getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts),
     userData?.cash || 0,

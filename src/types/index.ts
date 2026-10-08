@@ -182,6 +182,10 @@ export interface UserData {
   displayCrewPin?: boolean;
   predictionWins?: number;
   portfolioValue?: number;
+  /** Reference points for the 24h / 7d / 30d change. */
+  portfolioSnapshot24h?: PortfolioSnapshot;
+  portfolioSnapshot7d?: PortfolioSnapshot;
+  portfolioSnapshot30d?: PortfolioSnapshot;
   grantedValue?: number;
   grantedDays?: number;
   ladderFlowValue?: number;
@@ -260,6 +264,12 @@ export interface EventPosition {
   shares: Record<string, number>;
   payout?: number;
   [key: string]: unknown;
+}
+
+/** users/{uid}.portfolioSnapshot24h etc: the portfolio value at a past moment. */
+export interface PortfolioSnapshot {
+  timestamp: number;
+  value: number;
 }
 
 /** One entry in market/ipos.list. */

@@ -21,8 +21,9 @@ vi.mock('../../firebase', () => ({
 import UsernameModal from './UsernameModal';
 
 const DEBOUNCE = 600;
-const type = (value) => fireEvent.change(screen.getByPlaceholderText('Enter a username...'), { target: { value } });
-const advance = async (ms) => {
+const type = (value: string) =>
+  fireEvent.change(screen.getByPlaceholderText('Enter a username...'), { target: { value } });
+const advance = async (ms: number) => {
   await act(async () => {
     vi.advanceTimersByTime(ms);
   });
@@ -86,7 +87,7 @@ describe('UsernameModal availability check', () => {
   it('ignores a slow answer for a name the user already changed', async () => {
     // First name resolves only after the second one has been typed. Without the
     // stale guard its "taken" would land on top of the newer name's result.
-    let resolveFirst;
+    let resolveFirst: (value: { data: { available: boolean } }) => void = () => {};
     h.checkUsername.mockImplementationOnce(
       () =>
         new Promise((r) => {

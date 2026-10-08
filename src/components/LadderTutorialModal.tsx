@@ -17,7 +17,15 @@ const CHECKS = [
   'I accept responsibility for how I use the ladder game',
 ];
 
-const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
+const LadderTutorialModal = ({
+  onClose,
+  onComplete,
+  reviewMode = false,
+}: {
+  onClose: () => void;
+  onComplete: () => void;
+  reviewMode?: boolean;
+}) => {
   const { darkMode } = useAppContext();
   const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const [step, setStep] = useState(1);
@@ -28,7 +36,7 @@ const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
   const confirmValid = confirmText.trim().toUpperCase() === 'LADDER';
   const canFinish = allChecked && confirmValid;
 
-  const toggleCheck = (i) => setChecks((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
+  const toggleCheck = (i: number) => setChecks((prev) => prev.map((v, idx) => (idx === i ? !v : v)));
 
   const handleComplete = () => {
     onComplete();
@@ -44,7 +52,7 @@ const LadderTutorialModal = ({ onClose, onComplete, reviewMode = false }) => {
             <p className={`text-xs font-semibold tracking-wide ${mutedClass}`}>
               {reviewMode ? 'LADDER GAME GUIDE' : 'REQUIRED READING: LADDER GAME'}
             </p>
-            <h2 className={`text-base font-bold ${textClass} mt-0.5`}>{STEPS[step - 1].title}</h2>
+            <h2 className={`text-base font-bold ${textClass} mt-0.5`}>{STEPS[step - 1]!.title}</h2>
           </div>
           <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl leading-none`}>
             ×

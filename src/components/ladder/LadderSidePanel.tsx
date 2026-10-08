@@ -1,4 +1,20 @@
 import { bgCard, bgCardInner, textDark, cornerBrown } from './ladderStyles';
+import type { useLadderGameFlow } from '../../hooks/ladder/useLadderGameFlow';
+import type { useLadderModals } from '../../hooks/ladder/useLadderModals';
+import type { LadderHistoryEntry } from '../../hooks/ladder/useLadderData';
+import type { LadderData } from '../../utils/ladderTax';
+
+type LadderSidePanelProps = Pick<
+  ReturnType<typeof useLadderGameFlow>,
+  'displayBalance' | 'betAmount' | 'setBetAmount' | 'frozenHistory'
+> &
+  Pick<
+    ReturnType<typeof useLadderModals>,
+    'setTransferTab' | 'setShowTransferModal' | 'setShowLeaderboardModal' | 'setShowStatsModal'
+  > & {
+    userLadderData: LadderData | null;
+    globalHistory: LadderHistoryEntry[];
+  };
 
 // Side panel: balance/bet inputs, the Transfer/Leaderboard/My Stats buttons,
 // and the recent global result history. Render-only.
@@ -13,7 +29,7 @@ const LadderSidePanel = ({
   setShowStatsModal,
   frozenHistory,
   globalHistory,
-}) => {
+}: LadderSidePanelProps) => {
   return (
     <div className="ladder-side-panel" style={{ width: '182px', display: 'flex', flexDirection: 'column' }}>
       <div

@@ -1,6 +1,23 @@
 import { useState, useMemo } from 'react';
 import { formatCurrency, formatChange, formatAxisLabels } from '../../utils/formatters';
 import { getThemeClasses } from '../../utils/theme';
+import type { PortfolioPoint } from '../portfolio/usePortfolioHistory';
+import type { ChartHoverPoint } from '../portfolio/shared';
+
+interface ProfileChartPoint {
+  timestamp: number;
+  value: number;
+  fullDate: string;
+}
+
+interface ProfileChartProps {
+  portfolioValue: number;
+  portfolioHistory: PortfolioPoint[];
+  darkMode: boolean;
+  colorBlindMode: boolean;
+  timeRange: string;
+  onTimeRangeChange: (key: string) => void;
+}
 
 // Keys must match shared TIME_RANGES so the page can fetch history per range.
 const TIME_RANGES = [
@@ -12,12 +29,19 @@ const TIME_RANGES = [
 
 // The "Portfolio Value" chart card on the profile page. Range selection is
 // controlled by the parent so it can fetch only the history the range needs.
-const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMode, timeRange, onTimeRangeChange }) => {
+const ProfileChart = ({
+  portfolioValue,
+  portfolioHistory,
+  darkMode,
+  colorBlindMode,
+  timeRange,
+  onTimeRangeChange,
+}: ProfileChartProps) => {
   const chartTimeRange = timeRange;
-  const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [hoveredPoint, setHoveredPoint] = useState<ChartHoverPoint | null>(null);
   const { textClass } = getThemeClasses(darkMode);
 
-  const chartData = useMemo(() => {
+  const chartData = useMemo((): ProfileChartPoint[] => {
     if (!portfolioHistory || portfolioHistory.length === 0) {
       const now = Date.now();
       return [
@@ -27,7 +51,7 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
     }
     // History arrives already bounded to the selected range (fetched per range
     // by the parent), so no client-side cutoff filter is needed.
-    let data = portfolioHistory.map((point) => ({
+    let data: ProfileChartPoint[] = portfolioHistory.map((point) => ({
       ...point,
       fullDate: new Date(point.timestamp).toLocaleDateString('en-US', {
         month: 'short',
@@ -39,9 +63,9 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
     const maxPoints = 20;
     if (data.length > maxPoints) {
       const step = Math.floor(data.length / maxPoints);
-      const sampled = [];
-      for (let i = 0; i < data.length; i += step) sampled.push(data[i]);
-      if (sampled[sampled.length - 1] !== data[data.length - 1]) sampled.push(data[data.length - 1]);
+      const sampled: ProfileChartPoint[] = [];
+      for (let i = 0; i < data.length; i += step) sampled.push(data[i]!);
+      if (sampled[sampled.length - 1] !== data[data.length - 1]) sampled.push(data[data.length - 1]!);
       data = sampled;
     }
     if (data.length === 1) data = [...data, { timestamp: Date.now(), value: portfolioValue, fullDate: 'Now' }];
@@ -71,8 +95,8 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
   const padY = 20;
   const cw = svgWidth - padX * 2;
   const ch = svgHeight - padY * 2;
-  const getChartX = (i) => padX + (i / (chartData.length - 1 || 1)) * cw;
-  const getChartY = (v) => padY + ch - ((v - minChartValue) / chartValueRange) * ch;
+  const getChartX = (i: number) => padX + (i / (chartData.length - 1 || 1)) * cw;
+  const getChartY = (v: number) => padY + ch - ((v - minChartValue) / chartValueRange) * ch;
   const chartPathData = chartData
     .map((d, i) => `${i === 0 ? 'M' : 'L'} ${getChartX(i)} ${getChartY(d.value)}`)
     .join(' ');
@@ -156,7 +180,7 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
           {/* Start/end markers */}
           <circle
             cx={getChartX(0)}
-            cy={getChartY(chartData[0].value)}
+            cy={getChartY(chartData[0]!.value)}
             r={4}
             fill="none"
             stroke={chartStroke}
@@ -164,7 +188,7 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
           />
           <circle
             cx={getChartX(chartData.length - 1)}
-            cy={getChartY(chartData[chartData.length - 1].value)}
+            cy={getChartY(chartData[chartData.length - 1]!.value)}
             r={4}
             fill="none"
             stroke={chartStroke}
@@ -215,11 +239,13 @@ const ProfileChart = ({ portfolioValue, portfolioHistory, darkMode, colorBlindMo
             const x1 = getChartX(leftIdx),
               x2 = getChartX(rightIdx);
             const t = x2 === x1 ? 0 : (mouseX - x1) / (x2 - x1);
-            const interpValue = chartData[leftIdx].value + t * (chartData[rightIdx].value - chartData[leftIdx].value);
+            // chartData always has at least two points, and both indexes are clamped into it.
+            const interpValue =
+              chartData[leftIdx]!.value + t * (chartData[rightIdx]!.value - chartData[leftIdx]!.value);
             const interpY = getChartY(interpValue);
             // Interpolate date
-            const ts1 = chartData[leftIdx].timestamp,
-              ts2 = chartData[rightIdx].timestamp;
+            const ts1 = chartData[leftIdx]!.timestamp,
+              ts2 = chartData[rightIdx]!.timestamp;
             const interpTs = ts1 + t * (ts2 - ts1);
             const interpDate = new Date(interpTs).toLocaleDateString('en-US', {
               month: 'short',

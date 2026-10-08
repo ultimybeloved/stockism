@@ -6,6 +6,18 @@ import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency, formatChange } from '../../utils/formatters';
 import { CHARACTER_MAP } from '../../characters';
 import { calculateMarginStatus } from '../../utils/calculations';
+import type { UserData } from '../../types';
+
+interface DashboardRailProps {
+  activeUserData: UserData;
+  portfolioValue: number;
+  isGuest: boolean;
+  checkinLoading: boolean;
+  onCheckin: () => void;
+  onShowLogin: () => void;
+  onShowPortfolio: () => void;
+  onShowBailout: () => void;
+}
 
 // Right-hand dashboard rail on the home page: cash / portfolio / holdings
 // stat cards, predictions teaser, and the market index chart.
@@ -18,7 +30,7 @@ const DashboardRail = ({
   onShowLogin,
   onShowPortfolio,
   onShowBailout,
-}) => {
+}: DashboardRailProps) => {
   const { darkMode, userData, prices, priceHistory, predictions, getColorBlindColors } = useAppContext();
   const { cardClass, mutedClass } = getThemeClasses(darkMode);
   const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
@@ -63,7 +75,7 @@ const DashboardRail = ({
                     <span className="text-amber-500 font-semibold">{formatCurrency(marginStatus.availableMargin)}</span>
                     <span className={mutedClass}> (of {formatCurrency(marginStatus.maxBorrowable)} max)</span>
                   </div>
-                  {activeUserData.marginUsed > 0 && (
+                  {(activeUserData.marginUsed || 0) > 0 && (
                     <div className="text-orange-500">
                       Used: {formatCurrency(activeUserData.marginUsed)} debt • 0.5% daily
                     </div>

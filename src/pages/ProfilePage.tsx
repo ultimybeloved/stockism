@@ -14,7 +14,15 @@ import ProfileSettings from '../components/profile/ProfileSettings';
 import PredictionHistory from '../components/profile/PredictionHistory';
 import DeleteAccountSection from '../components/profile/DeleteAccountSection';
 
-const ProfilePage = ({ onOpenCrewSelection, onDeleteAccount, onOpenCustomization }) => {
+const ProfilePage = ({
+  onOpenCrewSelection,
+  onDeleteAccount,
+  onOpenCustomization,
+}: {
+  onOpenCrewSelection: () => void;
+  onDeleteAccount: (confirmUsername: string) => Promise<void>;
+  onOpenCustomization: () => void;
+}) => {
   const { darkMode, user, userData, predictions, prices, holdings, shorts, costBasis } = useAppContext();
   // History is fetched per selected chart range so we only read what the
   // chart shows (the full subcollection can be thousands of docs).

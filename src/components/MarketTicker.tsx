@@ -13,7 +13,7 @@ import { useAppContext } from '../context/AppContext';
 const MarketTicker = () => {
   const { prices, priceHistory, marketData, darkMode, userData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const [haltBanner, setHaltBanner] = useState(null); // { text, tone: 'red' | 'amber' }
+  const [haltBanner, setHaltBanner] = useState<{ text: string; tone: 'red' | 'amber' } | null>(null);
   const [gracePeriod, setGracePeriod] = useState(isMarketOpenGracePeriod());
   const halted = isWeeklyHalt() || marketData?.marketHalted;
   const manualHalt = marketData?.marketHalted;
@@ -66,17 +66,18 @@ const MarketTicker = () => {
       .map(([ticker, price]) => {
         const history = priceHistory[ticker] || [];
         if (history.length === 0) return null;
-        let price24hAgo = history[0].price;
+        let price24hAgo = history[0]!.price;
         for (let i = history.length - 1; i >= 0; i--) {
-          if (history[i].timestamp <= dayAgo) {
-            price24hAgo = history[i].price;
+          const point = history[i]!;
+          if (point.timestamp <= dayAgo) {
+            price24hAgo = point.price;
             break;
           }
         }
         const change = price24hAgo > 0 ? ((price - price24hAgo) / price24hAgo) * 100 : 0;
         return { ticker, price, change };
       })
-      .filter(Boolean);
+      .filter((m): m is NonNullable<typeof m> => m !== null);
 
     entries.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
     return entries.slice(0, 8);

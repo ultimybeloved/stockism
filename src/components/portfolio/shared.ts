@@ -68,3 +68,14 @@ export const TIME_RANGES: TimeRange[] = [
   { key: '1y', label: '1Y', years: 1 },
   { key: 'all', label: 'All' },
 ];
+
+/** ticker -> shares typed in a row's amount box ('' while the box is cleared). */
+export type ShareInputs = Record<string, number | ''>;
+
+/** Where the cursor sits on a portfolio chart, in SVG units, with the value there. */
+export interface ChartHoverPoint {
+  x: number;
+  y: number;
+  value: number;
+  fullDate: string;
+}

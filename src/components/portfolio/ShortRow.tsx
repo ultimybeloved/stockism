@@ -4,11 +4,11 @@ import { formatShares } from './shared';
 import { SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_WARNING_THRESHOLD } from '../../constants/economy';
 import type { Dispatch, SetStateAction } from 'react';
 import type { buildShortItems } from './buildPositionItems';
+import type { ShareInputs } from './shared';
 
 type ShortItem = ReturnType<typeof buildShortItems>[number];
 
-/** ticker -> shares typed in the cover box ('' while the box is cleared). */
-export type CoverAmounts = Record<string, number | ''>;
+type CoverAmounts = ShareInputs;
 
 interface ShortRowProps {
   item: ShortItem;

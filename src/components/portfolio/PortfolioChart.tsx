@@ -1,5 +1,25 @@
 import { useRef } from 'react';
 import { formatCurrency, formatAxisLabels } from '../../utils/formatters';
+import type { PortfolioChartPoint } from './usePortfolioChartData';
+import type { ChartHoverPoint, TimeRange } from './shared';
+
+interface PortfolioChartProps {
+  chartData: PortfolioChartPoint[];
+  minValue: number;
+  maxValue: number;
+  valueRange: number;
+  isUp: boolean;
+  hoveredPoint: ChartHoverPoint | null;
+  setHoveredPoint: (point: ChartHoverPoint | null) => void;
+  showChart: boolean;
+  setShowChart: (show: boolean) => void;
+  loadingHistory: boolean;
+  timeRange: string;
+  setTimeRange: (key: string) => void;
+  timeRanges: TimeRange[];
+  darkMode: boolean;
+  colorBlindMode: boolean;
+}
 
 // The collapsible portfolio value chart (time-range buttons + interactive SVG).
 // Presentational: receives the prepared chartData and derived bounds, owns only
@@ -21,8 +41,8 @@ const PortfolioChart = ({
   timeRanges,
   darkMode,
   colorBlindMode,
-}) => {
-  const svgRef = useRef(null);
+}: PortfolioChartProps) => {
+  const svgRef = useRef<SVGSVGElement>(null);
 
   // SVG chart dimensions
   const svgWidth = 500;
@@ -32,8 +52,8 @@ const PortfolioChart = ({
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingY * 2;
 
-  const getX = (index) => paddingX + (index / (chartData.length - 1 || 1)) * chartWidth;
-  const getY = (value) => paddingY + chartHeight - ((value - minValue) / valueRange) * chartHeight;
+  const getX = (index: number) => paddingX + (index / (chartData.length - 1 || 1)) * chartWidth;
+  const getY = (value: number) => paddingY + chartHeight - ((value - minValue) / valueRange) * chartHeight;
 
   const pathData = chartData
     .map((d, i) => {
@@ -147,10 +167,17 @@ const PortfolioChart = ({
             <path d={pathData} fill="none" stroke={strokeColor} strokeWidth="2" />
 
             {/* Start/end markers */}
-            <circle cx={getX(0)} cy={getY(chartData[0].value)} r={4} fill="none" stroke={strokeColor} strokeWidth={2} />
+            <circle
+              cx={getX(0)}
+              cy={getY(chartData[0]!.value)}
+              r={4}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth={2}
+            />
             <circle
               cx={getX(chartData.length - 1)}
-              cy={getY(chartData[chartData.length - 1].value)}
+              cy={getY(chartData[chartData.length - 1]!.value)}
               r={4}
               fill="none"
               stroke={strokeColor}
@@ -206,10 +233,12 @@ const PortfolioChart = ({
               const x1 = getX(leftIdx),
                 x2 = getX(rightIdx);
               const t = x2 === x1 ? 0 : (mouseX - x1) / (x2 - x1);
-              const interpValue = chartData[leftIdx].value + t * (chartData[rightIdx].value - chartData[leftIdx].value);
+              // chartData always has at least two points, and both indexes are clamped into it.
+              const interpValue =
+                chartData[leftIdx]!.value + t * (chartData[rightIdx]!.value - chartData[leftIdx]!.value);
               const interpY = getY(interpValue);
-              const ts1 = chartData[leftIdx].timestamp,
-                ts2 = chartData[rightIdx].timestamp;
+              const ts1 = chartData[leftIdx]!.timestamp,
+                ts2 = chartData[rightIdx]!.timestamp;
               const interpTs = ts1 + t * (ts2 - ts1);
               const interpDate = new Date(interpTs).toLocaleDateString('en-US', {
                 month: 'short',

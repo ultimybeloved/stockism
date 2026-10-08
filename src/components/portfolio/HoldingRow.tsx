@@ -1,6 +1,24 @@
 import { getThemeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
 import { DIVIDEND_TIER_META, formatShares } from './shared';
+import type { Dispatch, SetStateAction } from 'react';
+import type { PortfolioItem } from './buildPositionItems';
+import type { ShareInputs } from './shared';
+
+interface HoldingRowProps {
+  item: PortfolioItem;
+  isExpanded: boolean;
+  onToggle: (ticker: string) => void;
+  totalValue: number;
+  sellAmounts: ShareInputs;
+  setSellAmounts: Dispatch<SetStateAction<ShareInputs>>;
+  onSell: (ticker: string, shares: number) => void;
+  onLimitSell?: (ticker: string, side: 'sell', kind?: 'stopLoss') => void;
+  drip?: Record<string, boolean>;
+  onToggleDrip?: (ticker: string) => void;
+  darkMode: boolean;
+  colorBlindMode: boolean;
+}
 
 // A single long-position row in the portfolio modal (collapsed summary + expanded
 // stats / dividend info / sell controls).
@@ -17,7 +35,7 @@ const HoldingRow = ({
   onToggleDrip,
   darkMode,
   colorBlindMode,
-}) => {
+}: HoldingRowProps) => {
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const diversityPercent = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
 
@@ -182,7 +200,7 @@ const HoldingRow = ({
               }}
               onBlur={() => {
                 const current = sellAmounts[item.ticker];
-                if (current === '' || current < 0.01) {
+                if (current === '' || (current !== undefined && current < 0.01)) {
                   setSellAmounts((prev) => ({ ...prev, [item.ticker]: 1 }));
                 }
               }}

@@ -85,7 +85,7 @@ import type * as Api from './api/types';
 const callable = <Req = unknown, Res = unknown>(name: string) => httpsCallable<Req, Res>(functions, name);
 
 export const createUserFunction = callable('createUser');
-export const checkUsernameFunction = callable('checkUsername');
+export const checkUsernameFunction = callable<{ displayName: string }, { available: boolean }>('checkUsername');
 export const deleteAccountFunction = callable<{ confirmUsername: string }>('deleteAccount');
 export const changeDisplayNameFunction = callable('changeDisplayName');
 export const purchaseCosmeticFunction = callable<{ cosmeticId: string }>('purchaseCosmetic');
