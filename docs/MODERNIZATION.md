@@ -59,7 +59,14 @@ Tests typecheck under `tsconfig.test.json`, which only relaxes
 `noUncheckedIndexedAccess`.
 
 Remaining, in order:
-1. `src/components/`, `src/pages/`, `src/App.jsx`, `src/AdminPanel.jsx`, `main.jsx`
+1. The last 26 JS files (`git ls-files 'src/*.jsx' 'src/*.js'`). Admin panel is
+   done. Next batch: PreMarketModal, CrewSelectionModal, ShopTab, PriceChart,
+   PredictionCard.test. MarketGrid waits on CharacterCard. App.jsx (662 lines)
+   must be split while converting; also split MarketIndex, AboutModal,
+   LeaderboardPage, StockPage (on the eslint warn list).
+   Noted for later: ProfileChart and PortfolioChart duplicate their drawing code
+   (merge in Phase 4). Backend bug: getPublicProfile sends `displayCrewPin || null`,
+   so a player who hid their crew pin still shows it on their public profile.
 2. Turn off `allowJs`; drop the JS globs from `eslint.config.js`.
 
 ## Phase 3: Backend restructure + TypeScript
