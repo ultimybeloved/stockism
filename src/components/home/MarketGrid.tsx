@@ -82,7 +82,7 @@ const MarketGrid = ({
       isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
       onToggleWatchlist={onToggleWatchlist}
       tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
-      haltInfo={marketData?.haltedTickers?.[character.ticker] as CardProps['haltInfo']}
+      haltInfo={marketData?.haltedTickers?.[character.ticker]}
       onSetAlert={onSetAlert}
       // Only in the Review tab: elsewhere the card's own price and 24h
       // change are the whole story.

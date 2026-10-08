@@ -8,23 +8,34 @@ import TradeActionModal from '../components/modals/TradeActionModal';
 import { getMarketClosedState } from '../utils/marketHours';
 import { statusBadge, STATUS_MAP, statusOf } from '../constants/statuses';
 import { useStockPageData } from '../hooks/useStockPageData';
+import StockPositionCard from '../components/stock/StockPositionCard';
+import EtfLinks from '../components/stock/EtfLinks';
+import type { ReactNode } from 'react';
+import type { PricePoint, TradeAction } from '../types';
 
-const CHART_TYPES = [
+type ChartType = 'area' | 'bar';
+
+const CHART_TYPES: { key: ChartType; label: string }[] = [
   { key: 'area', label: 'Area' },
   { key: 'bar', label: 'Bar' },
 ];
 
-const StockPage = ({ onTrade }) => {
-  const { ticker } = useParams();
+interface StockPageProps {
+  onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
+}
+
+const StockPage = ({ onTrade }: StockPageProps) => {
+  // The route is /stock/:ticker, so the param is always there.
+  const ticker = useParams().ticker ?? '';
   const navigate = useNavigate();
-  const { darkMode, user, userData, prices, priceHistory, marketData } = useAppContext();
+  const { darkMode, user, userData, marketData } = useAppContext();
   const colorBlindMode = userData?.colorBlindMode || false;
   const marketClosed = getMarketClosedState(marketData).closed;
   const [timeRange, setTimeRange] = useState('1d');
-  const [chartType, setChartType] = useState('area');
-  const [tradeAction, setTradeAction] = useState(null);
+  const [chartType, setChartType] = useState<ChartType>('area');
+  const [tradeAction, setTradeAction] = useState<TradeAction | null>(null);
   const [showTradeMenu, setShowTradeMenu] = useState(false);
-  const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
+  const [hoveredChartPoint, setHoveredChartPoint] = useState<PricePoint | null>(null);
 
   const {
     character,
@@ -60,10 +71,10 @@ const StockPage = ({ onTrade }) => {
   const isUp = priceStats.change >= 0;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-500' : 'text-red-500';
-  const cc = (pct) => (pct >= 0 ? upColor : downColor);
-  const cd = (pct) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
+  const cc = (pct: number) => (pct >= 0 ? upColor : downColor);
+  const cd = (pct: number) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
 
-  const stat = (label, value, cls = textClass) => (
+  const stat = (label: string, value: ReactNode, cls = textClass) => (
     <div className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900' : 'border-amber-200 bg-white'}`}>
       <div className={`text-xs ${mutedClass} uppercase mb-1`}>{label}</div>
       <div className={`font-semibold text-sm ${cls}`}>{value}</div>
@@ -73,12 +84,14 @@ const StockPage = ({ onTrade }) => {
   const tradeButtons = (
     <div className="space-y-2 mt-3">
       <div className="grid grid-cols-2 gap-2">
-        {[
-          ['buy', colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'],
-          ['sell', colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'],
-          ['short', 'border-2 border-orange-500 text-orange-500 hover:bg-orange-500/10'],
-          ['cover', 'border-2 border-blue-500 text-blue-500 hover:bg-blue-500/10'],
-        ].map(([action, cls]) => (
+        {(
+          [
+            ['buy', colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'],
+            ['sell', colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'],
+            ['short', 'border-2 border-orange-500 text-orange-500 hover:bg-orange-500/10'],
+            ['cover', 'border-2 border-blue-500 text-blue-500 hover:bg-blue-500/10'],
+          ] as [TradeAction, string][]
+        ).map(([action, cls]) => (
           <button
             key={action}
             disabled={(action === 'sell' && positionShares === 0) || (action === 'cover' && !shortPosition?.shares)}
@@ -274,137 +287,21 @@ const StockPage = ({ onTrade }) => {
             : stat('Dividend', 'None', mutedClass)}
         </div>
 
-        {/* Your Position */}
-        {(positionShares > 0 || shortPosition?.shares > 0) && (
-          <div className={`${cardClass} border rounded-sm p-4 mb-4`}>
-            <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Your Position</h3>
-            {positionShares > 0 && (
-              <div className="space-y-2 text-sm">
-                {[
-                  ['Shares held', positionShares],
-                  ['Avg cost', formatCurrency(avgCost)],
-                ].map(([l, v]) => (
-                  <div key={l} className="flex justify-between">
-                    <span className={mutedClass}>{l}</span>
-                    <span className={textClass}>{v}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between">
-                  <span className={mutedClass}>Total P&L</span>
-                  <span className={positionPL >= 0 ? upColor : downColor}>
-                    {positionPL >= 0 ? '+' : ''}
-                    {formatCurrency(positionPL)} ({positionPLPct >= 0 ? '+' : ''}
-                    {positionPLPct.toFixed(2)}%)
-                  </span>
-                </div>
-                {dividendRate > 0 && weeklyDividend > 0 && (
-                  <div className="flex justify-between">
-                    <span className={mutedClass}>Weekly dividend</span>
-                    <span className={upColor}>~{formatCurrency(weeklyDividend)}</span>
-                  </div>
-                )}
-                {dividendRate > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className={mutedClass}>DRIP</span>
-                    <button
-                      onClick={handleToggleDrip}
-                      title={drip[ticker] ? 'DRIP on: click to turn off' : 'DRIP off: click to reinvest'}
-                      className={`text-xs px-2 py-1 rounded font-semibold transition-colors ${drip[ticker] ? 'bg-emerald-600 text-white' : darkMode ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}
-                    >
-                      {drip[ticker] ? 'ON' : 'OFF'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            {shortPosition?.shares > 0 && (
-              <div
-                className={`${positionShares > 0 ? 'mt-3 pt-3 border-t ' + (darkMode ? 'border-zinc-800' : 'border-amber-200') : ''} space-y-2 text-sm`}
-              >
-                {[
-                  [
-                    'Shares short',
-                    <span key="ss" className="text-orange-500">
-                      {shortPosition.shares}
-                    </span>,
-                  ],
-                  ['Short entry', formatCurrency(shortPosition.costBasis || shortPosition.entryPrice || 0)],
-                ].map(([l, v]) => (
-                  <div key={l} className="flex justify-between">
-                    <span className={mutedClass}>{l}</span>
-                    <span className={textClass}>{v}</span>
-                  </div>
-                ))}
-                {(() => {
-                  const pl =
-                    ((shortPosition.costBasis || shortPosition.entryPrice || 0) - currentPrice) * shortPosition.shares;
-                  return (
-                    <div className="flex justify-between">
-                      <span className={mutedClass}>Short P&L</span>
-                      <span className={pl >= 0 ? upColor : downColor}>
-                        {pl >= 0 ? '+' : ''}
-                        {formatCurrency(pl)}
-                      </span>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        )}
+        <StockPositionCard
+          ticker={ticker}
+          positionShares={positionShares}
+          shortPosition={shortPosition}
+          avgCost={avgCost}
+          positionPL={positionPL}
+          positionPLPct={positionPLPct}
+          dividendRate={dividendRate}
+          weeklyDividend={weeklyDividend}
+          drip={drip}
+          handleToggleDrip={handleToggleDrip}
+          currentPrice={currentPrice}
+        />
 
-        {/* Part of ETFs */}
-        {memberOfETFs.length > 0 && (
-          <div className={`${cardClass} border rounded-sm p-4 mb-4`}>
-            <h3 className={`text-sm font-semibold ${textClass} mb-3`}>
-              Part of {memberOfETFs.length} ETF{memberOfETFs.length > 1 ? 's' : ''}
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {memberOfETFs.map((etf) => (
-                <button
-                  key={etf.ticker}
-                  onClick={() => navigate(`/stock/${etf.ticker}`)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
-                >
-                  <span className="text-orange-500 font-mono text-xs font-bold">${etf.ticker}</span>
-                  <span className={`text-xs ${mutedClass}`}>{etf.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ETF Constituents */}
-        {character.isETF && character.constituents?.length > 0 && (
-          <div className={`${cardClass} border rounded-sm p-4`}>
-            <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Holdings ({character.constituents.length})</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {[...character.constituents]
-                .sort((a, b) => (prices[b] || 0) - (prices[a] || 0))
-                .map((t) => {
-                  const tHistory = priceHistory[t] || [];
-                  const tFiltered = tHistory.filter((p) => p.timestamp >= Date.now() - 86400000);
-                  const tFirst = tFiltered[0]?.price || prices[t] || 0;
-                  const tChange = tFirst > 0 ? ((prices[t] - tFirst) / tFirst) * 100 : 0;
-                  return (
-                    <button
-                      key={t}
-                      onClick={() => navigate(`/stock/${t}`)}
-                      className={`flex justify-between items-center p-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
-                    >
-                      <span className="text-orange-500 font-mono text-xs font-semibold">${t}</span>
-                      <div className="text-right">
-                        <div className={`text-xs font-semibold ${textClass}`}>{formatCurrency(prices[t] || 0)}</div>
-                        <div className={`text-[10px] ${tChange >= 0 ? upColor : downColor}`}>
-                          {tChange >= 0 ? '▲' : '▼'} {formatChange(Math.abs(tChange))}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        )}
+        <EtfLinks character={character} memberOfETFs={memberOfETFs} />
       </div>
 
       {tradeAction && (

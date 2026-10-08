@@ -7,7 +7,10 @@ import type { IPO, PredictionDoc, PriceHistory, PriceMap, ShareMap, ShortMap, Si
 export interface MarketData {
   marketHalted?: boolean;
   haltReason?: string;
-  haltedTickers?: Record<string, unknown>;
+  /** ticker -> circuit-breaker pause, while one is running. */
+  haltedTickers?: Record<string, { resumeAt?: number }>;
+  /** retired ticker -> its current name, kept after a rename. */
+  tickerAliases?: Record<string, string>;
   [key: string]: unknown;
 }
 
