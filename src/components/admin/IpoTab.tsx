@@ -4,6 +4,11 @@ import { initNewCharacterPricesFunction } from '../../firebase';
 import { formatTimeRemaining } from '../../utils/formatters';
 import { formatDateTime, marketTimes } from '../../utils/localTime';
 
+import { errorMessage } from '../../utils/errors';
+import type { AdminCommonProps } from './types';
+import type { SetMessage } from '../../hooks/admin/adminShared';
+import type { useAdminIpo } from '../../hooks/admin/useAdminIpo';
+
 const IpoTab = ({
   darkMode,
   textClass,
@@ -27,7 +32,7 @@ const IpoTab = ({
   handleCreateIPO,
   handleCancelIPO,
   setMessage,
-}) => {
+}: AdminCommonProps & ReturnType<typeof useAdminIpo> & { setMessage: SetMessage }) => {
   const [initingPrices, setInitingPrices] = useState(false);
 
   // Derived start-time info for the create form
@@ -48,7 +53,7 @@ const IpoTab = ({
         setMessage({ type: 'success', text: `${message}: ${initialized.map((i) => `$${i.ticker}`).join(', ')}` });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err.message || 'Failed to initialize prices' });
+      setMessage({ type: 'error', text: errorMessage(err) || 'Failed to initialize prices' });
     } finally {
       setInitingPrices(false);
     }
@@ -227,7 +232,7 @@ const IpoTab = ({
                 const timeUntilStart = ipo.ipoStartsAt - now;
                 const timeUntilEnd = ipo.ipoEndsAt - now;
 
-                const formatTime = (ms) => {
+                const formatTime = (ms: number) => {
                   if (ms <= 0) return 'Now';
                   const hours = Math.floor(ms / (1000 * 60 * 60));
                   const mins = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));

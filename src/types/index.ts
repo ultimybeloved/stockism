@@ -224,7 +224,8 @@ export interface PredictionDoc {
   id: string;
   type?: string;
   question?: string;
-  options?: string[];
+  options: string[];
+  outcome?: string | null;
   resolved?: boolean;
   endsAt?: number;
   [key: string]: unknown;

@@ -307,7 +307,9 @@ export const reconstructPortfolioHistoryFunction = callable<
   Api.ReconstructHistoryResponse
 >('reconstructPortfolioHistory');
 // Admin: initialize prices for new characters
-export const initNewCharacterPricesFunction = callable('initNewCharacterPrices');
+export const initNewCharacterPricesFunction = callable<void, { initialized: { ticker: string }[]; message: string }>(
+  'initNewCharacterPrices',
+);
 // Admin: recompute crew underdog multipliers (+ optionally re-post Discord rankings)
 export const triggerWeeklyCrewRankingsFunction = callable<
   { skipDiscord?: boolean; rolesOnly?: boolean; dryRun?: boolean },

@@ -1,6 +1,13 @@
 import SeasonPanel from './SeasonPanel';
 import { marketTimes, localDailyTime, localWeeklyTime } from '../../utils/localTime';
 
+import type { AdminCommonProps } from './types';
+import type { useAdminMarketTools } from '../../hooks/admin/useAdminMarketTools';
+import type { useAdminScheduledJobs } from '../../hooks/admin/useAdminScheduledJobs';
+import type { useAdminReviewJobs } from '../../hooks/admin/useAdminReviewJobs';
+import type { useAdminSeason } from '../../hooks/admin/useAdminSeason';
+import type { PriceMap } from '../../types';
+
 const MarketTab = ({
   darkMode,
   textClass,
@@ -32,7 +39,11 @@ const MarketTab = ({
   handleStartSeason,
   handleEndSeason,
   handleRunCheckpoint,
-}) => {
+}: Omit<AdminCommonProps, 'inputClass'> &
+  ReturnType<typeof useAdminMarketTools> &
+  ReturnType<typeof useAdminScheduledJobs> &
+  ReturnType<typeof useAdminReviewJobs> &
+  ReturnType<typeof useAdminSeason> & { prices: PriceMap }) => {
   return (
     // Plain panel, like every other tab. It used to add its own
     // `overflow-y-auto flex-1 p-4`, which nested a second scroll area inside the

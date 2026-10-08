@@ -8,8 +8,19 @@ import { EVENT_AMM_LIQUIDITY } from '../../constants/economy';
 // cost(q) - cost(seedQ) (seedQ is all-zeros unless the market opened with
 // admin-set odds). marketValue picks the right one per market type.
 // Pool shown to the admin is player money only, so any house seed is taken back out.
-const sumPool = (p) => Object.values(p.pools || {}).reduce((a, b) => a + b, 0) - (p.seedTotal || 0);
-const eventStaked = (p) => {
+/** The fields the admin list reads off a prediction: weekly pools or event-market state. */
+type AdminPrediction = PredictionDoc & {
+  pools?: Record<string, number>;
+  seedTotal?: number;
+  outcomes?: string[];
+  b?: number;
+  q?: number[];
+  seedQ?: number[];
+  cancelled?: boolean;
+};
+
+const sumPool = (p: AdminPrediction) => Object.values(p.pools || {}).reduce((a, b) => a + b, 0) - (p.seedTotal || 0);
+const eventStaked = (p: AdminPrediction) => {
   const outcomes = p.outcomes || [];
   const b = p.b || EVENT_AMM_LIQUIDITY;
   if (!outcomes.length || !b) return 0;
@@ -17,10 +28,15 @@ const eventStaked = (p) => {
   const seedQ = Array.isArray(p.seedQ) && p.seedQ.length === outcomes.length ? p.seedQ : outcomes.map(() => 0);
   return Math.max(0, lmsrCost(q, b) - lmsrCost(seedQ, b));
 };
-const marketValue = (p) => (p.cancelled ? 0 : p.type === 'event' ? eventStaked(p) : sumPool(p));
-const valueLabel = (p) => (p.type === 'event' ? 'Staked' : 'Pool');
+const marketValue = (p: AdminPrediction) => (p.cancelled ? 0 : p.type === 'event' ? eventStaked(p) : sumPool(p));
+const valueLabel = (p: AdminPrediction) => (p.type === 'event' ? 'Staked' : 'Pool');
 
 import OverridePayoutPanel from './predictions/OverridePayoutPanel';
+import type { AdminCommonProps } from './types';
+import type { useAdminPredictionCreate } from '../../hooks/admin/useAdminPredictionCreate';
+import type { useAdminPredictionManage } from '../../hooks/admin/useAdminPredictionManage';
+import type { useAdminBets } from '../../hooks/admin/useAdminBets';
+import type { PredictionDoc } from '../../types';
 
 const PredictionsTab = ({
   darkMode,
@@ -78,7 +94,14 @@ const PredictionsTab = ({
   setRecoveryWinner,
   handleScanForBets,
   handleOverridePayout,
-}) => {
+}: AdminCommonProps &
+  ReturnType<typeof useAdminPredictionCreate> &
+  ReturnType<typeof useAdminPredictionManage> &
+  ReturnType<typeof useAdminBets> & {
+    predictions: AdminPrediction[];
+    unresolvedPredictions: AdminPrediction[];
+    onCancelPrediction: (predictionId: string) => void;
+  }) => {
   return (
     <div className="space-y-6">
       {/* SECTION 1: Resolve Pending Predictions */}
@@ -302,22 +325,21 @@ const PredictionsTab = ({
           <h3 className={`font-semibold ${textClass} mb-3`}>🎲 Bets Summary ({allBets.length} total bets)</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {(() => {
-              const byPrediction = {};
+              const byPrediction: Record<
+                string,
+                { question: string; totalAmount: number; betCount: number; byOption: Record<string, number> }
+              > = {};
               allBets.forEach((bet) => {
-                if (!byPrediction[bet.predictionId]) {
-                  byPrediction[bet.predictionId] = {
-                    question: bet.question,
-                    totalAmount: 0,
-                    betCount: 0,
-                    byOption: {},
-                  };
-                }
-                byPrediction[bet.predictionId].totalAmount += bet.amount;
-                byPrediction[bet.predictionId].betCount += 1;
-                if (!byPrediction[bet.predictionId].byOption[bet.option]) {
-                  byPrediction[bet.predictionId].byOption[bet.option] = 0;
-                }
-                byPrediction[bet.predictionId].byOption[bet.option] += bet.amount;
+                const entry = (byPrediction[bet.predictionId] ??= {
+                  question: bet.question,
+                  totalAmount: 0,
+                  betCount: 0,
+                  byOption: {},
+                });
+                entry.totalAmount += bet.amount;
+                entry.betCount += 1;
+                const option = bet.option as string;
+                entry.byOption[option] = (entry.byOption[option] || 0) + bet.amount;
               });
 
               return Object.entries(byPrediction).map(([predId, data]) => (

@@ -1,5 +1,8 @@
 import DropAuditPanel from './diagnostic/DropAuditPanel';
 
+import type { AdminCommonProps } from './types';
+import type { useAdminDiagnostics } from '../../hooks/admin/useAdminDiagnostics';
+
 const DiagnosticTab = ({
   darkMode,
   textClass,
@@ -30,7 +33,7 @@ const DiagnosticTab = ({
   recoveryDone,
   recoveryPreview,
   handleRecoveryExecute,
-}) => {
+}: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminDiagnostics>) => {
   return (
     <div className="space-y-4 overflow-x-hidden" onClick={(e) => e.stopPropagation()}>
       <DropAuditPanel
@@ -289,9 +292,9 @@ const DiagnosticTab = ({
                     <div className={`text-xs font-semibold ${textClass} mb-1`}>
                       Clawbacks ({recoveryPreview.clawbacks.length} users — $
                       {recoveryPreview.totalClawedBack.toFixed(2)} total)
-                      {recoveryPreview.totalUnrecoverable > 0 && (
+                      {(recoveryPreview.totalUnrecoverable ?? 0) > 0 && (
                         <span className="text-red-400 ml-2">
-                          ${recoveryPreview.totalUnrecoverable.toFixed(2)} unrecoverable
+                          ${recoveryPreview.totalUnrecoverable!.toFixed(2)} unrecoverable
                         </span>
                       )}
                     </div>

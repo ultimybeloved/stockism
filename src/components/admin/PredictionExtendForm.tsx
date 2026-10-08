@@ -20,7 +20,16 @@ const PredictionExtendForm = ({
   getEndTime,
   handleExtendPrediction,
 }: AdminCommonProps &
-  ReturnType<typeof useAdminPredictionManage> & {
+  Pick<
+    ReturnType<typeof useAdminPredictionManage>,
+    | 'extendPredictionId'
+    | 'setExtendPredictionId'
+    | 'extendDays'
+    | 'setExtendDays'
+    | 'allowAdditionalBets'
+    | 'setAllowAdditionalBets'
+    | 'handleExtendPrediction'
+  > & {
     predictions: PredictionDoc[];
     getEndTime: (days: number) => number;
   }) => {

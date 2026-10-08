@@ -304,9 +304,40 @@ export interface SeasonDryRunReport {
   scored: DryRunPlayer[];
 }
 
+/** One player's trading in the ticker under diagnosis. */
+export interface DiagnosticUser {
+  uid: string;
+  displayName: string;
+  isBot?: boolean;
+  totalTrades: number;
+  sharesBought: number;
+  sharesSold: number;
+  sharesShorted: number;
+  sharesCovered: number;
+  cashSpent: number;
+  cashReceived: number;
+  cashFromShorts: number;
+  cashToCover: number;
+  netCashFlow: number;
+  currentCash: number;
+  currentHoldings: number;
+  giftedShares: number;
+}
+
 export interface TickerDiagnosticResponse {
-  summary: { totalTrades: number; [key: string]: unknown };
-  [key: string]: unknown;
+  summary: {
+    ticker: string;
+    totalTrades: number;
+    totalUsers: number;
+    priceAtStart: number;
+    currentPrice: number;
+    priceInflation: number;
+    totalCashOut: number;
+    cashIntoOtherStocks: number;
+  };
+  users: DiagnosticUser[];
+  rippleByTicker: { ticker: string; amount: number }[];
+  userRipples?: Record<string, { spentOnOtherStocks: number; shroProfit: number; breakdown: Record<string, number> }>;
 }
 
 export interface TickerRecoveryRequest {
@@ -318,8 +349,18 @@ export interface TickerRecoveryRequest {
 
 export interface TickerRecoveryResponse {
   totalClawedBack: number;
-  priceReset: { to: number; [key: string]: unknown };
-  [key: string]: unknown;
+  totalUnrecoverable?: number;
+  priceReset: { from: number; to: number };
+  historyRewrite?: { keptEntries: number; removedEntries: number };
+  clawbacks: {
+    uid: string;
+    displayName: string;
+    previousCash: number;
+    newCash: number;
+    actualClawback: number;
+    wasFloored?: boolean;
+  }[];
+  holdersAffected: { uid: string; displayName: string; holdings: number; valueDrop: number }[];
 }
 
 /** One flagged push a player traded in, and what it made them. */
