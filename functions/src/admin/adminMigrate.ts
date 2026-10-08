@@ -120,7 +120,7 @@ export const splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCal
     const { checks, blocked, journal, before } = await split.runPreflight({
       ticker,
       ratio,
-      marketData: marketSnap.exists ? marketSnap.data() : {},
+      marketData: marketSnap.exists ? marketSnap.data()! : {},
     });
     if (mode === 'dryRun') {
       return {

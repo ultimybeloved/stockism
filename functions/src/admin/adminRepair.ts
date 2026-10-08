@@ -1,4 +1,3 @@
-'use strict';
 // Heavy player-data repair jobs, split out of adminOps.js when it passed the
 // 600-line limit.
 //
@@ -6,22 +5,21 @@
 // is triggered by hand from the admin panel after something has already gone
 // wrong. Treat every function here as destructive until proven otherwise: prefer
 // a dry-run/scan mode, and never wire any of it to a schedule.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
-const { ADMIN_UID, STARTING_CASH } = require('../shared/constants');
-const { priceHistoryRef } = require('../shared/helpers');
+import { STARTING_CASH } from '../shared/constants';
+import { priceHistoryRef } from '../shared/marketData';
+import type { DocumentData } from 'firebase-admin/firestore';
+import type { PricePoint } from '../shared/types';
 
 /**
  * Repair accounts damaged by the Jiho/Doo price spike.
  * Modes: scan (find victims), repair (fix one user), repairAll (fix all)
  */
-exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { mode, userId, victims: victimsInput, userIds } = data;
   const SPIKE_TICKERS = ['JIHO', 'DOO'];
@@ -39,14 +37,14 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
         results.push({ userId: uid, error: 'not found' });
         continue;
       }
-      const userData = userSnap.data();
+      const userData = userSnap.data()!;
 
       // Get all trades for this user
       const tradesSnap = await db.collection('trades').where('uid', '==', uid).get();
 
-      const trades = [];
+      const trades: DocumentData[] = [];
       tradesSnap.forEach((doc) => {
-        const t = doc.data();
+        const t = doc.data()!;
         const ts = t.timestamp?._seconds
           ? t.timestamp._seconds * 1000
           : t.timestamp?.seconds
@@ -98,16 +96,19 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
     const victims = [];
 
     for (const userDoc of usersSnap.docs) {
-      const userData = userDoc.data();
+      const userData = userDoc.data()!;
       if (userData.isBot) continue;
 
       const uid = userDoc.id;
       const cash = userData.cash || 0;
       const isBankrupt = userData.isBankrupt || false;
-      const holdings = userData.holdings || {};
-      const shorts = userData.shorts || {};
+      const holdings: Record<string, number> = userData.holdings || {};
+      // Old docs stored a bare number instead of a position object; both are read.
+      const shorts: DocumentData = userData.shorts || {};
       const hasHoldings = Object.values(holdings).some((v) => v > 0);
-      const hasShorts = Object.values(shorts).some((v) => v && (typeof v === 'object' ? v.shares > 0 : v > 0));
+      const hasShorts = Object.values(shorts).some(
+        (v: { shares: number } | number | null) => v && (typeof v === 'object' ? v.shares > 0 : v > 0),
+      );
 
       // Flag users who are: bankrupt, negative cash, or $0 with nothing
       const isDamaged = isBankrupt || cash < 0;
@@ -116,9 +117,9 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
       // Get their trades for context
       const tradesSnap = await db.collection('trades').where('uid', '==', uid).get();
 
-      const trades = [];
+      const trades: DocumentData[] = [];
       tradesSnap.forEach((doc) => {
-        const t = doc.data();
+        const t = doc.data()!;
         const ts = t.timestamp?._seconds
           ? t.timestamp._seconds * 1000
           : t.timestamp?.seconds
@@ -145,16 +146,16 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
       if (spikeTrades.length > 0 && spikeShortOpens.length > 0) {
         // Has margin_call_cover AND short opens on spike tickers
         // Restore to cash BEFORE their first spike-ticker short (undo the whole sequence)
-        correctedCash = spikeShortOpens[0].cashBefore;
+        correctedCash = spikeShortOpens[0]!.cashBefore;
         reason = 'margin_call_cover on ' + [...new Set(spikeTrades.map((t) => t.ticker))].join('/');
       } else if (spikeTrades.length > 0) {
         // Has margin_call_cover but no short open found — use cashBefore of first cover
-        correctedCash = spikeTrades[0].cashBefore;
+        correctedCash = spikeTrades[0]!.cashBefore;
         reason = 'margin_call_cover (no short open found)';
       } else if (spikeShortOpens.length > 0 && cash < 0) {
         // Shorted spike tickers, no cover trade logged, but negative cash
         // Restore to cash BEFORE the first spike short (margin should come back since position is gone)
-        correctedCash = spikeShortOpens[0].cashBefore;
+        correctedCash = spikeShortOpens[0]!.cashBefore;
         reason =
           'short closed without trade log (' + [...new Set(spikeShortOpens.map((t) => t.ticker))].join('/') + ')';
       } else if (trades.length === 0 && cash <= 0) {
@@ -171,8 +172,8 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
       let costBasisToRestore = null;
 
       if (tookBailout && trades.length > 0) {
-        const replayHoldings = {};
-        const replayCostBasis = {};
+        const replayHoldings: Record<string, number> = {};
+        const replayCostBasis: Record<string, number> = {};
 
         // Replay all buy/sell trades (entire history, since bailout wiped everything)
         for (const t of trades) {
@@ -256,7 +257,7 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
     }
 
     // Find the victim data from victimsInput or re-scan
-    let victim = victimsInput;
+    const victim = victimsInput;
     if (!victim) {
       throw new functions.https.HttpsError('invalid-argument', 'victim data required');
     }
@@ -267,13 +268,13 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('not-found', 'User not found');
     }
 
-    const updates = {
+    const updates: Record<string, unknown> = {
       cash: Math.round(victim.correctedCash * 100) / 100,
       isBankrupt: false,
     };
 
     // Clear bankruptcy timestamp
-    const userData = userSnap.data();
+    const userData = userSnap.data()!;
     if (userData.bankruptAt) {
       updates.bankruptAt = admin.firestore.FieldValue.delete();
     }
@@ -290,7 +291,7 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
     updates._repairLog = admin.firestore.FieldValue.arrayUnion({
       type: 'spike_repair',
       repairedAt: Date.now(),
-      repairedBy: context.auth.uid,
+      repairedBy: context.auth!.uid,
       previousCash: userData.cash,
       correctedCash: victim.correctedCash,
       tookBailout: victim.tookBailout,
@@ -318,8 +319,8 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
           continue;
         }
 
-        const userData = userSnap.data();
-        const updates = {
+        const userData = userSnap.data()!;
+        const updates: Record<string, unknown> = {
           cash: Math.round(victim.correctedCash * 100) / 100,
           isBankrupt: false,
         };
@@ -338,7 +339,7 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
         updates._repairLog = admin.firestore.FieldValue.arrayUnion({
           type: 'spike_repair',
           repairedAt: Date.now(),
-          repairedBy: context.auth.uid,
+          repairedBy: context.auth!.uid,
           previousCash: userData.cash,
           correctedCash: victim.correctedCash,
           tookBailout: victim.tookBailout,
@@ -348,7 +349,7 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
         await userRef.update(updates);
         results.push({ userId: victim.userId, success: true });
       } catch (err) {
-        results.push({ userId: victim.userId, success: false, error: err.message });
+        results.push({ userId: victim.userId, success: false, error: (err as Error).message });
       }
     }
 
@@ -367,162 +368,164 @@ exports.repairSpikeVictims = cf().https.onCall(async (data, context) => {
  *
  * data.uid — optional; if provided, runs for that user only. Otherwise all non-bot users.
  */
-exports.reconstructPortfolioHistory = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const reconstructPortfolioHistory = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(
+  async (data, context) => {
+    requireAdmin(context);
 
-  const targetUid = data && data.uid ? data.uid : null;
-  const batchLimit = data && data.limit ? Math.min(data.limit, 100) : 50;
-  const startAfterUid = data && data.startAfterUid ? data.startAfterUid : null;
+    const targetUid = data && data.uid ? data.uid : null;
+    const batchLimit = data && data.limit ? Math.min(data.limit, 100) : 50;
+    const startAfterUid = data && data.startAfterUid ? data.startAfterUid : null;
 
-  // 1. Determine which users to process
-  let userDocs = [];
-  let nextCursor = null;
-  let done = true;
+    // 1. Determine which users to process
+    let userDocs = [];
+    let nextCursor = null;
+    let done = true;
 
-  if (targetUid) {
-    const doc = await db.collection('users').doc(targetUid).get();
-    if (!doc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
-    userDocs = [doc];
-  } else {
-    // Order by document ID for stable cursor-based pagination.
-    // Pass startAfterUid as the raw string cursor value (documentId ordering
-    // accepts the ID value directly without needing a snapshot fetch).
-    let q = db
-      .collection('users')
-      .orderBy(admin.firestore.FieldPath.documentId())
-      .limit(batchLimit + 1); // fetch one extra to detect if more pages remain
-    if (startAfterUid) {
-      q = q.startAfter(startAfterUid);
-    }
-    const snap = await q.get();
-    // Filter bots; if extra doc exists, there are more pages
-    const allDocs = snap.docs;
-    const hasMore = allDocs.length > batchLimit;
-    const pageDocs = hasMore ? allDocs.slice(0, batchLimit) : allDocs;
-    userDocs = pageDocs.filter((d) => !d.data().isBot);
-    if (hasMore) {
-      nextCursor = pageDocs[pageDocs.length - 1].id;
-      done = false;
-    }
-  }
-
-  // 2. Load full price history for all tickers (recent + archived) — done once
-  const liveHistDoc = await priceHistoryRef().get();
-  const recentPriceHistory = liveHistDoc.exists ? liveHistDoc.data() || {} : {};
-
-  const archivedSnaps = await db.collection('market').doc('current').collection('price_history').get();
-
-  // Merge: archived (older) + recent (newer), sorted ascending by timestamp
-  const fullPriceHistory = {};
-  for (const [ticker, entries] of Object.entries(recentPriceHistory)) {
-    fullPriceHistory[ticker] = Array.isArray(entries) ? [...entries] : [];
-  }
-  for (const archDoc of archivedSnaps.docs) {
-    const ticker = archDoc.id;
-    const archived = archDoc.data().history || [];
-    const existing = fullPriceHistory[ticker] || [];
-    const merged = [...archived, ...existing];
-    merged.sort((a, b) => a.timestamp - b.timestamp);
-    fullPriceHistory[ticker] = merged;
-  }
-
-  // Helper: binary-search closest price for a ticker at a timestamp
-  const getPriceAt = (ticker, ts) => {
-    const hist = fullPriceHistory[ticker];
-    if (!hist || hist.length === 0) return 0;
-    let lo = 0,
-      hi = hist.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      if (hist[mid].timestamp < ts) lo = mid + 1;
-      else hi = mid;
-    }
-    if (lo > 0 && Math.abs(hist[lo - 1].timestamp - ts) < Math.abs(hist[lo].timestamp - ts)) {
-      return hist[lo - 1].price || 0;
-    }
-    return hist[lo].price || 0;
-  };
-
-  const toMs = (ts) => (ts && ts.toMillis ? ts.toMillis() : ts || 0);
-
-  // 3. Process each user
-  let totalPointsWritten = 0;
-  let usersProcessed = 0;
-  let usersSkipped = 0;
-  let errors = 0;
-
-  for (const userDoc of userDocs) {
-    const uid = userDoc.id;
-    try {
-      // Load trades sorted by timestamp ascending
-      const tradesSnap = await db.collection('trades').where('uid', '==', uid).orderBy('timestamp', 'asc').get();
-
-      if (tradesSnap.empty) {
-        usersSkipped++;
-        continue;
-      }
-
-      // Load existing subcollection timestamps to avoid duplicates
-      const existingSnap = await db
+    if (targetUid) {
+      const doc = await db.collection('users').doc(targetUid).get();
+      if (!doc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
+      userDocs = [doc];
+    } else {
+      // Order by document ID for stable cursor-based pagination.
+      // Pass startAfterUid as the raw string cursor value (documentId ordering
+      // accepts the ID value directly without needing a snapshot fetch).
+      let q = db
         .collection('users')
-        .doc(uid)
-        .collection('portfolioHistory')
-        .select('timestamp')
-        .get();
-      const existingTs = new Set(existingSnap.docs.map((d) => d.data().timestamp));
-
-      // Walk trades forward, maintaining long holdings state
-      const longHoldings = {}; // ticker -> shares
-      const points = [];
-
-      for (const tradeDoc of tradesSnap.docs) {
-        const t = tradeDoc.data();
-        const ts = toMs(t.timestamp);
-        const { ticker, action, amount, cashAfter } = t;
-
-        if (typeof cashAfter !== 'number' || !ticker || !action) continue;
-
-        // Update long holdings
-        if (action === 'buy') {
-          longHoldings[ticker] = (longHoldings[ticker] || 0) + (amount || 0);
-        } else if (action === 'sell') {
-          longHoldings[ticker] = Math.max(0, (longHoldings[ticker] || 0) - (amount || 0));
-        }
-        // short/cover: cashAfter already captures margin effects on cash;
-        // unrealized short P&L is omitted (approximation).
-
-        const holdingsValue = Object.entries(longHoldings).reduce((sum, [t2, shares]) => {
-          return shares > 0 ? sum + shares * getPriceAt(t2, ts) : sum;
-        }, 0);
-
-        const value = Math.round((cashAfter + holdingsValue) * 100) / 100;
-
-        if (!existingTs.has(ts) && value > 0) {
-          points.push({ timestamp: ts, value });
-          existingTs.add(ts); // dedupe within this run
-        }
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(batchLimit + 1); // fetch one extra to detect if more pages remain
+      if (startAfterUid) {
+        q = q.startAfter(startAfterUid);
       }
-
-      // Write in batches of 400
-      const histRef = db.collection('users').doc(uid).collection('portfolioHistory');
-      for (let i = 0; i < points.length; i += 400) {
-        const batch = db.batch();
-        for (const point of points.slice(i, i + 400)) {
-          batch.set(histRef.doc(), point);
-        }
-        await batch.commit();
+      const snap = await q.get();
+      // Filter bots; if extra doc exists, there are more pages
+      const allDocs = snap.docs;
+      const hasMore = allDocs.length > batchLimit;
+      const pageDocs = hasMore ? allDocs.slice(0, batchLimit) : allDocs;
+      userDocs = pageDocs.filter((d) => !d.data()!.isBot);
+      if (hasMore) {
+        nextCursor = pageDocs[pageDocs.length - 1]!.id;
+        done = false;
       }
-
-      totalPointsWritten += points.length;
-      usersProcessed++;
-    } catch (err) {
-      console.error(`Reconstruction failed for ${uid}:`, err.message);
-      errors++;
     }
-  }
 
-  return { usersProcessed, usersSkipped, totalPointsWritten, errors, nextCursor, done };
-});
+    // 2. Load full price history for all tickers (recent + archived) — done once
+    const liveHistDoc = await priceHistoryRef().get();
+    const recentPriceHistory = liveHistDoc.exists ? liveHistDoc.data() || {} : {};
+
+    const archivedSnaps = await db.collection('market').doc('current').collection('price_history').get();
+
+    // Merge: archived (older) + recent (newer), sorted ascending by timestamp
+    const fullPriceHistory: Record<string, PricePoint[]> = {};
+    for (const [ticker, entries] of Object.entries(recentPriceHistory)) {
+      fullPriceHistory[ticker] = Array.isArray(entries) ? [...entries] : [];
+    }
+    for (const archDoc of archivedSnaps.docs) {
+      const ticker = archDoc.id;
+      const archived = archDoc.data()!.history || [];
+      const existing = fullPriceHistory[ticker] || [];
+      const merged = [...archived, ...existing];
+      merged.sort((a, b) => a.timestamp - b.timestamp);
+      fullPriceHistory[ticker] = merged;
+    }
+
+    // Helper: binary-search closest price for a ticker at a timestamp
+    const getPriceAt = (ticker: string, ts: number) => {
+      const hist = fullPriceHistory[ticker];
+      if (!hist || hist.length === 0) return 0;
+      let lo = 0,
+        hi = hist.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (hist[mid]!.timestamp < ts) lo = mid + 1;
+        else hi = mid;
+      }
+      if (lo > 0 && Math.abs(hist[lo - 1]!.timestamp - ts) < Math.abs(hist[lo]!.timestamp - ts)) {
+        return hist[lo - 1]!.price || 0;
+      }
+      return hist[lo]!.price || 0;
+    };
+
+    const toMs = (ts: unknown): number => {
+      const t = ts as { toMillis?: () => number } | null;
+      return t && t.toMillis ? t.toMillis() : (ts as number) || 0;
+    };
+
+    // 3. Process each user
+    let totalPointsWritten = 0;
+    let usersProcessed = 0;
+    let usersSkipped = 0;
+    let errors = 0;
+
+    for (const userDoc of userDocs) {
+      const uid = userDoc.id;
+      try {
+        // Load trades sorted by timestamp ascending
+        const tradesSnap = await db.collection('trades').where('uid', '==', uid).orderBy('timestamp', 'asc').get();
+
+        if (tradesSnap.empty) {
+          usersSkipped++;
+          continue;
+        }
+
+        // Load existing subcollection timestamps to avoid duplicates
+        const existingSnap = await db
+          .collection('users')
+          .doc(uid)
+          .collection('portfolioHistory')
+          .select('timestamp')
+          .get();
+        const existingTs = new Set(existingSnap.docs.map((d) => d.data()!.timestamp));
+
+        // Walk trades forward, maintaining long holdings state
+        const longHoldings: Record<string, number> = {}; // ticker -> shares
+        const points = [];
+
+        for (const tradeDoc of tradesSnap.docs) {
+          const t = tradeDoc.data()!;
+          const ts = toMs(t.timestamp);
+          const { ticker, action, amount, cashAfter } = t;
+
+          if (typeof cashAfter !== 'number' || !ticker || !action) continue;
+
+          // Update long holdings
+          if (action === 'buy') {
+            longHoldings[ticker] = (longHoldings[ticker] || 0) + (amount || 0);
+          } else if (action === 'sell') {
+            longHoldings[ticker] = Math.max(0, (longHoldings[ticker] || 0) - (amount || 0));
+          }
+          // short/cover: cashAfter already captures margin effects on cash;
+          // unrealized short P&L is omitted (approximation).
+
+          const holdingsValue = Object.entries(longHoldings).reduce((sum, [t2, shares]) => {
+            return shares > 0 ? sum + shares * getPriceAt(t2, ts) : sum;
+          }, 0);
+
+          const value = Math.round((cashAfter + holdingsValue) * 100) / 100;
+
+          if (!existingTs.has(ts) && value > 0) {
+            points.push({ timestamp: ts, value });
+            existingTs.add(ts); // dedupe within this run
+          }
+        }
+
+        // Write in batches of 400
+        const histRef = db.collection('users').doc(uid).collection('portfolioHistory');
+        for (let i = 0; i < points.length; i += 400) {
+          const batch = db.batch();
+          for (const point of points.slice(i, i + 400)) {
+            batch.set(histRef.doc(), point);
+          }
+          await batch.commit();
+        }
+
+        totalPointsWritten += points.length;
+        usersProcessed++;
+      } catch (err) {
+        console.error(`Reconstruction failed for ${uid}:`, (err as Error).message);
+        errors++;
+      }
+    }
+
+    return { usersProcessed, usersSkipped, totalPointsWritten, errors, nextCursor, done };
+  },
+);

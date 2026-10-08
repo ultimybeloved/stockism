@@ -1,4 +1,3 @@
-'use strict';
 // Stock split engine: N-for-1 on one stock. Every holder ends up with N times
 // the shares at 1/N the price, so nobody's money changes.
 //
@@ -41,13 +40,13 @@
 //
 // Left as history: feed messages (7-day TTL) and old notifications.
 
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
 
 const db = admin.firestore();
 
-const { CHARACTER_MAP } = require('../shared/characters');
-const {
+import { CHARACTER_MAP } from '../shared/characters';
+import {
   RENAME_TIME_BUDGET_MS,
   RENAME_JOURNAL_DOC,
   TICKER_PATTERN,
@@ -55,9 +54,22 @@ const {
   SPLIT_HISTORY_DOC,
   SPLIT_MIN_RATIO,
   SPLIT_MAX_RATIO,
-} = require('../shared/constants');
-const { priceHistoryRef } = require('../shared/helpers');
-const { walkQuery } = require('./migrationWalk');
+} from '../shared/constants';
+import { priceHistoryRef } from '../shared/marketData';
+import { walkQuery } from './migrationWalk';
+import type { Budget, WalkResult } from './migrationWalk';
+import type { DocumentData, DocumentReference, Query } from 'firebase-admin/firestore';
+
+type Updates = Record<string, unknown>;
+
+/** What every phase is called with. */
+interface PhaseArgs {
+  ticker: string;
+  n: number;
+  splitId: string;
+  cursor?: string | null;
+  budget: Budget;
+}
 
 const marketRef = () => db.collection('market').doc('current');
 const journalRef = () => db.collection('market').doc(SPLIT_JOURNAL_DOC);
@@ -70,23 +82,29 @@ const historyRef = () => db.collection('market').doc(SPLIT_HISTORY_DOC);
 // it can be tested without an emulator.
 
 /** A price after the split. Four decimals: cents would shave value off big holdings. */
-const splitPrice = (p, n) => (typeof p === 'number' ? Math.round((p / n) * 1e4) / 1e4 : p);
+export const splitPrice = <T>(p: T, n: number): T | number =>
+  typeof p === 'number' ? Math.round((p / n) * 1e4) / 1e4 : p;
 /** A share count after the split. */
-const splitShares = (s, n) => (typeof s === 'number' ? Math.round(s * n * 1e6) / 1e6 : s);
+export const splitShares = <T>(s: T, n: number): T | number =>
+  typeof s === 'number' ? Math.round(s * n * 1e6) / 1e6 : s;
 
 /** A list of { price } points (chart history, review detail). */
-const splitPoints = (arr, n) =>
+export const splitPoints = (arr: unknown, n: number) =>
   Array.isArray(arr)
-    ? arr.map((pt) => (pt && typeof pt.price === 'number' ? { ...pt, price: splitPrice(pt.price, n) } : pt))
+    ? arr.map((pt: DocumentData | null) =>
+        pt && typeof pt.price === 'number' ? { ...pt, price: splitPrice(pt.price, n) } : pt,
+      )
     : arr;
 
 /** { buy: [{ts, shares, impact}], sell: [...], ... }: shares x N, impact unchanged. */
-const splitTradeHistory = (byAction, n) => {
+export const splitTradeHistory = (byAction: unknown, n: number) => {
   if (!byAction || typeof byAction !== 'object') return byAction;
-  const out = {};
+  const out: Updates = {};
   for (const [action, list] of Object.entries(byAction)) {
     out[action] = Array.isArray(list)
-      ? list.map((e) => (e && typeof e.shares === 'number' ? { ...e, shares: splitShares(e.shares, n) } : e))
+      ? list.map((e: DocumentData | null) =>
+          e && typeof e.shares === 'number' ? { ...e, shares: splitShares(e.shares, n) } : e,
+        )
       : list;
   }
   return out;
@@ -96,11 +114,16 @@ const splitTradeHistory = (byAction, n) => {
  * Everything one player document needs changed. {} if they hold nothing in the
  * stock or this split has already been applied to them.
  */
-const buildUserSplitUpdates = (u, ticker, n, splitId) => {
+export const buildUserSplitUpdates = (
+  u: DocumentData | null | undefined,
+  ticker: string,
+  n: number,
+  splitId: string,
+): Updates => {
   if (!u || u.splitsApplied?.[splitId]) return {};
   const t = ticker;
-  const up = {};
-  const has = (map) => u[map] && u[map][t] !== undefined && u[map][t] !== null;
+  const up: Updates = {};
+  const has = (map: string) => u[map] && u[map][t] !== undefined && u[map][t] !== null;
 
   if (has('holdings')) up[`holdings.${t}`] = splitShares(u.holdings[t], n);
   if (has('costBasis')) up[`costBasis.${t}`] = splitPrice(u.costBasis[t], n);
@@ -111,7 +134,7 @@ const buildUserSplitUpdates = (u, ticker, n, splitId) => {
     up[`holdingCohorts.${t}`] = {
       ...c,
       eligible: splitShares(c.eligible || 0, n),
-      pending: (c.pending || []).map((lot) => ({ ...lot, shares: splitShares(lot.shares, n) })),
+      pending: (c.pending || []).map((lot: DocumentData) => ({ ...lot, shares: splitShares(lot.shares, n) })),
     };
   }
   if (has('shorts')) {
@@ -136,19 +159,19 @@ const buildUserSplitUpdates = (u, ticker, n, splitId) => {
 };
 
 /** market/current. Prices and records down; IPO share volumes up. */
-const buildMarketSplitUpdates = (m, ticker, n) => {
-  const up = {};
+export const buildMarketSplitUpdates = (m: DocumentData | null | undefined, ticker: string, n: number) => {
+  const up: Updates = {};
   for (const map of ['prices', 'ath', 'atl']) {
-    if (typeof m?.[map]?.[ticker] === 'number') up[`${map}.${ticker}`] = splitPrice(m[map][ticker], n);
+    if (typeof m?.[map]?.[ticker] === 'number') up[`${map}.${ticker}`] = splitPrice(m![map][ticker], n);
   }
-  if (typeof m?.volumes?.[ticker] === 'number') up[`volumes.${ticker}`] = splitShares(m.volumes[ticker], n);
+  if (typeof m?.volumes?.[ticker] === 'number') up[`volumes.${ticker}`] = splitShares(m!.volumes[ticker], n);
   return up;
 };
 
 /** One limit order, open or finished. */
-const buildOrderSplitUpdates = (o, n, splitId) => {
+export const buildOrderSplitUpdates = (o: DocumentData | null | undefined, n: number, splitId: string) => {
   if (!o || o.splitsApplied?.[splitId]) return {};
-  const up = { [`splitsApplied.${splitId}`]: true };
+  const up: Updates = { [`splitsApplied.${splitId}`]: true };
   for (const f of ['shares', 'filledShares']) if (typeof o[f] === 'number') up[f] = splitShares(o[f], n);
   for (const f of ['limitPrice', 'executedPrice', 'stopPrice'])
     if (typeof o[f] === 'number') up[f] = splitPrice(o[f], n);
@@ -156,9 +179,9 @@ const buildOrderSplitUpdates = (o, n, splitId) => {
 };
 
 /** One trade record. The dollar total is the same either way. */
-const buildTradeSplitUpdates = (t, n, splitId) => {
+export const buildTradeSplitUpdates = (t: DocumentData | null | undefined, n: number, splitId: string) => {
   if (!t || t.splitsApplied?.[splitId]) return {};
-  const up = { [`splitsApplied.${splitId}`]: true };
+  const up: Updates = { [`splitsApplied.${splitId}`]: true };
   for (const f of ['amount', 'shares']) if (typeof t[f] === 'number') up[f] = splitShares(t[f], n);
   for (const f of ['price', 'marketPrice', 'executionPrice']) if (typeof t[f] === 'number') up[f] = splitPrice(t[f], n);
   return up;
@@ -172,7 +195,12 @@ const buildTradeSplitUpdates = (t, n, splitId) => {
  * One market document, atomically with its journal mark, so a crash between
  * the two can never make a resume apply it twice.
  */
-const applyOnce = async (key, ref, build, splitId) => {
+const applyOnce = async (
+  key: string,
+  ref: DocumentReference,
+  build: (data: DocumentData) => Updates,
+  splitId: string,
+) => {
   const [docSnap, jSnap] = await Promise.all([ref.get(), journalRef().get()]);
   if (jSnap.data()?.appliedDocs?.[key] === splitId) return 0;
   const updates = docSnap.exists ? build(docSnap.data() || {}) : {};
@@ -184,11 +212,11 @@ const applyOnce = async (key, ref, build, splitId) => {
 };
 
 const walkMarked =
-  (queryFn, build, opts) =>
-  ({ cursor, budget }) =>
+  (queryFn: () => Query, build: (data: DocumentData) => Updates, opts?: { group?: boolean }) =>
+  ({ cursor, budget }: { cursor?: string | null; budget: Budget }) =>
     walkQuery(queryFn, cursor, (data) => build(data), budget, opts);
 
-const PHASES = [
+export const PHASES: { name: string; label: string; run: (args: PhaseArgs) => Promise<WalkResult> }[] = [
   {
     name: 'market',
     label: 'Price, records and chart history',
@@ -214,8 +242,8 @@ const PHASES = [
           `closes_${doc.id}`,
           doc.ref,
           (d) => {
-            const up = {};
-            for (const [day, byTicker] of Object.entries(d.closes || {})) {
+            const up: Updates = {};
+            for (const [day, byTicker] of Object.entries((d.closes || {}) as Record<string, DocumentData | null>)) {
               if (typeof byTicker?.[t] === 'number') up[`closes.${day}.${t}`] = splitPrice(byTicker[t], n);
             }
             return up;
@@ -256,8 +284,10 @@ const PHASES = [
         'indexHistory',
         m.doc('indexHistory'),
         (d) => {
-          if (!Array.isArray(d.constituents) || !d.constituents.some((c) => c.t === t)) return {};
-          return { constituents: d.constituents.map((c) => (c.t === t ? { ...c, b: splitPrice(c.b, n) } : c)) };
+          if (!Array.isArray(d.constituents) || !d.constituents.some((c: DocumentData) => c.t === t)) return {};
+          return {
+            constituents: d.constituents.map((c: DocumentData) => (c.t === t ? { ...c, b: splitPrice(c.b, n) } : c)),
+          };
         },
         splitId,
       );
@@ -331,12 +361,21 @@ const PHASES = [
 // PREFLIGHT
 // ============================================
 
-const currentFactor = async (ticker) => ((await historyRef().get()).data() || {})[ticker]?.factor || 1;
+const currentFactor = async (ticker: string): Promise<number> =>
+  ((await historyRef().get()).data() || {})[ticker]?.factor || 1;
 
 /** Blocking checks, all shown in the dry run. */
-const runPreflight = async ({ ticker, ratio, marketData }) => {
-  const checks = [];
-  const add = (id, label, pass, detail) => checks.push({ id, label, pass, detail });
+export const runPreflight = async ({
+  ticker,
+  ratio,
+  marketData,
+}: {
+  ticker: string;
+  ratio: number;
+  marketData: DocumentData;
+}) => {
+  const checks: { id: string; label: string; pass: boolean; detail: string }[] = [];
+  const add = (id: string, label: string, pass: boolean, detail: string) => checks.push({ id, label, pass, detail });
   const c = CHARACTER_MAP[ticker];
   const before = await currentFactor(ticker);
   const want = before * ratio;
@@ -386,18 +425,18 @@ const runPreflight = async ({ ticker, ratio, marketData }) => {
   );
 
   const [jSnap, rSnap] = await Promise.all([journalRef().get(), db.collection('market').doc(RENAME_JOURNAL_DOC).get()]);
-  const journal = jSnap.exists ? jSnap.data() : null;
+  const journal = jSnap.exists ? jSnap.data()! : null;
   const open = !!journal && journal.status !== 'complete';
   const renameOpen =
-    rSnap.exists && rSnap.data().status && rSnap.data().status !== 'complete' && rSnap.data().status !== 'failed';
+    rSnap.exists && rSnap.data()!.status && rSnap.data()!.status !== 'complete' && rSnap.data()!.status !== 'failed';
   add(
     'journal',
     'No split or rename is part-finished',
     !open && !renameOpen,
     open
-      ? journal.abortedAt
-        ? `The $${journal.ticker} split was aborted part way; its records are half split. Fix by hand first.`
-        : `$${journal.ticker} ${journal.ratio}-for-1 is ${journal.status}. Resume it.`
+      ? journal!.abortedAt
+        ? `The $${journal!.ticker} split was aborted part way; its records are half split. Fix by hand first.`
+        : `$${journal!.ticker} ${journal!.ratio}-for-1 is ${journal!.status}. Resume it.`
       : renameOpen
         ? 'A ticker rename is running.'
         : 'No conflicting run.',
@@ -407,8 +446,8 @@ const runPreflight = async ({ ticker, ratio, marketData }) => {
 };
 
 /** How much each phase will touch, for the dry run. */
-const countDryRun = async ({ ticker }) => {
-  const countQ = async (q) => (await q.count().get()).data().count;
+export const countDryRun = async ({ ticker }: { ticker: string }) => {
+  const countQ = async (q: Query) => (await q.count().get()).data()!.count;
   return {
     holders: await countQ(db.collection('users').where(`holdings.${ticker}`, '>', 0)),
     shorts: await countQ(db.collection('users').where(`shorts.${ticker}.shares`, '>', 0)),
@@ -423,22 +462,22 @@ const countDryRun = async ({ ticker }) => {
 // ============================================
 
 /** Things that must be true once every phase is done. [] means clean. */
-const verifySplit = async (journal) => {
+export const verifySplit = async (journal: DocumentData) => {
   const { ticker: t, splitId } = journal;
-  const problems = [];
+  const problems: string[] = [];
   const m = (await marketRef().get()).data() || {};
   const expectPrice = splitPrice(journal.priceBefore, journal.ratio);
   if (Math.abs((m.prices?.[t] || 0) - expectPrice) > 0.0001) {
     problems.push(`price is ${m.prices?.[t]}, expected ${expectPrice}`);
   }
   const idx = (await db.collection('market').doc('indexHistory').get()).data() || {};
-  const entry = (idx.constituents || []).find((c) => c.t === t);
-  if (entry && Math.abs(entry.b - CHARACTER_MAP[t].basePrice) > 0.0001) {
-    problems.push(`index base is ${entry.b}, deployed basePrice is ${CHARACTER_MAP[t].basePrice}`);
+  const entry = (idx.constituents || []).find((c: DocumentData) => c.t === t);
+  if (entry && Math.abs(entry.b - CHARACTER_MAP[t]!.basePrice) > 0.0001) {
+    problems.push(`index base is ${entry.b}, deployed basePrice is ${CHARACTER_MAP[t]!.basePrice}`);
   }
   // Every current holder carries this split's mark.
   const holders = await db.collection('users').where(`holdings.${t}`, '>', 0).get();
-  const unmarked = holders.docs.filter((d) => !d.data().splitsApplied?.[splitId]).length;
+  const unmarked = holders.docs.filter((d) => !d.data()!.splitsApplied?.[splitId]).length;
   if (unmarked) problems.push(`${unmarked} holder(s) not split`);
   return problems;
 };
@@ -455,11 +494,23 @@ const verifySplit = async (journal) => {
  * The market must already be halted (preflight), and this never reopens it:
  * the admin reopens it by hand after checking, same as the rename runbook.
  */
-const runSplit = async ({ ticker, ratio, mode, uid, timeBudgetMs = RENAME_TIME_BUDGET_MS }) => {
+export const runSplit = async ({
+  ticker,
+  ratio,
+  mode,
+  uid,
+  timeBudgetMs = RENAME_TIME_BUDGET_MS,
+}: {
+  ticker: string;
+  ratio: number;
+  mode: string;
+  uid: string;
+  timeBudgetMs?: number;
+}) => {
   const started = Date.now();
   const budget = { expired: () => Date.now() - started > timeBudgetMs };
   const jSnap = await journalRef().get();
-  let journal = jSnap.exists ? jSnap.data() : null;
+  let journal: DocumentData | null = jSnap.exists ? jSnap.data()! : null;
 
   if (mode === 'abort') {
     if (!journal) throw new functions.https.HttpsError('not-found', 'No split to abort.');
@@ -503,30 +554,31 @@ const runSplit = async ({ ticker, ratio, mode, uid, timeBudgetMs = RENAME_TIME_B
     await journalRef().set(journal);
   }
 
-  const ctx = { ticker: journal.ticker, n: journal.ratio, splitId: journal.splitId };
+  const ctx = { ticker: journal!.ticker, n: journal!.ratio, splitId: journal!.splitId };
+  const j = journal!;
   try {
     for (const phase of PHASES) {
-      const state = journal.phases[phase.name] || { status: 'pending', done: 0 };
+      const state = j.phases[phase.name] || { status: 'pending', done: 0 };
       if (state.status === 'complete') continue;
       if (budget.expired()) {
         await journalRef().set({ status: 'paused' }, { merge: true });
-        return { paused: true, nextPhase: phase.name, journal: { ...journal, status: 'paused' } };
+        return { paused: true, nextPhase: phase.name, journal: { ...j, status: 'paused' } };
       }
       const result = await phase.run({ ...ctx, cursor: state.cursor || null, budget });
-      journal.phases[phase.name] = {
+      j.phases[phase.name] = {
         status: result.complete ? 'complete' : 'paused',
         done: (state.done || 0) + (result.done || 0),
         cursor: result.cursor || null,
         finishedAt: result.complete ? Date.now() : null,
       };
-      await journalRef().set({ phases: journal.phases }, { merge: true });
+      await journalRef().set({ phases: j.phases }, { merge: true });
       if (!result.complete) {
         await journalRef().set({ status: 'paused' }, { merge: true });
-        return { paused: true, nextPhase: phase.name, journal: { ...journal, status: 'paused' } };
+        return { paused: true, nextPhase: phase.name, journal: { ...j, status: 'paused' } };
       }
     }
 
-    const problems = await verifySplit(journal);
+    const problems = await verifySplit(j);
     if (problems.length) {
       await journalRef().set({ status: 'failed', lastError: problems.join('; ') }, { merge: true });
       throw new functions.https.HttpsError(
@@ -538,37 +590,21 @@ const runSplit = async ({ ticker, ratio, mode, uid, timeBudgetMs = RENAME_TIME_B
     await historyRef().set(
       {
         [ctx.ticker]: {
-          factor: journal.factorAfter,
+          factor: j.factorAfter,
           splits: admin.firestore.FieldValue.arrayUnion({ ratio: ctx.n, at: Date.now(), splitId: ctx.splitId }),
         },
       },
       { merge: true },
     );
     await journalRef().set({ status: 'complete', finishedAt: Date.now() }, { merge: true });
-    return { success: true, ticker: ctx.ticker, ratio: ctx.n, journal: { ...journal, status: 'complete' } };
+    return { success: true, ticker: ctx.ticker, ratio: ctx.n, journal: { ...j, status: 'complete' } };
   } catch (err) {
     if (err instanceof functions.https.HttpsError) throw err;
-    await journalRef().set({ status: 'failed', lastError: err.message }, { merge: true });
+    const message = (err as Error).message;
+    await journalRef().set({ status: 'failed', lastError: message }, { merge: true });
     throw new functions.https.HttpsError(
       'internal',
-      `Split failed part way: ${err.message}. Market stays halted. Resume from the admin panel.`,
+      `Split failed part way: ${message}. Market stays halted. Resume from the admin panel.`,
     );
   }
-};
-
-module.exports = {
-  PHASES,
-  runPreflight,
-  countDryRun,
-  runSplit,
-  verifySplit,
-  // exported for unit tests
-  splitPrice,
-  splitShares,
-  splitPoints,
-  splitTradeHistory,
-  buildUserSplitUpdates,
-  buildMarketSplitUpdates,
-  buildOrderSplitUpdates,
-  buildTradeSplitUpdates,
 };

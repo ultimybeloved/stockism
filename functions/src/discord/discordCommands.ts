@@ -1,4 +1,3 @@
-'use strict';
 // Slash-command handlers for the Stockism companion bot.
 //
 // Internal module — NOT exported through functions/src/index.js. discordInteractions.js
@@ -15,54 +14,66 @@
 //   * FRIENDLY TO STRANGERS. Most people running these commands in a partner
 //     server have no Stockism account. "Not linked" is a signup pitch, not an error.
 
-const admin = require('firebase-admin');
+import * as admin from 'firebase-admin';
 const db = admin.firestore();
 
-const { CHARACTERS } = require('../shared/characters');
-const {
+import { CHARACTERS } from '../shared/characters';
+import {
   DISCORD_COMMAND_COOLDOWN_MS,
   DISCORD_LEADERBOARD_ROWS,
   DISCORD_PORTFOLIO_ROWS,
   SITE_URL,
   LEADERBOARD_CACHE_TTL,
-} = require('../shared/constants');
-const { getDailyMissions, getCrewWeeklyMissions, CREWS } = require('../shared/crews');
-const { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } = require('../missions/missionChecks');
-const { countRankAbove, getWeekId, crewEmoji } = require('../shared/helpers');
+} from '../shared/constants';
+import { getDailyMissions, getCrewWeeklyMissions, CREWS } from '../shared/crews';
+import type { Mission } from '../shared/crews';
+import type { DocumentData } from 'firebase-admin/firestore';
+import type { UserData } from '../shared/types';
+import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from '../missions/missionChecks';
+import { countRankAbove } from '../shared/equity';
+import { getWeekId } from '../shared/tradeRecords';
+import { crewEmoji } from '../shared/discordApi';
 
 const BRAND_COLOR = 0x5865f2;
-const EPHEMERAL = 64;
+export const EPHEMERAL = 64;
 
 // ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------
 
-const money = (n) =>
+/** The parts of a Discord slash-command interaction these handlers read. */
+export interface Interaction {
+  data: { name?: string; options?: { name: string; value: string }[] };
+  member?: { user?: { id: string } };
+  user?: { id: string };
+}
+
+const money = (n: unknown) =>
   `$${(Number(n) || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 
-const signedPct = (n) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
+const signedPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 
 // Any user-supplied text echoed back into an embed must be escaped and capped.
 // Discord renders markdown inside embeds, so an unescaped echo lets someone run
 // `/price [totally legit](https://evil.example)` and get the BOT — which carries
 // more trust than they do, especially in a partner server — to render their link.
 // Backslash-escape markdown punctuation and truncate to keep embeds in limits.
-const safeEcho = (input, max = 60) => {
+const safeEcho = (input: unknown, max = 60) => {
   const text = String(input == null ? '' : input).slice(0, max);
   return text.replace(/[\\`*_~|<>[\]()#@:-]/g, (ch) => `\\${ch}`);
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
-const rankLabel = (i) => MEDALS[i] || `\`#${i + 1}\``;
+const rankLabel = (i: number) => MEDALS[i] || `\`#${i + 1}\``;
 
 const CHAR_BY_TICKER = new Map(CHARACTERS.map((c) => [c.ticker.toUpperCase(), c]));
 
 // Resolve free text to a ticker: exact ticker first, then name / alt-name match.
 // Players type "/price james lee" as often as "/price DG".
-const resolveTicker = (input) => {
+const resolveTicker = (input: unknown) => {
   if (!input) return null;
   const q = String(input).trim().toUpperCase();
   if (CHAR_BY_TICKER.has(q)) return CHAR_BY_TICKER.get(q);
@@ -75,7 +86,7 @@ const resolveTicker = (input) => {
   );
 };
 
-const linkButton = (label, url, emoji) => ({
+const linkButton = (label: string, url: string, emoji?: string) => ({
   type: 2,
   style: 5,
   label,
@@ -83,7 +94,10 @@ const linkButton = (label, url, emoji) => ({
   ...(emoji ? { emoji: { name: emoji } } : {}),
 });
 
-const buttonRow = (...buttons) => ({ type: 1, components: buttons.filter(Boolean) });
+const buttonRow = (...buttons: (object | null | false | undefined)[]) => ({
+  type: 1,
+  components: buttons.filter(Boolean),
+});
 
 // ---------------------------------------------------------------------------
 // Signup funnel
@@ -92,7 +106,7 @@ const buttonRow = (...buttons) => ({ type: 1, components: buttons.filter(Boolean
 // Most /profile and /portfolio calls in a partner server come from someone with
 // no account. That is the single best moment to pitch them, so it gets a real
 // reply rather than an error.
-const signupPitch = (what) => ({
+const signupPitch = (what: string) => ({
   embeds: [
     {
       color: BRAND_COLOR,
@@ -123,20 +137,23 @@ const marketRef = () => db.collection('market').doc('current');
 const readMarket = async (withSnapshot = false) => {
   const reads = [marketRef().get()];
   if (withSnapshot) reads.push(db.collection('market').doc('preHaltSnapshot').get());
-  const [marketSnap, snapshotSnap] = await Promise.all(reads);
+  const [marketSnap, snapshotSnap] = (await Promise.all(reads)) as [
+    admin.firestore.DocumentSnapshot,
+    admin.firestore.DocumentSnapshot | undefined,
+  ];
   return {
-    prices: marketSnap.exists ? marketSnap.data().prices || {} : {},
-    launchedTickers: marketSnap.exists ? marketSnap.data().launchedTickers || [] : [],
-    marketHalted: marketSnap.exists ? !!marketSnap.data().marketHalted : false,
-    previousPrices: snapshotSnap && snapshotSnap.exists ? snapshotSnap.data().prices || {} : {},
+    prices: marketSnap.exists ? marketSnap.data()!.prices || {} : {},
+    launchedTickers: marketSnap.exists ? marketSnap.data()!.launchedTickers || [] : [],
+    marketHalted: marketSnap.exists ? !!marketSnap.data()!.marketHalted : false,
+    previousPrices: snapshotSnap && snapshotSnap.exists ? snapshotSnap.data()!.prices || {} : {},
   };
 };
 
 // The account behind a Discord ID, or null. One indexed query.
-const findUserByDiscordId = async (discordId) => {
+const findUserByDiscordId = async (discordId: string | null) => {
   if (!discordId) return null;
   const snap = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
-  return snap.empty ? null : { uid: snap.docs[0].id, data: snap.docs[0].data() };
+  return snap.empty ? null : { uid: snap.docs[0]!.id, data: snap.docs[0]!.data() };
 };
 
 // ---------------------------------------------------------------------------
@@ -148,7 +165,7 @@ const findUserByDiscordId = async (discordId) => {
 // partner server should never be able to trigger a users-collection scan.
 const cmdLeaderboard = async () => {
   const snap = await db.collection('leaderboard').doc('global').get();
-  const entries = snap.exists ? snap.data().entries || [] : [];
+  const entries = snap.exists ? snap.data()!.entries || [] : [];
 
   if (entries.length === 0) {
     return {
@@ -168,9 +185,12 @@ const cmdLeaderboard = async () => {
   // to render names literally (and stay safe if that validation ever loosens).
   const rows = entries
     .slice(0, DISCORD_LEADERBOARD_ROWS)
-    .map((e, i) => `${rankLabel(i)} **${safeEcho(e.displayName || 'Anonymous', 32)}** — ${money(e.portfolioValue)}`);
+    .map(
+      (e: DocumentData, i: number) =>
+        `${rankLabel(i)} **${safeEcho(e.displayName || 'Anonymous', 32)}** — ${money(e.portfolioValue)}`,
+    );
 
-  const generatedAt = snap.data().generatedAt || 0;
+  const generatedAt = snap.data()!.generatedAt || 0;
   const stale = Date.now() - generatedAt > LEADERBOARD_CACHE_TTL;
 
   return {
@@ -190,7 +210,7 @@ const cmdLeaderboard = async () => {
 // /profile
 // ---------------------------------------------------------------------------
 
-const cmdProfile = async (interaction) => {
+const cmdProfile = async (interaction: Interaction) => {
   // Optional user option: /profile @someone. Falls back to the caller.
   const targetOption = (interaction.data.options || []).find((o) => o.name === 'user');
   const targetId = targetOption ? targetOption.value : callerDiscordId(interaction);
@@ -221,7 +241,7 @@ const cmdProfile = async (interaction) => {
   const value = data.portfolioValue || 0;
   const rank = await countRankAbove(value, null);
 
-  const holdings = data.holdings || {};
+  const holdings: Record<string, number> = data.holdings || {};
   const distinct = Object.values(holdings).filter((s) => s > 0).length;
   const achievements = Array.isArray(data.achievements) ? data.achievements.length : 0;
 
@@ -264,7 +284,7 @@ const cmdProfile = async (interaction) => {
 // /price
 // ---------------------------------------------------------------------------
 
-const cmdPrice = async (interaction) => {
+const cmdPrice = async (interaction: Interaction) => {
   const raw = (interaction.data.options || []).find((o) => o.name === 'stock');
   const character = resolveTicker(raw && raw.value);
 
@@ -326,14 +346,14 @@ const cmdPrice = async (interaction) => {
 // /portfolio
 // ---------------------------------------------------------------------------
 
-const cmdPortfolio = async (interaction) => {
+const cmdPortfolio = async (interaction: Interaction) => {
   const found = await findUserByDiscordId(callerDiscordId(interaction));
   if (!found) return signupPitch('Link your account to see your portfolio here.');
 
   const { data } = found;
   const { prices } = await readMarket();
 
-  const rows = Object.entries(data.holdings || {})
+  const rows = Object.entries((data.holdings || {}) as Record<string, number>)
     .filter(([, shares]) => shares > 0)
     .map(([ticker, shares]) => ({
       ticker,
@@ -384,7 +404,7 @@ const cmdPortfolio = async (interaction) => {
 // /missions
 // ---------------------------------------------------------------------------
 
-const cmdMissions = async (interaction) => {
+const cmdMissions = async (interaction: Interaction) => {
   const found = await findUserByDiscordId(callerDiscordId(interaction));
   if (!found) return signupPitch('Link your account to track your missions here.');
 
@@ -403,19 +423,24 @@ const cmdMissions = async (interaction) => {
   }
 
   const { prices } = await readMarket();
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split('T')[0]!;
   const weekId = getWeekId();
 
   const dailyProgress = (data.dailyMissions || {})[today] || {};
   const weeklyProgress = (data.weeklyMissions || {})[weekId] || {};
   const seed = weeklyProgress.rerollSeed || 0;
 
-  const render = (missions, progress, checks, claimedMap) =>
+  const render = (
+    missions: Mission[],
+    progress: DocumentData,
+    checks: Record<string, ((p: never, u: UserData, prices?: Record<string, number> | null) => boolean) | undefined>,
+    claimedMap: Record<string, boolean> | undefined,
+  ) =>
     missions
       .map((m) => {
         const claimed = !!(claimedMap || {})[m.id];
         const check = checks[m.id];
-        const done = check ? check(progress, data, prices) : false;
+        const done = check ? check(progress as never, data as UserData, prices) : false;
         const icon = claimed ? '✅' : done ? '🎁' : '⬜';
         const suffix = claimed ? '' : done ? ' — **ready to claim**' : '';
         return `${icon} ${m.name || m.id}${suffix}`;
@@ -445,7 +470,7 @@ const cmdMissions = async (interaction) => {
 // /buy — deep link only, never places an order
 // ---------------------------------------------------------------------------
 
-const cmdBuy = async (interaction) => {
+const cmdBuy = async (interaction: Interaction) => {
   const raw = (interaction.data.options || []).find((o) => o.name === 'stock');
   const character = resolveTicker(raw && raw.value);
 
@@ -486,15 +511,15 @@ const cmdBuy = async (interaction) => {
 // Cooldown + dispatch
 // ---------------------------------------------------------------------------
 
-const callerDiscordId = (interaction) =>
+const callerDiscordId = (interaction: Interaction) =>
   (interaction.member && interaction.member.user && interaction.member.user.id) ||
   (interaction.user && interaction.user.id) ||
   null;
 
 // Instance-memory cooldown. Trimmed opportunistically so a busy instance cannot
 // grow this map without bound.
-const lastCommandAt = new Map();
-const onCooldown = (discordId) => {
+const lastCommandAt = new Map<string, number>();
+const onCooldown = (discordId: string | null) => {
   if (!discordId) return false;
   const now = Date.now();
   if (lastCommandAt.size > 5000) {
@@ -508,7 +533,7 @@ const onCooldown = (discordId) => {
   return false;
 };
 
-const HANDLERS = {
+export const HANDLERS: Record<string, (interaction: Interaction) => Promise<Record<string, unknown>>> = {
   leaderboard: cmdLeaderboard,
   profile: cmdProfile,
   price: cmdPrice,
@@ -521,13 +546,13 @@ const HANDLERS = {
 // visibly so partner servers get the shared-moment effect.
 const PRIVATE_COMMANDS = new Set(['portfolio', 'missions']);
 
-const isPrivate = (name) => PRIVATE_COMMANDS.has(name);
+export const isPrivate = (name: string) => PRIVATE_COMMANDS.has(name);
 
 // Returns the message payload to edit into the deferred reply, or null if the
 // command is unknown.
-const handleSlashCommand = async (interaction) => {
+export const handleSlashCommand = async (interaction: Interaction) => {
   const name = interaction.data && interaction.data.name;
-  const handler = HANDLERS[name];
+  const handler = HANDLERS[name as string];
   if (!handler) return null;
 
   if (onCooldown(callerDiscordId(interaction))) {
@@ -536,5 +561,3 @@ const handleSlashCommand = async (interaction) => {
 
   return handler(interaction);
 };
-
-module.exports = { handleSlashCommand, isPrivate, EPHEMERAL, HANDLERS };

@@ -18,7 +18,7 @@ export const getWeekId = (now = new Date()) => {
   const weekStart = new Date(now);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
   if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
-  return weekStart.toISOString().split('T')[0];
+  return weekStart.toISOString().split('T')[0]!;
 };
 
 // Mission/stat credit for a filled trade — shared by executeTrade, limit-order

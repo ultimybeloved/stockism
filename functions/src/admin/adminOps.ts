@@ -1,24 +1,20 @@
-'use strict';
 // Small, direct admin operations: grant/revoke, set cash, broadcast, toggles.
 //
 // The heavy data-repair jobs that used to live here are in adminRepair.js, and
 // the ticker/roster migrations are in adminMigrate.js. Anything here should be a
 // short, single-purpose action an admin triggers from the panel.
-const functions = require('firebase-functions');
-const { cf, requireAppCheck } = require('../shared/fnConfig');
-const admin = require('firebase-admin');
+import * as functions from 'firebase-functions';
+import { cf, requireAdmin } from '../shared/fnConfig';
+import * as admin from 'firebase-admin';
 // Modular import — the emulator sandbox strips admin.firestore statics.
-const { Timestamp, FieldValue } = require('firebase-admin/firestore');
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
-const { ADMIN_UID, ADMIN_MEMO_MAX_LENGTH, REINSTATE_CASH_DEFAULT, COSMETIC_CATALOG } = require('../shared/constants');
-const { grantedValueUpdate } = require('../shared/helpers');
-const { notifyCashGrant } = require('./adminCashNotify');
+import { ADMIN_UID, ADMIN_MEMO_MAX_LENGTH, REINSTATE_CASH_DEFAULT, COSMETIC_CATALOG } from '../shared/constants';
+import { grantedValueUpdate } from '../shared/equity';
+import { notifyCashGrant } from './adminCashNotify';
 
-exports.removeAchievement = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const removeAchievement = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { userId, achievementId } = data;
   if (!userId || !achievementId) {
@@ -43,11 +39,8 @@ exports.removeAchievement = cf().https.onCall(async (data, context) => {
 /**
  * Admin reinstate a bankrupt user - gives them $1000 cash without wiping crew/holdings
  */
-exports.reinstateUser = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const reinstateUser = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { userId } = data;
   if (!userId) {
@@ -60,7 +53,7 @@ exports.reinstateUser = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('not-found', 'User not found');
   }
 
-  const userData = userSnap.data();
+  const userData = userSnap.data()!;
   const cashBoost = Math.max(0, REINSTATE_CASH_DEFAULT - (userData.cash || 0));
 
   await userRef.update({
@@ -78,11 +71,8 @@ exports.reinstateUser = cf().https.onCall(async (data, context) => {
   return { success: true, userId, cashAdded: cashBoost };
 });
 
-exports.adminSetCash = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminSetCash = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   // Three modes. 'set' writes an absolute figure; 'add' and 'subtract' move the
   // balance by `amount` so the admin never has to do the arithmetic themselves
@@ -105,6 +95,7 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
   // The memo is the whole point of the log — an unexplained balance change is
   // the thing we are trying to stop having. Legacy set-only callers are exempt.
   const cleanMemo = String(memo || '')
+    // eslint-disable-next-line no-control-regex -- strips control characters on purpose
     .replace(/[\x00-\x1f\x7f]/g, '')
     .trim();
   if (!isLegacySet && !cleanMemo) {
@@ -123,7 +114,7 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('not-found', 'User not found');
   }
 
-  const userData = userSnap.data();
+  const userData = userSnap.data()!;
   const prevCash = userData.cash || 0;
   const rounded = Math.round(magnitude * 100) / 100;
   const rawNew = mode === 'set' ? rounded : mode === 'add' ? prevCash + rounded : prevCash - rounded;
@@ -159,10 +150,10 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
       delta: Math.round((newCash - prevCash) * 100) / 100,
       memo: cleanMemo || null,
       at: admin.firestore.FieldValue.serverTimestamp(),
-      by: context.auth.uid,
+      by: context.auth!.uid,
     });
   } catch (err) {
-    console.error('adminSetCash: failed to write adminCashLog:', err.message);
+    console.error('adminSetCash: failed to write adminCashLog:', (err as Error).message);
   }
 
   // Raises only. The memo stays internal; the player is told the amount and
@@ -171,7 +162,7 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
   try {
     delivery = await notifyCashGrant(userId, userData, newCash - prevCash);
   } catch (err) {
-    console.error('adminSetCash: failed to notify player:', err.message);
+    console.error('adminSetCash: failed to notify player:', (err as Error).message);
   }
 
   return {
@@ -191,14 +182,11 @@ exports.adminSetCash = cf().https.onCall(async (data, context) => {
  * Revoking also unequips the cosmetic if it's the active one for its slot, so
  * the user isn't left displaying something they no longer own.
  */
-exports.adminGrantCosmetic = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { userId, cosmeticId, revoke } = data || {};
-  const cosmetic = COSMETIC_CATALOG[cosmeticId];
+  const cosmetic = (COSMETIC_CATALOG as Record<string, { type: string; price: number }>)[cosmeticId];
   if (!userId || !cosmetic) {
     throw new functions.https.HttpsError('invalid-argument', 'Valid userId and cosmeticId required');
   }
@@ -210,14 +198,14 @@ exports.adminGrantCosmetic = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('not-found', 'User not found');
     }
 
-    const owned = userSnap.data().ownedCosmetics || [];
+    const owned = userSnap.data()!.ownedCosmetics || [];
 
     if (revoke) {
       if (!owned.includes(cosmeticId)) {
         throw new functions.https.HttpsError('failed-precondition', 'User does not own this cosmetic');
       }
-      const updates = { ownedCosmetics: admin.firestore.FieldValue.arrayRemove(cosmeticId) };
-      const active = userSnap.data().activeCosmetics || {};
+      const updates: Record<string, unknown> = { ownedCosmetics: admin.firestore.FieldValue.arrayRemove(cosmeticId) };
+      const active = userSnap.data()!.activeCosmetics || {};
       if (active[cosmetic.type] === cosmeticId) {
         updates[`activeCosmetics.${cosmetic.type}`] = admin.firestore.FieldValue.delete();
       }
@@ -238,11 +226,8 @@ exports.adminGrantCosmetic = cf().https.onCall(async (data, context) => {
  * announce game changes so players aren't confused. Batched so a few thousand
  * users is one quick run.
  */
-exports.broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const title = (data.title || '').toString().trim();
   const message = (data.message || '').toString().trim();
@@ -263,7 +248,7 @@ exports.broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (
   let batch = db.batch();
   let pending = 0;
   for (const doc of usersSnap.docs) {
-    if (doc.data().isBot) continue;
+    if (doc.data()!.isBot) continue;
     const ref = db.collection('users').doc(doc.id).collection('notifications').doc();
     batch.set(ref, { type: 'announcement', title, message, read: false, createdAt, data: notifData });
     sent++;
@@ -283,11 +268,8 @@ exports.broadcastNotification = cf({ timeoutSeconds: 300 }).https.onCall(async (
  * Admin-only: flag or clear the Discord-link wall on a user. When set, the user
  * must link a Discord account before they can trade/bet/play (unless already linked).
  */
-exports.adminSetDiscordWall = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminSetDiscordWall = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { userId, value } = data;
   if (!userId || typeof value !== 'boolean') {
@@ -302,7 +284,7 @@ exports.adminSetDiscordWall = cf().https.onCall(async (data, context) => {
 
   await userRef.update({ requiresDiscordLink: value });
 
-  return { success: true, userId, requiresDiscordLink: value, alreadyLinked: !!userSnap.data().discordId };
+  return { success: true, userId, requiresDiscordLink: value, alreadyLinked: !!userSnap.data()!.discordId };
 });
 
 /**
@@ -315,11 +297,8 @@ exports.adminSetDiscordWall = cf().https.onCall(async (data, context) => {
  * startingCashUnlocked is deliberately left alone: the account keeps its
  * verified status, so relinking can't pay out the starting-cash bonus twice.
  */
-exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { userId } = data;
   if (!userId) {
@@ -332,7 +311,7 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('not-found', 'User not found');
   }
 
-  const previousDiscordId = userSnap.data().discordId || null;
+  const previousDiscordId = userSnap.data()!.discordId || null;
   if (!previousDiscordId) {
     return { success: true, userId, previousDiscordId: null, alreadyUnlinked: true };
   }
@@ -372,11 +351,8 @@ exports.adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
  * Discord — that case wants adminUnlinkDiscord or adminMoveDiscordLink, and
  * clearing the holds without detaching it would do nothing.
  */
-exports.adminFreeDiscord = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminFreeDiscord = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { discordId } = data || {};
   if (!discordId || typeof discordId !== 'string' || !/^\d{5,32}$/.test(discordId.trim())) {
@@ -386,20 +362,23 @@ exports.adminFreeDiscord = cf().https.onCall(async (data, context) => {
 
   const holderSnap = await db.collection('users').where('discordId', '==', id).limit(1).get();
   if (!holderSnap.empty) {
-    const holder = holderSnap.docs[0];
+    const holder = holderSnap.docs[0]!;
     throw new functions.https.HttpsError(
       'failed-precondition',
-      `Still linked to ${holder.data().displayName || holder.id}. Unlink it from that account first.`,
+      `Still linked to ${holder.data()!.displayName || holder.id}. Unlink it from that account first.`,
     );
   }
 
   const tombRef = db.collection('discordTombstones').doc(id);
   const bindRef = db.collection('discordBindings').doc(id);
-  const [tombSnap, bindSnap] = await db.getAll(tombRef, bindRef);
+  const [tombSnap, bindSnap] = (await db.getAll(tombRef, bindRef)) as [
+    admin.firestore.DocumentSnapshot,
+    admin.firestore.DocumentSnapshot,
+  ];
 
   const clearedTombstone = tombSnap.exists;
   const clearedBinding = bindSnap.exists;
-  const boundTo = bindSnap.exists ? bindSnap.data().uid || null : null;
+  const boundTo = bindSnap.exists ? bindSnap.data()!.uid || null : null;
 
   await Promise.all([
     clearedTombstone ? tombRef.delete() : Promise.resolve(),
@@ -437,11 +416,8 @@ exports.adminFreeDiscord = cf().https.onCall(async (data, context) => {
  * startingCashUnlocked is deliberately untouched on both sides — the target is
  * already verified, so the move can never re-pay the starting-cash bonus.
  */
-exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  if (!context.auth || context.auth.uid !== ADMIN_UID) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only');
-  }
+export const adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
+  requireAdmin(context);
 
   const { sourceUserId, targetUserId } = data || {};
   if (!sourceUserId || !targetUserId || typeof sourceUserId !== 'string' || typeof targetUserId !== 'string') {
@@ -458,7 +434,10 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
   const targetRef = db.collection('users').doc(targetUserId);
 
   const moved = await db.runTransaction(async (transaction) => {
-    const [sourceSnap, targetSnap] = await transaction.getAll(sourceRef, targetRef);
+    const [sourceSnap, targetSnap] = (await transaction.getAll(sourceRef, targetRef)) as [
+      admin.firestore.DocumentSnapshot,
+      admin.firestore.DocumentSnapshot,
+    ];
     if (!sourceSnap.exists) {
       throw new functions.https.HttpsError('not-found', 'Source account (the new one) not found');
     }
@@ -466,8 +445,8 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('not-found', 'Target account (the original one) not found');
     }
 
-    const source = sourceSnap.data();
-    const target = targetSnap.data();
+    const source = sourceSnap.data()!;
+    const target = targetSnap.data()!;
     const discordId = source.discordId;
     if (!discordId) {
       throw new functions.https.HttpsError(
@@ -531,7 +510,7 @@ exports.adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
       await admin.auth().deleteUser(sourceUserId);
       authDeleted = true;
     } catch (err) {
-      if (err.code !== 'auth/user-not-found') {
+      if ((err as { code?: string }).code !== 'auth/user-not-found') {
         console.error('adminMoveDiscordLink: failed to delete source auth user:', err);
       }
     }
