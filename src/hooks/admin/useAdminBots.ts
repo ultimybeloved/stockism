@@ -3,13 +3,14 @@ import { doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db, createBotsFunction } from '../../firebase';
 import type { AdminHookDeps } from './adminShared';
 import { errorMessage } from '../../utils/errors';
-import type { AdminUser } from './adminShared';
 import type { UserData } from '../../types';
+
+type BotDoc = UserData & { id: string };
 
 // Bots tab: list and delete bot accounts.
 export function useAdminBots({ showMessage, setLoading }: Pick<AdminHookDeps, 'showMessage' | 'setLoading'>) {
   // Bot management state
-  const [bots, setBots] = useState<AdminUser[]>([]);
+  const [bots, setBots] = useState<BotDoc[]>([]);
   const [botsLoading, setBotsLoading] = useState(false);
 
   const handleLoadBots = async () => {
@@ -17,7 +18,7 @@ export function useAdminBots({ showMessage, setLoading }: Pick<AdminHookDeps, 's
     try {
       const usersRef = collection(db, 'users');
       const usersSnap = await getDocs(usersRef);
-      const botList: AdminUser[] = [];
+      const botList: BotDoc[] = [];
 
       usersSnap.forEach((doc) => {
         const data = doc.data() as UserData;

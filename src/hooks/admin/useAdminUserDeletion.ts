@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { CHARACTERS } from '../../characters';
 import { ADMIN_UIDS } from '../../constants';
-import { sharesOf } from '../../utils/holdings';
+import { summarizeForDeletion } from './deletionSummary';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AdminHookDeps, AdminUser } from './adminShared';
 
@@ -45,45 +44,15 @@ export function useAdminUserDeletion({
     }
 
     // Calculate what's being deleted
-    let totalCash = 0;
-    let totalShares = 0;
-    let totalValue = 0;
-    let totalShortShares = 0;
-    let totalShortCollateral = 0;
-    const holdingsSummary: Record<string, number> = {};
-    const shortsSummary: Record<string, number> = {};
-
-    for (const userId of selectedForDeletion) {
-      const user = allUsers.find((u) => u.id === userId);
-      if (!user) continue;
-
-      totalCash += user.cash || 0;
-
-      // Sum up holdings
-      if (user.holdings) {
-        Object.entries(user.holdings).forEach(([ticker, shares]) => {
-          const shareCount = sharesOf(shares);
-          if (shareCount > 0) {
-            totalShares += shareCount;
-            holdingsSummary[ticker] = (holdingsSummary[ticker] || 0) + shareCount;
-            const character = CHARACTERS.find((c) => c.ticker === ticker);
-            const price = prices[ticker] || character?.basePrice || 0;
-            totalValue += shareCount * price;
-          }
-        });
-      }
-
-      // Sum up shorts
-      if (user.shorts) {
-        Object.entries(user.shorts).forEach(([ticker, position]) => {
-          if (position && position.shares > 0) {
-            totalShortShares += position.shares;
-            totalShortCollateral += position.margin || 0;
-            shortsSummary[ticker] = (shortsSummary[ticker] || 0) + position.shares;
-          }
-        });
-      }
-    }
+    const {
+      totalCash,
+      totalShares,
+      totalValue,
+      totalShortShares,
+      totalShortCollateral,
+      holdingsSummary,
+      shortsSummary,
+    } = summarizeForDeletion(selectedForDeletion, allUsers, prices);
 
     // Build summary message
     const topHoldings = Object.entries(holdingsSummary)

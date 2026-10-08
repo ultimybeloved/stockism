@@ -1,41 +1,10 @@
 import { useState } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { withUserDefaults } from './adminShared';
 import type { AdminHookDeps, AdminUser } from './adminShared';
 import type { UserData } from '../../types';
 import { sharesOf } from '../../utils/holdings';
-
-// Containers the user card indexes into directly — UserPositions does
-// Object.keys(selectedUser.holdings) with no guard, and there are several more
-// like it. A raw user document may be missing any of them: new, reset and
-// bankrupt accounts often have no holdings/shorts/bets field at all. Both the
-// list rows and the full-document load run through here so neither can hand a
-// component an undefined where it expects an object.
-const withUserDefaults = (data: UserData) => ({
-  displayName: data.displayName || 'Unknown',
-  cash: data.cash || 0,
-  portfolioValue: data.portfolioValue || 0,
-  holdings: data.holdings || {},
-  shorts: data.shorts || {},
-  bets: data.bets || {},
-  costBasis: data.costBasis || {},
-  transactionLog: data.transactionLog || [],
-  ownedCosmetics: data.ownedCosmetics || [],
-  activeCosmetics: data.activeCosmetics || {},
-  lowestWhileHolding: data.lowestWhileHolding || {},
-  peakPortfolioValue: data.peakPortfolioValue || 0,
-  totalTrades: data.totalTrades || 0,
-  totalCheckins: data.totalCheckins || 0,
-  isAdmin: data.isAdmin || false,
-  isBankrupt: data.isBankrupt || false,
-  marginEnabled: data.marginEnabled || false,
-  marginUsed: data.marginUsed || 0,
-  activeLoan: data.activeLoan || null,
-  crew: data.crew || null,
-  discordId: data.discordId || null,
-  discordUsername: data.discordUsername || null,
-  requiresDiscordLink: data.requiresDiscordLink || false,
-});
 
 // Users tab: load/search/sort the user list and selected-user card.
 export function useAdminUserList({

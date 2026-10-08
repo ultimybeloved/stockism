@@ -1,6 +1,7 @@
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { errorMessage } from '../../utils/errors';
+import { withUserDefaults } from './adminShared';
 import type { AdminHookDeps, AdminUser } from './adminShared';
 import type { UserData } from '../../types';
 
@@ -53,7 +54,13 @@ export function useAdminPortfolioSync({
 
       // Update selected user and reload users list
       if (selectedUser && selectedUser.id === userId) {
-        setSelectedUser({ ...userData, id: userId, portfolioValue: newPortfolioValue, lastSyncedAt: new Date() });
+        setSelectedUser({
+          ...userData,
+          id: userId,
+          ...withUserDefaults(userData),
+          portfolioValue: newPortfolioValue,
+          lastSyncedAt: new Date(),
+        });
       }
       await handleLoadAllUsers();
     } catch (err) {

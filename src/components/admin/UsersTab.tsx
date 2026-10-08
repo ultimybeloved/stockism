@@ -4,6 +4,21 @@ import UserFinancials from './users/UserFinancials';
 import UserPositions from './users/UserPositions';
 import UserAdminActions from './users/UserAdminActions';
 import UserTradeAs from './users/UserTradeAs';
+import DeleteModePanel from './users/DeleteModePanel';
+import type { AdminCommonProps } from './types';
+import type { useAdminUserList } from '../../hooks/admin/useAdminUserList';
+import type { useAdminPortfolioSync } from '../../hooks/admin/useAdminPortfolioSync';
+import type { useAdminUserOps } from '../../hooks/admin/useAdminUserOps';
+import type { useAdminCosmetics } from '../../hooks/admin/useAdminCosmetics';
+import type { useAdminUserDeletion } from '../../hooks/admin/useAdminUserDeletion';
+import type { PriceMap } from '../../types';
+
+type UsersTabProps = AdminCommonProps &
+  ReturnType<typeof useAdminUserList> &
+  ReturnType<typeof useAdminPortfolioSync> &
+  ReturnType<typeof useAdminUserOps> &
+  ReturnType<typeof useAdminCosmetics> &
+  ReturnType<typeof useAdminUserDeletion> & { prices: PriceMap };
 import { sharesOf } from '../../utils/holdings';
 
 const UsersTab = ({
@@ -63,7 +78,7 @@ const UsersTab = ({
   handleRollbackUser,
   toggleUserForDeletion,
   deleteSelectedUsers,
-}) => {
+}: UsersTabProps) => {
   return (
     <div className="space-y-4">
       <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
@@ -123,96 +138,10 @@ const UsersTab = ({
         </button>
       </div>
 
-      {/* Delete Mode Controls */}
       {deleteMode && (
-        <div className={`p-3 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
-          <div className="flex justify-between items-center">
-            <div>
-              <span className="text-red-500 font-semibold">Delete Mode Active</span>
-              <span className={`ml-2 ${mutedClass}`}>{selectedForDeletion.size} selected</span>
-            </div>
-            <button
-              onClick={deleteSelectedUsers}
-              disabled={loading || selectedForDeletion.size === 0}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-            >
-              {loading ? '...' : `🗑️ Delete ${selectedForDeletion.size} Users`}
-            </button>
-          </div>
-
-          {/* Live selection summary */}
-          {selectedForDeletion.size > 0 &&
-            (() => {
-              let totalCash = 0;
-              let totalShares = 0;
-              let totalValue = 0;
-              let totalShortShares = 0;
-              let totalShortValue = 0;
-
-              for (const userId of selectedForDeletion) {
-                const user = allUsers.find((u) => u.id === userId);
-                if (!user) continue;
-                totalCash += user.cash || 0;
-
-                if (user.holdings && Object.keys(user.holdings).length > 0) {
-                  Object.entries(user.holdings).forEach(([ticker, shares]) => {
-                    const shareCount = sharesOf(shares);
-                    if (shareCount > 0) {
-                      totalShares += shareCount;
-                      const character = CHARACTERS.find((c) => c.ticker === ticker);
-                      const price = prices[ticker] || character?.basePrice || 0;
-                      totalValue += shareCount * price;
-                    }
-                  });
-                }
-
-                if (user.shorts && Object.keys(user.shorts).length > 0) {
-                  Object.values(user.shorts).forEach((position) => {
-                    if (position && position.shares > 0) {
-                      totalShortShares += position.shares;
-                      totalShortValue += position.margin || 0;
-                    }
-                  });
-                }
-              }
-
-              return (
-                <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} text-xs`}>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <span className={mutedClass}>Cash: </span>
-                      <span className="text-green-500 font-semibold">${totalCash.toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span className={mutedClass}>Shares: </span>
-                      <span className={`font-semibold ${textClass}`}>{totalShares}</span>
-                    </div>
-                    <div>
-                      <span className={mutedClass}>Value: </span>
-                      <span className="text-cyan-500 font-semibold">${totalValue.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  {totalShortShares > 0 && (
-                    <div className="grid grid-cols-3 gap-2 mt-1">
-                      <div>
-                        <span className={mutedClass}>Shorts: </span>
-                        <span className="text-orange-500 font-semibold">{totalShortShares}</span>
-                      </div>
-                      <div>
-                        <span className={mutedClass}>Collateral: </span>
-                        <span className="text-orange-500 font-semibold">${totalShortValue.toFixed(2)}</span>
-                      </div>
-                      <div></div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-          <p className={`text-xs ${mutedClass} mt-2`}>
-            Click on users to select them for deletion. Admin accounts cannot be deleted.
-          </p>
-        </div>
+        <DeleteModePanel
+          {...{ darkMode, textClass, mutedClass, loading, selectedForDeletion, allUsers, prices, deleteSelectedUsers }}
+        />
       )}
 
       {allUsers.length > 0 && (
@@ -251,7 +180,7 @@ const UsersTab = ({
                     onClick={() =>
                       handleSetCash(
                         selectedUser.id,
-                        selectedUser.displayName || selectedUser.username,
+                        selectedUser.displayName || selectedUser.username || '',
                         selectedUser.cash,
                       )
                     }
@@ -263,7 +192,7 @@ const UsersTab = ({
                   </button>
                   <button
                     onClick={() =>
-                      handleTransferToLadder(selectedUser.id, selectedUser.displayName || selectedUser.username)
+                      handleTransferToLadder(selectedUser.id, selectedUser.displayName || selectedUser.username || '')
                     }
                     disabled={loading}
                     title="Transfer cash to/from this user's ladder game balance"

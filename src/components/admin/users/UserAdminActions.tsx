@@ -41,7 +41,15 @@ const UserAdminActions = ({
   editCostBasis,
   setEditCostBasis,
 }: AdminCommonProps &
-  ReturnType<typeof useAdminUserOps> &
+  Omit<
+    ReturnType<typeof useAdminUserOps>,
+    | 'bankruptLoaded'
+    | 'bankruptUsers'
+    | 'loadBankruptUsers'
+    | 'handleReinstateUser'
+    | 'handleSetCash'
+    | 'handleTransferToLadder'
+  > &
   ReturnType<typeof useAdminCosmetics> & { selectedUser: LoadedAdminUser }) => (
   <>
     {/* Crew, achievements, margin, holdings — the direct Firestore edits */}
