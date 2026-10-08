@@ -10,8 +10,8 @@ import { useState, useEffect, useRef } from 'react';
 export type UserRowPosition = 'unknown' | 'visible' | 'above' | 'below';
 
 export const useUserRowPosition = (deps: unknown[] = []) => {
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
-  const userRowRef = useRef<HTMLElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const userRowRef = useRef<HTMLDivElement | null>(null);
   const [userRowPosition, setUserRowPosition] = useState<UserRowPosition>('unknown');
 
   useEffect(() => {

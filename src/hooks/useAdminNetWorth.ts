@@ -11,7 +11,7 @@ import type { LeaderRow } from '../types';
 // getLeaderboard, because that result is cached in a world-readable Firestore
 // doc — anything added to it would be public to every player. This fetches only
 // when the admin actually turns the view on, and only for the rows on screen.
-export function useAdminNetWorth(leaders: LeaderRow[] | null | undefined, user: User | null) {
+export function useAdminNetWorth<T extends LeaderRow>(leaders: T[] | null | undefined, user: User | null) {
   const [netMode, setNetMode] = useState(false);
   const [margins, setMargins] = useState<Record<string, number> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,8 +41,8 @@ export function useAdminNetWorth(leaders: LeaderRow[] | null | undefined, user: 
 
   // Re-rank on net worth. Falls back to the untouched list until the margins
   // land, so the board never flashes a half-applied ordering.
-  const adjusted = useMemo(() => {
-    if (!isAdmin || !netMode || !margins) return leaders;
+  const adjusted = useMemo((): T[] => {
+    if (!isAdmin || !netMode || !margins) return leaders || [];
     return [...(leaders || [])]
       .map((l) => ({
         ...l,

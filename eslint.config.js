@@ -72,7 +72,6 @@ export default tseslint.config(
   {
     files: [
       'src/App.{jsx,tsx}',
-      'src/pages/LeaderboardPage.{jsx,tsx}',
       'src/pages/StockPage.{jsx,tsx}',
     ],
     rules: { 'max-lines': 'warn' },
