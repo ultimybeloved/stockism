@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { switchCrewFunction, leaveCrewFunction } from '../../../firebase';
+import { switchCrewFunction, leaveCrewFunction } from '../../../api/callables';
 import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { reportUnexpected } from '../../../monitoring';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { adminReturnDistributionFunction } from '../../../../firebase';
+import { adminReturnDistributionFunction } from '../../../../api/callables';
 import { errorMessage } from '../../../../utils/errors';
 import type { AdminCommonProps } from '../types';
 import type { ReturnDistributionReport } from '../../../../api/types';

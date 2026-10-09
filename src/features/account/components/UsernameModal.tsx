@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createUserFunction, checkUsernameFunction } from '../../../firebase';
+import { createUserFunction, checkUsernameFunction } from '../../../api/callables';
 import { containsProfanity, getProfanityMessage } from '../../../utils/profanity';
 import { validateUsername } from '../../../utils/username';
 import { getThemeClasses } from '../../../utils/theme';

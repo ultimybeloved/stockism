@@ -1,5 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { claimPredictionPayoutFunction, chargeMarginInterestFunction, syncPortfolioFunction } from '../../../firebase';
+import {
+  claimPredictionPayoutFunction,
+  chargeMarginInterestFunction,
+  syncPortfolioFunction,
+} from '../../../api/callables';
 import { formatCurrency } from '../../../utils/formatters';
 import { BAILOUT_CASH, PORTFOLIO_SYNC_MIN_INTERVAL_MS } from '../../../constants';
 import { reportUnexpected } from '../../../monitoring';

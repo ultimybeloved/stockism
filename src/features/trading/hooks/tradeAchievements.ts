@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/react';
-import { achievementAlertFunction, syncPortfolioFunction } from '../../../firebase';
+import { achievementAlertFunction, syncPortfolioFunction } from '../../../api/callables';
 
 // Achievement side-effects for a completed trade. Split out of
 // useTradeManagement.js, which was past the 200-line hook limit.

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { sweepDustPositionsFunction } from '../../../firebase';
+import { sweepDustPositionsFunction } from '../../../api/callables';
 import { DUST_MAX_VALUE } from '../../../constants/economy';
 import { formatCurrency } from '../../../utils/formatters';
 import { errorMessage } from '../../../utils/errors';

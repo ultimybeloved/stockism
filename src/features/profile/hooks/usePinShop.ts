@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { purchasePinFunction, purchaseCosmeticFunction, db } from '../../../firebase';
+import { db } from '../../../firebase';
+import { purchasePinFunction, purchaseCosmeticFunction } from '../../../api/callables';
 import { SHOP_PINS } from '../../../crews';
 import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';

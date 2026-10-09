@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db, claimCrewMissionFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { claimCrewMissionFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import {
   CREW_MAP,

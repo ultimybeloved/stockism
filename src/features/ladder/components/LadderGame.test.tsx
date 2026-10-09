@@ -20,8 +20,8 @@ vi.mock('../../../context/AppContext', () => ({
   useAppContext: () => h.ctx,
 }));
 
-vi.mock('../../../firebase', () => ({
-  db: {},
+vi.mock('../../../firebase', () => ({ db: {} }));
+vi.mock('../../../api/callables', () => ({
   playLadderGameFunction: vi.fn(async () => ({ data: {} })),
   depositToLadderGameFunction: vi.fn(async () => ({ data: {} })),
   withdrawFromLadderGameFunction: vi.fn(async () => ({ data: {} })),
@@ -48,7 +48,7 @@ import {
   depositToLadderGameFunction,
   withdrawFromLadderGameFunction,
   getLadderLeaderboardFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 
 describe('LadderGame', () => {
   beforeEach(() => {

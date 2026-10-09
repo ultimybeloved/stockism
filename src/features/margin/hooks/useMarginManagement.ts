@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { toggleMarginFunction, repayMarginFunction } from '../../../firebase';
+import { toggleMarginFunction, repayMarginFunction } from '../../../api/callables';
 import { checkMarginEligibility } from '../../../utils/calculations';
 import { ADMIN_UIDS } from '../../../constants';
 import { formatCurrency } from '../../../utils/formatters';

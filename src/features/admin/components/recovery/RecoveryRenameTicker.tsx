@@ -7,7 +7,7 @@ import type { AdminCommonProps } from '../types';
 import type { ShowMessage } from '../../utils/adminShared';
 import type { useAdminRecoveryTools } from '../../hooks/useAdminRecoveryTools';
 import type { RenameJournal, RenameTickerRequest, RenameTickerResponse } from '../../../../api/types';
-import type { renameTickerFunction as RenameTickerFn } from '../../../../firebase';
+import type { renameTickerFunction as RenameTickerFn } from '../../../../api/callables';
 
 // Admin front end for the ticker rename engine (functions/src/market/tickerRename.js).
 //

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, collection, query, where, limit, getDocs } from 'firebase/firestore';
-import { db, adminMoveDiscordLinkFunction, adminFreeDiscordFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { adminMoveDiscordLinkFunction, adminFreeDiscordFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { DocumentSnapshot } from 'firebase/firestore';

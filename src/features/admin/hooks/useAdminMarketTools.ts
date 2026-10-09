@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db, setMarketHaltFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { setMarketHaltFunction } from '../../../api/callables';
 import { priceHistoryDocRef } from '../utils/adminShared';
 import { recordReviewMoves, loadReviewChanges } from '../utils/reviewChangeTracking';
 import { buildTrailingCascade } from '../utils/trailingCascade';

@@ -277,28 +277,22 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 ```
 src/
 ├── App.tsx                    Router, subscriptions, state and handler assembly
-├── AdminPanel.tsx             Admin orchestrator (state lives in hooks/admin/)
 ├── characters.ts              Source of truth: characters, ETFs, rarity, dividends
 ├── crews.ts                   Source of truth: crews, missions, pins, penalties
-├── firebase.ts                Firebase config and callable wrappers
+├── firebase.ts                Firebase setup (auth, Firestore, emulator switch)
+├── api/                       callables.ts (every backend call, typed) + types.ts
+├── features/<feature>/        components/, hooks/, pages/, utils/ per feature:
+│                              admin, ladder, trading, margin, market, portfolio,
+│                              predictions, ipo, leaderboard, missions, crews,
+│                              season, profile, account, notifications, about
+├── shared/                    components/ (layout, charts, common) and hooks/
+│                              used by several features
+├── app/                       App shell: modal stack, status screens, install prompt
 ├── context/AppContext.tsx     Global state: prices, user, holdings, market data
-├── pages/                     Home, Leaderboard, Achievements, Ladder, Predictions,
-│                              Profile, PublicProfile, Stock
-├── hooks/                     One concern per hook (trade, margin, crew, missions,
-│   ├── admin/                 IPO, predictions, pin shop, daily ops, market data)
-│   └── ladder/
-├── components/
-│   ├── layout/                Header, Footer, MobileBottomNav, Layout
-│   ├── modals/                Every modal
-│   ├── home/                  Market grid, controls, dashboard rail
-│   ├── portfolio/             Holdings, shorts, pending orders, charts
-│   ├── trading/               Trade inputs, limit order controls, margin preview
-│   ├── ladder/                Ladder board, side panel, ladder modals
-│   ├── admin/                 Admin tabs
-│   └── charts/, profile/, leaderboard/, missions/, notifications/, common/
-├── utils/                     calculations, theme, formatters, rarity, marketHours,
-│                              ladderTax, cosmetics, username, profanity
-└── constants/                 economy.js, achievements.js, cosmetics.js
+├── rules/                     Game rules shared with the backend (synced copies)
+├── utils/                     calculations, theme, formatters, errors, rarity,
+│                              marketHours, cosmetics, username, profanity
+└── constants/                 economy, achievements, cosmetics, seasons
 
 functions/src/
 ├── index.js                   Entry point, 7 lines

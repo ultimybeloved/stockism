@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../../../firebase';
 import {
-  db,
   listBackupsFunction,
   restoreBackupFunction,
   triggerManualBackupFunction,
   reconstructPortfolioHistoryFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { BackupFile } from '../../../api/types';
 import type { AdminHookDeps } from '../utils/adminShared';

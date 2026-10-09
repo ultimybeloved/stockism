@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { startDiscordLinkFunction, unlinkOwnDiscordFunction } from '../../../firebase';
+import { startDiscordLinkFunction, unlinkOwnDiscordFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 
 const DISCORD_CLIENT_ID = '1467420774477467752';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { triggerAltScanFunction, reviewWatchlistAlertFunction } from '../../../firebase';
+import { triggerAltScanFunction, reviewWatchlistAlertFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { AltScanResponse } from '../../../api/types';
 import type { ShowMessage } from '../utils/adminShared';

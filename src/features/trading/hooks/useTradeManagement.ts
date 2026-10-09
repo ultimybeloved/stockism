@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { HttpsCallableResult } from 'firebase/functions';
-import { executeTradeFunction } from '../../../firebase';
+import { executeTradeFunction } from '../../../api/callables';
 import { fireTradeConfetti } from '../../../utils/confetti';
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import { isWeeklyHalt } from '../../../utils/marketHours';

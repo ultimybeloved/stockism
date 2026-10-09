@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { placeBetFunction, buyEventSharesFunction, sellEventSharesFunction } from '../../../firebase';
+import { placeBetFunction, buyEventSharesFunction, sellEventSharesFunction } from '../../../api/callables';
 import { formatCurrency } from '../../../utils/formatters';
 import { getTotalInvested } from '../../../utils/calculations';
 import { isWeeklyHalt } from '../../../utils/marketHours';

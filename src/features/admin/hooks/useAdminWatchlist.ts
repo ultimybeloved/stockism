@@ -7,7 +7,7 @@ import {
   addWatchedIPFunction,
   auditUsernamesFunction,
   getIpTrackingHealthFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { IpHealthReport, WatchedUser, WatchlistAlert } from '../../../api/types';

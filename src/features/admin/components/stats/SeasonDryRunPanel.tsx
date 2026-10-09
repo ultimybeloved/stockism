@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { adminSeasonDryRunReportFunction, triggerSeasonDryRunFunction } from '../../../../firebase';
+import { adminSeasonDryRunReportFunction, triggerSeasonDryRunFunction } from '../../../../api/callables';
 import { SEASON_TIER_MAP } from '../../../../constants/seasons';
 import { localWeeklyTime } from '../../../../utils/localTime';
 import { errorMessage } from '../../../../utils/errors';

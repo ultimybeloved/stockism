@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
-import { db, createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '../../../api/callables';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import { calculatePriceImpactDollars, getBidAskPrices, liquidityFor } from '../../../utils/calculations';

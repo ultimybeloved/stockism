@@ -1,4 +1,4 @@
-import { adminGrantCosmeticFunction } from '../../../firebase';
+import { adminGrantCosmeticFunction } from '../../../api/callables';
 import { COSMETIC_MAP } from '../../../constants/cosmetics';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';

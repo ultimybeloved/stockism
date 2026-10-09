@@ -25,12 +25,12 @@ moved out of the repo (copies in the ignored `local/archive/`).
 All of `src/` is TypeScript (strict, `noUncheckedIndexedAccess`; `allowJs` is
 off). Conventions for new code:
 
-- Callables are typed in `src/firebase.ts` via `callable<Req, Res>('name')`,
+- Callables are typed in `src/api/callables.ts` via `callable<Req, Res>('name')`,
   shapes in `src/api/types.ts`.
 - Firestore doc shapes live in `src/types/index.ts`; add fields as code reads them.
 - Props passed straight from a hook are typed `Pick<ReturnType<typeof useX>, ...>`.
-- Action hooks take `ActionHookDeps` (`src/hooks/types.ts`); admin hooks take
-  `AdminHookDeps` (`hooks/admin/adminShared.ts`).
+- Action hooks take `ActionHookDeps` (`src/shared/hooks/types.ts`); admin hooks take
+  `AdminHookDeps` (`src/features/admin/utils/adminShared.ts`).
 - Tests typecheck under `tsconfig.test.json` (relaxes `noUncheckedIndexedAccess`).
 - `npm run sync:chars` strips types from `src/characters.ts` + `src/crews.ts`
   into `functions/`; Node scripts read the roster through
@@ -115,10 +115,13 @@ their public profile and the leaderboard.
    (16 features), `src/shared/{components,hooks}` for code several features
    use, `src/app/` for the shell. 277 files moved, every import rewritten; utils,
    constants, context, types, api and rules stay at the top of `src/`. The
-   callables stay in `src/firebase.ts` until step 2. File-size limits in
+   callables moved to `src/api/` in step 2. File-size limits in
    `eslint.config.js` follow the new folders.
-2. `src/api/` wrappers for the 109 `httpsCallable` call sites, typed, one error
-   path.
+2. ~~`src/api/` wrappers~~ **Done 2026-10-09.** Every callable is in
+   `src/api/callables.ts`, all typed (shapes in `src/api/types.ts`);
+   `src/firebase.ts` is only the Firebase setup. The one error path is
+   `src/utils/errors.ts`, which every caller already used. Tests that mock a
+   callable mock `api/callables`, not `firebase`.
 3. Split AppContext into theme / auth+user / market contexts (price ticks stop
    re-rendering everything).
 4. Tailwind `dark:` variant instead of `getThemeClasses(darkMode)`; removes the

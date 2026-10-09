@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { claimMissionRewardFunction, rerollMissionsFunction } from '../../../firebase';
+import { claimMissionRewardFunction, rerollMissionsFunction } from '../../../api/callables';
 import { fireDailyRewardConfetti, fireWeeklyRewardConfetti } from '../../../utils/confetti';
 import { ACHIEVEMENTS } from '../../../constants/achievements';
 import { getWeekId } from '../../../crews';

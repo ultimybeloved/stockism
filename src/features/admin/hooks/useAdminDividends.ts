@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
-import { db, runDividendPayoutNowFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { runDividendPayoutNowFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { DividendRunResponse } from '../../../api/types';

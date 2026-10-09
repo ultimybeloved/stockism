@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getRecentSignupReportFunction, banUserFunction, addWatchedUserFunction } from '../../../firebase';
+import { getRecentSignupReportFunction, banUserFunction, addWatchedUserFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { SignupReport } from '../../../api/types';
 import type { AdminHookDeps } from '../utils/adminShared';

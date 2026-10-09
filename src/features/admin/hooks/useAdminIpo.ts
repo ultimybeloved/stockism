@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { db, ipoAnnouncementAlertFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { ipoAnnouncementAlertFunction } from '../../../api/callables';
 import { CHARACTERS } from '../../../characters';
 import { getNextMarketOpen } from '../../../utils/marketHours';
 import { formatDateTime } from '../../../utils/localTime';

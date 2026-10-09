@@ -13,7 +13,7 @@ const h = vi.hoisted(() => ({
   createUser: vi.fn(),
 }));
 
-vi.mock('../../../firebase', () => ({
+vi.mock('../../../api/callables', () => ({
   checkUsernameFunction: h.checkUsername,
   createUserFunction: h.createUser,
 }));

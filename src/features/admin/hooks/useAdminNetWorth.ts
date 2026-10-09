@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { getLeaderboardMarginsFunction } from '../../../firebase';
+import { getLeaderboardMarginsFunction } from '../../../api/callables';
 import { ADMIN_UIDS } from '../../../constants';
 import type { User } from 'firebase/auth';
 import type { LeaderRow } from '../../../types';

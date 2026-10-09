@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../../firebase';
 import {
-  db,
   adminSetCrewFunction,
   adminGrantAchievementFunction,
   adminSetMarginFunction,
   adminSetHoldingFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { HttpsCallableResult } from 'firebase/functions';

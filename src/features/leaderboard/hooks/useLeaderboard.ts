@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db, getLeaderboardFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { getLeaderboardFunction } from '../../../api/callables';
 import { LEADERBOARD_DOC_FRESH_MS } from '../../../constants';
 import type { User } from 'firebase/auth';
 import type { LeaderRow } from '../../../types';

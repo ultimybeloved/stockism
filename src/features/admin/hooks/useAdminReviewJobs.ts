@@ -1,4 +1,4 @@
-import { triggerReviewChangesFunction, triggerCollapseReviewHistoryFunction } from '../../../firebase';
+import { triggerReviewChangesFunction, triggerCollapseReviewHistoryFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 

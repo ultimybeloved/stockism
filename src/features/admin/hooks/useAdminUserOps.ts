@@ -1,4 +1,4 @@
-import { adminSetCashFunction, adminTransferToLadderFunction } from '../../../firebase';
+import { adminSetCashFunction, adminTransferToLadderFunction } from '../../../api/callables';
 import { parseCashInput, describeCashChange } from '../../../utils/adminCash';
 import { useAdminBankruptcy } from './useAdminBankruptcy';
 import { useAdminUserIdentity } from './useAdminUserIdentity';

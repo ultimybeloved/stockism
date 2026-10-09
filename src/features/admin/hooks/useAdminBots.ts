@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
-import { db, createBotsFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { createBotsFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { UserData } from '../../../types';

@@ -1,15 +1,11 @@
 import { useState } from 'react';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db, broadcastNotificationFunction } from '../../../firebase';
-import {
-  EVENT_AMM_LIQUIDITY,
-  MS_PER_HOUR,
-  EVENT_OPENING_ODDS_MIN_PCT,
-  EVENT_OPENING_ODDS_MAX_PCT,
-  WEEKLY_PREDICTION_SEED_MAX,
-} from '../../../constants/economy';
+import { db } from '../../../firebase';
+import { broadcastNotificationFunction } from '../../../api/callables';
+import { EVENT_AMM_LIQUIDITY, MS_PER_HOUR, WEEKLY_PREDICTION_SEED_MAX } from '../../../constants/economy';
 import { lmsrSeedQ } from '../../../utils/calculations';
 import type { AdminHookDeps } from '../utils/adminShared';
+import { resolveOpeningOdds } from '../utils/openingOdds';
 
 // Predictions tab: the create-new-prediction form (weekly cash + event AMM).
 export function useAdminPredictionCreate({
@@ -39,29 +35,6 @@ export function useAdminPredictionCreate({
   const [seedLiquidity, setSeedLiquidity] = useState<number | ''>(EVENT_AMM_LIQUIDITY);
   const [openDelayHours, setOpenDelayHours] = useState(0); // announce-before-open delay; 0 = open immediately
   const [openingOdds, setOpeningOdds] = useState(['', '', '', '', '', '']); // % per option slot; all blank = even odds
-
-  // Opening odds for the filled-in option slots. Returns { pcts } (null = even
-  // odds) or { error }. Entered odds must all be present, in range, and sum to 100.
-  const resolveOpeningOdds = (
-    pairs: { name: string; pct: string }[],
-  ): { pcts: number[] | null; error?: undefined } | { pcts?: undefined; error: string } => {
-    const entered = pairs.filter((p) => p.pct !== '' && p.pct !== null && p.pct !== undefined);
-    if (entered.length === 0) return { pcts: null };
-    if (entered.length < pairs.length) {
-      return { error: 'Set an opening % for every option (or clear them all for even odds).' };
-    }
-    const pcts = pairs.map((p) => Number(p.pct));
-    if (pcts.some((n) => !Number.isFinite(n) || n < EVENT_OPENING_ODDS_MIN_PCT || n > EVENT_OPENING_ODDS_MAX_PCT)) {
-      return {
-        error: `Each opening % must be between ${EVENT_OPENING_ODDS_MIN_PCT} and ${EVENT_OPENING_ODDS_MAX_PCT}.`,
-      };
-    }
-    const sum = pcts.reduce((a, c) => a + c, 0);
-    if (Math.abs(sum - 100) > 0.01) {
-      return { error: `Opening odds must total 100% (currently ${Math.round(sum * 100) / 100}%).` };
-    }
-    return { pcts };
-  };
 
   // Announce a new prediction/market through every user's notification bell.
   // Fail-soft: the prediction is already created, a failed announcement only warns.

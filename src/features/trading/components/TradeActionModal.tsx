@@ -4,7 +4,7 @@ import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import { calculateMarginStatus } from '../../../utils/calculations';
 import { getDynamicPrices, getMaxShares, getTradeCount, roundShares } from '../../../utils/tradeLimits';
-import { createLimitOrderFunction } from '../../../firebase';
+import { createLimitOrderFunction } from '../../../api/callables';
 import MarginImpactPreview from './MarginImpactPreview';
 import TradeAmountInput from './TradeAmountInput';
 import LimitOrderControls from './LimitOrderControls';

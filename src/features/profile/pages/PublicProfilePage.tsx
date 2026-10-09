@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAppContext } from '../../../context/AppContext';
-import { getPublicProfileFunction } from '../../../firebase';
+import { getPublicProfileFunction } from '../../../api/callables';
 import { CREW_MAP } from '../../../crews';
 import { CHARACTER_MAP } from '../../../characters';
 import { getCosmeticStyles } from '../../../utils/cosmetics';

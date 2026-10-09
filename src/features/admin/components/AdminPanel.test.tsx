@@ -9,10 +9,10 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
-vi.mock('../../../firebase', () => {
+vi.mock('../../../firebase', () => ({ db: {} }));
+vi.mock('../../../api/callables', () => {
   const fn = () => vi.fn(async () => ({ data: {} }));
   return {
-    db: {},
     broadcastNotificationFunction: fn(),
     triggerManualBackupFunction: fn(),
     listBackupsFunction: fn(),
@@ -167,7 +167,7 @@ describe('AdminPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Market/ }));
     fireEvent.click(await screen.findByText('Halt Market'));
     expect(await screen.findByText(/Please enter a halt reason/)).toBeInTheDocument();
-    const { setMarketHaltFunction } = await import('../../../firebase');
+    const { setMarketHaltFunction } = await import('../../../api/callables');
     expect(setMarketHaltFunction).not.toHaveBeenCalled();
   });
 
@@ -179,14 +179,14 @@ describe('AdminPanel', () => {
     });
     fireEvent.click(screen.getByText('Halt Market'));
     expect(await screen.findByText(/Market halted/)).toBeInTheDocument();
-    const { setMarketHaltFunction } = await import('../../../firebase');
+    const { setMarketHaltFunction } = await import('../../../api/callables');
     expect(setMarketHaltFunction).toHaveBeenCalledWith({ halted: true, reason: 'test emergency' });
   });
 
   it('loads the watchlist when the tab is opened', async () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /Watchlist/ }));
-    const { getWatchlistFunction } = await import('../../../firebase');
+    const { getWatchlistFunction } = await import('../../../api/callables');
     expect(getWatchlistFunction).toHaveBeenCalled();
     expect(await screen.findByText(/Username Integrity/)).toBeInTheDocument();
   });

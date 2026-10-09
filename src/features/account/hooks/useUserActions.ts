@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
-import { db, deleteAccountFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { deleteAccountFunction } from '../../../api/callables';
 import { ADMIN_UIDS } from '../../../constants';
 import { errorMessage as messageOf } from '../../../utils/errors';
 import type { User } from 'firebase/auth';

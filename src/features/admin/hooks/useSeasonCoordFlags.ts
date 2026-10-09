@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getSeasonCoordFlagsFunction, setSeasonTopTierExclusionFunction } from '../../../firebase';
+import { getSeasonCoordFlagsFunction, setSeasonTopTierExclusionFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { SeasonCoordPlayer } from '../../../api/types';
 

@@ -5,7 +5,7 @@ import {
   archivePriceHistoryFunction,
   backfillFillTradeRecordsFunction,
   triggerDailyFreeStockFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 

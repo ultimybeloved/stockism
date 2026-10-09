@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../../firebase';
 import {
-  db,
   depositToLadderGameFunction,
   withdrawFromLadderGameFunction,
   getLadderLeaderboardFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 import { useAppContext } from '../../../context/AppContext';
 import { getLadderWithdrawable } from '../../../utils/ladderTax';
 import { errorMessage } from '../../../utils/errors';

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
-import { db, reinstateUserFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { reinstateUserFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { AdminUser } from '../utils/adminShared';

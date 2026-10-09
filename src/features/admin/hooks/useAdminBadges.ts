@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db, removeAchievementFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { removeAchievementFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { UserData } from '../../../types';

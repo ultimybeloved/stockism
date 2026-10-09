@@ -9,7 +9,8 @@ expect.extend(matchers);
 
 const h = vi.hoisted(() => ({ ctx: {} }));
 
-vi.mock('../../../firebase', () => ({ db: {}, changeDisplayNameFunction: vi.fn() }));
+vi.mock('../../../firebase', () => ({ db: {} }));
+vi.mock('../../../api/callables', () => ({ changeDisplayNameFunction: vi.fn() }));
 vi.mock('firebase/firestore', () => ({
   doc: vi.fn(),
   updateDoc: vi.fn(),

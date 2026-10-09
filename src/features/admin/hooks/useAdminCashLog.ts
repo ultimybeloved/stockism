@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { adminListCashLogFunction } from '../../../firebase';
+import { adminListCashLogFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { CashLogEntry, CashLogResponse } from '../../../api/types';

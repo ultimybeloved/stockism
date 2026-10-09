@@ -6,7 +6,7 @@ import {
   adminUpdateDiscordMessageFunction,
   adminDeleteDiscordMessageFunction,
   adminImportDiscordMessageFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 import { emptyDraft, draftFromMessage } from '../utils/discordDraft';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';

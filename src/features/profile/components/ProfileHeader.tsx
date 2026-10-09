@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { changeDisplayNameFunction } from '../../../firebase';
+import { changeDisplayNameFunction } from '../../../api/callables';
 import { getCosmeticStyles, getActiveTitle } from '../../../utils/cosmetics';
 import { validateUsername } from '../../../utils/username';
 import { getThemeClasses } from '../../../utils/theme';

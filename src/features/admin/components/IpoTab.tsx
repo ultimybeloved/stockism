@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CHARACTERS } from '../../../characters';
-import { initNewCharacterPricesFunction } from '../../../firebase';
+import { initNewCharacterPricesFunction } from '../../../api/callables';
 import { formatTimeRemaining } from '../../../utils/formatters';
 import { formatDateTime, marketTimes } from '../../../utils/localTime';
 

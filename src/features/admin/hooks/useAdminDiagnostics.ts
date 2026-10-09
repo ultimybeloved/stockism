@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { auditUserDropsFunction, diagnoseTickerRollbackFunction, recoverTickerFunction } from '../../../firebase';
+import { auditUserDropsFunction, diagnoseTickerRollbackFunction, recoverTickerFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { DropAuditResponse, TickerDiagnosticResponse, TickerRecoveryResponse } from '../../../api/types';

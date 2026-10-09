@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { buyIPOSharesFunction, db } from '../../../firebase';
+import { db } from '../../../firebase';
+import { buyIPOSharesFunction } from '../../../api/callables';
 import { CHARACTER_MAP } from '../../../characters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../../../constants';
 import { isWeeklyHalt } from '../../../utils/marketHours';

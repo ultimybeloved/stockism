@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
-import { db, triggerEventSettlementsFunction, cancelEventMarketFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { triggerEventSettlementsFunction, cancelEventMarketFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import type { PredictionDoc, UserData } from '../../../types';
 

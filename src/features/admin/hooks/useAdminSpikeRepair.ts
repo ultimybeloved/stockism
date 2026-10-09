@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { repairSpikeVictimsFunction } from '../../../firebase';
+import { repairSpikeVictimsFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { SpikeRepairResponse, SpikeVictim } from '../../../api/types';

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { doc, collection, query, where, orderBy, limit, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, createPriceAlertFunction, deletePriceAlertFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { createPriceAlertFunction, deletePriceAlertFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { User } from 'firebase/auth';
 import type { AppContextValue } from '../../../context/AppContext';

@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { db, fixBasePriceCliffsFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { fixBasePriceCliffsFunction } from '../../../api/callables';
 import { CHARACTERS } from '../../../characters';
 import { priceHistoryDocRef } from '../utils/adminShared';
 import type { AdminHookDeps } from '../utils/adminShared';

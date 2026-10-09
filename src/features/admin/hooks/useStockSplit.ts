@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db, splitStockFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { splitStockFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { RenameJournal, SplitStockRequest, SplitStockResponse } from '../../../api/types';
 import type { ShowMessage } from '../utils/adminShared';

@@ -22,7 +22,7 @@ export const cf = (opts: functions.RuntimeOptions = {}) =>
 // that has no App Check token, so enforcement has to stand down there or every
 // test fails the moment the flag is turned on. FIRESTORE_EMULATOR_HOST is only
 // ever set when running against the local emulators, never in production, and
-// this mirrors what src/firebase.js already does on the frontend.
+// this mirrors what src/firebase.ts already does on the frontend.
 export const requireAppCheck = (context: functions.https.CallableContext) => {
   if (!APP_CHECK_ENFORCED) return;
   if (process.env.FIRESTORE_EMULATOR_HOST) return;

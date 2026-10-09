@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { dailyCheckinFunction, bailoutFunction } from '../../../firebase';
+import { dailyCheckinFunction, bailoutFunction } from '../../../api/callables';
 import { fireDailyRewardConfetti } from '../../../utils/confetti';
 import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';

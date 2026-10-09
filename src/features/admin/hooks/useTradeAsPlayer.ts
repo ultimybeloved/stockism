@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { executeTradeFunction } from '../../../firebase';
+import { executeTradeFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { AdminUser } from '../utils/adminShared';
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getCoordProfitFunction, adminRemoveCoordProfitFunction } from '../../../firebase';
+import { getCoordProfitFunction, adminRemoveCoordProfitFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { CoordProfitResponse, CoordRemovalPreview, SeasonCoordPlayer } from '../../../api/types';
 

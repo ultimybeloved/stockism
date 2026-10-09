@@ -11,7 +11,7 @@ import type { useAdminSpikeRepair } from '../hooks/useAdminSpikeRepair';
 import type { useAdminBackups } from '../hooks/useAdminBackups';
 import type { useAdminAccountRepair } from '../hooks/useAdminAccountRepair';
 import type { useAdminRecoveryTools } from '../hooks/useAdminRecoveryTools';
-import type { renameTickerFunction as RenameTickerFn } from '../../../firebase';
+import type { renameTickerFunction as RenameTickerFn } from '../../../api/callables';
 import type { Character } from '../../../characters';
 import type { PriceMap } from '../../../types';
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSeasonStandingsFunction } from '../../../firebase';
+import { getSeasonStandingsFunction } from '../../../api/callables';
 import { useAppContext } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import {

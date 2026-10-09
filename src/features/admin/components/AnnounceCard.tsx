@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getThemeClasses } from '../../../utils/theme';
-import { broadcastNotificationFunction } from '../../../firebase';
+import { broadcastNotificationFunction } from '../../../api/callables';
 import {
   CREW_MAP,
   CREW_SWITCH_EVENT,

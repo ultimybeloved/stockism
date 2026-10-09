@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../../firebase';
 import {
-  db,
   adminStartSeasonFunction,
   adminEndSeasonFunction,
   triggerSeasonCheckpointFunction,
-} from '../../../firebase';
+} from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import type { SeasonDoc } from '../../../types';

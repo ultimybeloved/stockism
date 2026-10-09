@@ -753,3 +753,24 @@ export interface LeaderboardMarginsRequest {
 export interface LeaderboardMarginsResponse {
   margins?: Record<string, number>;
 }
+
+export interface CreateLimitOrderRequest {
+  ticker: string;
+  /** 'BUY' | 'SELL' | 'STOP_LOSS'; the backend rejects anything else. */
+  type: string;
+  shares: number;
+  limitPrice: number;
+  allowPartialFills: boolean;
+}
+
+export interface CreateLimitOrderResponse {
+  success: boolean;
+  orderId: string;
+}
+
+export interface CreatePreMarketOrderRequest {
+  ticker: string;
+  action: 'buy' | 'sell';
+  shares: number;
+  allowPartialFills: boolean;
+}

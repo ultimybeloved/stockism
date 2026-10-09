@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { renameTickerFunction } from '../../../firebase';
+import { renameTickerFunction } from '../../../api/callables';
 import { CHARACTERS } from '../../../characters';
 import { ADMIN_UIDS } from '../../../constants';
 import IpoTab from './IpoTab';

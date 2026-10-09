@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
-import { db, cancelPreMarketOrderFunction } from '../../../firebase';
+import { db } from '../../../firebase';
+import { cancelPreMarketOrderFunction } from '../../../api/callables';
 import { getThemeClasses } from '../../../utils/theme';
 import { useAppContext } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';

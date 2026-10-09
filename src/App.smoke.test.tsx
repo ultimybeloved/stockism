@@ -10,9 +10,8 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
-vi.mock('./firebase', () => ({
-  auth: {},
-  db: {},
+vi.mock('./firebase', () => ({ auth: {}, db: {} }));
+vi.mock('./api/callables', () => ({
   executeTradeFunction: vi.fn(),
   achievementAlertFunction: vi.fn(),
   deleteAccountFunction: vi.fn(),

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { playLadderGameFunction } from '../../../firebase';
+import { playLadderGameFunction } from '../../../api/callables';
 import { useAppContext } from '../../../context/AppContext';
 import { useLadderAnimation } from './useLadderAnimation';
 import { useLadderBanners } from './useLadderBanners';
