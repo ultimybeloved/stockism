@@ -303,8 +303,9 @@ export interface IPO {
 export interface LeaderRow {
   userId: string;
   displayName?: string;
-  previousDisplayName?: string;
-  nameChangedAt?: number;
+  previousDisplayName?: string | null;
+  /** null if never renamed; a serialized Firestore Timestamp or ms otherwise. */
+  nameChangedAt?: { _seconds: number } | number | null;
   portfolioValue?: number;
   marginUsed?: number;
   weeklyGain?: number;

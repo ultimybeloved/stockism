@@ -47,9 +47,10 @@ const LeaderboardRow = ({
           nameColor ||
           (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined),
       };
-  // A serialized Firestore Timestamp ({_seconds}) or a millisecond time.
-  const changedAt = leader.nameChangedAt as { _seconds?: number } | number | undefined;
-  const nameChangedMs = typeof changedAt === 'object' && changedAt._seconds ? changedAt._seconds * 1000 : changedAt;
+  // A serialized Firestore Timestamp ({_seconds}), a millisecond time, or null
+  // for a player who never renamed (typeof null is 'object', hence the guard).
+  const changedAt = leader.nameChangedAt;
+  const nameChangedMs = changedAt && typeof changedAt === 'object' ? (changedAt._seconds || 0) * 1000 : changedAt;
 
   return (
     <div
