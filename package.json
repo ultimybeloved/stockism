@@ -59,7 +59,7 @@
   "dependencies": {
     "@sentry/react": "^10.52.0",
     "canvas-confetti": "^1.9.4",
-    "firebase": "^10.8.0",
+    "firebase": "12.14.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.13.0"

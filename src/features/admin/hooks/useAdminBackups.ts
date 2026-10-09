@@ -8,7 +8,7 @@ import {
   reconstructPortfolioHistoryFunction,
 } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
-import type { BackupFile } from '../../../api/types';
+import type { BackupFile, ReconstructHistoryResponse } from '../../../api/types';
 import type { AdminHookDeps } from '../utils/adminShared';
 
 interface ReconstructionProgress {
@@ -114,7 +114,7 @@ export function useAdminBackups({
         batchNum++;
         const payload = { uid: target || undefined, startAfterUid: cursor || undefined };
         const result = await reconstructPortfolioHistoryFunction(payload);
-        const d = result.data;
+        const d: ReconstructHistoryResponse = result.data;
         totals.usersProcessed += d.usersProcessed || 0;
         totals.usersSkipped += d.usersSkipped || 0;
         totals.totalPointsWritten += d.totalPointsWritten || 0;

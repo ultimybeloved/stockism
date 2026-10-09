@@ -159,6 +159,12 @@ Not doing: 2nd-gen Cloud Functions (changes the bill and the Discord webhook URL
   vitest already ran on. Vendor chunks moved from `manualChunks` to Rolldown's
   `codeSplitting.groups` (same split). Every route and modal identical old vs new
   in both themes. Needs Node 20.19+ (`.nvmrc` is 22).
+  `build.target` keeps Vite 5's browser list; Vite 8's default (Safari 16.4+)
+  would drop older iPhones.
+- **Firebase JS SDK: Done 2026-10-09.** 10.14 -> **12.14.0, pinned exactly.**
+  12.15+ bundles `re2js` (Firestore pipeline regex) whether used or not: +57 KB
+  gzip for every player. 13.0 was two days old. Revisit when Firebase makes it
+  tree-shakeable; check `vendor-firebase` gzip size before bumping.
 
 ## Phase 6: Docs
 
