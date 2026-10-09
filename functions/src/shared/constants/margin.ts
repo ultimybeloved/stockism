@@ -6,22 +6,16 @@ import { TWENTY_FOUR_HOURS_MS } from './time';
 // ============================================
 // MARGIN
 // ============================================
-export const MARGIN_INTEREST_RATE = 0.005; // 0.5% per day
-export const MARGIN_CASH_MINIMUM = 2000; // min cash to enable margin — keep in sync with src/constants/economy.ts
+export {
+  MARGIN_INTEREST_RATE,
+  MARGIN_CASH_MINIMUM,
+  MARGIN_MIN_CHECKINS,
+  MARGIN_MIN_TRADES,
+  MARGIN_MIN_PEAK_PORTFOLIO,
+  SHORT_MARGIN_CALL_THRESHOLD,
+  LEGACY_SHORT_MARGIN_RATIO,
+} from '../rules/economy';
 
-// Experience gates for enabling margin. The app has always shown these three as
-// a requirements checklist and hidden the enable button until they were met,
-// but only the client enforced them: toggleMargin checked cash alone, so a
-// direct callable invocation got margin without any of them.
-//
-// Safe to enforce retroactively because all three metrics are monotonic — they
-// only ever go up — so anyone who qualified once still qualifies, and nobody
-// with margin already enabled can be locked out by toggling it off and back on.
-// Keep in sync with src/constants/economy.ts.
-export const MARGIN_MIN_CHECKINS = 10;
-export const MARGIN_MIN_TRADES = 35;
-export const MARGIN_MIN_PEAK_PORTFOLIO = 7500;
-// CREW_SWITCH_PENALTY comes from crews.ts (single source shared with the frontend)
 export const CREW_REJOIN_LOCKOUT_MS = CREW_REJOIN_LOCKOUT_DAYS * TWENTY_FOUR_HOURS_MS; // rejoin lockout after leaving a crew (from crews.ts)
 export const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 export const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
@@ -44,18 +38,9 @@ export {
 // ============================================
 // MARGIN THRESHOLDS
 // ============================================
-export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // short equity ratio below which force-cover triggers
 export const SHORT_MARGIN_DAMPENING_FACTOR = 0.5; // reduced price impact for forced short covers
 export const LONG_MARGIN_CALL_THRESHOLD = 0.3; // long margin equity ratio at which margin call is issued
 export const LONG_MARGIN_LIQUIDATION_THRESHOLD = 0.25; // long margin equity ratio at which auto-liquidation triggers
-
-// Collateral rate to assume for a short position whose stored `margin` field is
-// missing or zero (old or repaired docs). Current shorts are 100% collateral, so
-// the fallback must match SHORT_MARGIN_RATIO — assuming less understates equity
-// and force-covers a position that is actually healthy. Pre-v2 shorts really
-// were half-collateral, so those keep the old rate. Keep in sync with
-// src/constants/economy.ts.
-export const LEGACY_SHORT_MARGIN_RATIO = 0.5;
 
 // Price a forced long-margin liquidation sells at: 5% below market. The seller is
 // dumping an entire portfolio at once and does not get to shop for a better fill.

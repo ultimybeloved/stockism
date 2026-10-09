@@ -15,19 +15,23 @@ export {
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
 } from '../rules/impact';
-export const DUST_MAX_VALUE = 5; // positions worth less than this ($) are sweepable dust
+export {
+  DUST_MAX_VALUE,
+  TRAILING_MAX_DEPTH,
+  INDEX_BASE_VALUE,
+  MIN_TRADE_SHARES,
+  MIN_EXIT_SHARES,
+  MAX_DAILY_IMPACT,
+  MAX_TRADES_PER_TICKER_24H,
+  IPO_PRICE_JUMP,
+} from '../rules/economy';
 // How many levels a trailing move travels out from the stock that was traded.
-// Mirror of TRAILING_MAX_DEPTH in src/constants/economy.ts — keep both in sync.
-export const TRAILING_MAX_DEPTH = 3;
 // Market index reads 1000 when every character sits at its base price.
-export const INDEX_BASE_VALUE = 1000;
 
 // Order sizing. Entries (buy/short) are whole-cent share counts. Exits
 // (sell/cover) go much finer: dividends, partial fills and ETF math leave
 // fractional remainders, and a player must always be able to close a position
 // down to the last speck instead of being stuck holding unsellable dust.
-export const MIN_TRADE_SHARES = 0.01; // min buy/short size
-export const MIN_EXIT_SHARES = 0.000001; // min sell/cover size
 export const TRADE_SHARE_DECIMALS = 2; // decimal places allowed on entries
 export const EXIT_SHARE_DECIMALS = 6; // decimal places exits are held to (matches MIN_EXIT_SHARES)
 
@@ -82,8 +86,6 @@ export const CIRCUIT_BREAKER_MAX_PER_DAY = 2;
 // rolling 24h, PER DIRECTION: sells+shorts spend the down allowance, buys+
 // covers spend the up one. See sumDirectionalImpact in helpers.js for why the
 // two are separate.
-export const MAX_DAILY_IMPACT = 0.1;
-export const MAX_TRADES_PER_TICKER_24H = 10; // Max buys or sells per ticker per rolling 24h
 
 // How many limit orders on the same ticker one sweep may fill. Anything over
 // the cap waits for the next 15-minute sweep, so a cluster of orders at the same
@@ -134,7 +136,6 @@ export const SHORT_INTEREST_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
 // ============================================
 // IPO
 // ============================================
-export const IPO_PRICE_JUMP = 0.15; // 15% price bump when IPO fully subscribed
 // IPO-bought shares are locked from selling until ipoEndsAt + this buffer, so the
 // guaranteed +15% launch pop can't be flipped for a risk-free profit. Measured
 // from ipoEndsAt because shares already can't trade before launch: a last-second

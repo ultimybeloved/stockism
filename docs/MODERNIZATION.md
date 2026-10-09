@@ -97,10 +97,10 @@ their public profile and the leaderboard.
    `src/rules/` -> `functions/src/shared/rules/` via sync:chars, guarded by
    check:sync. Done: `rules/ladder`, `rules/lmsr`, `rules/activity`, `rules/impact`,
    `rules/money`, `rules/equity`, `rules/seasons` (thresholds, divisions,
-   default rules, Silver/Gold). Left: the season money maths
+   default rules, Silver/Gold), `rules/economy` (every constant that was
+   marked "keep in sync"). Left: the season money maths
    (src/utils/seasonWeeks.ts vs season/seasonMoney.ts, drift-tested by
-   seasonTiers.test.js) and the remaining mirrored constants in
-   src/constants/economy.ts (each marked "keep in sync").
+   seasonTiers.test.js).
 6. Move emulator suites from `scripts/test-*` to `tests/emulator/` on vitest,
    one `npm run test:emulator` command.
 7. ~~Deploy every function once~~ **Done 2026-10-09**: all 153 deployed with

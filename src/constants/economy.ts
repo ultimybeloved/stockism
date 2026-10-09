@@ -4,34 +4,43 @@
 
 // General
 export const ITEMS_PER_PAGE = 15;
-export const STARTING_CASH = 3000;
-export const UNVERIFIED_STARTING_CASH = 1000; // before Discord verification (anti-alt) — keep in sync with functions/src/shared/constants/
-export const BAILOUT_CASH = 1500; // cash granted by a bankruptcy bailout — keep in sync with functions/src/shared/constants/
+// Numbers the server enforces too live in the shared rule module.
+export {
+  STARTING_CASH,
+  UNVERIFIED_STARTING_CASH,
+  BAILOUT_CASH,
+  CHECKIN_STREAK_REWARDS,
+  PRE_MARKET_MAX_BUY_BUFFER,
+  EVENT_AMM_LIQUIDITY,
+  EVENT_MIN_BUYIN,
+  INDEX_BASE_VALUE,
+  TRAILING_MAX_DEPTH,
+  DUST_MAX_VALUE,
+  MIN_TRADE_SHARES,
+  MIN_EXIT_SHARES,
+  LEGACY_SHORT_MARGIN_RATIO,
+  SHORT_MARGIN_CALL_THRESHOLD,
+  MAX_SHORTS_BEFORE_COOLDOWN,
+  MARGIN_CASH_MINIMUM,
+  MARGIN_MIN_CHECKINS,
+  MARGIN_MIN_TRADES,
+  MARGIN_MIN_PEAK_PORTFOLIO,
+  MARGIN_INTEREST_RATE,
+  MAX_TRADES_PER_TICKER_24H,
+  IPO_PRICE_JUMP,
+} from '../rules/economy';
 export const PORTFOLIO_SYNC_MIN_INTERVAL_MS = 5 * 60 * 1000; // floor between passive syncPortfolio calls (backend cost control)
-export const LEADERBOARD_DOC_FRESH_MS = 5 * 60 * 1000; // how long a precomputed leaderboard/{key} doc counts as fresh — keep in sync with LEADERBOARD_CACHE_TTL in functions/src/shared/constants/
+export { LEADERBOARD_CACHE_TTL as LEADERBOARD_DOC_FRESH_MS } from '../rules/economy'; // how long a precomputed leaderboard/{key} doc counts as fresh
 export const DAILY_BONUS = 300;
-// Daily check-in streak rewards. Index 0 = day 1; reward escalates with the
-// consecutive-day streak, then caps at the last value. Keep in sync with
-// functions/src/shared/constants/ (CHECKIN_STREAK_REWARDS).
-export const CHECKIN_STREAK_REWARDS = [300, 325, 350, 375, 400, 425, 500];
 export const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
 export const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
-
-// Pre-market max-buy headroom: the opening ask can sit up to ~5% (auction
-// impact cap) + spread above the queue-time price. Keep in sync with
-// functions/src/shared/constants/ (PRE_MARKET_MAX_BUY_BUFFER).
-export const PRE_MARKET_MAX_BUY_BUFFER = 1.06;
 
 // IPO System Constants
 export const IPO_HYPE_DURATION = 24 * 60 * 60 * 1000; // 24 hours hype phase
 export const IPO_WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours IPO window
 export const IPO_TOTAL_SHARES = 150; // Total shares available in IPO
 export const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
-export const IPO_PRICE_JUMP = 0.15; // 15% price jump after IPO ends
 
-// Event prediction markets (long-term, AMM-priced) — keep in sync with functions/src/shared/constants/
-export const EVENT_AMM_LIQUIDITY = 5000; // LMSR liquidity param (b); house max loss per market = b * ln(1 / opening price of the winning outcome) — b * ln(numOutcomes) when odds open even
-export const EVENT_MIN_BUYIN = 1; // minimum dollar cost of a single buy
 export const MS_PER_HOUR = 60 * 60 * 1000;
 // Announce-before-open delay presets (hours) offered when creating a long-term market. 0 = open immediately.
 export const EVENT_OPEN_DELAY_PRESETS_HOURS = [0, 1, 6, 12, 24];
@@ -58,53 +67,22 @@ export {
   NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
   NEW_ACCOUNT_MIN_IMPACT_FACTOR,
 } from '../rules/impact';
-// Market index reads this when every character sits at its base price.
-// Mirror of INDEX_BASE_VALUE in functions/src/shared/constants/.
-export const INDEX_BASE_VALUE = 1000;
-
-// How many levels an admin price adjustment travels out through linked stocks.
-// Level 1 is the stocks linked to the one that was adjusted, level 2 the stocks
-// linked to those, and so on. Kept at 3 because the knock-on is already small
-// by then and the cascade has to terminate.
-export const TRAILING_MAX_DEPTH = 3;
-export const DUST_MAX_VALUE = 5; // positions worth less than this ($) can be swept as dust — keep in sync with functions/src/shared/constants/
-
-// Order sizing. Mirror of functions/src/shared/constants/ — keep both in sync.
-// Entries (buy/short) are whole-cent share counts. Exits (sell/cover) go much
-// finer: dividends, partial fills and ETF math leave fractional remainders, and
-// a player must always be able to close a position down to the last speck.
-export const MIN_TRADE_SHARES = 0.01; // min buy/short size
-export const MIN_EXIT_SHARES = 0.000001; // min sell/cover size
 
 // Shorting constants (realistic NYSE-style)
 export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for-dollar collateral)
-// Collateral rate to assume when a short position has no stored `margin` value.
-// Mirrors LEGACY_SHORT_MARGIN_RATIO in functions/src/shared/constants/ — the risk bars and
-// the server's force-cover check must agree, or a player sees a healthy position
-// the server is about to liquidate.
-export const LEGACY_SHORT_MARGIN_RATIO = 0.5; // pre-v2 shorts were half-collateral
-export const SHORT_MARGIN_CALL_THRESHOLD = 0.25; // Auto-close if equity drops below 25%
 export const SHORT_MARGIN_WARNING_THRESHOLD = 0.35; // Show a force-cover warning once equity dips below 35%
 export const SHORT_RATE_LIMIT_HOURS = 8; // 8-hour cooldown after 3rd short on same ticker
-export const MAX_SHORTS_BEFORE_COOLDOWN = 3; // Number of shorts allowed before cooldown kicks in
 
 // ============================================
 // MARGIN TRADING SYSTEM
 // ============================================
 
-export const MARGIN_CASH_MINIMUM = 2000; // $2,000 minimum cash to initially enable margin
-// Experience gates shown as the requirements checklist in MarginModal. Enforced
-// server-side too since 2026-08-04 — keep in sync with functions/src/shared/constants/.
-export const MARGIN_MIN_CHECKINS = 10;
-export const MARGIN_MIN_TRADES = 35;
-export const MARGIN_MIN_PEAK_PORTFOLIO = 7500;
 export const MARGIN_TIERS = [
   { minPeak: 0, maxPeak: 7500, multiplier: 0.25 },
   { minPeak: 7500, maxPeak: 15000, multiplier: 0.35 },
   { minPeak: 15000, maxPeak: 30000, multiplier: 0.5 },
   { minPeak: 30000, maxPeak: Infinity, multiplier: 0.75 },
 ];
-export const MARGIN_INTEREST_RATE = 0.005; // 0.5% daily interest on margin used
 export const MARGIN_WARNING_THRESHOLD = 0.65; // Display warning at 65% equity ratio
 export const MARGIN_DANGER_THRESHOLD = 0.4; // Display danger zone at 40% equity ratio
 export const MARGIN_CALL_THRESHOLD = 0.3; // Matches backend threshold — actual margin call fires here
@@ -113,11 +91,7 @@ export const MARGIN_MAINTENANCE_RATIO = 0.3; // 30% maintenance requirement for 
 
 // Anti-manipulation protections
 
-// 10% max cumulative impact per user per ticker per day, PER DIRECTION
-// (sells+shorts down, buys+covers up). Mirrors MAX_DAILY_IMPACT in
-// functions/src/shared/constants/.
-export const MAX_DAILY_IMPACT_PER_USER = 0.1;
-export const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
+export { MAX_DAILY_IMPACT as MAX_DAILY_IMPACT_PER_USER } from '../rules/economy';
 // Ladder money rules live in the shared rule module (also run by the server).
 export {
   LADDER_GAME_MAX_BALANCE,

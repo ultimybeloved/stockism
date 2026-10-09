@@ -16,8 +16,8 @@ export const PRE_MARKET_LOCK_MINUTE = 1255; // 20:55 UTC — no placements or ca
 export const REVIEW_COLLAPSE_MINUTE = 1254; // 20:54 UTC
 // Max-buy headroom for pre-market orders: opening ask can sit up to ~5%
 // (auction impact cap) + spread above the queue-time price, so placement
-// validates against price * this buffer. Keep in sync with src/constants/economy.ts.
-export const PRE_MARKET_MAX_BUY_BUFFER = 1.06;
+// validates against price * this buffer.
+export { PRE_MARKET_MAX_BUY_BUFFER } from '../rules/economy';
 // A single ticker's total short value (existing + new) can't exceed this
 // fraction of portfolio equity.
 export const SHORT_CONCENTRATION_CAP = 0.5;

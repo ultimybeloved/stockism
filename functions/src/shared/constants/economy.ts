@@ -3,9 +3,14 @@
 // ============================================
 // ECONOMY
 // ============================================
-export const STARTING_CASH = 3000; // full starting cash once verified (Discord linked)
-export const UNVERIFIED_STARTING_CASH = 1000; // starting cash before Discord verification (anti-alt)
-export const BAILOUT_CASH = 1500;
+export {
+  STARTING_CASH,
+  UNVERIFIED_STARTING_CASH,
+  BAILOUT_CASH,
+  MAX_SHORTS_BEFORE_COOLDOWN,
+  CHECKIN_STREAK_REWARDS,
+  LEADERBOARD_CACHE_TTL,
+} from '../rules/economy';
 export const NAME_CHANGE_COST = 10000; // cash cost to change display name (changeDisplayName)
 
 // Anti-manipulation: cooldown between buy/short on the same ticker by one user.
@@ -19,7 +24,6 @@ export const TRADE_BURST_LIMIT = 3; // max buys or shorts per ticker per burst w
 export const TRADE_BURST_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 // After this many shorts on one ticker inside the rolling window, further
 // shorts must wait for the oldest one to age out.
-export const MAX_SHORTS_BEFORE_COOLDOWN = 3;
 export const SHORT_COOLDOWN_WINDOW_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 // How many times executeTrade's transaction may re-run when it loses a race
@@ -41,7 +45,5 @@ export const TRADE_TXN_MAX_ATTEMPTS = 3;
 // consecutive-day check-in streak, then caps at the last value forever (as long
 // as the streak isn't broken). The streak itself is already tracked as
 // checkinStreak. Day 1 stays at the old flat $300, so the curve is strictly an
-// upgrade for everyone. Keep in sync with src/constants/economy.ts.
-export const CHECKIN_STREAK_REWARDS = [300, 325, 350, 375, 400, 425, 500];
+// upgrade for everyone.
 export const SHORT_MARGIN_RATIO = 1.0; // 100% collateral — deposit dollar-for-dollar
-export const LEADERBOARD_CACHE_TTL = 5 * 60 * 1000; // 5 min — freshness window for the in-memory cache AND the shared leaderboard/{key} doc (keep in sync with LEADERBOARD_DOC_FRESH_MS in src/constants/economy.ts)
