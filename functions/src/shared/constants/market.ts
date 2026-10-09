@@ -3,13 +3,19 @@
 // ============================================
 // MARKET MECHANICS
 // ============================================
-export const BASE_IMPACT = 0.012;
-export const BASE_LIQUIDITY = 100;
-export const BID_ASK_SPREAD = 0.002;
-export const ETF_BID_ASK_SPREAD = 0.001;
-export const MIN_PRICE = 0.01;
+export {
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  MAX_PRICE_CHANGE_PERCENT,
+  OVERSIZED_IMPACT_MULTIPLE,
+  MAX_TRADE_SHARES,
+  MIN_PRICE,
+  BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
+  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
+} from '../rules/impact';
 export const DUST_MAX_VALUE = 5; // positions worth less than this ($) are sweepable dust
-export const MAX_PRICE_CHANGE_PERCENT = 0.05;
 // How many levels a trailing move travels out from the stock that was traded.
 // Mirror of TRAILING_MAX_DEPTH in src/constants/economy.ts — keep both in sync.
 export const TRAILING_MAX_DEPTH = 3;
@@ -22,19 +28,8 @@ export const INDEX_BASE_VALUE = 1000;
 // down to the last speck instead of being stuck holding unsellable dust.
 export const MIN_TRADE_SHARES = 0.01; // min buy/short size
 export const MIN_EXIT_SHARES = 0.000001; // min sell/cover size
-export const MAX_TRADE_SHARES = 10000; // max size, any action
 export const TRADE_SHARE_DECIMALS = 2; // decimal places allowed on entries
 export const EXIT_SHARE_DECIMALS = 6; // decimal places exits are held to (matches MIN_EXIT_SHARES)
-
-// How much more than the market move a trader can be charged for an oversized
-// order. The market is capped at MAX_PRICE_CHANGE_PERCENT so one order cannot
-// crater a stock; the trader pays the real marginal cost of the size they moved,
-// up to this multiple of that cap. At 2 a dump costs at most 10% however big it
-// is, so the penalty is bounded and predictable rather than open-ended.
-//
-// Anything under the cap is unaffected: raw impact below MAX_PRICE_CHANGE_PERCENT
-// means market and trader are charged the identical number, exactly as before.
-export const OVERSIZED_IMPACT_MULTIPLE = 2;
 
 // ── Wash rule ────────────────────────────────────────────────────────────────
 // You cannot buy back a stock you just pushed down. Real markets have the same
@@ -135,11 +130,6 @@ export const NEGLECT_SHORT_INTEREST_THRESHOLD = 25; // shares
 // short" reading is exactly the hole the pause exists to close, so decay skips
 // its run instead.
 export const SHORT_INTEREST_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 3 hours
-
-// Anti-manipulation: reduced price impact for brand-new accounts.
-// Mirrors src/constants/economy.ts — keep both in sync.
-export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // ramps over the first 3 days
-export const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0 → 100% at day 3
 
 // ============================================
 // IPO

@@ -46,11 +46,18 @@ export const EVENT_OPENING_ODDS_MAX_PCT = 99;
 export const WEEKLY_PREDICTION_SEED_MAX = 100000;
 
 // Economy balancing constants - Realistic Market Model
-export const BASE_IMPACT = 0.012; // 1.2% base impact per sqrt(share) - 4x increase for better movement
-export const BASE_LIQUIDITY = 100; // Base liquidity pool (higher = harder to move price)
-export const BID_ASK_SPREAD = 0.002; // 0.2% spread between buy/sell prices
-export const ETF_BID_ASK_SPREAD = 0.001; // 0.1% spread for ETFs (diversified = lower risk)
-export const MIN_PRICE = 0.01; // Minimum price floor
+export {
+  BASE_IMPACT,
+  BASE_LIQUIDITY,
+  MAX_PRICE_CHANGE_PERCENT,
+  OVERSIZED_IMPACT_MULTIPLE,
+  MAX_TRADE_SHARES,
+  MIN_PRICE,
+  BID_ASK_SPREAD,
+  ETF_BID_ASK_SPREAD,
+  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
+  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
+} from '../rules/impact';
 // Market index reads this when every character sits at its base price.
 // Mirror of INDEX_BASE_VALUE in functions/src/shared/constants/.
 export const INDEX_BASE_VALUE = 1000;
@@ -68,12 +75,6 @@ export const DUST_MAX_VALUE = 5; // positions worth less than this ($) can be sw
 // a player must always be able to close a position down to the last speck.
 export const MIN_TRADE_SHARES = 0.01; // min buy/short size
 export const MIN_EXIT_SHARES = 0.000001; // min sell/cover size
-// Hard ceiling on any single order, every action. The server rejects anything
-// above this outright, so the Max button has to know about it — without it, a
-// large holder pressing Max produced an order that came back "Invalid trade
-// parameters" with nothing on screen explaining why.
-export const MAX_TRADE_SHARES = 10000;
-export const MAX_PRICE_CHANGE_PERCENT = 0.05; // Max 5% price change per single trade (up from 2%)
 
 // Shorting constants (realistic NYSE-style)
 export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for-dollar collateral)
@@ -111,11 +112,6 @@ export const MARGIN_LIQUIDATION_THRESHOLD = 0.25; // Matches backend threshold �
 export const MARGIN_MAINTENANCE_RATIO = 0.3; // 30% maintenance requirement for all positions
 
 // Anti-manipulation protections
-// How much more than the market move a trader is charged on an oversized order.
-// The market is capped at MAX_PRICE_CHANGE_PERCENT; the trader pays the real
-// marginal cost of their size, up to this multiple of that cap. Mirrors
-// OVERSIZED_IMPACT_MULTIPLE in functions/src/shared/constants/ — keep both in sync.
-export const OVERSIZED_IMPACT_MULTIPLE = 2;
 
 // 10% max cumulative impact per user per ticker per day, PER DIRECTION
 // (sells+shorts down, buys+covers up). Mirrors MAX_DAILY_IMPACT in
@@ -132,10 +128,6 @@ export {
   LADDER_WITHDRAW_RUSH_RATE,
   LADDER_WITHDRAW_PROFIT_BRACKETS,
 } from '../rules/ladder';
-
-// Anti-manipulation: New Account Impact Reduction
-export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // Reduced impact for first 3 days
-export const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1; // 10% impact at day 0, ramps to 100%
 
 // Admin user IDs - only these users can see the Admin button
 export const ADMIN_UIDS = ['4usiVxPmHLhmitEKH2HfCpbx4Yi1'];

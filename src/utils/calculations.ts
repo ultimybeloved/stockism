@@ -3,14 +3,10 @@
 // ============================================
 
 import {
-  BASE_IMPACT,
   BASE_LIQUIDITY,
-  MAX_TRADE_SHARES,
   BID_ASK_SPREAD,
   ETF_BID_ASK_SPREAD,
   MIN_PRICE,
-  MAX_PRICE_CHANGE_PERCENT,
-  OVERSIZED_IMPACT_MULTIPLE,
   MARGIN_MAINTENANCE_RATIO,
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
@@ -20,14 +16,19 @@ import {
   SHORT_MARGIN_WARNING_THRESHOLD,
   SHORT_MARGIN_REQUIREMENT,
   LEGACY_SHORT_MARGIN_RATIO,
-  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
-  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
   MARGIN_MIN_CHECKINS,
   MARGIN_MIN_TRADES,
   MARGIN_MIN_PEAK_PORTFOLIO,
 } from '../constants/economy';
-import { CHARACTER_MAP, splitFactorOf } from '../characters';
+import { CHARACTER_MAP } from '../characters';
 import type { PriceHistory, PriceMap, ShareMap, ShortMap, ShortPosition, Ticker, UserData } from '../types';
+import {
+  calculateMarginalImpact,
+  traderMarginalImpact,
+  accountAgeImpactFactor,
+  liquidityFor,
+  maxTradeSharesFor,
+} from '../rules/impact';
 
 /**
  * Get current price from priceHistory (source of truth) or fall back to prices/basePrice
@@ -72,31 +73,15 @@ export const getBidAskPrices = (midPrice: number, isETF: boolean | undefined = f
  * @param {number} cumulativeVolume - Shares already traded in the rolling window
  * @returns {number} Dollar impact (e.g., 0.50 = 50¢ price move)
  */
-/**
- * A stock's liquidity: BASE_LIQUIDITY times its splitFactor (see characters.ts),
- * so the same dollar trade moves a split stock the same percent as before.
- * Mirror of liquidityFor in functions/src/shared/helpers.js.
- */
-export const liquidityFor = (ticker: Ticker): number => BASE_LIQUIDITY * splitFactorOf(ticker);
-
-/** Largest single order: MAX_TRADE_SHARES x splitFactor. Mirror of functions/src/shared/helpers.js. */
-export const maxTradeSharesFor = (ticker: Ticker | null | undefined): number =>
-  MAX_TRADE_SHARES * splitFactorOf(ticker);
+// Impact maths: the shared rule module, run by the server for every fill.
+export { liquidityFor, maxTradeSharesFor };
 
 export const calculatePriceImpactDollars = (
   currentPrice: number,
   shares: number,
   liquidity: number = BASE_LIQUIDITY,
   cumulativeVolume = 0,
-): number => {
-  const rawImpact =
-    currentPrice *
-    BASE_IMPACT *
-    (Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity));
-  // Match the backend (calculateMarginalImpact): a single trade moves the price by at
-  // most MAX_PRICE_CHANGE_PERCENT, so the preview can't overstate large trades.
-  return Math.min(rawImpact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
-};
+): number => calculateMarginalImpact(currentPrice, shares, cumulativeVolume, liquidity);
 
 /**
  * What the TRADER is charged, as opposed to how far the market moves.
@@ -113,13 +98,7 @@ export const calculateTraderImpactDollars = (
   shares: number,
   liquidity: number = BASE_LIQUIDITY,
   cumulativeVolume = 0,
-): number => {
-  const rawImpact =
-    currentPrice *
-    BASE_IMPACT *
-    (Math.sqrt((cumulativeVolume + shares) / liquidity) - Math.sqrt(cumulativeVolume / liquidity));
-  return Math.min(rawImpact, currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE);
-};
+): number => traderMarginalImpact(currentPrice, shares, cumulativeVolume, liquidity);
 
 /**
  * Price at which a short gets auto force-covered (its equity ratio hits
@@ -558,9 +537,5 @@ export const getAccountAgeImpactFactor = (userData: UserData | null | undefined)
         ? createdAt
         : Date.parse(createdAt as string);
   if (!createdMs || isNaN(createdMs)) return 1;
-  const ageDays = (Date.now() - createdMs) / (1000 * 60 * 60 * 24);
-  if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
-  return (
-    NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS)
-  );
+  return accountAgeImpactFactor((Date.now() - createdMs) / (1000 * 60 * 60 * 24));
 };

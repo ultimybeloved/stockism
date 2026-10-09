@@ -1,17 +1,9 @@
 // Price impact math and the anti-abuse gates around it (wash rule, breaker, daily caps).
 
-import { splitFactorOf } from './characters';
 import {
-  BASE_IMPACT,
-  BASE_LIQUIDITY,
-  MAX_TRADE_SHARES,
-  MAX_PRICE_CHANGE_PERCENT,
   TWENTY_FOUR_HOURS_MS,
   WASH_RULE_COOLDOWN_MS,
   SHORT_AFTER_DUMP_COOLDOWN_MS,
-  NEW_ACCOUNT_IMPACT_PERIOD_DAYS,
-  NEW_ACCOUNT_MIN_IMPACT_FACTOR,
-  OVERSIZED_IMPACT_MULTIPLE,
   CIRCUIT_BREAKER_MOVE,
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
@@ -20,6 +12,14 @@ import {
 import { dayIdOf } from './marketData';
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { PricePoint, StoredTime, UserData } from './types';
+import {
+  rawMarginalImpact,
+  calculateMarginalImpact,
+  traderMarginalImpact,
+  liquidityFor,
+  maxTradeSharesFor,
+  accountAgeImpactFactor,
+} from './rules/impact';
 
 /** One entry in a 24h trade-history list (per user or per IP, per ticker and action). */
 export interface ImpactEntry {
@@ -49,70 +49,9 @@ const createdAtMs = (createdAt: StoredTime) =>
 const stampMs = (armed: Timestamp | number | undefined) =>
   armed && ((armed as Timestamp).toMillis ? (armed as Timestamp).toMillis() : (armed as number));
 
-/**
- * What moving this many shares actually costs, before any cap.
- *
- * Split out from calculateMarginalImpact because the market and the trader are
- * now told two different numbers. The MARKET move stays capped at
- * MAX_PRICE_CHANGE_PERCENT so one order can never crater a stock; the TRADER
- * pays this, bounded by OVERSIZED_IMPACT_MULTIPLE.
- *
- * Without the split, the cap was a volume discount on the most disruptive
- * action in the game. Impact accumulates across a player's trades in the 24h
- * window, so easing 4,125 shares out in three pieces costs about 7.7% — while
- * dumping all 4,125 at once costs 5%, because the per-trade cap truncates it.
- * Selling everything in one go was the cheapest way to do it.
- */
-export const rawMarginalImpact = (
-  currentPrice: number,
-  newShares: number,
-  cumulativeSharesBefore: number,
-  liquidity: number = BASE_LIQUIDITY,
-) =>
-  currentPrice *
-  BASE_IMPACT *
-  (Math.sqrt((cumulativeSharesBefore + newShares) / liquidity) - Math.sqrt(cumulativeSharesBefore / liquidity));
-
-// What the MARKET moves: the raw cost, capped so a single order can't crater a
-// stock. This is what goes on the chart and what the daily allowance counts.
-export const calculateMarginalImpact = (
-  currentPrice: number,
-  newShares: number,
-  cumulativeSharesBefore: number,
-  liquidity: number = BASE_LIQUIDITY,
-) =>
-  Math.min(
-    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
-    currentPrice * MAX_PRICE_CHANGE_PERCENT,
-  );
-
-// What the TRADER pays: the raw cost, bounded well above the market cap so an
-// oversized order stops being free but can never be charged without limit.
-export const traderMarginalImpact = (
-  currentPrice: number,
-  newShares: number,
-  cumulativeSharesBefore: number,
-  liquidity: number = BASE_LIQUIDITY,
-) =>
-  Math.min(
-    rawMarginalImpact(currentPrice, newShares, cumulativeSharesBefore, liquidity),
-    currentPrice * MAX_PRICE_CHANGE_PERCENT * OVERSIZED_IMPACT_MULTIPLE,
-  );
-
-/**
- * A stock's liquidity: how many shares it takes to move it. BASE_LIQUIDITY,
- * times the stock's splitFactor if it has been split (see characters.ts), so
- * the same dollar trade moves a split stock by the same percent as before the
- * split. Mirror of liquidityFor in src/utils/calculations.ts.
- */
-export const liquidityFor = (ticker: string): number => BASE_LIQUIDITY * splitFactorOf(ticker);
-
-/**
- * The largest single order on a stock: MAX_TRADE_SHARES, times its splitFactor,
- * so a split never changes how many orders it takes to trade a position.
- * Mirror of maxTradeSharesFor in src/utils/calculations.ts.
- */
-export const maxTradeSharesFor = (ticker: string): number => MAX_TRADE_SHARES * splitFactorOf(ticker);
+// The impact maths is the shared rule module (src/rules/impact.ts), so every
+// trade preview on the site prices an order exactly as this server fills it.
+export { rawMarginalImpact, calculateMarginalImpact, traderMarginalImpact, liquidityFor, maxTradeSharesFor };
 
 /**
  * Has this player's own downward pressure on this ticker armed the wash rule?
@@ -167,19 +106,10 @@ export const isTickerPaused = (
   return !!(halt && halt.resumeAt && now < halt.resumeAt);
 };
 
-// Anti-manipulation: brand-new accounts move the market less, ramping from
-// NEW_ACCOUNT_MIN_IMPACT_FACTOR at day 0 up to full (1.0) at the end of the
-// ramp window. Mirrors getAccountAgeImpactFactor in src/utils/calculations.ts — keep in sync.
-export const getAccountAgeImpactFactor = (userData: UserData | null | undefined) => {
-  if (!userData || !userData.createdAt) return 1;
-  const createdMs = createdAtMs(userData.createdAt);
-  if (!createdMs || isNaN(createdMs)) return 1;
-  const ageDays = (Date.now() - createdMs) / TWENTY_FOUR_HOURS_MS;
-  if (ageDays >= NEW_ACCOUNT_IMPACT_PERIOD_DAYS) return 1;
-  return (
-    NEW_ACCOUNT_MIN_IMPACT_FACTOR + (1 - NEW_ACCOUNT_MIN_IMPACT_FACTOR) * (ageDays / NEW_ACCOUNT_IMPACT_PERIOD_DAYS)
-  );
-};
+// Anti-manipulation: brand-new accounts move the market less. The ramp itself
+// is shared with the trade preview (rules/impact).
+export const getAccountAgeImpactFactor = (userData: UserData | null | undefined) =>
+  accountAgeImpactFactor(getAccountAgeDays(userData));
 
 // Account age in days, or null when the account has no usable createdAt.
 // Tolerates the three shapes createdAt turns up in: Firestore Timestamp on live

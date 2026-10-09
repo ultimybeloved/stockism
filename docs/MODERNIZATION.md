@@ -95,9 +95,9 @@ their public profile and the leaderboard.
    economy rules, impact math, season tiers, ladder tax) instead of mirrored
    copies with "keep in sync" comments. **In progress:** the mechanism is
    `src/rules/` -> `functions/src/shared/rules/` via sync:chars, guarded by
-   check:sync. Done: `rules/ladder`, `rules/lmsr`, `rules/activity`. Next: equity
-   (exitEquityAt, getTotalInvested), impact/liquidity maths, season
-   tiers/divisions, then the remaining mirrored constants.
+   check:sync. Done: `rules/ladder`, `rules/lmsr`, `rules/activity`, `rules/impact`.
+   Next: equity (exitEquityAt, getTotalInvested), season tiers/divisions,
+   then the remaining mirrored constants.
 6. Move emulator suites from `scripts/test-*` to `tests/emulator/` on vitest,
    one `npm run test:emulator` command.
 7. ~~Deploy every function once~~ **Done 2026-10-09**: all 153 deployed with
