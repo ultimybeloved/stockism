@@ -175,6 +175,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 **Context** (`src/context/AppContext.tsx`)
 - Global state that 3+ components need: `darkMode`, `user`, `userData`, `prices`, `priceHistory`, `holdings`, `shorts`, `costBasis`, `marketData`, `showNotification`, `activeIPOs`
 - Three contexts, so a price tick only re-renders what reads prices: `useTheme()` (`darkMode`), `useSession()` (`user`, `userData`, `holdings`, `shorts`, `costBasis`, `showNotification`, `getColorBlindColors`), `useMarket()` (`prices`, `priceHistory`, `marketData`, `activeIPOs`, `predictions`, and the other live market docs). Call only the ones a component reads.
+- The market contexts come from `src/app/MarketDataProvider.tsx`, mounted above App in `main.tsx`. App reads no live market values, so a price tick does not re-render it or the page shell: its handlers read the market at click time through `useMarketAccess().getMarket`. Never call `useMarket()` in App.tsx; put the read in the component that shows it.
 - **Never pass these as props.** Components call the hooks above.
 - If you find yourself writing `darkMode={darkMode}` as a prop, stop — use context instead
 
@@ -276,9 +277,12 @@ Quick reference so you know where to look and where to add things.
 
 | Path | What lives here |
 |---|---|
-| `src/App.tsx` | Router, top-level subscriptions, state/handler assembly — the modal stack itself is in `src/app/AppModals.tsx` |
+| `src/App.tsx` | The player's session (auth, toasts, theme), the action hooks, the theme/session contexts and the page shell. Pages are in `src/app/AppRoutes.tsx`, modals in `src/app/AppModals.tsx` |
+| `src/app/MarketDataProvider.tsx` | The live market subscriptions and the market contexts, mounted above App in `main.tsx` |
+| `src/app/AppRoutes.tsx` | URL -> page. App builds each page's props |
+| `src/app/BackgroundTasks.tsx` | Account upkeep that follows prices (payout claims, portfolio sync, interest, debt reminders). Draws nothing |
 | `src/app/AppModals.tsx` | Every modal's render condition. App.tsx still owns the state and handlers; values already in context are read from context, not drilled |
-| `src/context/AppContext.tsx` | Global state in three contexts: `useTheme` (darkMode), `useSession` (user, userData, holdings, shorts, costBasis, showNotification), `useMarket` (prices, priceHistory, marketData, activeIPOs, ...) |
+| `src/context/AppContext.tsx` | Global state in three contexts: `useTheme` (darkMode), `useSession` (user, userData, holdings, shorts, costBasis, showNotification), `useMarket` (prices, priceHistory, marketData, activeIPOs, ...); plus `useMarketAccess` (load status + `getMarket`, which does not change on a tick) |
 | `src/shared/hooks/useModalManager.ts` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
 | `src/features/trading/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.js`) |
 | `src/features/missions/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |

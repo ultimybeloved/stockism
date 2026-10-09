@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
+import { useMarket } from '../../../context/AppContext';
 import { CHARACTERS } from '../../../characters';
 import { getWeekStart } from '../../../utils/date';
 import { newThisWeek } from '../../../utils/marketFilters';
-import type { PriceHistory, PriceMap } from '../../../types';
 
 /** Characters added this week, with their price and move since the week began. For the header. */
-export const useNewCharacters = (prices: PriceMap, priceHistory: PriceHistory, launchedTickers: string[]) =>
-  useMemo(() => {
+export const useNewCharacters = () => {
+  const { prices, priceHistory, launchedTickers } = useMarket();
+  return useMemo(() => {
     const weekStart = getWeekStart();
     return newThisWeek(CHARACTERS, launchedTickers, weekStart).map((char) => {
       const currentPrice = prices[char.ticker] || char.basePrice;
@@ -17,3 +18,4 @@ export const useNewCharacters = (prices: PriceMap, priceHistory: PriceHistory, l
       return { ...char, currentPrice, weeklyChange };
     });
   }, [prices, priceHistory, launchedTickers]);
+};

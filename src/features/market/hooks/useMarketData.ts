@@ -3,10 +3,8 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { CHARACTERS } from '../../../characters';
 import { useActiveIPOs } from '../../ipo/hooks/useActiveIPOs';
-import type { AppContextValue, MarketData } from '../../../context/AppContext';
+import type { AppContextValue, MarketData, MarketStatus } from '../../../context/AppContext';
 import type { EventMarketDoc, PriceHistory, PricePoint, PriceMap } from '../../../types';
-
-export type MarketStatus = 'loading' | 'ready' | 'unavailable';
 
 // All global market subscriptions: prices/market doc, chart history,
 // dividend tier overrides, IPOs, and predictions.

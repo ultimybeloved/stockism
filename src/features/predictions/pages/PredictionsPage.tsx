@@ -14,7 +14,6 @@ import type { usePredictionManagement } from '../hooks/usePredictionManagement';
 type PredictionHandlers = ReturnType<typeof usePredictionManagement>;
 
 interface PredictionsPageProps {
-  predictions?: EventMarketDoc[];
   isGuest: boolean;
   isAdmin?: boolean;
   onBet: PredictionHandlers['handleBet'];
@@ -29,7 +28,6 @@ interface PredictionsPageProps {
 // mobile, side by side on desktop. Both freeze during the chapter-review
 // halt so nobody can trade on an early chapter leak.
 const PredictionsPage = ({
-  predictions = [],
   isGuest,
   isAdmin,
   onBet,
@@ -39,7 +37,7 @@ const PredictionsPage = ({
   onSellEventShares,
 }: PredictionsPageProps) => {
   const { userData } = useSession();
-  const { marketData } = useMarket();
+  const { marketData, predictions } = useMarket();
   const { bgClass, textClass, mutedClass } = themeClasses;
 
   // Opening the page is what clears the nav badge.

@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import { useSession, useMarket } from '../context/AppContext';
 
 import { ADMIN_UIDS } from '../constants';
+import { calculatePortfolioValue } from '../utils/calculations';
 import { ToastContainer } from '../shared/components/ToastNotification';
 import InstallPrompt from './InstallPrompt';
 import LoginModal from '../features/account/components/LoginModal';
@@ -27,7 +28,6 @@ import type { useTradeManagement } from '../features/trading/hooks/useTradeManag
 import type { useDailyOperations } from '../features/missions/hooks/useDailyOperations';
 import type { usePredictionManagement } from '../features/predictions/hooks/usePredictionManagement';
 import type { useUserActions } from '../features/account/hooks/useUserActions';
-import type { useMarketData } from '../features/market/hooks/useMarketData';
 
 const AdminPanel = lazy(() => import('../features/admin/components/AdminPanel'));
 const AboutModal = lazy(() => import('../features/about/components/AboutModal'));
@@ -56,12 +56,10 @@ type AppModalsProps = Omit<Hook<typeof useModalManager>, 'limitOrderRequest' | '
   Pick<
     Hook<typeof useUserActions>,
     'handleLimitOrderRequest' | 'handleMarginTutorialComplete' | 'handleOnboardingComplete' | 'handleToggleDrip'
-  > &
-  Pick<Hook<typeof useMarketData>, 'dividendTierOverrides'> & {
+  > & {
     actionLoading: Record<string, boolean | undefined>;
     activeUserData: UserData;
     isGuest: boolean;
-    portfolioValue: number;
     showMarginTutorialReview: boolean;
     setShowMarginTutorialReview: (show: boolean) => void;
   };
@@ -69,14 +67,14 @@ type AppModalsProps = Omit<Hook<typeof useModalManager>, 'limitOrderRequest' | '
 // The whole modal stack, lifted out of App.tsx to hold it under the 500-line
 // limit. App.tsx still owns the modal STATE (useModalManager) and the handlers;
 // this component only decides what is on screen. Values already in context are
-// read from context rather than drilled.
+// read from context rather than drilled. It reads the market, so it re-renders
+// on price ticks (App does not).
 const AppModals = ({
   actionLoading,
   activeUserData,
   adoptUserDoc,
   betConfirmation,
   dismissNotification,
-  dividendTierOverrides,
   handleBailout,
   handleBet,
   handleClaimMissionReward,
@@ -106,7 +104,6 @@ const AppModals = ({
   needsUsername,
   suggestedName,
   notifications,
-  portfolioValue,
   priceAlerts,
   requestTrade,
   selectedCharacter,
@@ -143,7 +140,8 @@ const AppModals = ({
   userNotifications,
 }: AppModalsProps) => {
   const { user, userData } = useSession();
-  const { prices, predictions, marketData } = useMarket();
+  const { prices, predictions, marketData, dividendTierOverrides } = useMarket();
+  const portfolioValue = calculatePortfolioValue(activeUserData, prices);
 
   return (
     <>

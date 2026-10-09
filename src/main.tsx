@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import MarketDataProvider from './app/MarketDataProvider';
 import './index.css';
 
 Sentry.init({
@@ -19,7 +20,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <Sentry.ErrorBoundary fallback={<p>Something went wrong. Please refresh the page.</p>}>
-        <App />
+        <MarketDataProvider>
+          <App />
+        </MarketDataProvider>
       </Sentry.ErrorBoundary>
     </BrowserRouter>
   </React.StrictMode>,

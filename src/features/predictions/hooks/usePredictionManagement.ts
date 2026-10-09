@@ -7,21 +7,20 @@ import { marketTimes } from '../../../utils/localTime';
 import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';
 import type { ActionHookDeps } from '../../../shared/hooks/types';
-import type { LooseDoc } from '../../../context/AppContext';
 
 export function usePredictionManagement({
   user,
   userData,
-  predictions,
-  marketData,
+  getMarket,
   showNotification,
   setUserData,
   setLoadingKey,
-}: ActionHookDeps & { predictions: LooseDoc[] }) {
+}: ActionHookDeps & { getMarket: NonNullable<ActionHookDeps['getMarket']> }) {
   // Every prediction lane closes with the market. Mirrors the server checks in
   // predictions.js and eventMarket.js so a click fails here with a readable
   // message instead of bouncing off a Cloud Function.
   const haltMessage = useCallback(() => {
+    const { marketData } = getMarket();
     if (marketData?.marketHalted) {
       return `Market closed: ${marketData.haltReason || 'Emergency halt in progress'}`;
     }
@@ -29,7 +28,7 @@ export function usePredictionManagement({
       return `Betting is closed for chapter review. It reopens ${marketTimes().reopen}.`;
     }
     return null;
-  }, [marketData]);
+  }, [getMarket]);
 
   const handleBet = useCallback(
     async (predictionId: string, option: string, amount: number) => {
@@ -61,7 +60,7 @@ export function usePredictionManagement({
         }
         return;
       }
-      const prediction = predictions.find((p) => p.id === predictionId);
+      const prediction = getMarket().predictions.find((p) => p.id === predictionId);
       if (!prediction || prediction.resolved || (prediction.endsAt as number) < Date.now()) {
         showNotification('error', 'Betting has ended!');
         return;
@@ -93,7 +92,7 @@ export function usePredictionManagement({
         setLoadingKey('placeBet', false);
       }
     },
-    [user, userData, predictions, haltMessage, showNotification, setUserData, setLoadingKey],
+    [user, userData, getMarket, haltMessage, showNotification, setUserData, setLoadingKey],
   );
 
   // Long-term event-share markets (AMM-priced). Cash and positions reconcile from

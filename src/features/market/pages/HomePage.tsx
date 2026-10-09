@@ -8,6 +8,7 @@ import MarketGrid from '../components/MarketGrid';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { themeClasses } from '../../../utils/theme';
+import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import type { ComponentProps } from 'react';
 
@@ -24,10 +25,7 @@ type HomePageProps = Pick<
   | 'onClearLimitOrderRequest'
   | 'onSetAlert'
 > &
-  Pick<
-    ComponentProps<typeof DashboardRail>,
-    'portfolioValue' | 'isGuest' | 'onShowLogin' | 'onShowPortfolio' | 'onShowBailout'
-  > &
+  Pick<ComponentProps<typeof DashboardRail>, 'isGuest' | 'onShowLogin' | 'onShowPortfolio' | 'onShowBailout'> &
   Pick<ComponentProps<typeof IPOActiveCard>, 'onBuyIPO'> & {
     /** In-flight action flags, keyed by action ('checkin', ...). */
     actionLoading: Record<string, boolean | undefined>;
@@ -45,7 +43,6 @@ type HomePageProps = Pick<
 const HomePage = ({
   isGuest,
   activeUserData,
-  portfolioValue,
   actionLoading,
   onCheckin,
   onBuyIPO,
@@ -67,6 +64,7 @@ const HomePage = ({
 }: HomePageProps) => {
   const { user, userData } = useSession();
   const { prices, priceHistory, activeIPOs, ipoRestrictedTickers, launchedTickers, storedReviewChanges } = useMarket();
+  const portfolioValue = calculatePortfolioValue(activeUserData, prices);
   const { bgClass, mutedClass, ghostBtnClass } = themeClasses;
 
   const browser = useMarketBrowser({

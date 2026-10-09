@@ -4,7 +4,7 @@
 // declared it) shipped in July 2026 with all unit tests green — nothing
 // actually rendered <App /> itself.
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
@@ -37,11 +37,16 @@ vi.mock('firebase/auth', () => ({
   sendPasswordResetEmail: vi.fn(),
   sendEmailVerification: vi.fn(),
 }));
+// Live subscriptions by doc path, so a test can push a snapshot.
+const listeners = new Map<string, (snap: unknown) => void>();
 vi.mock('firebase/firestore', () => ({
-  doc: vi.fn(),
+  doc: vi.fn((_db: unknown, ...path: string[]) => path.join('/')),
   getDoc: vi.fn(async () => ({ exists: () => false })),
   updateDoc: vi.fn(),
-  onSnapshot: vi.fn(() => () => {}),
+  onSnapshot: vi.fn((ref: unknown, cb: (snap: unknown) => void) => {
+    if (typeof ref === 'string') listeners.set(ref, cb);
+    return () => {};
+  }),
   collection: vi.fn(),
   query: vi.fn(),
   where: vi.fn(),
@@ -52,17 +57,58 @@ vi.mock('firebase/firestore', () => ({
   Timestamp: { fromDate: vi.fn(() => ({})) },
 }));
 
+// Counts renders: App is the only caller of useMarketAccess, every market
+// reader calls useMarket.
+const calls = vi.hoisted(() => ({ access: 0, market: 0 }));
+vi.mock('./context/AppContext', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./context/AppContext')>();
+  return {
+    ...real,
+    useMarketAccess: () => {
+      calls.access++;
+      return real.useMarketAccess();
+    },
+    useMarket: () => {
+      calls.market++;
+      return real.useMarket();
+    },
+  };
+});
+
 import App from './App';
+import MarketDataProvider from './app/MarketDataProvider';
+import { CHARACTERS } from './characters';
+
+// Mounted the way main.tsx mounts it.
+const mountApp = () =>
+  render(
+    <MemoryRouter>
+      <MarketDataProvider>
+        <App />
+      </MarketDataProvider>
+    </MemoryRouter>,
+  );
+
+const marketSnap = (prices: Record<string, number>) => ({ exists: () => true, data: () => ({ prices }) });
 
 afterEach(cleanup);
 
 describe('App smoke', () => {
   it('mounts and renders the home page as a guest', async () => {
-    render(
-      <MemoryRouter>
-        <App />
-      </MemoryRouter>,
-    );
+    mountApp();
     expect(await screen.findByText(/Browsing as guest/i)).toBeInTheDocument();
+  });
+
+  it('a price tick re-renders market readers, not App', async () => {
+    mountApp();
+    await screen.findByText(/Browsing as guest/i);
+    const ticker = CHARACTERS[0].ticker;
+    const tick = listeners.get('market/current');
+    expect(tick).toBeDefined();
+    act(() => tick!(marketSnap({ [ticker]: 10 })));
+    const before = { ...calls };
+    act(() => tick!(marketSnap({ [ticker]: 11 })));
+    expect(calls.access).toBe(before.access);
+    expect(calls.market).toBeGreaterThan(before.market);
   });
 });

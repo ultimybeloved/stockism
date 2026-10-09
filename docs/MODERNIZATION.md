@@ -139,8 +139,15 @@ their public profile and the leaderboard.
    `html` prefix, since the theme classes now load after them. Checked by
    comparing every element's computed styles, old build vs new, on every route
    in both themes.
-5. Break `App.tsx` further into router and providers (the shell, status screens and
-   small state hooks already moved out on 2026-10-08).
+5. ~~Router and providers~~ **Done 2026-10-09.** The market subscriptions moved
+   to `src/app/MarketDataProvider.tsx`, mounted above App in `main.tsx`; the
+   routes to `src/app/AppRoutes.tsx`; the price-driven account upkeep to
+   `src/app/BackgroundTasks.tsx`. App reads no live market values: the action
+   hooks read the market when clicked through `useMarketAccess().getMarket`,
+   and the header, home page, predictions page and modal stack read what they
+   show from `useMarket()`. A price tick now re-renders only market readers,
+   not App, the layout or the non-market pages (`App.smoke.test.tsx` checks
+   this). App.tsx is 290 lines, down from 402.
 
 ## Phase 5: Library upgrades (one per commit)
 

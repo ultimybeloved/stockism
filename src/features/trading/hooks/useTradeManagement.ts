@@ -19,10 +19,7 @@ import type { TradeHookDeps } from '../../../shared/hooks/types';
 export function useTradeManagement({
   user,
   userData,
-  prices,
-  marketData,
-  activeIPOs,
-  launchedTickers,
+  getMarket,
   showNotification,
   setLoadingKey,
   setTradeConfirmation,
@@ -32,6 +29,7 @@ export function useTradeManagement({
   const handleTrade = useCallback(
     async (ticker: string, action: TradeAction, amount: number) => {
       console.log(`[TRADE START] ticker=${ticker}, action=${action}, amount=${amount}`);
+      const { prices, marketData } = getMarket();
       if (!user || !userData) {
         showNotification('info', 'Sign in to start trading!');
         return;
@@ -179,15 +177,13 @@ export function useTradeManagement({
         setLoadingKey('trade', false);
       }
     },
-    [user, userData, prices, marketData, setLoadingKey, showNotification, setTradeAnimation],
+    [user, userData, getMarket, setLoadingKey, showNotification, setTradeAnimation],
   );
 
   const requestTrade = useTradeRequest({
     user,
     userData,
-    prices,
-    activeIPOs,
-    launchedTickers,
+    getMarket,
     showNotification,
     setTradeConfirmation,
   });

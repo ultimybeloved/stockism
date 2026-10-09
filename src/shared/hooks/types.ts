@@ -3,8 +3,8 @@
 // app-level values; these name them once.
 import type { Dispatch, SetStateAction } from 'react';
 import type { User } from 'firebase/auth';
-import type { AppContextValue, MarketData } from '../../context/AppContext';
-import type { IPO, PriceMap, TradeAction, UserData } from '../../types';
+import type { AppContextValue, MarketAccessValue } from '../../context/AppContext';
+import type { TradeAction, UserData } from '../../types';
 
 export type SetUserData = Dispatch<SetStateAction<UserData | null>>;
 
@@ -17,7 +17,8 @@ export interface ActionHookDeps {
   showNotification: AppContextValue['showNotification'];
   setUserData: SetUserData;
   setLoadingKey: SetLoadingKey;
-  marketData?: MarketData | null;
+  /** The latest market value, read when the action runs. */
+  getMarket?: MarketAccessValue['getMarket'];
 }
 
 export interface TradeConfirmation {
@@ -37,10 +38,8 @@ export interface TradeAnimation {
   timestamp: number;
 }
 
-export type TradeHookDeps = Omit<ActionHookDeps, 'setUserData'> & {
-  prices: PriceMap;
-  activeIPOs: IPO[];
-  launchedTickers: string[];
+export type TradeHookDeps = Omit<ActionHookDeps, 'setUserData' | 'getMarket'> & {
+  getMarket: MarketAccessValue['getMarket'];
   setTradeConfirmation: (confirmation: TradeConfirmation | null) => void;
   setTradeAnimation: (animation: TradeAnimation | null) => void;
 };

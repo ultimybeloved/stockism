@@ -7,16 +7,14 @@ import type { TradeAction } from '../../../types';
 
 type TradeRequestDeps = Pick<
   TradeHookDeps,
-  'user' | 'userData' | 'prices' | 'activeIPOs' | 'launchedTickers' | 'showNotification' | 'setTradeConfirmation'
+  'user' | 'userData' | 'getMarket' | 'showNotification' | 'setTradeConfirmation'
 >;
 
 /** requestTrade: checks a trade can be placed, then opens the confirmation dialog with an estimated total. */
 export function useTradeRequest({
   user,
   userData,
-  prices,
-  activeIPOs,
-  launchedTickers,
+  getMarket,
   showNotification,
   setTradeConfirmation,
 }: TradeRequestDeps) {
@@ -26,6 +24,7 @@ export function useTradeRequest({
         showNotification('info', 'Sign in to start trading!');
         return;
       }
+      const { prices, activeIPOs, launchedTickers } = getMarket();
 
       // Characters in an IPO phase aren't tradeable normally
       const now = Date.now();
@@ -68,7 +67,7 @@ export function useTradeRequest({
 
       setTradeConfirmation({ ticker, action, amount, price, total, name: asset?.name, exitDiscount });
     },
-    [user, userData, prices, activeIPOs, launchedTickers, showNotification, setTradeConfirmation],
+    [user, userData, getMarket, showNotification, setTradeConfirmation],
   );
 
   return requestTrade;

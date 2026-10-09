@@ -8,16 +8,10 @@ import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { isPreMarketWindow } from '../../../utils/marketHours';
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
+import { useNewCharacters } from '../../../features/market/hooks/useNewCharacters';
 import { useAdminAlerts } from '../../../features/admin/hooks/useAdminAlerts';
 import MyPreMarketOrdersModal from '../../../features/trading/components/MyPreMarketOrdersModal';
 import { themeClasses } from '../../../utils/theme';
-import type { Character } from '../../../characters';
-
-/** A character added this week, with its live price and change since the week opened. */
-export interface NewCharacter extends Character {
-  currentPrice: number;
-  weeklyChange: number;
-}
 
 export interface HeaderProps {
   setDarkMode: (dark: boolean) => void;
@@ -26,7 +20,6 @@ export interface HeaderProps {
   onShowLogin: () => void;
   notificationCount: number;
   onToggleNotifications: () => void;
-  newCharacters?: NewCharacter[];
 }
 
 // Ladder icon component - tan circle with X
@@ -46,11 +39,11 @@ const Header = ({
   onShowLogin,
   notificationCount,
   onToggleNotifications,
-  newCharacters = [],
 }: HeaderProps) => {
   const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const { prices } = useMarket();
+  const newCharacters = useNewCharacters();
   const { textClass } = themeClasses;
   // Live value from current prices — the stored userData.portfolioValue only
   // updates on the backend sync, so it can visibly disagree with the rest of

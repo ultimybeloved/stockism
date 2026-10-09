@@ -15,11 +15,11 @@ import type { IPO } from '../../../types';
 export function useIPOManagement({
   user,
   userData,
-  marketData,
+  getMarket,
   showNotification,
   setUserData,
   setLoadingKey,
-}: ActionHookDeps) {
+}: ActionHookDeps & { getMarket: NonNullable<ActionHookDeps['getMarket']> }) {
   // Resolves true only when shares actually changed hands. Every other exit
   // resolves false, including the validation bail-outs, so the buy button can
   // tell "bought" from "rejected" rather than flashing success at a promise
@@ -30,6 +30,7 @@ export function useIPOManagement({
         showNotification('info', 'Sign in to participate in IPO!');
         return false;
       }
+      const { marketData } = getMarket();
       if (isWeeklyHalt() || marketData?.marketHalted) {
         showNotification(
           'error',
@@ -106,7 +107,7 @@ export function useIPOManagement({
         setLoadingKey('buyIPO', false);
       }
     },
-    [user, userData, marketData, showNotification, setUserData, setLoadingKey],
+    [user, userData, getMarket, showNotification, setUserData, setLoadingKey],
   );
 
   return { handleBuyIPO };
