@@ -1,4 +1,3 @@
-'use strict';
 // Crew head Discord role sync, against the LOCAL Firebase emulator with every
 // Discord call stubbed. Never touches production and never touches Discord.
 //
@@ -9,6 +8,12 @@
 // they lost), and Discord IDs must never reach market/crewStats, which is
 // world-readable.
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
@@ -16,7 +21,7 @@ process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 process.env.DISCORD_BOT_TOKEN = 'test-token';
 process.env.DISCORD_GUILD_ID = '100000000000000001';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
@@ -24,7 +29,7 @@ const db = admin.firestore();
 // functions/node_modules/axios instance, so the require cache hands over the
 // identical object. Stubbing at this layer keeps the real discordApi under
 // test (header assembly, validateStatus, audit reason).
-const axios = require('../functions/node_modules/axios');
+const axios = require('../../functions/node_modules/axios');
 let calls = [];
 let scripted = [];
 axios.request = async (cfg) => {
@@ -41,7 +46,7 @@ axios.request = async (cfg) => {
   return { status: 204, data: '' };
 };
 
-const constants = require('../functions/src/shared/constants');
+const constants = require('../../functions/src/shared/constants');
 const { CREW_HEAD_ROLE_IDS } = constants;
 
 // Give every crew a usable role ID for the test run.
@@ -51,23 +56,11 @@ Object.keys(constants.CREWS).forEach((crewId, i) => {
   CREW_HEAD_ROLE_IDS[crewId] = ROLE[crewId];
 });
 
-const { syncCrewHeadRoles } = require('../functions/src/discord/discordRoles');
+const { syncCrewHeadRoles } = require('../../functions/src/discord/discordRoles');
 
 const STATE = db.collection('admin').doc('discordCrewRoles');
 const CREWS = Object.keys(constants.CREWS);
 const [C1, C2, C3] = CREWS;
-
-let passed = 0;
-let failed = 0;
-function check(name, cond, detail) {
-  if (cond) {
-    passed++;
-    console.log(`  ok   ${name}`);
-  } else {
-    failed++;
-    console.log(`  FAIL ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-}
 
 const reset = async (holders = null) => {
   calls = [];
@@ -84,7 +77,7 @@ const puts = () => calls.filter((c) => c.method === 'put');
 const dels = () => calls.filter((c) => c.method === 'delete');
 const state = async () => (await STATE.get()).data() || {};
 
-(async () => {
+it('crew head roles', async () => {
   console.log('\nCrew head Discord roles\n');
 
   // A — first ever run
@@ -222,7 +215,7 @@ const state = async () => (await STATE.get()).data() || {};
   // Discord ID never lands in market/crewStats, which anyone can read.
   await reset();
 
-  const { getWeekId } = require('../functions/src/shared/helpers');
+  const { getWeekId } = require('../../functions/src/shared/helpers');
   // Must match how the job itself resolves "last week" (marketWeekly.js:220),
   // otherwise the seeded activity lands in the wrong bucket and nobody
   // qualifies as active.
@@ -254,7 +247,7 @@ const state = async () => (await STATE.get()).data() || {};
       ...activeLastWeek,
     });
 
-  const { runWeeklyCrewRankings } = require('../functions/src/market/marketWeekly');
+  const { runWeeklyCrewRankings } = require('../../functions/src/market/marketWeekly');
   await runWeeklyCrewRankings({ postToDiscord: true });
 
   const stats = (await db.collection('market').doc('crewStats').get()).data() || {};
@@ -274,10 +267,4 @@ const state = async () => (await STATE.get()).data() || {};
 
   const whaleDoc = (await db.collection('users').doc('whale').get()).data();
   check('E2E: crown written to the user doc', whaleDoc.isCrewHead === true && whaleDoc.crewHeadStreak === 1);
-
-  console.log(`\n${passed} passed, ${failed} failed\n`);
-  process.exit(failed === 0 ? 0 : 1);
-})().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

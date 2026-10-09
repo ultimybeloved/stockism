@@ -1,4 +1,3 @@
-'use strict';
 // Proves the daily drop cannot move prices while the market is halted, against
 // the LOCAL Firebase emulator. Never touches production.
 //
@@ -17,11 +16,17 @@
 //   3. Manual halt: same
 //   4. The tag is present, so this mover is identifiable on a chart
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
 const crypto = require('crypto');
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
@@ -32,7 +37,7 @@ process.env.DISCORD_BOT_TOKEN = 'test-token';
 
 // Discord is not reachable from the emulator. Stub the transport BEFORE the
 // handler is required, or every deferred reply sits waiting on a real socket.
-const axios = require('../functions/node_modules/axios');
+const axios = require('../../functions/node_modules/axios');
 for (const method of ['get', 'post', 'patch', 'put', 'delete', 'request']) {
   axios[method] = async () => ({ data: {}, status: 200 });
 }
@@ -41,19 +46,13 @@ for (const method of ['get', 'post', 'patch', 'put', 'delete', 'request']) {
 // require time — so it has to be swapped before the require below, not after.
 // The constants module's exports are read-only, so the cached module is
 // replaced with a copy that carries the stub.
-const constantsPath = require.resolve('../functions/src/shared/constants');
+const constantsPath = require.resolve('../../functions/src/shared/constants');
 const constants = require(constantsPath);
 let weeklyHalt = false;
 require.cache[constantsPath].exports = { ...constants, isWeeklyTradingHalt: () => weeklyHalt };
 
-const { discordInteractions } = require('../functions/src/discord/discordInteractions');
-const { CHARACTERS } = require('../functions/src/shared/characters');
-
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  [PASS]' : '  [FAIL]'} ${label}${cond ? '' : ' - ' + detail}`);
-  if (!cond) failures++;
-};
+const { discordInteractions } = require('../../functions/src/discord/discordInteractions');
+const { CHARACTERS } = require('../../functions/src/shared/characters');
 
 const DISCORD_ID = 'drop-halt-tester';
 const UID = 'drop_halt_uid';
@@ -224,12 +223,6 @@ async function main() {
   const ledger = ((await db.collection('users').doc(UID).get()).data() || {}).claimedDailyStockMessages || [];
   check('a 40-day-old claim entry is pruned', !ledger.includes(ancient), `ledger: ${ledger.length} entries`);
   check('the claim just made is still recorded', ledger.includes(recent), `ledger: ${ledger.length} entries`);
-
-  console.log(failures === 0 ? '\nALL DROP-HALT E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err);
-  process.exit(1);
-});
+it('daily drop during a halt', main);

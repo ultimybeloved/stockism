@@ -1,10 +1,7 @@
-'use strict';
 // End-to-end test of the price-history split against the LOCAL Firebase
 // emulator. Never touches production (uses FIRESTORE_EMULATOR_HOST).
 //
-// Run via:
-//   firebase emulators:exec --config firebase.emulator-test.json --only firestore \
-//     "node scripts/test-price-history-split-emulator.cjs"
+// Run via: npm run test:pricehistory
 //
 // Covers:
 //   1. executeTrade writes the price to market/current and the chart point to
@@ -18,26 +15,34 @@
 //   5. archivePriceHistory moves (never deletes) overflow points to the
 //      permanent per-ticker archive: total point count is preserved.
 
+import { beforeAll, it } from 'vitest';
+import { createRequire } from 'module';
+import { check, seedEmulator } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
+beforeAll(seedEmulator);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore() binds to the emulator.
-const { executeTrade } = require('../functions/src/trading/trading');
+const { executeTrade } = require('../../functions/src/trading/trading');
 // No migratePriceHistoryDoc import: that was a one-time migration off the
 // legacy priceHistory field on market/current. It ran, the callable was
 // deleted from adminOps.js, and the section testing it was removed here.
-const { archivePriceHistory } = require('../functions/src/admin/archiving');
-const { applyDueIPOJumps } = require('../functions/src/shared/helpers');
-const { ADMIN_UID, PRICE_HISTORY_LIVE_MAX } = require('../functions/src/shared/constants');
+const { archivePriceHistory } = require('../../functions/src/admin/archiving');
+const { applyDueIPOJumps } = require('../../functions/src/shared/helpers');
+const { ADMIN_UID, PRICE_HISTORY_LIVE_MAX } = require('../../functions/src/shared/constants');
 
 // Comfortably more points than the live cap, so archiving has real overflow to move.
 const SEEDED_POINTS = PRICE_HISTORY_LIVE_MAX + 945;
 
-const { CHARACTER_MAP } = require('../functions/src/shared/characters');
+const { CHARACTER_MAP } = require('../../functions/src/shared/characters');
 
 const DAY = 24 * 60 * 60 * 1000;
 const NORMAL = 'GUN';
@@ -47,12 +52,6 @@ const NORMAL = 'GUN';
 const IPO = 'EUNH';
 if (!CHARACTER_MAP[IPO]) throw new Error(`${IPO} is not in characters.ts`);
 CHARACTER_MAP[IPO].ipoRequired = true;
-
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 
 const ctx = (uid) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });
 const ok = (fn, data, uid) => fn.run(data, ctx(uid));
@@ -243,12 +242,6 @@ async function main() {
   await testIPOJump();
   await testArchivePreservesEverything();
   await testArchiveKeepsConcurrentAppends();
-
-  console.log(failures === 0 ? '\n✅ ALL PRICE-HISTORY SPLIT TESTS PASSED' : `\n❌ ${failures} FAILURES`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test run failed:', err);
-  process.exit(1);
-});
+it('price history split', main);

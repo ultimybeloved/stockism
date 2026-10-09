@@ -1,4 +1,3 @@
-'use strict';
 // End-to-end test of the chapter-review tidy-up (collapseReviewWindow +
 // writeReviewChanges) against the LOCAL Firebase emulator. Never touches
 // production (FIRESTORE_EMULATOR_HOST).
@@ -22,27 +21,27 @@
 //      the fold still reconstructs it from the stash
 //   9. A pre-halt point outside the window is never touched
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
 // Use the SAME firebase-admin instance the functions code resolves
 // (functions/node_modules), or its initializeApp won't be visible there.
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { writeReviewChanges, collapseReviewWindow } = require('../functions/src/market/reviewChanges');
+const { writeReviewChanges, collapseReviewWindow } = require('../../functions/src/market/reviewChanges');
 const {
   WEEKLY_HALT_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
   REVIEW_COLLAPSE_MINUTE,
-} = require('../functions/src/shared/constants');
-
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  [PASS]' : '  [FAIL]'} ${label}${cond ? '' : ' - ' + detail}`);
-  if (!cond) failures++;
-};
+} = require('../../functions/src/shared/constants');
 
 // A Thursday in the past, so the window is fixed and the test is deterministic.
 const DAY = Date.UTC(2026, 7, 20);
@@ -219,12 +218,6 @@ async function main() {
       rebuilt.changes.KWON.trailingChange > 0,
     JSON.stringify(rebuilt.changes.KWON),
   );
-
-  console.log(failures === 0 ? '\nALL REVIEW-COLLAPSE E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err);
-  process.exit(1);
-});
+it('review collapse', main);

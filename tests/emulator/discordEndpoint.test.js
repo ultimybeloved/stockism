@@ -9,11 +9,17 @@
 // verifies the choice is made correctly and that exactly one response is sent
 // on every path — sending twice would throw and lose the interaction.
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
 const crypto = require('crypto');
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
@@ -22,20 +28,8 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
 const rawPublic = publicKey.export({ type: 'spki', format: 'der' }).slice(-32);
 process.env.DISCORD_PUBLIC_KEY = rawPublic.toString('hex');
 
-const { CHARACTERS } = require('../functions/src/shared/characters');
-const { discordInteractions } = require('../functions/src/discord/discordInteractions');
-
-let passed = 0;
-let failed = 0;
-const check = (name, cond, detail) => {
-  if (cond) {
-    passed++;
-    console.log(`  PASS  ${name}`);
-  } else {
-    failed++;
-    console.log(`  FAIL  ${name}${detail ? ` - ${detail}` : ''}`);
-  }
-};
+const { CHARACTERS } = require('../../functions/src/shared/characters');
+const { discordInteractions } = require('../../functions/src/discord/discordInteractions');
 
 const TICKER = CHARACTERS[0].ticker;
 
@@ -204,12 +198,6 @@ async function run() {
     noOptions.length === 1 && !noOptions.some((r) => r.kind === 'threw'),
     JSON.stringify(noOptions),
   );
-
-  console.log(`\n${passed} passed, ${failed} failed\n`);
-  process.exit(failed > 0 ? 1 : 0);
 }
 
-run().catch((err) => {
-  console.error('\nCrashed:', err);
-  process.exit(1);
-});
+it('Discord interactions endpoint', run);

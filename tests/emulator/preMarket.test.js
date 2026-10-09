@@ -1,11 +1,7 @@
-'use strict';
 // End-to-end test of the pre-market opening auction against the LOCAL
 // Firebase emulator. Never touches production (FIRESTORE_EMULATOR_HOST).
 //
-// Run with the emulators started and the market seeded:
-//   npm run emulators        (terminal 1)
-//   npm run seed:emulator    (once)
-//   node scripts/test-premarket-emulator.cjs
+// Run via: npm run test:premarket (seeds the market first)
 //
 // Scenarios covered:
 //   1. Normal buy fills at the opening ask
@@ -17,20 +13,28 @@
 //   7. No PENDING pre-market orders remain afterward
 //   8. A dust sell (under 0.01 shares) fills instead of failing
 
+import { beforeAll, it } from 'vitest';
+import { createRequire } from 'module';
+import { check, seedEmulator } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
+beforeAll(seedEmulator);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
 // Use the SAME firebase-admin instance the functions code resolves
 // (functions/node_modules), or its initializeApp won't be visible there.
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { runMarketOpenProcessing } = require('../functions/src/orders/marketOrders');
-const { calculateMarginalImpact } = require('../functions/src/shared/helpers');
-const { BID_ASK_SPREAD } = require('../functions/src/shared/constants');
+const { runMarketOpenProcessing } = require('../../functions/src/orders/marketOrders');
+const { calculateMarginalImpact } = require('../../functions/src/shared/helpers');
+const { BID_ASK_SPREAD } = require('../../functions/src/shared/constants');
 
-const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/src/shared/characters');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../../functions/src/shared/characters');
 
 const TICKER = 'GUN'; // auction ticker (in the YAMA fund)
 const STOP_TICKER = 'VSCO'; // stop-loss ticker (in the ALLY fund, untouched by the auction)
@@ -43,11 +47,6 @@ const IPO_TICKER = 'EUNH';
 if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.ts`);
 CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 const round2 = (n) => Math.round(n * 100) / 100;
 
 async function main() {
@@ -311,12 +310,6 @@ async function main() {
 
   const leftover = await db.collection('preMarketOrders').where('status', '==', 'PENDING').get();
   check('no PENDING pre-market orders remain', leftover.empty, `${leftover.size} left`);
-
-  console.log(failures === 0 ? '\nALL PRE-MARKET E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err);
-  process.exit(1);
-});
+it('pre-market auction', main);

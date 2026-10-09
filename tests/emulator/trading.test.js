@@ -1,11 +1,7 @@
-'use strict';
 // Characterization test suite for executeTrade against the LOCAL Firebase emulator.
 // Never touches production (uses FIRESTORE_EMULATOR_HOST).
 //
-// Run via:
-//   npm run test:trading
-// (= firebase emulators:exec --config firebase.emulator-test.json --only firestore
-//      "node scripts/test-trading-emulator.cjs")
+// Run via: npm run test:trading
 //
 // Purpose: pin down the CURRENT behavior of the trade engine so any future change
 // to functions/src/trading/trading.js can be verified against it. Expected numbers are
@@ -26,18 +22,24 @@
 //   P. Wash rule (no buying back a stock you just pushed down)
 //   Q. Oversized order impact (market move capped, trader pays the real cost)
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
-const { executeTrade } = require('../functions/src/trading/trading');
-const { checkShortMarginCalls, checkMarginLending } = require('../functions/src/margin/marginScanners');
-const { bailout } = require('../functions/src/margin/margin');
+const { executeTrade } = require('../../functions/src/trading/trading');
+const { checkShortMarginCalls, checkMarginLending } = require('../../functions/src/margin/marginScanners');
+const { bailout } = require('../../functions/src/margin/margin');
 const {
   BASE_IMPACT,
   BASE_LIQUIDITY,
@@ -63,8 +65,8 @@ const {
   MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
   ADMIN_UID,
-} = require('../functions/src/shared/constants');
-const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../functions/src/shared/characters');
+} = require('../../functions/src/shared/constants');
+const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../../functions/src/shared/characters');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
 // SOPH / CROC / XIAO: no trailingFactors, not a constituent of any ETF.
@@ -80,7 +82,6 @@ const T = 'SOPH'; // main test ticker, basePrice 80
 const T2 = 'CROC'; // secondary clean ticker, basePrice 66
 const T3 = 'XIAO'; // third clean ticker, basePrice 40
 const ETF = 'SCRT';
-const CON = 'GOO'; // SCRT constituent
 const UND = 'MIRA'; // underdog (< $20)
 const IPOT = 'REI'; // gated for these tests, unlaunched
 if (!CHARACTER_MAP[IPOT]) throw new Error(`${IPOT} is not in characters.ts`);
@@ -90,17 +91,9 @@ const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
-let failures = 0;
-let checks = 0;
-const check = (label, cond, detail = '') => {
-  checks++;
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 const near = (a, b, eps = 1e-6) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= eps;
 
 let ipSeed = 0;
-const freshIp = () => `203.0.113.${++ipSeed % 250}.${Math.floor(ipSeed / 250)}`.replace(/\.0$/, '');
 const ctx = (uid, ip) => ({ auth: { uid }, rawRequest: { ip: ip || `198.51.100.${++ipSeed}` } });
 const ok = (data, uid, ip) => executeTrade.run(data, ctx(uid, ip));
 const err = async (data, uid, ip) => {
@@ -2109,7 +2102,7 @@ async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
     console.error('executeTrade rejects everything during the halt. Re-run outside that window.');
-    process.exit(2);
+    throw new Error('The weekly trading halt is active. Re-run outside Thursday 13:00-21:00 UTC.');
   }
 
   await testValidation();
@@ -2130,13 +2123,6 @@ async function main() {
   await testWashRule();
   await testOversizedImpact();
   await testAdminActAs();
-
-  console.log(`\n${checks} checks run.`);
-  console.log(failures === 0 ? 'ALL TRADING CHECKS PASSED' : `${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((e) => {
-  console.error('Test crashed:', e);
-  process.exit(1);
-});
+it('executeTrade and the scanners', main);

@@ -1,4 +1,3 @@
-'use strict';
 // Money-path test suite for the weekly dividend payout, against the LOCAL
 // Firebase emulator. Never touches production (uses FIRESTORE_EMULATOR_HOST).
 //
@@ -15,16 +14,22 @@
 //   C. Loyalty ladder           D. Cohort self-heal
 //   E. DRIP                     F. Bookkeeping
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const { runDividendPayoutNow } = require('../functions/src/market/dividends');
-const { ADMIN_UID } = require('../functions/src/shared/constants');
+const { runDividendPayoutNow } = require('../../functions/src/market/dividends');
+const { ADMIN_UID } = require('../../functions/src/shared/constants');
 const {
   CHARACTERS,
   computeRarityTiers,
@@ -35,15 +40,8 @@ const {
   DIVIDEND_LOYALTY_LADDER,
   DIVIDEND_MATURE_MS,
   DIVIDEND_LADDER_EPOCH,
-} = require('../functions/src/shared/characters');
+} = require('../../functions/src/shared/characters');
 
-let failures = 0;
-let checks = 0;
-const check = (label, cond, detail = '') => {
-  checks++;
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 const near = (a, b, tol = 0.011) => Math.abs(a - b) < tol;
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.now();
@@ -403,13 +401,6 @@ async function main() {
     ((await getUser('div_grant_cash')).grantedValue || 0) > grantedBefore,
     `before=${grantedBefore}`,
   );
-
-  console.log(`\n${checks} checks run.`);
-  console.log(failures === 0 ? 'ALL DIVIDEND CHECKS PASSED' : `${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Suite crashed:', err);
-  process.exit(1);
-});
+it('dividends', main);

@@ -5,12 +5,15 @@
 // one IP, asserting only MAX get through. This is the regression guard for the
 // race where a burst of VPN signups all read a stale count and slipped past.
 //
-// Run via: npm run test:ipcap  (uses emulators:exec on an isolated port).
+// Run via: npm run test:ipcap
 
+import { it } from 'vitest';
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
+import { check } from './harness.js';
+
 const require = createRequire(import.meta.url);
-const { countIpAccounts } = require('../functions/src/users/ipCap');
+const { countIpAccounts } = require('../../functions/src/users/ipCap');
 
 const PROJECT_ID = 'stockism-abb28';
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
@@ -45,18 +48,6 @@ async function attemptSignup(ip, uid) {
   }
 }
 
-let pass = 0,
-  fail = 0;
-const check = (label, cond) => {
-  if (cond) {
-    console.log(`  PASS  ${label}`);
-    pass++;
-  } else {
-    console.log(`  FAIL  ${label}`);
-    fail++;
-  }
-};
-
 async function main() {
   // Case 1: 6 simultaneous signups from one IP — exactly MAX should commit.
   const ip1 = '203_0_113_7';
@@ -75,12 +66,6 @@ async function main() {
   // Case 3: a different IP is unaffected.
   const other = await attemptSignup('198_51_100_5', 'fresh_ip_user');
   check('signup on a fresh IP still succeeds', other === true);
-
-  console.log(`\n${fail === 0 ? 'ALL PASS' : 'FAILURES PRESENT'} — ${pass} passed, ${fail} failed\n`);
-  process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test harness error:', err);
-  process.exit(2);
-});
+it('per-IP signup cap under concurrency', main);

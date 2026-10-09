@@ -13,34 +13,32 @@
 // The deploy is simulated in-process: CHARACTER_MAP.SOPH gets the splitFactor
 // that src/characters.ts would carry after the edit.
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 process.env.ADMIN_DISCORD_USER_ID = '';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { splitStock } = require('../functions/src/admin/adminMigrate');
-const { runSplit, PHASES } = require('../functions/src/market/stockSplit');
-const { executeTrade } = require('../functions/src/trading/trading');
-const { exitEquityAt } = require('../functions/src/shared/helpers');
-const { CHARACTER_MAP } = require('../functions/src/shared/characters');
-const { ADMIN_UID, isWeeklyTradingHalt } = require('../functions/src/shared/constants');
+const { splitStock } = require('../../functions/src/admin/adminMigrate');
+const { runSplit, PHASES } = require('../../functions/src/market/stockSplit');
+const { executeTrade } = require('../../functions/src/trading/trading');
+const { exitEquityAt } = require('../../functions/src/shared/helpers');
+const { CHARACTER_MAP } = require('../../functions/src/shared/characters');
+const { ADMIN_UID, isWeeklyTradingHalt } = require('../../functions/src/shared/constants');
 
 const T = 'SOPH';
 const N = 10;
 const adminCtx = { auth: { uid: ADMIN_UID } };
 const DAY = 86400000;
 
-let failures = 0;
-const check = (name, cond, detail) => {
-  if (cond) console.log(`  ok   ${name}`);
-  else {
-    failures++;
-    console.log(`  FAIL ${name}${detail !== undefined ? ` -> ${JSON.stringify(detail)}` : ''}`);
-  }
-};
 const close = (a, b, eps = 0.01) => typeof a === 'number' && Math.abs(a - b) <= eps;
 const user = async (uid) => (await db.collection('users').doc(uid).get()).data();
 const market = async () => (await db.collection('market').doc('current').get()).data();
@@ -178,7 +176,7 @@ const seed = async () => {
 const run = async () => {
   if (isWeeklyTradingHalt()) {
     console.error('Weekly halt is active; executeTrade refuses everything. Re-run outside it.');
-    process.exit(2);
+    throw new Error('The weekly trading halt is active. Re-run outside Thursday 13:00-21:00 UTC.');
   }
   await seed();
 
@@ -390,12 +388,6 @@ const run = async () => {
     !!splitErr && !/between .* and/.test(splitErr),
     splitErr,
   );
-
-  console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll split checks passed.');
-  process.exit(failures ? 1 : 0);
 };
 
-run().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+it('splitStock', run);

@@ -9,28 +9,21 @@
 // Must resolve firebase-admin from functions/node_modules — the service files
 // require it from there, and two copies of the SDK do not share the initialized
 // app (same trap the trading suite documents).
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { handleSlashCommand, isPrivate } = require('../functions/src/discord/discordCommands');
-const { CHARACTERS } = require('../functions/src/shared/characters');
-
-let passed = 0;
-let failed = 0;
-
-const check = (name, condition, detail) => {
-  if (condition) {
-    passed++;
-    console.log(`  PASS  ${name}`);
-  } else {
-    failed++;
-    console.log(`  FAIL  ${name}${detail ? ` — ${detail}` : ''}`);
-  }
-};
+const { handleSlashCommand, isPrivate } = require('../../functions/src/discord/discordCommands');
+const { CHARACTERS } = require('../../functions/src/shared/characters');
 
 // A slash-command interaction as Discord actually sends it.
 const interaction = (name, options = [], discordId = 'discord-linked-1') => ({
@@ -99,7 +92,7 @@ async function seed() {
         { userId: 'u3', displayName: 'Gamma', portfolioValue: 31000 },
       ],
     });
-  const crew = Object.keys(require('../functions/src/shared/constants').CREW_MEMBERS)[0];
+  const crew = Object.keys(require('../../functions/src/shared/constants').CREW_MEMBERS)[0];
   await db
     .collection('users')
     .doc('u1')
@@ -285,12 +278,6 @@ async function run() {
   check('commands do not mutate the user doc', JSON.stringify(userBefore) === JSON.stringify(userAfter));
   const marketAfter = (await db.collection('market').doc('current').get()).data();
   check('commands do not move prices', marketAfter.prices[TICKER_A] === 120.5);
-
-  console.log(`\n${passed} passed, ${failed} failed\n`);
-  process.exit(failed > 0 ? 1 : 0);
 }
 
-run().catch((err) => {
-  console.error('\nTest run crashed:', err);
-  process.exit(1);
-});
+it('Discord slash commands', run);

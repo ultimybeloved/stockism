@@ -1,9 +1,7 @@
-'use strict';
 // End-to-end test of limit-order processing (runLimitOrderCheck) against the
 // LOCAL Firebase emulator. Never touches production (FIRESTORE_EMULATOR_HOST).
 //
 // Run via: npm run test:limitorders
-// (or manually: npm run emulators + npm run seed:emulator + node scripts/test-limitorders-emulator.cjs)
 //
 // Scenarios covered:
 //   1. Admin emergency halt skips the whole run
@@ -28,20 +26,28 @@
 //      fill is written to the connection's history, and placement refuses a
 //      third account's buy
 
+import { beforeAll, it } from 'vitest';
+import { createRequire } from 'module';
+import { check, seedEmulator } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
+beforeAll(seedEmulator);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
 // Use the SAME firebase-admin instance the functions code resolves
 // (functions/node_modules), or its initializeApp won't be visible there.
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { runLimitOrderCheck } = require('../functions/src/orders/limitOrders');
-const { runFillBackfill } = require('../functions/src/trading/tradeBackfill');
-const { calculateMarginalImpact } = require('../functions/src/shared/helpers');
-const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../functions/src/shared/constants');
-const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../functions/src/shared/characters');
+const { runLimitOrderCheck } = require('../../functions/src/orders/limitOrders');
+const { runFillBackfill } = require('../../functions/src/trading/tradeBackfill');
+const { calculateMarginalImpact } = require('../../functions/src/shared/helpers');
+const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../../functions/src/shared/constants');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../../functions/src/shared/characters');
 
 // Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
 // from characters.ts: `ipoRequired` gets dropped once a stock actually launches
@@ -53,11 +59,6 @@ const IPO_TICKER = 'EUNH';
 if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.ts`);
 CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 const round2 = (n) => Math.round(n * 100) / 100;
 
 async function main() {
@@ -720,7 +721,7 @@ async function main() {
   );
 
   // Placement: a BUY takes one of the connection's slots, a third account is refused.
-  const { claimNetworkForOrder } = require('../functions/src/orders/orderNetwork');
+  const { claimNetworkForOrder } = require('../../functions/src/orders/orderNetwork');
   const ctxFor = (ip) => ({ rawRequest: { ip } });
   await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_a', isBuy: true });
   await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_b', isBuy: true });
@@ -742,12 +743,6 @@ async function main() {
     exitRefused = err.message;
   }
   check('a sell order from that connection is still allowed', exitRefused === null, String(exitRefused));
-
-  console.log(failures === 0 ? '\nALL LIMIT-ORDER E2E CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err);
-  process.exit(1);
-});
+it('limit orders', main);

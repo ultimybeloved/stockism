@@ -9,32 +9,30 @@
 // "all in on borrowed money" flag on an upward cluster, and the admin tools
 // that measure and remove what a push made.
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 // Never DM the real admin from a test.
 process.env.ADMIN_DISCORD_USER_ID = '';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { triggerCoordScan } = require('../functions/src/moderation/coordDetection');
-const { getCoordProfit, adminRemoveCoordProfit } = require('../functions/src/moderation/coordReview');
-const { washRuleRemainingMs, shortAfterDumpRemainingMs } = require('../functions/src/shared/helpers');
-const { ADMIN_UID } = require('../functions/src/shared/constants');
+const { triggerCoordScan } = require('../../functions/src/moderation/coordDetection');
+const { getCoordProfit, adminRemoveCoordProfit } = require('../../functions/src/moderation/coordReview');
+const { washRuleRemainingMs, shortAfterDumpRemainingMs } = require('../../functions/src/shared/helpers');
+const { ADMIN_UID } = require('../../functions/src/shared/constants');
 
 const adminCtx = { auth: { uid: ADMIN_UID } };
 const MIN = 60000;
 const H = 60 * MIN;
 
-let failures = 0;
-const check = (name, cond, detail) => {
-  if (cond) console.log(`  ok   ${name}`);
-  else {
-    failures++;
-    console.log(`  FAIL ${name}${detail !== undefined ? ` -> ${JSON.stringify(detail)}` : ''}`);
-  }
-};
 const user = async (uid) => (await db.collection('users').doc(uid).get()).data();
 
 // Clusters are grouped by UTC day, so the trades (base to base + 60 min) must
@@ -258,12 +256,6 @@ const run = async () => {
     noMargin = e.message;
   }
   check('refused past their cash when margin is off', /margin is off/.test(noMargin || ''), noMargin);
-
-  console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll coordination checks passed.');
-  process.exit(failures ? 1 : 0);
 };
 
-run().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+it('coordination scan', run);

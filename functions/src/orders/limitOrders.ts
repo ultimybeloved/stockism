@@ -246,7 +246,7 @@ export const checkLimitOrders = cf()
     return result;
   });
 
-// Exposed for the emulator end-to-end test (scripts/test-limitorders-emulator.cjs)
+// Exposed for the emulator end-to-end test (tests/emulator/limitOrders.test.js)
 
 // ============================================
 // SECURE OPERATIONS - Moved from client-side

@@ -4,8 +4,9 @@
 //   - the cash-printing / impersonation exploits are now blocked, and
 //   - every legitimate preference write the app makes still succeeds.
 //
-// Run with the emulators up. Easiest: `npm run test:rules` (uses emulators:exec).
+// Run via: npm run test:rules
 
+import { it } from 'vitest';
 import admin from 'firebase-admin';
 import { initializeApp } from 'firebase/app';
 import {
@@ -15,6 +16,7 @@ import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, doc, updateDoc, deleteField } from 'firebase/firestore';
+import { check as record } from './harness.js';
 
 const PROJECT_ID = 'stockism-abb28';
 
@@ -29,7 +31,6 @@ process.env.GCLOUD_PROJECT = PROJECT_ID;
 
 admin.initializeApp({ projectId: PROJECT_ID });
 const adminDb = admin.firestore();
-const adminAuth = admin.auth();
 
 const clientApp = initializeApp({ projectId: PROJECT_ID, apiKey: 'fake-emulator-key' });
 const clientAuth = getAuth(clientApp);
@@ -41,32 +42,19 @@ connectFirestoreEmulator(clientDb, FIRESTORE_HOST, Number(FIRESTORE_PORT));
 const EMAIL = 'rulestest@example.com';
 const PASSWORD = 'password123';
 
-let pass = 0;
-let fail = 0;
-
 // expectAllowed: the write must succeed. expectBlocked: it must be rejected.
 async function check(label, mode, fields) {
   const ref = doc(clientDb, 'users', uid);
   try {
     await updateDoc(ref, fields);
-    if (mode === 'allowed') {
-      console.log(`  PASS  ${label} (allowed)`);
-      pass++;
-    } else {
-      console.log(`  FAIL  ${label} — write was ALLOWED but should be blocked`);
-      fail++;
-    }
+    record(`${label} (${mode})`, mode === 'allowed', 'write was ALLOWED but should be blocked');
   } catch (err) {
-    if (mode === 'blocked' && (err.code === 'permission-denied' || /PERMISSION_DENIED/.test(err.message))) {
-      console.log(`  PASS  ${label} (blocked)`);
-      pass++;
-    } else if (mode === 'blocked') {
-      console.log(`  FAIL  ${label} — expected permission-denied, got: ${err.code || err.message}`);
-      fail++;
-    } else {
-      console.log(`  FAIL  ${label} — expected success, got: ${err.code || err.message}`);
-      fail++;
-    }
+    const denied = err.code === 'permission-denied' || /PERMISSION_DENIED/.test(err.message);
+    record(
+      `${label} (${mode})`,
+      mode === 'blocked' && denied,
+      `expected ${mode === 'blocked' ? 'permission-denied' : 'success'}, got: ${err.code || err.message}`,
+    );
   }
 }
 
@@ -145,12 +133,6 @@ async function main() {
   await check('equip a cosmetic', 'allowed', { 'activeCosmetics.banner': 'gold' });
   await check('equip a title actually earned', 'allowed', { activeTitle: 'season_1_gold' });
   await check('clear the equipped title', 'allowed', { activeTitle: null });
-
-  console.log(`\n${fail === 0 ? 'ALL PASS' : 'FAILURES PRESENT'} — ${pass} passed, ${fail} failed\n`);
-  process.exit(fail === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test harness error:', err);
-  process.exit(2);
-});
+it('firestore.rules on the user doc', main);

@@ -1,4 +1,3 @@
-'use strict';
 // switchCrew against the LOCAL Firebase emulator. Never touches production.
 //
 // Run via: npm run test:crewswitch
@@ -9,27 +8,27 @@
 // and leave no lockout behind. Getting either wrong either robs players or
 // hands everyone free switches.
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { switchCrew } = require('../functions/src/crews/crew');
-const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } = require('../functions/src/shared/constants');
-const { CREW_SWITCH_EVENT, isFreeSwitchTarget } = require('../functions/src/shared/crews');
+const { switchCrew } = require('../../functions/src/crews/crew');
+const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } = require('../../functions/src/shared/constants');
+const { CREW_SWITCH_EVENT, isFreeSwitchTarget } = require('../../functions/src/shared/crews');
 
 const EVENT_CREW = CREW_SWITCH_EVENT?.crewId;
 const PAID_CREW = 'YAMAZAKI'; // no event running on this one
 const FROM_CREW = 'WORKERS';
 const TICKER = 'GUN';
-
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 
 const ctx = (uid) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });
 const call = (data, uid) => switchCrew.run(data, ctx(uid));
@@ -126,12 +125,6 @@ async function main() {
   check('not free at endsAt', isFreeSwitchTarget(EVENT_CREW, CREW_SWITCH_EVENT.endsAt) === false);
   check('not free after endsAt', isFreeSwitchTarget(EVENT_CREW, CREW_SWITCH_EVENT.endsAt + 1) === false);
   check('never free for another crew', isFreeSwitchTarget(PAID_CREW, Date.now()) === false);
-
-  console.log(failures === 0 ? '\nALL CREW-SWITCH CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err);
-  process.exit(1);
-});
+it('switchCrew', main);

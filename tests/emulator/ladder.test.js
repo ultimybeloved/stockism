@@ -1,4 +1,3 @@
-'use strict';
 // Money-path test suite for the ladder minigame, against the LOCAL Firebase
 // emulator. Never touches production (uses FIRESTORE_EMULATOR_HOST).
 //
@@ -16,10 +15,16 @@
 //   E. Withdrawal and tax      F. Season/leaderboard neutrality
 //   G. Admin transfer
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
@@ -28,9 +33,9 @@ const {
   depositToLadderGame,
   withdrawFromLadderGame,
   adminTransferToLadder,
-} = require('../functions/src/ladder/ladderTransfers');
-const { playLadderGame } = require('../functions/src/ladder/ladderGame');
-const { getLadderChips, getLadderWithdrawable } = require('../functions/src/shared/helpers');
+} = require('../../functions/src/ladder/ladderTransfers');
+const { playLadderGame } = require('../../functions/src/ladder/ladderGame');
+const { getLadderChips, getLadderWithdrawable } = require('../../functions/src/shared/helpers');
 const {
   ADMIN_UID,
   LADDER_GAME_MAX_BALANCE,
@@ -39,16 +44,8 @@ const {
   LADDER_WITHDRAW_PRINCIPAL_FEE_RATE,
   LADDER_WITHDRAW_RUSH_RATE,
   LADDER_RAMP_MIN_FACTOR,
-  LADDER_DEPOSIT_WINDOW_MS,
-} = require('../functions/src/shared/constants');
+} = require('../../functions/src/shared/constants');
 
-let failures = 0;
-let checks = 0;
-const check = (label, cond, detail = '') => {
-  checks++;
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 const near = (a, b, tol = 0.011) => Math.abs(a - b) < tol;
 const ctx = (uid) => ({ auth: { uid } });
 const DAY = 24 * 60 * 60 * 1000;
@@ -482,14 +479,6 @@ async function main() {
     getLadderChips(pulled) === 400,
     `chips=${getLadderChips(pulled)}`,
   );
-
-  console.log(`\n${checks} checks run.`);
-  console.log(failures === 0 ? 'ALL LADDER CHECKS PASSED' : `${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  restoreRandom();
-  console.error('Suite crashed:', err);
-  process.exit(1);
-});
+it('ladder game', main);

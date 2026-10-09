@@ -1,4 +1,3 @@
-'use strict';
 // End-to-end test of loyalty tier-up notifications inside syncAllPortfolios,
 // against the LOCAL Firebase emulator. Never touches production.
 //
@@ -16,29 +15,29 @@
 //   6. Selling the old shares lowers the stored tier silently
 //   7. Dust below the share floor doesn't trigger anything
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { syncAllPortfolios } = require('../functions/src/admin/archiving');
+const { syncAllPortfolios } = require('../../functions/src/admin/archiving');
 const {
   DIVIDEND_HOLD_MS,
   DIVIDEND_HOLD_DAYS,
   LOYALTY_NOTIFY_MIN_SHARES,
-} = require('../functions/src/shared/characters');
+} = require('../../functions/src/shared/characters');
 
 const DAY = 24 * 60 * 60 * 1000;
 const T1 = 'SOPH';
 const T2 = 'CROC';
-
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 
 // A pending lot that is `ageDays` old right now
 const agedLot = (shares, ageDays) => ({ shares, availableAt: Date.now() - ageDays * DAY + DIVIDEND_HOLD_MS });
@@ -128,7 +127,7 @@ async function main() {
     .collection('users')
     .doc('loy_climber')
     .update({ loyaltyTierNotified: { [T1]: DIVIDEND_HOLD_DAYS } });
-  const third = await runSync();
+  await runSync();
 
   const climberNotes = await notes('loy_climber');
   check('crossing a rung sends exactly one notification', climberNotes.length === 1, JSON.stringify(climberNotes));
@@ -221,12 +220,6 @@ async function main() {
     (await notes('loy_seed')).length === 1,
     JSON.stringify(await notes('loy_seed')),
   );
-
-  console.log(failures === 0 ? '\nALL LOYALTY NOTIFICATION CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err);
-  process.exit(1);
-});
+it('loyalty notifications', main);

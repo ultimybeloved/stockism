@@ -299,7 +299,7 @@ export const triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCal
   return runWeeklyCrewRankings({ postToDiscord: !(data && data.skipDiscord) });
 });
 
-// Exposed for scripts/test-crew-roles-emulator.cjs. Not a Cloud Function —
+// Exposed for tests/emulator/crewRoles.test.js. Not a Cloud Function —
 // serviceLoader only copies exports carrying a trigger, so this never reaches
 // the deployed surface (same pattern as runLimitOrderCheck in limitOrders.js).
 export { runWeeklyCrewRankings };

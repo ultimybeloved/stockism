@@ -1,4 +1,3 @@
-'use strict';
 // End-to-end test of the ticker rename engine against the LOCAL Firebase
 // emulator. Never touches production (uses FIRESTORE_EMULATOR_HOST).
 //
@@ -23,10 +22,16 @@
 //   H. Restoring a pre-rename backup does not resurrect the old ticker
 //   I. Renaming twice collapses the alias chain to one hop
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
@@ -36,8 +41,8 @@ const NEW = 'GUNX';
 // than one that fails outright, so every assertion checks this survived.
 const OTHER = 'JIN';
 
-const { CHARACTERS, CHARACTER_MAP } = require('../functions/src/shared/characters');
-const { CREWS } = require('../functions/src/shared/crews');
+const { CHARACTERS, CHARACTER_MAP } = require('../../functions/src/shared/characters');
+const { CREWS } = require('../../functions/src/shared/crews');
 
 if (!CHARACTER_MAP[OLD]) throw new Error(`${OLD} is not in characters.ts`);
 if (CHARACTER_MAP[NEW]) throw new Error(`${NEW} already exists; pick another fixture`);
@@ -71,14 +76,9 @@ const renameInRoster = (from, to) => {
 
 // Loaded AFTER admin.initializeApp so their top-level admin.firestore() binds
 // to the emulator.
-const R = require('../functions/src/market/tickerRename');
-const { remapAliasedKeys } = require('../functions/src/shared/helpers');
+const R = require('../../functions/src/market/tickerRename');
+const { remapAliasedKeys } = require('../../functions/src/shared/helpers');
 
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
 const section = (t) => console.log(`\n${t}`);
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -127,7 +127,7 @@ const seed = async (ticker = OLD) => {
     haltReason: '',
   });
 
-  const { priceHistoryRef } = require('../functions/src/shared/helpers');
+  const { priceHistoryRef } = require('../../functions/src/shared/helpers');
   await priceHistoryRef().set({
     [t]: [
       { timestamp: now - DAY, price: 88 },
@@ -263,7 +263,7 @@ const run = (mode, opts = {}) =>
     ...opts,
   });
 
-(async () => {
+it('renameTicker', async () => {
   console.log('\nTICKER RENAME — EMULATOR TEST\n');
 
   // ── A. Preflight refusals ──────────────────────────────────────────────
@@ -340,7 +340,7 @@ const run = (mode, opts = {}) =>
   check('alias recorded', m.tickerAliases[OLD] === NEW);
   check('market reopened', m.marketHalted === false);
 
-  const { priceHistoryRef } = require('../functions/src/shared/helpers');
+  const { priceHistoryRef } = require('../../functions/src/shared/helpers');
   const hist = (await priceHistoryRef().get()).data();
   check('live history moved with both points', (hist[NEW] || []).length === 2 && hist[OLD] === undefined);
   check('neighbour history untouched', (hist[OTHER] || []).length === 1);
@@ -534,10 +534,4 @@ const run = (mode, opts = {}) =>
   check('the original name points at the final one', finalAliases[OLD] === NEWER, JSON.stringify(finalAliases));
   check('the intermediate name points at the final one', finalAliases[NEW] === NEWER);
   check('no two-hop chain remains', !Object.values(finalAliases).includes(NEW));
-
-  console.log(`\n${failures === 0 ? 'ALL RENAME CHECKS PASSED' : `${failures} CHECK(S) FAILED`}\n`);
-  process.exit(failures === 0 ? 0 : 1);
-})().catch((err) => {
-  console.error('\nTEST HARNESS ERROR:', err);
-  process.exit(1);
 });

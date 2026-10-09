@@ -89,17 +89,23 @@ their public profile and the leaderboard.
    seasonMoney, crewRankings, tickerRenameChecks, stockSplitMath,
    signupHelpers), each an internal module re-exported where callers expect it.
 4. ~~Replace `console.log` with `firebase-functions/logger`~~ **Done 2026-10-09**
-   (218 calls, 51 files). Not deployed yet: it rides along with the next
-   backend deploy. New backend code logs through `logger`, never `console`.
+   (218 calls, 51 files), deployed 2026-10-09. New backend code logs through `logger`, never `console`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored
    copies with "keep in sync" comments. **Done 2026-10-09:** the mechanism is
    `src/rules/` -> `functions/src/shared/rules/` via sync:chars, guarded by
    check:sync. Modules: ladder, lmsr, activity, impact, money, equity, seasons,
    seasonMoney (margin averaging, money in, week maths), economy (every
-   constant that was marked "keep in sync"). Not yet deployed to the backend.
-6. Move emulator suites from `scripts/test-*` to `tests/emulator/` on vitest,
-   one `npm run test:emulator` command.
+   constant that was marked "keep in sync"). Deployed 2026-10-09.
+6. ~~Emulator suites on vitest~~ **Done 2026-10-09.** They live in
+   `tests/emulator/` (own config, so `npm test` skips them) and
+   `npm run test:emulator` runs all of them: the Firestore/Auth suites in one
+   emulator boot (`test:emulator:core`, each file starts from an empty
+   database), then the event market, which needs the functions emulator.
+   `npm run test:<suite>` still runs one. A suite reports through `check()`
+   from `tests/emulator/harness.js` (a soft expect, so every failing check is
+   listed); a suite that needs the market seeded calls
+   `beforeAll(seedEmulator)`. The suites are still JavaScript.
 7. ~~Deploy every function once~~ **Done 2026-10-09**: all 153 deployed with
    `npm run deploy:functions`, the TypeScript build and the split files included.
 

@@ -1,9 +1,16 @@
-'use strict';
 // End-to-end test of the long-term event-share market, run entirely against the
 // LOCAL emulators. Drives the real Cloud Functions (buyEventShares /
 // sellEventShares / triggerEventSettlements) exactly as the UI would, and an
 // admin Firestore write for create/resolve exactly as the admin panel does.
-// Never touches production. Run with emulators up: node scripts/test-event-market.cjs
+// Never touches production. Run via: npm run test:eventmarket
+
+import { beforeAll, it } from 'vitest';
+import { createRequire } from 'module';
+import { check, seedEmulator } from '../harness.js';
+
+const require = createRequire(import.meta.url);
+
+beforeAll(seedEmulator);
 
 // Defaults match firebase.json, but emulators:exec sets these itself — don't
 // stomp on what it chose or the suite silently talks to the wrong ports.
@@ -17,7 +24,7 @@ const admin = require('firebase-admin');
 const { initializeApp } = require('firebase/app');
 const { getAuth, connectAuthEmulator, signInWithEmailAndPassword } = require('firebase/auth');
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require('firebase/functions');
-const { EVENT_AMM_LIQUIDITY } = require('../functions/src/shared/constants');
+const { EVENT_AMM_LIQUIDITY } = require('../../../functions/src/shared/constants');
 
 // LMSR price formula, inlined (identical to functions/src/shared/lmsr.js + frontend).
 // Inlined here only to avoid helpers.js's load-time admin.firestore() call.
@@ -31,11 +38,8 @@ const lmsrPrices = (q, b) => {
 
 const ADMIN_UID = '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 const PROJECT = 'stockism-abb28';
-const pass = (m) => console.log(`  ✅ ${m}`);
-const fail = (m) => {
-  console.log(`  ❌ ${m}`);
-  process.exitCode = 1;
-};
+const pass = (m) => check(m, true);
+const fail = (m) => check(m, false);
 const r2 = (n) => Math.round(n * 100) / 100;
 
 admin.initializeApp({ projectId: PROJECT });
@@ -293,12 +297,6 @@ async function main() {
   finalUser.predictionWins === 1
     ? pass('predictionWins incremented (feeds Oracle/Prophet)')
     : fail(`predictionWins = ${finalUser.predictionWins}`);
-
-  console.log('\n=== Test complete ===\n');
-  process.exit(process.exitCode || 0);
 }
 
-main().catch((e) => {
-  console.error('TEST ERROR:', e.message);
-  process.exit(1);
-});
+it('event-share market end to end', main);

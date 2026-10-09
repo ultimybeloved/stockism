@@ -5,7 +5,7 @@
 // tradeEffects.js, limitOrders.js, marketOrders.js). It used to be exported from
 // crewMissions.js, which meant index.js re-exported a plain helper into the
 // deployed Cloud Function list — see the "index exports only cloud functions"
-// check in scripts/test-discord-commands-emulator.cjs.
+// check in tests/emulator/discordCommands.test.js.
 //
 // WEEK BOUNDARY WARNING: getWeekId here is UTC-based and is deliberately NOT the
 // same as getWeekId in helpers.js, which is local-time based and drives the

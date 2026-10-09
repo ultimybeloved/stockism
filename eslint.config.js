@@ -67,6 +67,14 @@ export default tseslint.config(
   { files: ['src/hooks/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(200) },
   { files: ['src/App.tsx'], rules: maxLines(500) },
 
+  // ---- Emulator suites (vitest; backend code comes in through createRequire) ----
+  {
+    files: ['tests/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
+    rules: { 'no-unused-vars': ['warn', unusedVars] },
+  },
+
   // ---- Backend (Cloud Functions, CommonJS) ----
   {
     files: ['functions/**/*.js'],

@@ -1,4 +1,3 @@
-'use strict';
 // getLeaderboard's caller rank against the LOCAL Firebase emulator. Never
 // touches production.
 //
@@ -8,20 +7,20 @@
 // query instead, and that lookup failed silently until 2026-10-08, so nobody
 // outside the top 50 ever saw a rank. Bots never count toward anyone's rank.
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { getLeaderboard } = require('../functions/src/users/leaderboard');
-
-let failures = 0;
-const check = (label, cond, detail = '') => {
-  console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : ' — ' + detail}`);
-  if (!cond) failures++;
-};
+const { getLeaderboard } = require('../../functions/src/users/leaderboard');
 
 // Distinct values so every rank is unambiguous: p001 is the richest.
 const PLAYERS = 60;
@@ -66,12 +65,6 @@ async function main() {
   console.log('\n5 — signed out gets no rank');
   r = await call({}, null);
   check('callerRank is null', r.callerRank === null, `got ${r.callerRank}`);
-
-  console.log(failures === 0 ? '\nALL LEADERBOARD CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
-  process.exit(failures === 0 ? 0 : 1);
 }
 
-main().catch((err) => {
-  console.error('Test crashed:', err);
-  process.exit(1);
-});
+it('leaderboard', main);

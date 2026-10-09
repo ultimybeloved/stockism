@@ -92,67 +92,12 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools@15
 
-      - name: Trading and margin scanners
-        run: npm run test:trading
+      # Every Firestore/Auth suite in one emulator boot (tests/emulator/, vitest).
+      # Each file starts from an empty database.
+      - name: Emulator suites
+        run: npm run test:emulator:core
 
-      - name: Limit orders
-        run: npm run test:limitorders
-
-      - name: Pre-market orders
-        run: npm run test:premarket
-
-      - name: Exploit fixes
-        run: npm run test:exploits
-
-      - name: Firestore rules
-        run: npm run test:rules
-
-      - name: Signup IP cap
-        run: npm run test:ipcap
-
-      - name: Price history split
-        run: npm run test:pricehistory
-
-      - name: Dividend loyalty notifications
-        run: npm run test:loyalty
-
-      - name: Crew head roles
-        run: npm run test:crewroles
-
-      - name: Crew switching
-        run: npm run test:crewswitch
-
-      - name: Discord commands
-        run: npm run test:discord
-
-      - name: Ladder money paths
-        run: npm run test:ladder
-
-      - name: Dividend payouts
-        run: npm run test:dividends
-
-      - name: Daily drop halt gate
-        run: npm run test:drophalt
-
-      - name: Review collapse
-        run: npm run test:collapse
-
-      - name: Seasons
-        run: npm run test:season
-
-      - name: Coordination detection
-        run: npm run test:coord
-
-      - name: Stock split
-        run: npm run test:split
-
-      - name: Ticker rename
-        run: npm run test:rename
-
-      - name: Discord endpoint
-        run: npm run test:discord:endpoint
-
-      # Last because it is the only suite that boots the functions emulator,
+      # Separate because it is the only suite that boots the functions emulator,
       # which loads every function and is much slower than the rest.
       - name: Event markets
         run: npm run test:eventmarket

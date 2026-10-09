@@ -1,4 +1,3 @@
-'use strict';
 // End-to-end season test against the LOCAL Firebase emulator. Never touches
 // production (uses FIRESTORE_EMULATOR_HOST).
 //
@@ -20,10 +19,16 @@
 //   - a preseason keeps the season numbering and gives its own title
 //   - a player under the $1,000 floor joins once they grow past it
 
+import { it } from 'vitest';
+import { createRequire } from 'module';
+import { check } from './harness.js';
+
+const require = createRequire(import.meta.url);
+
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8085';
 process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
-const admin = require('../functions/node_modules/firebase-admin');
+const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
@@ -34,21 +39,13 @@ const {
   getSeasonStandings,
   adminEndSeason,
   triggerSeasonCheckpoint,
-} = require('../functions/src/season/season');
-const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../functions/src/season/seasonExclusions');
-const { ADMIN_UID } = require('../functions/src/shared/constants');
+} = require('../../functions/src/season/season');
+const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../../functions/src/season/seasonExclusions');
+const { ADMIN_UID } = require('../../functions/src/shared/constants');
 
 const DAY = 24 * 60 * 60 * 1000;
 const adminCtx = { auth: { uid: ADMIN_UID } };
 
-let failures = 0;
-const check = (name, cond, detail) => {
-  if (cond) console.log(`  ok   ${name}`);
-  else {
-    failures++;
-    console.log(`  FAIL ${name}${detail !== undefined ? ` -> ${JSON.stringify(detail)}` : ''}`);
-  }
-};
 const close = (a, b, eps = 0.01) => typeof a === 'number' && Math.abs(a - b) <= eps;
 
 const user = async (uid) => (await db.collection('users').doc(uid).get()).data();
@@ -483,12 +480,6 @@ const run = async () => {
     dv.seasonActiveWeeks.weeks === 2 && dv.seasonTier?.tier === 'bronze',
     { a: dv.seasonActiveWeeks, t: dv.seasonTier },
   );
-
-  console.log(failures ? `\n${failures} check(s) FAILED` : '\nAll season checks passed.');
-  process.exit(failures ? 1 : 0);
 };
 
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+it('seasons', run);
