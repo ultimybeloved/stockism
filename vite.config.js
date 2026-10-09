@@ -36,6 +36,9 @@ export default defineConfig({
     },
   },
   build: {
+    // Vite 5's default browser list. Vite 7+ defaults to newer browsers
+    // (Safari 16.4+), which would drop players on older iPhones.
+    target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
     rolldownOptions: {
       output: {
         // Vendor libs change only when we upgrade a dependency, so keeping them
