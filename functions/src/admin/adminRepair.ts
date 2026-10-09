@@ -8,6 +8,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { STARTING_CASH } from '../shared/constants';
 import { priceHistoryRef } from '../shared/marketData';
@@ -521,7 +522,7 @@ export const reconstructPortfolioHistory = cf({ timeoutSeconds: 540, memory: '1G
         totalPointsWritten += points.length;
         usersProcessed++;
       } catch (err) {
-        console.error(`Reconstruction failed for ${uid}:`, (err as Error).message);
+        logger.error(`Reconstruction failed for ${uid}:`, (err as Error).message);
         errors++;
       }
     }

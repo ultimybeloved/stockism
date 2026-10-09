@@ -26,6 +26,7 @@
 // known gap, not an oversight.
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS } from '../shared/characters';
@@ -47,7 +48,7 @@ export const applyNeglectDecay = cf()
   .timeZone('UTC')
   .onRun(async () => {
     if (isWeeklyTradingHalt()) {
-      console.log('applyNeglectDecay: skipping — weekly halt active');
+      logger.info('applyNeglectDecay: skipping — weekly halt active');
       return null;
     }
 
@@ -60,12 +61,12 @@ export const applyNeglectDecay = cf()
       ]);
 
       if (!marketSnap.exists) {
-        console.log('applyNeglectDecay: no market document');
+        logger.info('applyNeglectDecay: no market document');
         return null;
       }
       const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
-        console.log('applyNeglectDecay: skipping — manual halt active');
+        logger.info('applyNeglectDecay: skipping — manual halt active');
         return null;
       }
 
@@ -77,7 +78,7 @@ export const applyNeglectDecay = cf()
       // Decaying on a stale "nobody is short" reading is the exact hole the
       // pause exists to close, so a stale reading skips the run entirely.
       if (now - measuredAt > SHORT_INTEREST_MAX_AGE_MS) {
-        console.warn(
+        logger.warn(
           `applyNeglectDecay: short interest is stale (${Math.round((now - measuredAt) / 60000)} min old) — skipping`,
         );
         return null;
@@ -87,7 +88,7 @@ export const applyNeglectDecay = cf()
       // Nothing can be called neglected before we were watching it.
       if (!stats.neglectTrackingStartedAt) {
         await tickerStatsRef().set({ neglectTrackingStartedAt: now }, { merge: true });
-        console.log('applyNeglectDecay: tracking start recorded, no decay on the first run');
+        logger.info('applyNeglectDecay: tracking start recorded, no decay on the first run');
         return null;
       }
 
@@ -119,7 +120,7 @@ export const applyNeglectDecay = cf()
       }
 
       if (!moved.length) {
-        console.log('applyNeglectDecay: nothing neglected');
+        logger.info('applyNeglectDecay: nothing neglected');
         return null;
       }
 
@@ -132,11 +133,11 @@ export const applyNeglectDecay = cf()
       batch.set(priceHistoryRef(), histUpdates, { merge: true });
       await batch.commit();
 
-      console.log(`applyNeglectDecay: ${moved.length} stocks decayed — ${moved.join(', ')}`);
+      logger.info(`applyNeglectDecay: ${moved.length} stocks decayed — ${moved.join(', ')}`);
       await recordHeartbeat('applyNeglectDecay');
       return null;
     } catch (err) {
-      console.error('applyNeglectDecay error:', err);
+      logger.error('applyNeglectDecay error:', err);
       return null;
     }
   });

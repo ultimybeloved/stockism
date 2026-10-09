@@ -9,6 +9,7 @@
 // Members intent to list who has what.
 
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { discordApi, sendDiscordMessage } from '../shared/discordApi';
@@ -227,7 +228,7 @@ export async function syncCrewHeadRoles({
 } = {}) {
   try {
     if (!isConfigured()) {
-      console.log('Crew head roles: not configured, skipping');
+      logger.info('Crew head roles: not configured, skipping');
       return { configured: false };
     }
 
@@ -344,7 +345,7 @@ export async function syncCrewHeadRoles({
         pending[step.crewId] = { uid: step.head!.uid, reason: 'not-in-server' };
         holders[step.crewId] = null;
         skipped++;
-        console.log(`Crew head roles: ${crewName(step.crewId)} head is not in the server`);
+        logger.info(`Crew head roles: ${crewName(step.crewId)} head is not in the server`);
       } else {
         failed++;
         problems.push(`${crewName(step.crewId)}: could not assign role (${result.detail})`);
@@ -361,7 +362,7 @@ export async function syncCrewHeadRoles({
       lastRun,
     });
 
-    console.log('Crew head roles synced', lastRun);
+    logger.info('Crew head roles synced', lastRun);
 
     // One report per run, not per failure — this runs weekly and must not
     // become noise. A hard stop also gets an in-Discord nudge, because the

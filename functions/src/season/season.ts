@@ -14,6 +14,7 @@ import * as functions from 'firebase-functions';
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -187,7 +188,7 @@ export const adminStartSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (
     playersPinned: pinned,
   });
 
-  console.log(`SEASON STARTED: ${id} "${name}" — ${pinned} baselines pinned`);
+  logger.info(`SEASON STARTED: ${id} "${name}" — ${pinned} baselines pinned`);
   return { success: true, id, number, preseason, name: name.trim(), playersPinned: pinned };
 });
 
@@ -359,7 +360,7 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
     }
   }
 
-  console.log(
+  logger.info(
     `SEASON ENDED: ${season.id} "${season.name}" — ${standings.length} scored, ${awarded} tiered`,
     tierCounts,
   );

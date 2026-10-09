@@ -2,6 +2,7 @@ import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import axios from 'axios';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import * as crypto from 'crypto';
@@ -196,7 +197,7 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
     const suggestion = needsName ? `&discord_name=${encodeURIComponent(username)}` : '';
     return void res.redirect(`https://stockism.app/?discord_token=${customToken}${suggestion}`);
   } catch (error) {
-    console.error('Discord auth error:', error);
+    logger.error('Discord auth error:', error);
     return void res.redirect('https://stockism.app/?discord_error=true');
   }
 });
@@ -368,7 +369,7 @@ export const discordLink = cf().https.onRequest(async (req, res) => {
     const err = error as { response?: { data?: unknown }; message?: string };
     const discordError =
       err.response && err.response.data ? JSON.stringify(err.response.data) : err.message || 'unknown';
-    console.error('Discord link error:', discordError);
+    logger.error('Discord link error:', discordError);
     return void res.redirect(
       `https://stockism.app/profile?discord_link=error&reason=${encodeURIComponent(discordError)}`,
     );
@@ -482,7 +483,7 @@ export const dailyFreeStock = cf()
   .timeZone('UTC')
   .onRun(async () => {
     await postDailyDrop();
-    console.log(`Daily free stock claim message posted to channel ${DISCORD_DAILY_DROP_CHANNEL}`);
+    logger.info(`Daily free stock claim message posted to channel ${DISCORD_DAILY_DROP_CHANNEL}`);
     await recordHeartbeat('dailyFreeStock');
     return null;
   });
@@ -502,7 +503,7 @@ export const triggerDailyFreeStock = cf().https.onCall(async (data, context) => 
     await postDailyDrop();
     return { success: true };
   } catch (error) {
-    console.error('Error in triggerDailyFreeStock:', error);
+    logger.error('Error in triggerDailyFreeStock:', error);
     return { success: false, error: (error as Error).message };
   }
 });

@@ -20,6 +20,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -244,7 +245,7 @@ async function runAltScan({ dryRun = false } = {}) {
   if (high.length && !ADMIN_DISCORD_USER_ID) {
     // The alerts are still written and still show in the admin panel; only the
     // DM is lost. Say so loudly rather than failing quietly.
-    console.warn(`ADMIN_DISCORD_USER_ID not set — ${high.length} high-severity alt alert(s) written but not DMed.`);
+    logger.warn(`ADMIN_DISCORD_USER_ID not set — ${high.length} high-severity alt alert(s) written but not DMed.`);
   }
   if (high.length && ADMIN_DISCORD_USER_ID) {
     try {
@@ -283,7 +284,7 @@ export const scanForAltAccounts = cf({ timeoutSeconds: 540, memory: '1GB' })
   .onRun(async () => {
     try {
       const result = await runAltScan();
-      console.log(`Alt scan: ${result.scanned} trades, ${result.candidates} candidates, ${result.reported} new`);
+      logger.info(`Alt scan: ${result.scanned} trades, ${result.candidates} candidates, ${result.reported} new`);
       await recordHeartbeat('scanForAltAccounts');
       return result;
     } catch (err) {

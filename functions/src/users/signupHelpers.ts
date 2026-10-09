@@ -4,6 +4,7 @@ import * as admin from 'firebase-admin';
 import { STARTING_CASH, UNVERIFIED_STARTING_CASH } from '../shared/constants';
 import { isDiscordBindingLocked } from '../shared/accountGuards';
 import { grantedValueUpdate } from '../shared/equity';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 // Deletes the orphaned Firebase Auth account left behind when a signup is hard-
@@ -15,7 +16,7 @@ export async function cleanupBlockedAuthUser(uid: string) {
   try {
     await admin.auth().deleteUser(uid);
   } catch (e) {
-    console.error(`Failed to delete blocked auth user ${uid}:`, (e as Error).message);
+    logger.error(`Failed to delete blocked auth user ${uid}:`, (e as Error).message);
   }
 }
 

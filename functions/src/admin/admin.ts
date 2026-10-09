@@ -4,6 +4,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { sendDiscordMessage } from '../shared/discordApi';
@@ -124,11 +125,11 @@ export const banUser = cf().https.onCall(async (data, context) => {
     } catch (err) {
       // The ban itself already committed; a failure here is recoverable (the
       // fill paths reject banned users) so don't fail the whole call.
-      console.error('Failed to cancel open orders for banned user:', err);
+      logger.error('Failed to cancel open orders for banned user:', err);
     }
 
     // Log to console
-    console.log(
+    logger.info(
       `USER BANNED: ${displayName} (${userId}) - Reason: ${reason} - cancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`,
     );
 
@@ -142,7 +143,7 @@ export const banUser = cf().https.onCall(async (data, context) => {
         `🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
       );
     } catch (err) {
-      console.error('Failed to send Discord alert:', err);
+      logger.error('Failed to send Discord alert:', err);
     }
 
     return {
@@ -155,7 +156,7 @@ export const banUser = cf().https.onCall(async (data, context) => {
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    console.error('Ban user error:', error);
+    logger.error('Ban user error:', error);
     throw new functions.https.HttpsError('internal', 'Failed to ban user: ' + (error as Error).message);
   }
 });
@@ -229,7 +230,7 @@ export const fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
       message: `Fixed ${tickersFixed} tickers with base price cliffs`,
     };
   } catch (error) {
-    console.error('Error fixing base price cliffs:', error);
+    logger.error('Error fixing base price cliffs:', error);
     throw new functions.https.HttpsError('internal', 'Failed to fix price cliffs: ' + (error as Error).message);
   }
 });
@@ -318,7 +319,7 @@ export const createBots = cf().https.onCall(async (data, context) => {
       message: `Created ${created} bots! ${skipped > 0 ? `(${skipped} already existed)` : ''}`,
     };
   } catch (error) {
-    console.error('Error creating bots:', error);
+    logger.error('Error creating bots:', error);
     throw new functions.https.HttpsError('internal', 'Failed to create bots: ' + (error as Error).message);
   }
 });

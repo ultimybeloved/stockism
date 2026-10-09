@@ -16,6 +16,7 @@ import { pruneAndSumTradeHistory, isTickerPaused, washRuleRemainingMs } from '..
 import type { ActionHistory } from '../shared/impact';
 import type { LimitOrder, UserData } from '../shared/types';
 import type { DocumentSnapshot } from 'firebase-admin/firestore';
+import * as logger from 'firebase-functions/logger';
 
 /** What a screen decides to write instead of filling. */
 type Screened = { status: string; reason?: string; log?: string } | null;
@@ -180,7 +181,7 @@ export const resolveFillShares = ({
     // share and left $5 of buying power on the table.
     const affordableShares = freshPrice > 0 ? Math.floor((cash / freshPrice) * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP : 0;
     if (affordableShares < MIN_TRADE_SHARES) throw new Error('Insufficient cash');
-    console.log(`Partial fill: can only afford ${affordableShares} shares`);
+    logger.info(`Partial fill: can only afford ${affordableShares} shares`);
     return affordableShares;
   }
 
@@ -191,7 +192,7 @@ export const resolveFillShares = ({
     const sellableShares = Math.max(0, floorExitShares(userShares - lockedNow));
     if (sellableShares >= fillShares) return fillShares;
     if (order.allowPartialFills && sellableShares >= MIN_EXIT_SHARES) {
-      console.log(`Partial fill: only ${sellableShares} sellable shares (${lockedNow} locked)`);
+      logger.info(`Partial fill: only ${sellableShares} sellable shares (${lockedNow} locked)`);
       return sellableShares;
     }
     if (userShares >= fillShares) {

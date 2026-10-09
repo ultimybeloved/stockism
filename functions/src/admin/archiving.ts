@@ -1,6 +1,7 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } from '../shared/constants';
 import { priceHistoryRef } from '../shared/marketData';
@@ -139,7 +140,7 @@ async function doArchivePriceHistory(ticker: string | null = null) {
 
       liveRemovals[t] = toArchive;
       archivedCount++;
-      console.log(`Archived ${toArchive.length} entries for ${t}, keeping ${toKeep.length} recent entries`);
+      logger.info(`Archived ${toArchive.length} entries for ${t}, keeping ${toKeep.length} recent entries`);
     }
   }
 
@@ -185,7 +186,7 @@ async function doCleanupAlertedThresholds() {
 
   if (cleanedCount > 0) {
     await marketRef.update(updates);
-    console.log(`Cleaned up ${cleanedCount} old alertedThresholds entries`);
+    logger.info(`Cleaned up ${cleanedCount} old alertedThresholds entries`);
   }
 
   return { success: true, cleanedCount, message: `Cleaned up ${cleanedCount} old threshold alerts` };
@@ -200,7 +201,7 @@ export const archivePriceHistory = cf().https.onCall(async (data, context) => {
   try {
     return await doArchivePriceHistory(data.ticker || null);
   } catch (error) {
-    console.error('Archive error:', error);
+    logger.error('Archive error:', error);
     return { success: false, error: (error as Error).message };
   }
 });
@@ -214,14 +215,14 @@ export const scheduledArchiving = cf()
   .pubsub.schedule('every 24 hours')
   .timeZone('America/New_York')
   .onRun(async (_context) => {
-    console.log('Running scheduled archiving...');
+    logger.info('Running scheduled archiving...');
 
     // This is what keeps the live chart doc under Firestore's size limit. When
     // that doc filled up on 2026-07-22, every trade failed, so a dead archiver
     // is an outage waiting to happen.
     try {
       const archiveResult = await doArchivePriceHistory();
-      console.log('Archive result:', archiveResult);
+      logger.info('Archive result:', archiveResult);
       if (archiveResult?.success) await recordHeartbeat('scheduledArchiving');
     } catch (error) {
       reportError(error, { where: 'scheduledArchiving' });
@@ -229,9 +230,9 @@ export const scheduledArchiving = cf()
 
     try {
       const cleanupResult = await doCleanupAlertedThresholds();
-      console.log('Cleanup result:', cleanupResult);
+      logger.info('Cleanup result:', cleanupResult);
     } catch (error) {
-      console.error('Scheduled cleanup failed:', error);
+      logger.error('Scheduled cleanup failed:', error);
     }
 
     return null;
@@ -247,7 +248,7 @@ export const syncAllPortfolios = cf()
   .timeZone('UTC')
   .onRun(async (_context) => {
     try {
-      console.log('Starting portfolio sync for all users...');
+      logger.info('Starting portfolio sync for all users...');
       const startTime = Date.now();
 
       // Get current market prices
@@ -255,7 +256,7 @@ export const syncAllPortfolios = cf()
       const marketSnap = await marketRef.get();
 
       if (!marketSnap.exists) {
-        console.error('Market data not found');
+        logger.error('Market data not found');
         return { success: false, error: 'Market data missing' };
       }
 
@@ -264,7 +265,7 @@ export const syncAllPortfolios = cf()
 
       // Get all users
       const usersSnapshot = await db.collection('users').get();
-      console.log(`Found ${usersSnapshot.size} users to sync`);
+      logger.info(`Found ${usersSnapshot.size} users to sync`);
 
       let syncedCount = 0;
       let errorCount = 0;
@@ -352,7 +353,7 @@ export const syncAllPortfolios = cf()
               // write. Awaited together after the loop.
               loyaltyWrites.push(
                 writeNotification(userId, buildLoyaltyNotification(loyalty.upgrades)).catch((err) =>
-                  console.error('Loyalty notification failed for', userId, err),
+                  logger.error('Loyalty notification failed for', userId, err),
                 ),
               );
               loyaltyNotified++;
@@ -364,13 +365,13 @@ export const syncAllPortfolios = cf()
             // WriteBatch can't be reused — start a fresh one.
             if (batchCount >= 500) {
               await batch.commit();
-              console.log(`Committed batch of ${batchCount} updates`);
+              logger.info(`Committed batch of ${batchCount} updates`);
               batch = db.batch();
               batchCount = 0;
             }
           }
         } catch (error) {
-          console.error(`Error syncing user ${userDoc.id}:`, error);
+          logger.error(`Error syncing user ${userDoc.id}:`, error);
           errorCount++;
         }
       }
@@ -378,12 +379,12 @@ export const syncAllPortfolios = cf()
       // Commit remaining updates
       if (batchCount > 0) {
         await batch.commit();
-        console.log(`Committed final batch of ${batchCount} updates`);
+        logger.info(`Committed final batch of ${batchCount} updates`);
       }
 
       if (loyaltyWrites.length > 0) {
         await Promise.all(loyaltyWrites);
-        console.log(`Sent ${loyaltyNotified} loyalty tier-up notification(s)`);
+        logger.info(`Sent ${loyaltyNotified} loyalty tier-up notification(s)`);
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -397,7 +398,7 @@ export const syncAllPortfolios = cf()
         elapsedSeconds: elapsed,
       };
 
-      console.log('Portfolio sync complete:', result);
+      logger.info('Portfolio sync complete:', result);
       await recordHeartbeat('syncAllPortfolios');
       return result;
     } catch (error) {

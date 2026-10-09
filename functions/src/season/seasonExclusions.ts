@@ -13,6 +13,7 @@ import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { toMs } from '../shared/activity';
@@ -122,7 +123,7 @@ export const setSeasonTopTierExclusion = cf().https.onCall(
     // The cached board would keep projecting their old tier until it expired.
     await db.collection('leaderboard').doc('season').delete();
 
-    console.log(
+    logger.info(
       `SEASON EXCLUSION: ${uid} ${excluded ? 'excluded from' : 'restored to'} Platinum/Diamond in ${season.id}`,
     );
     return { success: true, uid, excluded: !!excluded };

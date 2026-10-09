@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 // Modular import (not admin.firestore.FieldValue): the emulator sandbox strips
 // the namespaced statics, and this form works in both prod and sandbox.
 import { FieldValue } from 'firebase-admin/firestore';
@@ -329,7 +330,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
       updateData.portfolioSnapshot30d = { refreshedAt: now, value };
     } catch (e) {
       // Non-fatal — keep the existing snapshot rather than blocking the sync.
-      console.error('30d snapshot refresh failed:', (e as Error).message);
+      logger.error('30d snapshot refresh failed:', (e as Error).message);
     }
   }
 
@@ -421,7 +422,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
         if (rank === 1 && !currentAchievements.includes('TOP_1')) newAchievements.push('TOP_1');
       }
     } catch (err) {
-      console.error('Leaderboard achievement check failed:', err);
+      logger.error('Leaderboard achievement check failed:', err);
     }
   }
 
@@ -443,7 +444,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
         }
       }
     } catch (err) {
-      console.error('Profit Champion check failed:', err);
+      logger.error('Profit Champion check failed:', err);
     }
   }
 

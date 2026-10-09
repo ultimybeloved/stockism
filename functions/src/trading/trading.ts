@@ -16,6 +16,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { CHARACTERS } from '../shared/characters';
 import {
@@ -457,7 +458,7 @@ export const executeTrade = cf().https.onCall(
         result,
         ip: tradeIp,
       });
-      if (actAs) console.log(`ADMIN TRADE: ${action} ${amount} $${ticker} on ${uid}`);
+      if (actAs) logger.info(`ADMIN TRADE: ${action} ${amount} $${ticker} on ${uid}`);
 
       return result;
     } catch (error) {

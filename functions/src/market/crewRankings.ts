@@ -10,6 +10,7 @@ import { getWeekId } from '../shared/tradeRecords';
 import { reportError } from '../shared/sentry';
 import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
 import type { DocumentData } from 'firebase-admin/firestore';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 /** One player's line in a crew's weekly ranking. */
@@ -55,7 +56,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   const usersSnapshot = await db.collection('users').get();
 
   if (usersSnapshot.empty) {
-    console.log('No users found');
+    logger.info('No users found');
     return null;
   }
 
@@ -248,7 +249,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       await db.collection('users').doc(uid).update(update);
       if (note) await writeNotification(uid, note);
     } catch (err) {
-      console.error(`Crew head update failed for ${uid}:`, (err as Error).message);
+      logger.error(`Crew head update failed for ${uid}:`, (err as Error).message);
     }
   }
 
@@ -312,7 +313,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
 
   if (postToDiscord) {
     await sendDiscordMessage(null, [embed]);
-    console.log('Weekly crew rankings sent');
+    logger.info('Weekly crew rankings sent');
   }
 
   // Crew head Discord roles. Deliberately LAST: multipliers, crowns,

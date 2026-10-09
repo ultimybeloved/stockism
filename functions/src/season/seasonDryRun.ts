@@ -10,6 +10,7 @@
 // document write a week.
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { ACTIVE_USER_WINDOW_MS, SEASON_MIN_BASELINE } from '../shared/constants';
@@ -257,7 +258,7 @@ export const runSeasonDryRun = async () => {
       rows,
     });
 
-  console.log(`SEASON DRY RUN ${weekId}: ${rows.length} players, index ${indexValue.toFixed(2)}`);
+  logger.info(`SEASON DRY RUN ${weekId}: ${rows.length} players, index ${indexValue.toFixed(2)}`);
   return { ran: true, weekId, players: rows.length, index: round2(indexValue) };
 };
 

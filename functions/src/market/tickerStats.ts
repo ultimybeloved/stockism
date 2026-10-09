@@ -17,6 +17,7 @@
 // to add reads.
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { buildExtremeUpdates } from '../shared/marketData';
@@ -30,7 +31,7 @@ export const recordPriceExtremes = cf()
       const marketRef = db.collection('market').doc('current');
       const snap = await marketRef.get();
       if (!snap.exists) {
-        console.log('recordPriceExtremes: no market document found');
+        logger.info('recordPriceExtremes: no market document found');
         return null;
       }
 
@@ -39,16 +40,16 @@ export const recordPriceExtremes = cf()
 
       const moved = Object.keys(updates).length;
       if (!moved) {
-        console.log('recordPriceExtremes: no new records');
+        logger.info('recordPriceExtremes: no new records');
         return null;
       }
 
       await marketRef.update(updates);
-      console.log(`recordPriceExtremes: ${moved} marks moved`);
+      logger.info(`recordPriceExtremes: ${moved} marks moved`);
       await recordHeartbeat('recordPriceExtremes');
       return null;
     } catch (err) {
-      console.error('recordPriceExtremes error:', err);
+      logger.error('recordPriceExtremes error:', err);
       return null;
     }
   });

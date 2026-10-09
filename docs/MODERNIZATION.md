@@ -88,7 +88,9 @@ their public profile and the leaderboard.
    Files over the 600-line limit were split along the way (seasonCheckpoint,
    seasonMoney, crewRankings, tickerRenameChecks, stockSplitMath,
    signupHelpers), each an internal module re-exported where callers expect it.
-4. Replace `console.log` with `firebase-functions/logger`.
+4. ~~Replace `console.log` with `firebase-functions/logger`~~ **Done 2026-10-09**
+   (218 calls, 51 files). Not deployed yet: it rides along with the next
+   backend deploy. New backend code logs through `logger`, never `console`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored
    copies with "keep in sync" comments.

@@ -1,5 +1,6 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } from '../shared/constants';
@@ -62,7 +63,7 @@ async function writeFeatureUsage({
       generatedAt: now,
     });
   } catch (err) {
-    console.error('Failed to write feature usage report:', err);
+    logger.error('Failed to write feature usage report:', err);
   }
 }
 
@@ -182,7 +183,7 @@ async function runWeeklyMarketSummary() {
     await sendDiscordMessage(null, [embed]);
     return { posted: true, activeUsers, weeklyTrades };
   } catch (error) {
-    console.error('Error in weeklyMarketSummary:', error);
+    logger.error('Error in weeklyMarketSummary:', error);
     return { posted: false, error: (error as Error).message };
   }
 }
@@ -216,7 +217,7 @@ export const weeklyLeaderboard = cf()
       const usersSnapshot = await db.collection('users').get();
 
       if (usersSnapshot.empty) {
-        console.log('No users found');
+        logger.info('No users found');
         return null;
       }
 
@@ -257,7 +258,7 @@ export const weeklyLeaderboard = cf()
       };
 
       await sendDiscordMessage(null, [embed]);
-      console.log('Weekly leaderboard sent');
+      logger.info('Weekly leaderboard sent');
       await recordHeartbeat('weeklyLeaderboard');
       return null;
     } catch (error) {

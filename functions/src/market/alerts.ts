@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS } from '../shared/characters';
@@ -62,7 +63,7 @@ export const priceThresholdAlert = cf()
   .timeZone('UTC')
   .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
-      console.log('Skipping price threshold alerts — weekly trading halt active');
+      logger.info('Skipping price threshold alerts — weekly trading halt active');
       return null;
     }
 
@@ -73,7 +74,7 @@ export const priceThresholdAlert = cf()
 
       const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
-        console.log('Skipping price threshold alerts — emergency halt active');
+        logger.info('Skipping price threshold alerts — emergency halt active');
         return null;
       }
 
@@ -134,7 +135,7 @@ export const priceThresholdAlert = cf()
 
       return null;
     } catch (error) {
-      console.error('Error in priceThresholdAlert:', error);
+      logger.error('Error in priceThresholdAlert:', error);
       return null;
     }
   });
@@ -184,11 +185,11 @@ export const achievementAlert = cf().https.onCall(async (data, context) => {
     if (!userDoc.exists) return { success: true, alerted: false };
     const achievements = userDoc.data()!.achievements || [];
     if (!achievements.includes(achievementId)) {
-      console.log(`Achievement alert rejected: ${context.auth.uid} doesn't have ${achievementId}`);
+      logger.info(`Achievement alert rejected: ${context.auth.uid} doesn't have ${achievementId}`);
       return { success: true, alerted: false };
     }
   } catch (e) {
-    console.error('Achievement validation failed:', e);
+    logger.error('Achievement validation failed:', e);
     return { success: true, alerted: false };
   }
 
@@ -316,11 +317,11 @@ export const checkPriceAlerts = cf()
         }
       }
 
-      console.log(`Price alert check: ${triggered} alerts triggered`);
+      logger.info(`Price alert check: ${triggered} alerts triggered`);
       await recordHeartbeat('checkPriceAlerts');
       return { triggered };
     } catch (err) {
-      console.error('Price alert check failed:', err);
+      logger.error('Price alert check failed:', err);
       return null;
     }
   });

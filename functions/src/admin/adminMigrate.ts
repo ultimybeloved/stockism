@@ -8,6 +8,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { CHARACTERS } from '../shared/characters';
 import { appendPriceHistory } from '../shared/marketData';
@@ -184,6 +185,6 @@ export const initNewCharacterPrices = cf().https.onCall(async (data, context) =>
 
   await marketRef.update(updates);
   await appendPriceHistory(null, historyPoints);
-  console.log(`Initialized prices for ${initialized.length} characters:`, initialized.map((i) => i.ticker).join(', '));
+  logger.info(`Initialized prices for ${initialized.length} characters:`, initialized.map((i) => i.ticker).join(', '));
   return { message: `Initialized ${initialized.length} character prices`, initialized };
 });

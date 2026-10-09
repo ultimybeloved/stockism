@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { CHARACTERS } from '../shared/characters';
 import { isWeeklyTradingHalt, chapterReviewHaltMsg, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } from '../shared/constants';
@@ -443,7 +444,7 @@ export const processIPOPriceJumps = cf()
   .timeZone('UTC')
   .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
-      console.log('Skipping IPO price jumps — weekly trading halt active');
+      logger.info('Skipping IPO price jumps — weekly trading halt active');
       return null;
     }
 
@@ -451,7 +452,7 @@ export const processIPOPriceJumps = cf()
       // Check emergency halt
       const marketSnap = await db.collection('market').doc('current').get();
       if (marketSnap.exists && marketSnap.data()!.marketHalted) {
-        console.log('Skipping IPO price jumps — emergency halt active');
+        logger.info('Skipping IPO price jumps — emergency halt active');
         return null;
       }
 
@@ -459,7 +460,7 @@ export const processIPOPriceJumps = cf()
       // pre-market auction at 20:56 Thursday so jumps land before opening prices.
       const discordNotifications = await applyDueIPOJumps();
       if (discordNotifications.length > 0) {
-        console.log(`Processed ${discordNotifications.length} IPO price jumps`);
+        logger.info(`Processed ${discordNotifications.length} IPO price jumps`);
       }
 
       // Send Discord notifications outside transaction (non-critical)

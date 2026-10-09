@@ -15,6 +15,7 @@
 // npm run test:limitorders covers this — run it before and after any change.
 
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { ORDERS_PER_TICKER_PER_CYCLE } from '../shared/constants';
@@ -182,19 +183,19 @@ const fillOrder = async (
  */
 export const runLimitOrderCheck = async () => {
   try {
-    console.log('Checking limit orders...');
+    logger.info('Checking limit orders...');
     const startTime = Date.now();
 
     const marketRef = db.collection('market').doc('current');
     const marketSnap = await marketRef.get();
     if (!marketSnap.exists) {
-      console.error('Market data not found');
+      logger.error('Market data not found');
       return { success: false, error: 'Market data missing' };
     }
 
     const marketData = marketSnap.data()!;
     if (marketData.marketHalted) {
-      console.log('Skipping limit order check — emergency halt active');
+      logger.info('Skipping limit order check — emergency halt active');
       return { success: true, skipped: true, reason: 'emergency_halt' };
     }
 
@@ -206,7 +207,7 @@ export const runLimitOrderCheck = async () => {
       .collection('limitOrders')
       .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
       .get();
-    console.log(`Found ${ordersSnapshot.size} pending limit orders`);
+    logger.info(`Found ${ordersSnapshot.size} pending limit orders`);
 
     let executed = 0;
     let canceled = 0;
@@ -228,7 +229,7 @@ export const runLimitOrderCheck = async () => {
               : { status: 'CANCELED', cancelReason: orderVerdict.reason },
           );
           if (orderVerdict.status === 'EXPIRED') {
-            console.log(`Expired order ${orderId}`);
+            logger.info(`Expired order ${orderId}`);
             await notifyExpired(order, orderId);
             expired++;
           } else {
@@ -243,7 +244,7 @@ export const runLimitOrderCheck = async () => {
           const userVerdict = screenUser(orderUserDoc.data() as UserData);
           if (userVerdict) {
             await closeOrder(orderId, { status: 'CANCELED', cancelReason: userVerdict.reason });
-            console.log(`Cancelled order ${orderId}: ${userVerdict.log}`);
+            logger.info(`Cancelled order ${orderId}: ${userVerdict.log}`);
             await notifyCanceled(order, orderId, userVerdict.reason!);
             canceled++;
             continue;
@@ -252,7 +253,7 @@ export const runLimitOrderCheck = async () => {
 
         const currentPrice = prices[order.ticker];
         if (!currentPrice) {
-          console.log(`No price data for ${order.ticker}, skipping order ${orderId}`);
+          logger.info(`No price data for ${order.ticker}, skipping order ${orderId}`);
           continue;
         }
         if (isTickerHalted(haltedTickersMap, order.ticker)) continue;
@@ -260,11 +261,11 @@ export const runLimitOrderCheck = async () => {
 
         const tickerCount = tickerExecutionCount[order.ticker] || 0;
         if (tickerCount >= ORDERS_PER_TICKER_PER_CYCLE) {
-          console.log(`Throttled order ${orderId}: ${order.ticker} already had ${tickerCount} executions this cycle`);
+          logger.info(`Throttled order ${orderId}: ${order.ticker} already had ${tickerCount} executions this cycle`);
           continue; // Will be picked up in the next sweep (every 15 minutes)
         }
 
-        console.log(
+        logger.info(
           `Order ${orderId} should execute: ${order.type} ${order.shares} ${order.ticker} @ $${order.limitPrice} (current: $${currentPrice})`,
         );
 
@@ -276,12 +277,12 @@ export const runLimitOrderCheck = async () => {
         } catch (transactionError) {
           const msg = (transactionError as Error).message || '';
           if (CANCEL_ON.some((reason) => msg.includes(reason))) {
-            console.log(`Canceling order ${orderId}: ${msg}`);
+            logger.info(`Canceling order ${orderId}: ${msg}`);
             await closeOrder(orderId, { status: 'CANCELED', cancelReason: msg });
             await notifyCanceled(order, orderId, msg);
             canceled++;
           } else {
-            console.log(`Order ${orderId} deferred (will retry): ${msg}`);
+            logger.info(`Order ${orderId} deferred (will retry): ${msg}`);
           }
           continue;
         }
@@ -290,7 +291,7 @@ export const runLimitOrderCheck = async () => {
         await publishFill(order, orderId, fill);
         executed++;
       } catch (error) {
-        console.error(`Error processing order ${orderDoc.id}:`, error);
+        logger.error(`Error processing order ${orderDoc.id}:`, error);
       }
     }
 
@@ -302,10 +303,10 @@ export const runLimitOrderCheck = async () => {
       expired,
       elapsedSeconds: ((Date.now() - startTime) / 1000).toFixed(2),
     };
-    console.log('Limit order check complete:', result);
+    logger.info('Limit order check complete:', result);
     return result;
   } catch (error) {
-    console.error('Limit order check failed:', error);
+    logger.error('Limit order check failed:', error);
     return { success: false, error: (error as Error).message };
   }
 };

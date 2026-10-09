@@ -13,6 +13,7 @@
 // — it would silently move crew week boundaries and orphan in-progress missions.
 
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CREW_MEMBERS } from '../shared/constants';
@@ -66,6 +67,6 @@ export const updateCrewMissionProgress = async (
     await ref.set({ crew, weekId }, { merge: true });
     await ref.update(update);
   } catch (err) {
-    console.error('updateCrewMissionProgress error:', (err as Error).message);
+    logger.error('updateCrewMissionProgress error:', (err as Error).message);
   }
 };

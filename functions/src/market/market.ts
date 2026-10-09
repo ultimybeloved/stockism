@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS } from '../shared/characters';
@@ -33,7 +34,7 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
   const marketSnap = await marketRef.get();
 
   if (!marketSnap.exists) {
-    console.log('No market data found');
+    logger.info('No market data found');
     return { success: false, error: 'No market data found' };
   }
 
@@ -107,11 +108,11 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
       const idxUpdate: Record<string, unknown> = { history: hist, divisor, constituents };
       if (adjusted) {
         idxUpdate.lastDivisorAdjustment = { at: now, reason, divisor, count: constituents.length };
-        console.log(`Index divisor ${reason}: ${divisor} over ${constituents.length} constituents`);
+        logger.info(`Index divisor ${reason}: ${divisor} over ${constituents.length} constituents`);
       }
       await idxRef.set(idxUpdate, { merge: true });
     } catch (e) {
-      console.error('index history record failed:', (e as Error).message);
+      logger.error('index history record failed:', (e as Error).message);
     }
 
   // Today's closing prices, one document per calendar month. The live
@@ -122,9 +123,9 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
   // daily summary.
   try {
     const closed = await recordDailyCloses(prices, now);
-    console.log(`daily closes recorded: ${closed} tickers`);
+    logger.info(`daily closes recorded: ${closed} tickers`);
   } catch (e) {
-    console.error('daily close record failed:', (e as Error).message);
+    logger.error('daily close record failed:', (e as Error).message);
   }
 
   // Trading volume and counts. Bots count toward market volume but never
@@ -240,7 +241,7 @@ export const savePreHaltPrices = cf()
     try {
       const marketSnap = await db.collection('market').doc('current').get();
       if (!marketSnap.exists) {
-        console.log('No market data found for pre-halt snapshot');
+        logger.info('No market data found for pre-halt snapshot');
         return null;
       }
 
@@ -252,7 +253,7 @@ export const savePreHaltPrices = cf()
         savedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`Pre-halt snapshot saved with ${Object.keys(prices).length} tickers`);
+      logger.info(`Pre-halt snapshot saved with ${Object.keys(prices).length} tickers`);
       await recordHeartbeat('savePreHaltPrices');
       return null;
     } catch (error) {
@@ -281,7 +282,7 @@ export const chapterReviewRecap = cf()
       const snapshotSnap = await snapshotRef.get();
 
       if (!snapshotSnap.exists) {
-        console.warn('No pre-halt snapshot found, skipping chapter review recap');
+        logger.warn('No pre-halt snapshot found, skipping chapter review recap');
         return null;
       }
 
@@ -290,7 +291,7 @@ export const chapterReviewRecap = cf()
       // Read current prices
       const marketSnap = await db.collection('market').doc('current').get();
       if (!marketSnap.exists) {
-        console.error('No current market data found');
+        logger.error('No current market data found');
         return null;
       }
 
@@ -458,18 +459,18 @@ export const chapterReviewRecap = cf()
       try {
         await writeReviewChanges({ haltStart, haltEnd, fallbackPrices: beforePrices });
       } catch (e) {
-        console.error('Failed to store review changes for the Review tab:', e);
+        logger.error('Failed to store review changes for the Review tab:', e);
       }
 
       // Cleanup snapshot
       await snapshotRef.delete();
-      console.log(
+      logger.info(
         `Chapter review recap sent: ${gainers.length} gainers, ${losers.length} losers, ${unchangedCount} unchanged`,
       );
 
       return null;
     } catch (error) {
-      console.error('Error in chapterReviewRecap:', error);
+      logger.error('Error in chapterReviewRecap:', error);
       return null;
     }
   });
@@ -522,7 +523,7 @@ export const triggerDailyMarketSummary = cf().https.onCall(async (data, context)
   try {
     return await doDailyMarketSummary({ recordIndexHistory: false });
   } catch (error) {
-    console.error('Error in triggerDailyMarketSummary:', error);
+    logger.error('Error in triggerDailyMarketSummary:', error);
     return { success: false, error: (error as Error).message };
   }
 });
@@ -588,7 +589,7 @@ export const setMarketHalt = cf().https.onCall(async (data, context) => {
   try {
     await sendMarketStatusAlert(halted ? 'halted' : 'resumed', reason);
   } catch (err) {
-    console.error('Failed to send market status alert:', err);
+    logger.error('Failed to send market status alert:', err);
   }
 
   return { success: true, halted };

@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import type { DocumentData, Query } from 'firebase-admin/firestore';
 // Rank counting lives in shared/equity — shared with the Discord bot's /profile.
@@ -244,7 +245,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
       try {
         await docRef.set({ entries: leaderboard, generatedAt: now, key: cacheKey });
       } catch (e) {
-        console.error('leaderboard doc publish failed:', (e as Error).message);
+        logger.error('leaderboard doc publish failed:', (e as Error).message);
       }
     }
 
@@ -280,7 +281,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
       timestamp: Date.now(),
     };
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
+    logger.error('Error fetching leaderboard:', error);
     throw new functions.https.HttpsError('internal', 'Failed to fetch leaderboard');
   }
 });

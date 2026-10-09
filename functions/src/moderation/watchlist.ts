@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { THIRTY_DAYS_MS } from '../shared/constants';
@@ -288,7 +289,7 @@ export const getRecentSignupReport = cf().https.onCall(async (data, context) => 
       const res = await admin.auth().getUsers(chunk);
       for (const u of res.users) authByUid.set(u.uid, u);
     } catch (err) {
-      console.error('getRecentSignupReport getUsers chunk failed:', (err as Error).message);
+      logger.error('getRecentSignupReport getUsers chunk failed:', (err as Error).message);
     }
   }
 
@@ -492,6 +493,6 @@ export const trackWatchedIpTrade = async (uid: string, displayName: string | und
         });
     }
   } catch (err) {
-    console.error('trackWatchedIpTrade error:', (err as Error).message);
+    logger.error('trackWatchedIpTrade error:', (err as Error).message);
   }
 };

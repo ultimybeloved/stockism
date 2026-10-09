@@ -3,6 +3,7 @@ import { sendDiscordMessage, discordApi } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import { HEARTBEAT_DOC } from '../shared/activity';
 import { DISCORD_DAILY_DROP_CHANNEL, WATCHED_SCHEDULED_JOBS } from '../shared/constants';
+import * as logger from 'firebase-functions/logger';
 
 /**
  * Scheduled self-check for the Discord Updates bot. Verifies the bot token is valid and
@@ -59,7 +60,7 @@ export const discordHealthCheck = cf()
     }
 
     if (problems.length === 0) {
-      console.log('discordHealthCheck: OK', { channels: reachable });
+      logger.info('discordHealthCheck: OK', { channels: reachable });
       return null;
     }
 
@@ -146,7 +147,7 @@ export const scheduledJobWatchdog = cf()
     }
 
     if (stale.length === 0 && never.length === 0) {
-      console.log('scheduledJobWatchdog: OK', { checked: WATCHED_SCHEDULED_JOBS.length });
+      logger.info('scheduledJobWatchdog: OK', { checked: WATCHED_SCHEDULED_JOBS.length });
       return null;
     }
 

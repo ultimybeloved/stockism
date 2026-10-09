@@ -1,5 +1,6 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -251,7 +252,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
       ),
     });
 
-  console.log(
+  logger.info(
     `Dividend payout (${source}) complete: ${stats.usersPaid}/${stats.usersConsidered} paid, $${stats.totalPaid.toFixed(2)} total, ${durationMs}ms`,
   );
   return stats;
@@ -341,7 +342,7 @@ export const backfillHoldingCohorts = cf({ timeoutSeconds: 540, memory: '512MB' 
 
     if (pending > 0) await batch.commit();
 
-    console.log(`Backfill complete: ${stats.updated} updated, ${stats.skipped} skipped, ${stats.scanned} scanned`);
+    logger.info(`Backfill complete: ${stats.updated} updated, ${stats.skipped} skipped, ${stats.scanned} scanned`);
     return stats;
   },
 );

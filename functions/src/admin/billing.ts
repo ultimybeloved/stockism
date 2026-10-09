@@ -14,6 +14,7 @@
 //      billing (Project Billing Manager on the project + billing account).
 import * as functions from 'firebase-functions';
 import { CloudBillingClient } from '@google-cloud/billing';
+import * as logger from 'firebase-functions/logger';
 
 const billing = new CloudBillingClient();
 const PROJECT_NAME = `projects/${process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT}`;
@@ -24,17 +25,17 @@ export const billingKillswitch = functions.pubsub.topic('billing-killswitch').on
   const budget = data.budgetAmount;
 
   if (typeof cost !== 'number' || typeof budget !== 'number') {
-    console.log('billingKillswitch: no cost/budget in message, ignoring', JSON.stringify(data));
+    logger.info('billingKillswitch: no cost/budget in message, ignoring', JSON.stringify(data));
     return;
   }
   if (cost <= budget) {
-    console.log(`billingKillswitch: within budget ($${cost} <= $${budget})`);
+    logger.info(`billingKillswitch: within budget ($${cost} <= $${budget})`);
     return;
   }
 
   const info = await billing.getProjectBillingInfo({ name: PROJECT_NAME });
   if (!info[0] || !info[0].billingEnabled) {
-    console.log('billingKillswitch: billing already disabled, nothing to do');
+    logger.info('billingKillswitch: billing already disabled, nothing to do');
     return;
   }
 
@@ -42,7 +43,7 @@ export const billingKillswitch = functions.pubsub.topic('billing-killswitch').on
     name: PROJECT_NAME,
     projectBillingInfo: { billingAccountName: '' }, // empty string detaches billing
   });
-  console.error(
+  logger.error(
     `🛑 billingKillswitch: spend $${cost} exceeded budget $${budget} — BILLING DISABLED. ` +
       'The project is offline until billing is re-enabled in the Cloud console.',
   );

@@ -12,6 +12,7 @@ import {
   PRE_MARKET_START_MINUTE,
   WEEKLY_HALT_END_MINUTE,
 } from './constants';
+import * as logger from 'firebase-functions/logger';
 
 /** A Discord embed object, passed through to the API as is. */
 type Embed = Record<string, unknown>;
@@ -100,7 +101,7 @@ export async function sendDiscordMessage(
   }
 
   if (!botToken || !channelId) {
-    console.error('Discord config missing');
+    logger.error('Discord config missing');
     return;
   }
 
@@ -119,7 +120,7 @@ export async function sendDiscordMessage(
         'Content-Type': 'application/json',
       },
     });
-    console.log(`Discord message sent successfully to channel ${channelId} (${channelType})`);
+    logger.info(`Discord message sent successfully to channel ${channelId} (${channelType})`);
   } catch (error) {
     reportError(error, {
       where: 'sendDiscordMessage',
@@ -218,7 +219,7 @@ export async function sendMarketStatusAlert(kind: string, reason = '') {
   };
   const preset = presets[kind];
   if (!preset) {
-    console.error(`sendMarketStatusAlert: unknown kind "${kind}"`);
+    logger.error(`sendMarketStatusAlert: unknown kind "${kind}"`);
     return;
   }
   await sendDiscordMessage(null, [

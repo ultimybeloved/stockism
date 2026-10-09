@@ -7,6 +7,7 @@
 // write rule stays the caller's to keep.
 
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 
 import { exitLoyaltyDiscount, CHARACTER_MAP } from '../shared/characters';
 import { MAX_DAILY_IMPACT } from '../shared/constants';
@@ -283,7 +284,7 @@ export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: Fill
 
   applyPriceUpdates(transaction, marketRef, priceUpdates);
 
-  console.log(
+  logger.info(
     `Executed BUY: ${fillShares} ${ticker} @ $${askPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`,
   );
   return {
@@ -396,7 +397,7 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
 
   applyPriceUpdates(transaction, marketRef, priceUpdates);
 
-  console.log(
+  logger.info(
     `Executed ${order.type}: ${fillShares} ${ticker} @ $${bidPrice.toFixed(2)} (impact: ${freshPrice} -> ${newMarketPrice}) for user ${order.userId}`,
   );
   return {

@@ -1,3 +1,4 @@
+import * as logger from 'firebase-functions/logger';
 // Error monitoring.
 //
 // @sentry/node is by far the most expensive thing this backend loads (~700ms of
@@ -25,7 +26,7 @@ export const getSentry = () => {
     Sentry.init({ dsn: process.env.SENTRY_DSN, enabled: true });
     cached = Sentry;
   } catch (err) {
-    console.error('Sentry failed to load:', (err as Error)?.message);
+    logger.error('Sentry failed to load:', (err as Error)?.message);
     cached = null;
   }
   return cached;
@@ -55,7 +56,7 @@ export function reportError(err: unknown, context: { where?: string; [key: strin
   const message = (err as { message?: unknown } | null)?.message;
   const tag = context.where ? `[${context.where}] ` : '';
   try {
-    console.error(`${tag}${message ? message : err}`);
+    logger.error(`${tag}${message ? message : err}`);
   } catch (_) {
     /* noop */
   }

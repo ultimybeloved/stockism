@@ -1,5 +1,6 @@
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS, splitFactorOf } from '../shared/characters';
@@ -87,7 +88,7 @@ export const marketMakerCycle = cf()
   .onRun(async () => {
     // Never run during the weekly Thursday halt (13:00–21:00 UTC)
     if (isWeeklyTradingHalt()) {
-      console.log('marketMakerCycle: skipping — weekly halt active');
+      logger.info('marketMakerCycle: skipping — weekly halt active');
       return null;
     }
 
@@ -96,13 +97,13 @@ export const marketMakerCycle = cf()
       const marketSnap = await marketRef.get();
 
       if (!marketSnap.exists) {
-        console.log('marketMakerCycle: no market document found');
+        logger.info('marketMakerCycle: no market document found');
         return null;
       }
 
       const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
-        console.log('marketMakerCycle: skipping — manual halt active');
+        logger.info('marketMakerCycle: skipping — manual halt active');
         return null;
       }
 
@@ -116,7 +117,7 @@ export const marketMakerCycle = cf()
         // No daily closes yet. Stabilising against the live history instead is
         // what this function was changed to stop doing, so do nothing and say
         // so rather than fall back to a reference a player can bend.
-        console.warn('marketMakerCycle: no daily closes available — skipping cycle');
+        logger.warn('marketMakerCycle: no daily closes available — skipping cycle');
         return null;
       }
 
@@ -191,7 +192,7 @@ export const marketMakerCycle = cf()
         };
 
         interventionCount++;
-        console.log(
+        logger.info(
           `marketMakerCycle: ${ticker} ${isSell ? 'SELL' : 'BUY'} ` +
             `avg=${avgPrice.toFixed(2)} cur=${currentPrice.toFixed(2)} ` +
             `dev=${(deviation * 100).toFixed(1)}% new=${newPrice.toFixed(2)}`,
@@ -208,9 +209,9 @@ export const marketMakerCycle = cf()
         }
         batch.set(priceHistoryRef(), histUpdates, { merge: true });
         await batch.commit();
-        console.log(`marketMakerCycle: ${interventionCount} interventions applied`);
+        logger.info(`marketMakerCycle: ${interventionCount} interventions applied`);
       } else {
-        console.log('marketMakerCycle: no interventions needed');
+        logger.info('marketMakerCycle: no interventions needed');
       }
 
       // Only on the success path. This job swallowed its own errors and had no
@@ -219,7 +220,7 @@ export const marketMakerCycle = cf()
       await recordHeartbeat('marketMakerCycle');
       return null;
     } catch (err) {
-      console.error('marketMakerCycle error:', err);
+      logger.error('marketMakerCycle error:', err);
       return null;
     }
   });

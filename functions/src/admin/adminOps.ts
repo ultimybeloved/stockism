@@ -6,6 +6,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 // Modular import — the emulator sandbox strips admin.firestore statics.
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
@@ -153,7 +154,7 @@ export const adminSetCash = cf().https.onCall(async (data, context) => {
       by: context.auth!.uid,
     });
   } catch (err) {
-    console.error('adminSetCash: failed to write adminCashLog:', (err as Error).message);
+    logger.error('adminSetCash: failed to write adminCashLog:', (err as Error).message);
   }
 
   // Raises only. The memo stays internal; the player is told the amount and
@@ -162,7 +163,7 @@ export const adminSetCash = cf().https.onCall(async (data, context) => {
   try {
     delivery = await notifyCashGrant(userId, userData, newCash - prevCash);
   } catch (err) {
-    console.error('adminSetCash: failed to notify player:', (err as Error).message);
+    logger.error('adminSetCash: failed to notify player:', (err as Error).message);
   }
 
   return {
@@ -327,7 +328,7 @@ export const adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
   try {
     await db.collection('discordBindings').doc(String(previousDiscordId)).delete();
   } catch (err) {
-    console.error('adminUnlinkDiscord: failed to clear Discord binding:', err);
+    logger.error('adminUnlinkDiscord: failed to clear Discord binding:', err);
   }
 
   return { success: true, userId, previousDiscordId, alreadyUnlinked: false };
@@ -385,7 +386,7 @@ export const adminFreeDiscord = cf().https.onCall(async (data, context) => {
     clearedBinding ? bindRef.delete() : Promise.resolve(),
   ]);
 
-  console.log(`DISCORD FREED: ${id} (tombstone: ${clearedTombstone}, binding: ${clearedBinding})`);
+  logger.info(`DISCORD FREED: ${id} (tombstone: ${clearedTombstone}, binding: ${clearedBinding})`);
 
   return { success: true, discordId: id, clearedTombstone, clearedBinding, boundTo };
 });
@@ -499,7 +500,7 @@ export const adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
     // permanent owner, which is exactly what this call is overriding.
     await db.collection('discordBindings').doc(String(moved.discordId)).delete();
   } catch (err) {
-    console.error('adminMoveDiscordLink: failed to clear Discord tombstone/binding:', err);
+    logger.error('adminMoveDiscordLink: failed to clear Discord tombstone/binding:', err);
   }
 
   // Kill the source's login without touching its data. Best-effort: the link
@@ -511,12 +512,12 @@ export const adminMoveDiscordLink = cf().https.onCall(async (data, context) => {
       authDeleted = true;
     } catch (err) {
       if ((err as { code?: string }).code !== 'auth/user-not-found') {
-        console.error('adminMoveDiscordLink: failed to delete source auth user:', err);
+        logger.error('adminMoveDiscordLink: failed to delete source auth user:', err);
       }
     }
   }
 
-  console.log(
+  logger.info(
     `DISCORD LINK MOVED: ${moved.discordId} from ${sourceUserId} to ${targetUserId} (auth deleted: ${authDeleted})`,
   );
 

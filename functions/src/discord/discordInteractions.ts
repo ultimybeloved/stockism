@@ -2,6 +2,7 @@ import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import axios from 'axios';
 import { verifyKey, InteractionType, InteractionResponseType } from 'discord-interactions';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -71,7 +72,7 @@ export const discordInteractions = cf().https.onRequest(async (req, res) => {
   // Verify Discord signature
   const publicKey = process.env.DISCORD_PUBLIC_KEY;
   if (!publicKey || publicKey === 'PASTE_YOUR_PUBLIC_KEY_HERE') {
-    console.error('DISCORD_PUBLIC_KEY not configured');
+    logger.error('DISCORD_PUBLIC_KEY not configured');
     return void res.status(500).send('Server misconfigured');
   }
 
@@ -148,7 +149,7 @@ export const discordInteractions = cf().https.onRequest(async (req, res) => {
       try {
         await editOriginal({ content: 'Something went wrong. Try again in a moment.' });
       } catch (editError) {
-        console.error('Failed to report slash command error to Discord:', editError);
+        logger.error('Failed to report slash command error to Discord:', editError);
       }
     }
     return;
@@ -238,7 +239,7 @@ export const discordInteractions = cf().https.onRequest(async (req, res) => {
               });
             });
           } catch (txErr) {
-            console.error('Daily stock claim reservation failed:', txErr);
+            logger.error('Daily stock claim reservation failed:', txErr);
             await editOriginal({
               content: '❌ Something went wrong reserving your claim. Try again in a moment!',
             });
@@ -410,13 +411,13 @@ export const discordInteractions = cf().https.onRequest(async (req, res) => {
 
         await editOriginal({ embeds: [embed] });
       } catch (err) {
-        console.error('Daily stock claim error:', err);
+        logger.error('Daily stock claim error:', err);
         try {
           await editOriginal({
             content: '❌ Something went wrong. Try again in a moment!',
           });
         } catch (followUpErr) {
-          console.error('Failed to send error follow-up:', (followUpErr as Error).message);
+          logger.error('Failed to send error follow-up:', (followUpErr as Error).message);
         }
       }
       return;
@@ -496,7 +497,7 @@ export const discordInteractions = cf().https.onRequest(async (req, res) => {
           },
         });
       } catch (err) {
-        console.error('View last claim error:', err);
+        logger.error('View last claim error:', err);
         return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {

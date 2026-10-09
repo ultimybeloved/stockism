@@ -17,6 +17,7 @@
 
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import {
   isWeeklyTradingHalt,
@@ -62,7 +63,7 @@ export const checkShortMarginCalls = cf()
   .timeZone('UTC')
   .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
-      console.log('Skipping short margin calls — weekly trading halt active');
+      logger.info('Skipping short margin calls — weekly trading halt active');
       return null;
     }
 
@@ -70,7 +71,7 @@ export const checkShortMarginCalls = cf()
     if (now.getUTCDay() === 4) {
       const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
       if (utcMins >= WEEKLY_HALT_END_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES) {
-        console.log(
+        logger.info(
           `Market open grace period active — skipping margin calls until ${WEEKLY_HALT_END_MINUTE + MARKET_OPEN_GRACE_PERIOD_MINUTES} UTC min`,
         );
         return null;
@@ -78,20 +79,20 @@ export const checkShortMarginCalls = cf()
     }
 
     const startTime = Date.now();
-    console.log('Checking short margin calls...');
+    logger.info('Checking short margin calls...');
 
     try {
       const marketRef = db.collection('market').doc('current');
       const marketSnap = await marketRef.get();
 
       if (!marketSnap.exists) {
-        console.error('Market data not found');
+        logger.error('Market data not found');
         return null;
       }
 
       const marketData = marketSnap.data()!;
       if (marketData.marketHalted) {
-        console.log('Skipping short margin calls — emergency halt active');
+        logger.info('Skipping short margin calls — emergency halt active');
         return null;
       }
       const prices: Record<string, number> = marketData.prices || {};
@@ -131,7 +132,7 @@ export const checkShortMarginCalls = cf()
         }
         await flush();
         await marketRef.update({ shortsFlagBackfilledAt: Date.now() });
-        console.log(
+        logger.info(
           `Backfilled hasOpenShorts flags: ${shortHolderDocs.length} short holders of ${allUsers.size} users`,
         );
       } else {
@@ -220,7 +221,7 @@ export const checkShortMarginCalls = cf()
                 });
               }
             } catch (error) {
-              console.error(`Failed to liquidate ${userDoc.id}'s ${ticker} short:`, error);
+              logger.error(`Failed to liquidate ${userDoc.id}'s ${ticker} short:`, error);
             }
           }
         }
@@ -230,11 +231,11 @@ export const checkShortMarginCalls = cf()
       // reading. Written after the covers above so it reflects what is still
       // open, and best-effort because a failed write must not fail the scan.
       await writeShortInterest(shortInterest).catch((e) => {
-        console.error('short interest write failed:', e.message);
+        logger.error('short interest write failed:', e.message);
       });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(
+      logger.info(
         `Margin call check complete: ${checkedCount} users checked, ${liquidatedCount} positions liquidated, ${throttledCount} throttled, ${Object.keys(shortInterest).length} tickers with open shorts in ${elapsed}s`,
       );
       await recordHeartbeat('checkShortMarginCalls');
@@ -254,25 +255,25 @@ export const checkMarginLending = cf()
   .timeZone('UTC')
   .onRun(async (_context) => {
     if (isWeeklyTradingHalt()) {
-      console.log('Skipping margin lending check — weekly trading halt active');
+      logger.info('Skipping margin lending check — weekly trading halt active');
       return null;
     }
 
     const startTime = Date.now();
-    console.log('Checking margin lending positions...');
+    logger.info('Checking margin lending positions...');
 
     try {
       const marketRef = db.collection('market').doc('current');
       const marketSnap = await marketRef.get();
 
       if (!marketSnap.exists) {
-        console.error('Market data not found');
+        logger.error('Market data not found');
         return null;
       }
 
       const marketSnapData = marketSnap.data()!;
       if (marketSnapData.marketHalted) {
-        console.log('Skipping margin lending check — emergency halt active');
+        logger.info('Skipping margin lending check — emergency halt active');
         return null;
       }
       const prices: Record<string, number> = marketSnapData.prices || {};
@@ -347,7 +348,7 @@ export const checkMarginLending = cf()
                 (freshData.cash || 0) + freshHoldingsValue + shortsEquity(freshData.shorts, freshPrices);
               const freshRatio = freshGross > 0 ? (freshGross - freshMarginUsed) / freshGross : 0;
               if (freshRatio > LONG_MARGIN_LIQUIDATION_THRESHOLD) {
-                console.log(
+                logger.info(
                   `Skipping ${userDoc.id}: recovered to ${(freshRatio * 100).toFixed(1)}% equity before liquidation ran`,
                 );
                 return null;
@@ -409,7 +410,7 @@ export const checkMarginLending = cf()
                 automated: true,
               });
 
-              console.log(
+              logger.info(
                 `Liquidated margin for ${userDoc.id}: recovered ${totalRecovered.toFixed(2)}, final cash ${finalCash.toFixed(2)}`,
               );
               // The numbers travel back out so the player can be told what
@@ -453,7 +454,7 @@ export const checkMarginLending = cf()
               }
             }
           } catch (error) {
-            console.error(`Failed to liquidate margin for ${userDoc.id}:`, error);
+            logger.error(`Failed to liquidate margin for ${userDoc.id}:`, error);
           }
         } else if (equityRatio <= LONG_MARGIN_CALL_THRESHOLD) {
           // MARGIN CALL. A warning only: nothing is sold in this band, and
@@ -487,7 +488,7 @@ export const checkMarginLending = cf()
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(
+      logger.info(
         `Margin lending check: ${checkedCount} checked, ${liquidatedCount} liquidated, ${marginCallCount} new margin calls in ${elapsed}s`,
       );
       await recordHeartbeat('checkMarginLending');

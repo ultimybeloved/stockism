@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTER_MAP } from '../shared/characters';
@@ -95,7 +96,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
     .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(sessionStart))
     .get();
 
-  console.log(`runMarketOpenProcessing(${trigger}): ${preMarketSnap.size} pre-market orders in opening auction`);
+  logger.info(`runMarketOpenProcessing(${trigger}): ${preMarketSnap.size} pre-market orders in opening auction`);
 
   // The only reasons an order is genuinely unfillable. Anything else thrown out
   // of the fill transaction is infrastructure (contention, a dropped
@@ -465,13 +466,13 @@ export const runMarketOpenProcessing = async (trigger: string) => {
           await failOrder(doc, order, message);
         } else if (message !== 'Order already processed') {
           // Left PENDING on purpose — see FILL_REFUSALS above.
-          console.error(`Opening auction: order ${doc.id} left pending — ${message}`);
+          logger.error(`Opening auction: order ${doc.id} left pending — ${message}`);
           reportError(err, { where: 'runMarketOpenProcessing: fill', orderId: doc.id });
         }
       }
     }
 
-    console.log(`Opening auction complete: ${summary.pmFilled} filled, ${summary.pmFailed} failed`);
+    logger.info(`Opening auction complete: ${summary.pmFilled} filled, ${summary.pmFailed} failed`);
 
     // Re-fetch market snapshot so stop-loss checks use post-auction prices
     marketSnap = await marketRef.get();
@@ -510,7 +511,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
     summary.pmExpired++;
   }
 
-  console.log('runMarketOpenProcessing complete:', JSON.stringify(summary));
+  logger.info('runMarketOpenProcessing complete:', JSON.stringify(summary));
   return summary;
 };
 

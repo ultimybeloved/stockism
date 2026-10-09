@@ -8,6 +8,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { BACKUP_TOP_USERS } from '../shared/constants';
@@ -67,7 +68,7 @@ export const backupMarketData = cf()
       const dateStr = timestamp.split('T')[0]; // YYYY-MM-DD
       const timeStr = timestamp.split('T')[1]!.split('.')[0]!.replace(/:/g, '-'); // HH-MM-SS
 
-      console.log(`Starting backup at ${timestamp}`);
+      logger.info(`Starting backup at ${timestamp}`);
 
       // 1. Backup market data
       const marketRef = db.collection('market').doc('current');
@@ -95,7 +96,7 @@ export const backupMarketData = cf()
             timestamp,
           },
         });
-        console.log('Market data backed up successfully');
+        logger.info('Market data backed up successfully');
       }
 
       // 2. Backup top 100 user portfolios (leaderboard)
@@ -118,7 +119,7 @@ export const backupMarketData = cf()
           timestamp,
         },
       });
-      console.log('Leaderboard backed up successfully');
+      logger.info('Leaderboard backed up successfully');
 
       // 3. Cleanup old backups (keep last 7 days)
       const sevenDaysAgo = new Date();
@@ -135,11 +136,11 @@ export const backupMarketData = cf()
         if (fileDate < sevenDaysAgo) {
           await file.delete();
           deletedCount++;
-          console.log(`Deleted old backup: ${file.name}`);
+          logger.info(`Deleted old backup: ${file.name}`);
         }
       }
 
-      console.log(`Backup complete. Deleted ${deletedCount} old backups.`);
+      logger.info(`Backup complete. Deleted ${deletedCount} old backups.`);
       await recordHeartbeat('backupMarketData');
       return null;
     } catch (error) {
@@ -200,7 +201,7 @@ export const triggerManualBackup = cf().https.onCall(async (data, context) => {
       filename: `${dateStr}_${timeStr}_manual_market.json`,
     };
   } catch (error) {
-    console.error('Error in manual backup:', error);
+    logger.error('Error in manual backup:', error);
     throw new functions.https.HttpsError('internal', 'Failed to create manual backup: ' + (error as Error).message);
   }
 });
@@ -238,7 +239,7 @@ export const listBackups = cf().https.onCall(async (data, context) => {
       total: backups.length,
     };
   } catch (error) {
-    console.error('Error listing backups:', error);
+    logger.error('Error listing backups:', error);
     throw new functions.https.HttpsError('internal', 'Failed to list backups: ' + (error as Error).message);
   }
 });
@@ -256,13 +257,13 @@ export const restoreBackup = cf().https.onCall(async (data, context) => {
     const bucket = admin.storage().bucket();
     const file = bucket.file(backupName);
 
-    console.log(`Restoring backup: ${backupName}`);
+    logger.info(`Restoring backup: ${backupName}`);
 
     // Download backup
     const [content] = await file.download();
     const backupData = JSON.parse(content.toString());
 
-    console.log(`Backup loaded. Contains ${Object.keys(backupData.priceHistory || {}).length} tickers`);
+    logger.info(`Backup loaded. Contains ${Object.keys(backupData.priceHistory || {}).length} tickers`);
 
     // Restore price history to Firestore (keep current prices).
     // History lives in its own doc now.
@@ -276,11 +277,11 @@ export const restoreBackup = cf().https.onCall(async (data, context) => {
     const restored = remapAliasedKeys(backupData.priceHistory, aliases);
     const remapped = Object.keys(aliases).filter((t) => backupData.priceHistory?.[t] !== undefined);
     if (remapped.length) {
-      console.log(`Backup predates ${remapped.length} rename(s), remapped: ${remapped.join(', ')}`);
+      logger.info(`Backup predates ${remapped.length} rename(s), remapped: ${remapped.join(', ')}`);
     }
     await priceHistoryRef().set(restored!);
 
-    console.log('✅ Price history restored successfully!');
+    logger.info('✅ Price history restored successfully!');
 
     return {
       success: true,
@@ -289,7 +290,7 @@ export const restoreBackup = cf().https.onCall(async (data, context) => {
       backupFile: backupName,
     };
   } catch (error) {
-    console.error('Error restoring backup:', error);
+    logger.error('Error restoring backup:', error);
     throw new functions.https.HttpsError('internal', 'Failed to restore backup: ' + (error as Error).message);
   }
 });
@@ -311,7 +312,7 @@ export const monthlyPermanentBackup = cf()
       // Format: YYYY-MM (e.g., 2026-01)
       const yearMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
-      console.log(`Starting monthly permanent backup for ${yearMonth}`);
+      logger.info(`Starting monthly permanent backup for ${yearMonth}`);
 
       // Backup market data
       const marketRef = db.collection('market').doc('current');
@@ -344,7 +345,7 @@ export const monthlyPermanentBackup = cf()
             timestamp,
           },
         });
-        console.log(`Monthly market backup saved: ${yearMonth}_market.json`);
+        logger.info(`Monthly market backup saved: ${yearMonth}_market.json`);
       }
 
       // Backup leaderboard (top 100 users)
@@ -371,12 +372,12 @@ export const monthlyPermanentBackup = cf()
           timestamp,
         },
       });
-      console.log(`Monthly leaderboard backup saved: ${yearMonth}_leaderboard.json`);
+      logger.info(`Monthly leaderboard backup saved: ${yearMonth}_leaderboard.json`);
 
-      console.log(`Monthly permanent backup complete for ${yearMonth}`);
+      logger.info(`Monthly permanent backup complete for ${yearMonth}`);
       return null;
     } catch (error) {
-      console.error('Error in monthly permanent backup:', error);
+      logger.error('Error in monthly permanent backup:', error);
       return null;
     }
   });

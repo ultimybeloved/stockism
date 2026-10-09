@@ -13,6 +13,7 @@
 // at market/reviewChanges for the tab to read.
 
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { priceHistoryRef, getReviewWindowChanges } from '../shared/marketData';
@@ -105,7 +106,7 @@ export const writeReviewChanges = async ({
   };
 
   await db.collection('market').doc(REVIEW_DOC).set(payload);
-  console.log(
+  logger.info(
     `reviewChanges written: ${payload.tickerCount} tickers for window ending ${new Date(haltEnd).toISOString()}`,
   );
   return payload;
@@ -202,6 +203,6 @@ export const collapseReviewWindow = async ({ haltStart, haltEnd }: { haltStart: 
     tx.set(priceHistoryRef(), updates, { merge: true });
   });
 
-  console.log(`collapseReviewWindow: ${tidied} stocks tidied, ${folded} intermediate points folded`);
+  logger.info(`collapseReviewWindow: ${tidied} stocks tidied, ${folded} intermediate points folded`);
   return { tidied, folded };
 };

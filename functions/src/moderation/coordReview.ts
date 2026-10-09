@@ -22,6 +22,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -238,7 +239,7 @@ export const adminRemoveCoordProfit = cf().https.onCall(
             ? ` $${result.toDebt.toLocaleString('en-US')} of it was added to your margin balance.`
             : ''),
       });
-      console.log(`COORD PROFIT REMOVED: ${uid} $${amount} (debt ${result.toDebt})`);
+      logger.info(`COORD PROFIT REMOVED: ${uid} $${amount} (debt ${result.toDebt})`);
     }
     return { uid, amount, ...result };
   },

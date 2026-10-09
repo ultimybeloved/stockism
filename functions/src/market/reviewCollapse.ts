@@ -11,6 +11,7 @@
 
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE } from '../shared/constants';
@@ -66,14 +67,14 @@ export const collapseReviewHistory = cf({ timeoutSeconds: 300 })
   .onRun(async () => {
     try {
       const result = await finalizeReview(haltWindowFor(new Date()));
-      console.log(
+      logger.info(
         `collapseReviewHistory: ${result.tickerCount} tickers recorded, ` +
           `${result.tidied} tidied, ${result.folded} points folded`,
       );
     } catch (err) {
       // A failure here leaves the chart untidy but costs nothing else: prices
       // are untouched either way, and the admin trigger can re-run it.
-      console.error('collapseReviewHistory failed:', err);
+      logger.error('collapseReviewHistory failed:', err);
       await reportError(err, { where: 'collapseReviewHistory' });
     }
     return null;

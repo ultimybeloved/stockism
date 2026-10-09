@@ -30,6 +30,7 @@
 
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -197,7 +198,7 @@ async function runCoordScan({ dryRun = false } = {}) {
   // reach a public channel.
   const high = fresh.filter((f) => f.severity === 'high');
   if (high.length && !ADMIN_DISCORD_USER_ID) {
-    console.warn(`ADMIN_DISCORD_USER_ID not set — ${high.length} coordinated-pressure alert(s) written but not DMed.`);
+    logger.warn(`ADMIN_DISCORD_USER_ID not set — ${high.length} coordinated-pressure alert(s) written but not DMed.`);
   }
   if (high.length && ADMIN_DISCORD_USER_ID) {
     try {
@@ -243,7 +244,7 @@ export const scanForCoordination = cf({ timeoutSeconds: 540, memory: '1GB' })
   .onRun(async () => {
     try {
       const result = await runCoordScan();
-      console.log(
+      logger.info(
         `Coord scan: ${result.scanned} trades, ${result.candidates} clusters, ${result.reported} new, ${result.blocked} newly blocked`,
       );
       await recordHeartbeat('scanForCoordination');

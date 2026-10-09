@@ -37,10 +37,16 @@ const check = (name, cond, detail) => {
 };
 const user = async (uid) => (await db.collection('users').doc(uid).get()).data();
 
-// Clusters are grouped by UTC day, so everything is placed early in today.
+// Clusters are grouped by UTC day, so the trades (base to base + 60 min) must
+// all land on one day and in the past. Early in today when there is room;
+// in the first two hours of a UTC day there isn't, so late yesterday instead.
+// (Run at 01:45 UTC, the old placement split the SHNG raid across midnight.)
 const dayStart = new Date();
 dayStart.setUTCHours(0, 0, 0, 0);
-const base = Math.min(Date.now() - 2 * H, dayStart.getTime() + 60 * MIN);
+const base =
+  Date.now() - dayStart.getTime() >= 2 * H
+    ? Math.min(Date.now() - 2 * H, dayStart.getTime() + 60 * MIN)
+    : dayStart.getTime() - 2 * H;
 
 const trade = (uid, ticker, action, amount, price, impact, at) =>
   db.collection('trades').add({

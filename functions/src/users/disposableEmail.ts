@@ -15,6 +15,7 @@
 // Matching covers subdomains (anything.mailinator.com matches mailinator.com).
 
 import PACKAGE_DOMAINS from 'disposable-email-domains';
+import * as logger from 'firebase-functions/logger';
 
 // Domains observed in our own signup reports that public lists missed at the time.
 export const HAND_BLOCKED_DOMAINS: string[] = [
@@ -225,7 +226,7 @@ async function refreshRemoteDomains() {
     remoteDomains = new Set(domains);
     remoteFetchedAt = now;
   } catch (err) {
-    console.error('Disposable email live list fetch failed (using bundled lists):', (err as Error).message);
+    logger.error('Disposable email live list fetch failed (using bundled lists):', (err as Error).message);
   }
 }
 

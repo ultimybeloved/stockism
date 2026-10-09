@@ -15,6 +15,7 @@ import { isRosterTicker } from '../shared/roster';
 import { recordHeartbeat } from '../shared/activity';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
+import * as logger from 'firebase-functions/logger';
 
 type BotDecision = { action: 'HOLD' } | { action: 'BUY' | 'SELL'; ticker: string; shares: number };
 
@@ -268,7 +269,7 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
       if (now.getUTCDay() === 4) {
         const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
         if (utcMins >= WEEKLY_HALT_START_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
-          console.log('Skipping bot trades — weekly trading halt active');
+          logger.info('Skipping bot trades — weekly trading halt active');
           return null;
         }
       }
@@ -286,14 +287,14 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
       const bots = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as DocumentData & { id: string });
 
       if (bots.length === 0) {
-        console.log('No bots found');
+        logger.info('No bots found');
         return null;
       }
 
       // Get market data
       const marketSnap = await marketRef.get();
       if (!marketSnap.exists) {
-        console.log('No market data');
+        logger.info('No market data');
         return null;
       }
 
@@ -301,7 +302,7 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
 
       // Check emergency halt
       if (marketData.marketHalted) {
-        console.log('Skipping bot trades — emergency halt active');
+        logger.info('Skipping bot trades — emergency halt active');
         return null;
       }
 
@@ -338,7 +339,7 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
       const shuffled = bots.sort(() => 0.5 - Math.random());
       const tradingBots = shuffled.slice(0, numBotsToTrade);
 
-      console.log(
+      logger.info(
         `${numBotsToTrade} bots will trade this round${isThursday ? ' (THURSDAY BOOST)' : ''} (delayed ${Math.floor(startDelay / 1000)}s)`,
       );
 
@@ -347,7 +348,7 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
         const decision = makeBotDecision(bot, marketData, allTickers, isThursday);
 
         if (decision.action === 'HOLD') {
-          console.log(`${bot.displayName} decided to HOLD`);
+          logger.info(`${bot.displayName} decided to HOLD`);
           continue;
         }
 
@@ -356,23 +357,23 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
         // kept pushing the price, which is exactly the cascade the pause
         // exists to interrupt. Picked up on a later round, like the cap below.
         if (isTickerPaused(marketData.haltedTickers, decision.ticker)) {
-          console.log(`${bot.displayName}: skipping ${decision.ticker} — circuit breaker pause active`);
+          logger.info(`${bot.displayName}: skipping ${decision.ticker} — circuit breaker pause active`);
           continue;
         }
 
         // Respect admin price protection — don't undo a manual price set
         if (isPriceProtected(marketData.priceHistory, decision.ticker, ADMIN_PRICE_PROTECTION_MS)) {
-          console.log(`${bot.displayName}: skipping ${decision.action} ${decision.ticker} — admin price protected`);
+          logger.info(`${bot.displayName}: skipping ${decision.action} ${decision.ticker} — admin price protected`);
           continue;
         }
 
         // Daily cap: bots can't move one ticker more than MAX_DAILY_IMPACT per day
         if ((botImpactToday[decision.ticker] || 0) >= MAX_DAILY_IMPACT) {
-          console.log(`${bot.displayName}: skipping ${decision.ticker} — bots hit daily price-move cap`);
+          logger.info(`${bot.displayName}: skipping ${decision.ticker} — bots hit daily price-move cap`);
           continue;
         }
 
-        console.log(
+        logger.info(
           `${bot.displayName} (${bot.botPersonality}): ${decision.action} ${decision.shares} ${decision.ticker}`,
         );
 
@@ -526,11 +527,11 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
         await new Promise((resolve) => setTimeout(resolve, tradeDelay));
       }
 
-      console.log('Bot trading round complete');
+      logger.info('Bot trading round complete');
       await recordHeartbeat('botTrader');
       return null;
     } catch (error) {
-      console.error('Error in botTrader:', error);
+      logger.error('Error in botTrader:', error);
       return null;
     }
   });

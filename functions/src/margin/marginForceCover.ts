@@ -12,6 +12,7 @@
 // Covered by npm run test:trading section J.
 
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -167,7 +168,7 @@ export const forceCoverShort = async ({
       automated: true,
     });
 
-    console.log(
+    logger.info(
       `Liquidated ${uid}'s short on ${ticker}: ${freshPosition.shares} shares at ${coverPrice}, cashChange: ${cashChange.toFixed(2)}`,
     );
     // The share count travels back out so the notification can

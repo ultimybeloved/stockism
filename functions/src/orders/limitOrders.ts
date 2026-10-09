@@ -4,6 +4,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
@@ -237,7 +238,7 @@ export const checkLimitOrders = cf()
     // lives here (not in runLimitOrderCheck) so the emulator test can run the
     // processing on any day; the admin-halt gate is data-driven and stays inside.
     if (isWeeklyTradingHalt()) {
-      console.log('Skipping limit order check — weekly trading halt active');
+      logger.info('Skipping limit order check — weekly trading halt active');
       return { success: true, skipped: true, reason: 'weekly_halt' };
     }
     const result = await runLimitOrderCheck();

@@ -13,6 +13,7 @@
 // npm run test:premarket covers this path.
 
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES } from '../shared/constants';
@@ -247,7 +248,7 @@ export const runStopLossSweep = async ({
     .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
     .get();
 
-  console.log(`runMarketOpenProcessing: checking ${ordersSnapshot.size} limit orders`);
+  logger.info(`runMarketOpenProcessing: checking ${ordersSnapshot.size} limit orders`);
 
   for (const orderDoc of ordersSnapshot.docs) {
     const order = orderDoc.data() as LimitOrder;
@@ -291,7 +292,7 @@ export const runStopLossSweep = async ({
       });
       summary.stopLossFilled++;
     } catch (err) {
-      console.log(`runMarketOpenProcessing: stop loss ${orderDoc.id} skipped — ${(err as Error).message}`);
+      logger.info(`runMarketOpenProcessing: stop loss ${orderDoc.id} skipped — ${(err as Error).message}`);
       summary.stopLossSkipped++;
     }
   }

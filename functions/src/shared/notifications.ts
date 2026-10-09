@@ -2,6 +2,7 @@
 
 import * as admin from 'firebase-admin';
 import { FEED_TTL_MS } from './constants';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 // ============================================
@@ -23,7 +24,7 @@ export const writeNotification = async (
       data, // { ticker?, price?, orderId?, achievementId? }
     });
   } catch (err) {
-    console.error(`Failed to write notification for ${uid}:`, (err as Error).message);
+    logger.error(`Failed to write notification for ${uid}:`, (err as Error).message);
   }
 };
 
@@ -82,6 +83,6 @@ export const writeFeedEntry = async ({
       displayAfter: displayAfter || null,
     });
   } catch (err) {
-    console.error('Failed to write feed entry:', (err as Error).message);
+    logger.error('Failed to write feed entry:', (err as Error).message);
   }
 };

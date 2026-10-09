@@ -7,6 +7,7 @@
 import * as functions from 'firebase-functions';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import {
@@ -177,7 +178,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
       }
     } catch (ipCheckError) {
       if (ipCheckError instanceof functions.https.HttpsError) throw ipCheckError;
-      console.error('Watched IP check error during signup:', ipCheckError);
+      logger.error('Watched IP check error during signup:', ipCheckError);
     }
   }
 
@@ -193,7 +194,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
         signupIndex = (await readIndexNow()).value;
       }
     } catch (err) {
-      console.error('Season index read failed at signup:', (err as Error).message);
+      logger.error('Season index read failed at signup:', (err as Error).message);
     }
 
     await db.runTransaction(async (transaction) => {
@@ -339,7 +340,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
     try {
       await applyPendingDiscordLink(uid);
     } catch (err) {
-      console.error('Failed to apply pending Discord link:', err);
+      logger.error('Failed to apply pending Discord link:', err);
     }
 
     // Auto-link to watched user after successful account creation
@@ -379,7 +380,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
           });
         }
       } catch (linkError) {
-        console.error('Auto-link after signup failed:', linkError);
+        logger.error('Auto-link after signup failed:', linkError);
       }
     }
 
@@ -406,7 +407,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
           timestamp: admin.firestore.FieldValue.serverTimestamp(),
         });
       } catch (alertErr) {
-        console.error('Failed to write cap-block alert:', (alertErr as Error).message);
+        logger.error('Failed to write cap-block alert:', (alertErr as Error).message);
       }
       await cleanupBlockedAuthUser(uid);
     }
@@ -415,7 +416,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
       throw error;
     }
     // Wrap other errors
-    console.error('Error creating user:', error);
+    logger.error('Error creating user:', error);
     throw new functions.https.HttpsError('internal', 'Failed to create user profile. Please try again.');
   }
 });
@@ -546,7 +547,7 @@ export const deleteAccount = cf().https.onCall(async (data, context) => {
       throw error;
     }
     // Wrap other errors
-    console.error('Error deleting account:', error);
+    logger.error('Error deleting account:', error);
     throw new functions.https.HttpsError('internal', 'Failed to delete account. Please try again.');
   }
 });

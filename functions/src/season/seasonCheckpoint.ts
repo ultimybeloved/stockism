@@ -20,6 +20,7 @@ import { round2 } from '../shared/money';
 import { getLadderWithdrawable } from '../shared/ladderMath';
 import type { SeasonDoc, UserData } from '../shared/types';
 import { buildWeekRecord, appendWeekRecord, weeksElapsed } from './seasonRecords';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 export const seasonRef = () => db.collection('market').doc('season');
@@ -200,7 +201,7 @@ export const runSeasonCheckpoint = async () => {
     checkpointWeeks: FieldValue.arrayUnion(weeks),
   });
 
-  console.log(
+  logger.info(
     `SEASON CHECKPOINT: ${season.id} week ${weeks} — ${scored} scored, ${promoted} promoted, ${pinned} late baselines pinned, index ${indexValue.toFixed(2)}`,
   );
   return { ran: true, seasonId: season.id, weeks, scored, promoted, pinned, indexValue };

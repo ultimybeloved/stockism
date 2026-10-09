@@ -1,5 +1,6 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import * as logger from 'firebase-functions/logger';
 // Modular import — the emulator sandbox strips admin.firestore statics.
 import { Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
@@ -128,7 +129,7 @@ export async function runFillBackfill() {
     recorded,
   );
 
-  console.log('[BACKFILL] limitOrders', limitOrders, 'preMarketOrders', preMarketOrders);
+  logger.info('[BACKFILL] limitOrders', limitOrders, 'preMarketOrders', preMarketOrders);
   return { success: true, limitOrders, preMarketOrders };
 }
 

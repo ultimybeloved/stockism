@@ -13,6 +13,7 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import axios from 'axios';
+import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
@@ -250,7 +251,7 @@ export const publicSnapshot = cf().https.onRequest(async (req, res) => {
     res.status(200).send(page('Market snapshot', body, takenAt));
     return;
   } catch (err) {
-    console.error('publicSnapshot failed:', err);
+    logger.error('publicSnapshot failed:', err);
     res.status(500).send('<!doctype html><p>Snapshot unavailable.</p>');
     return;
   }
@@ -273,10 +274,10 @@ const savePage = async (path: string) => {
       headers: { 'User-Agent': 'stockism-archiver/1.0 (+https://stockism.app)' },
       validateStatus: () => true,
     });
-    console.log(`ARCHIVE requested: ${path}`);
+    logger.info(`ARCHIVE requested: ${path}`);
     return { path, requested: true };
   } catch (err) {
-    console.error(`Archive request failed for ${path}:`, (err as Error).message);
+    logger.error(`Archive request failed for ${path}:`, (err as Error).message);
     return { path, requested: false, error: (err as Error).message };
   }
 };
