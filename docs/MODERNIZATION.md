@@ -87,9 +87,6 @@ their public profile and the leaderboard.
    can go.
    **Over the 600-line limit, to split:** `season/season.ts`,
    `market/marketWeekly.ts`, `market/tickerRename.ts`, `users/users.ts`.
-   **Known bug kept as-is:** `getLeaderboard` never returns a rank for a
-   player outside the top 50 (`users/leaderboard.ts`, marked in the code).
-   Fixing it changes what players see, so it needs a decision first.
 4. Replace `console.log` with `firebase-functions/logger`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored

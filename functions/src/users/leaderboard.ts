@@ -260,11 +260,11 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
         // Only for the net-worth sort: the aggregation ranks by portfolioValue,
         // which would be a wrong answer for either weekly-gain board.
         try {
-          // BUG (kept as-is during the TypeScript conversion, 2026-10-08): a
-          // DocumentReference has no select(), so this throws, the catch below
-          // swallows it, and callerRank stays null for anyone outside the top 50.
-          // @ts-expect-error -- see the note above
-          const callerDoc = await db.collection('users').doc(context.auth.uid).select('isBot', 'portfolioValue').get();
+          // Two fields only. This used to call select() on a DocumentReference,
+          // which has none, so it threw and nobody outside the top 50 got a rank.
+          const [callerDoc] = (await db.getAll(db.collection('users').doc(context.auth.uid), {
+            fieldMask: ['isBot', 'portfolioValue'],
+          })) as [admin.firestore.DocumentSnapshot];
           if (callerDoc.exists && !callerDoc.data()!.isBot) {
             callerRank = await countRankAbove(callerDoc.data()!.portfolioValue || 0, crew);
           }
