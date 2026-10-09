@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useTheme } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+
+import { themeClasses } from '../../../utils/theme';
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
 import { HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../../../utils/marketHours';
 
@@ -29,8 +29,7 @@ interface MarginTutorialModalProps {
 }
 
 const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: MarginTutorialModalProps) => {
-  const { darkMode } = useTheme();
-  const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = themeClasses;
   const [step, setStep] = useState(1);
   const [checks, setChecks] = useState<boolean[]>(Array(CHECKS.length).fill(false));
   const [confirmText, setConfirmText] = useState('');
@@ -63,7 +62,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
         </div>
 
         {/* Progress bar */}
-        <div className={`h-1 shrink-0 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+        <div className="h-1 shrink-0 light:bg-slate-100 dark:bg-zinc-800">
           <div
             className="h-full bg-orange-500 transition-all duration-300"
             style={{ width: `${(step / STEPS.length) * 100}%` }}
@@ -80,7 +79,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
               <p className={`text-sm ${textClass}`}>
                 Margin lets you borrow money against your portfolio to trade with more than you actually have.
               </p>
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'} space-y-2`}>
+              <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800 space-y-2">
                 <p className={`text-sm ${textClass}`}>
                   <span className="font-semibold">Example:</span> You have $3,000. With margin, you can borrow up to
                   $3,000 more and trade with $6,000 total.
@@ -104,10 +103,8 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                   </span>
                 </div>
               </div>
-              <div
-                className={`p-3 rounded-sm border ${darkMode ? 'border-amber-700 bg-amber-900/20' : 'border-amber-300 bg-amber-50'}`}
-              >
-                <p className={`text-sm font-semibold ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+              <div className="p-3 rounded-sm border light:border-amber-300 light:bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
+                <p className="text-sm font-semibold light:text-amber-800 dark:text-amber-300">
                   Margin amplifies both gains and losses. The borrowed amount always needs to be paid back.
                 </p>
               </div>
@@ -116,16 +113,14 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
 
           {step === 2 && (
             <>
-              <div
-                className={`p-3 rounded-sm border ${darkMode ? 'border-red-700 bg-red-900/20' : 'border-red-300 bg-red-50'}`}
-              >
-                <p className={`text-sm font-bold ${darkMode ? 'text-red-300' : 'text-red-700'}`}>
+              <div className="p-3 rounded-sm border light:border-red-300 light:bg-red-50 dark:border-red-700 dark:bg-red-900/20">
+                <p className="text-sm font-bold light:text-red-700 dark:text-red-300">
                   If your equity drops too low, the system will force-close your positions automatically. You do not get
                   a choice.
                 </p>
               </div>
               <div className="space-y-3">
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>HOW IT WORKS</p>
                   <p className={`text-sm ${textClass}`}>
                     The system checks every <span className="font-semibold">30 minutes</span>. If your equity ratio (how
@@ -134,7 +129,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                     whatever the current price is.
                   </p>
                 </div>
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THURSDAY GRACE PERIOD</p>
                   <p className={`text-sm ${textClass}`}>
                     After the weekly market opens at <span className="font-semibold">{marketTimes().reopen}</span>,
@@ -144,7 +139,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                     reopens.
                   </p>
                 </div>
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>OUTSIDE THE GRACE PERIOD</p>
                   <p className={`text-sm ${textClass}`}>
                     You have at most 30 minutes between checks. If prices move fast and you aren't watching, you can be
@@ -157,17 +152,15 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
 
           {step === 3 && (
             <>
-              <div
-                className={`p-3 rounded-sm border-2 ${darkMode ? 'border-red-600 bg-red-900/30' : 'border-red-500 bg-red-50'}`}
-              >
-                <p className={`text-sm font-bold ${darkMode ? 'text-red-300' : 'text-red-700'} mb-1`}>
+              <div className="p-3 rounded-sm border-2 light:border-red-500 light:bg-red-50 dark:border-red-600 dark:bg-red-900/30">
+                <p className="text-sm font-bold light:text-red-700 dark:text-red-300 mb-1">
                   ⚠️ This is the scenario that has wiped out traders on this platform.
                 </p>
-                <p className={`text-sm ${darkMode ? 'text-red-200' : 'text-red-800'}`}>
+                <p className="text-sm light:text-red-800 dark:text-red-200">
                   Putting all your cash AND margin into a single stock.
                 </p>
               </div>
-              <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'} space-y-2`}>
+              <div className="p-4 rounded-sm light:bg-slate-50 dark:bg-zinc-800 space-y-2">
                 <p className={`text-xs font-semibold tracking-wide ${mutedClass}`}>REAL EXAMPLE</p>
                 <div className={`space-y-1 text-sm ${textClass}`}>
                   <p>
@@ -180,9 +173,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                     Put everything into one stock: <span className="font-semibold">$10,000</span>
                   </p>
                 </div>
-                <div
-                  className={`mt-3 pt-3 border-t ${darkMode ? 'border-zinc-700' : 'border-slate-200'} space-y-1 text-sm`}
-                >
+                <div className="mt-3 pt-3 border-t light:border-slate-200 dark:border-zinc-700 space-y-1 text-sm">
                   <p className={textClass}>
                     That stock drops <span className="font-semibold text-red-500">50%</span>.
                   </p>
@@ -192,7 +183,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                   <p className={textClass}>
                     You owe <span className="font-semibold">$5,000</span> in margin.
                   </p>
-                  <p className={`font-bold text-red-500`}>Equity: $0. You are bankrupt.</p>
+                  <p className="font-bold text-red-500">Equity: $0. You are bankrupt.</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -218,14 +209,14 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                 with margin amplifies that risk further.
               </p>
               <div className="space-y-3">
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>HOW SHORTS LOSE MONEY</p>
                   <p className={`text-sm ${textClass}`}>
                     If you short a stock and its price goes <span className="font-semibold">up</span>, you lose money.
                     There is no ceiling on how high a price can go. A short position can lose more than you put in.
                   </p>
                 </div>
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>COORDINATED SHORTING</p>
                   <p className={`text-sm ${textClass}`}>
                     When multiple people short the same character at once, it can trigger a short squeeze: a spike in
@@ -233,7 +224,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                     total. Planning shorts with other players to push a price down is also against the rules.
                   </p>
                 </div>
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>THE CAP</p>
                   <p className={`text-sm ${textClass}`}>
                     Your total short exposure cannot exceed your portfolio value (1:1 cap). This limits how much damage
@@ -263,17 +254,15 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                 ].map(([label, value]) => (
                   <div
                     key={label}
-                    className={`p-3 rounded-sm flex justify-between gap-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}
+                    className="p-3 rounded-sm flex justify-between gap-3 light:bg-slate-50 dark:bg-zinc-800"
                   >
                     <span className={`text-sm font-semibold ${textClass} shrink-0`}>{label}</span>
                     <span className={`text-sm ${mutedClass} text-right`}>{value}</span>
                   </div>
                 ))}
               </div>
-              <div
-                className={`p-3 rounded-sm border ${darkMode ? 'border-amber-700 bg-amber-900/20' : 'border-amber-300 bg-amber-50'}`}
-              >
-                <p className={`text-sm ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+              <div className="p-3 rounded-sm border light:border-amber-300 light:bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
+                <p className="text-sm light:text-amber-800 dark:text-amber-300">
                   These rules apply 24/7. The system doesn't care if you're asleep or offline.
                 </p>
               </div>
@@ -292,21 +281,13 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                     key={i}
                     className={`flex items-start gap-3 p-3 rounded-sm cursor-pointer border transition-colors ${
                       checks[i]
-                        ? darkMode
-                          ? 'border-orange-600 bg-orange-900/20'
-                          : 'border-orange-400 bg-orange-50'
-                        : darkMode
-                          ? 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-600'
-                          : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                        ? 'light:border-orange-400 light:bg-orange-50 dark:border-orange-600 dark:bg-orange-900/20'
+                        : 'light:border-slate-200 light:bg-slate-50 light:hover:border-slate-300 dark:border-zinc-700 dark:bg-zinc-800/50 dark:hover:border-zinc-600'
                     }`}
                   >
                     <div
                       className={`w-5 h-5 rounded shrink-0 border-2 flex items-center justify-center mt-0.5 transition-colors ${
-                        checks[i]
-                          ? 'bg-orange-500 border-orange-500'
-                          : darkMode
-                            ? 'border-zinc-600'
-                            : 'border-slate-300'
+                        checks[i] ? 'bg-orange-500 border-orange-500' : 'light:border-slate-300 dark:border-zinc-600'
                       }`}
                     >
                       {checks[i] && <span className="text-white text-xs font-bold">✓</span>}
@@ -325,11 +306,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
                   placeholder="Type MARGIN"
-                  className={`w-full px-3 py-2 rounded-sm border text-sm font-mono ${
-                    darkMode
-                      ? 'bg-zinc-800 border-zinc-700 text-zinc-100 placeholder-zinc-600'
-                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
-                  } focus:outline-none focus:border-orange-500`}
+                  className="w-full px-3 py-2 rounded-sm border text-sm font-mono light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-600 focus:outline-none focus:border-orange-500"
                 />
               </div>
             </>
@@ -337,11 +314,11 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
         </div>
 
         {/* Footer */}
-        <div className={`p-4 border-t ${darkMode ? 'border-zinc-700' : 'border-slate-200'} flex gap-3 shrink-0`}>
+        <div className="p-4 border-t light:border-slate-200 dark:border-zinc-700 flex gap-3 shrink-0">
           {step > 1 && step < 6 && (
             <button
               onClick={() => setStep((s) => s - 1)}
-              className={`px-4 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+              className="px-4 py-2 text-sm font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
             >
               ← Back
             </button>
@@ -349,7 +326,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
           {step === 1 && (
             <button
               onClick={onClose}
-              className={`px-4 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+              className="px-4 py-2 text-sm font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
             >
               {reviewMode ? 'Close' : 'Cancel'}
             </button>

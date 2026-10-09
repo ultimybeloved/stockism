@@ -165,6 +165,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 - Pure functions only — no side effects, no Firebase, no React
 - Calculation logic → `src/utils/calculations.ts` (already canonical — do not duplicate)
 - Theme/dark mode class strings → `src/utils/theme.ts` (already canonical — do not duplicate)
+- Dark mode is a `dark` class on `<html>`. Write both themes in one string: `light:bg-white dark:bg-zinc-900`, never `darkMode ? ... : ...` for classes. Use `light:` for the light value rather than a bare class, so it can't leak into dark mode. Only read `darkMode` from `useTheme()` for non-class values (chart colours, image paths, inline styles)
 - Formatting → `src/utils/formatters.ts`
 
 **Constants** (`src/constants/`)
@@ -235,7 +236,7 @@ These specific patterns are banned. If you catch yourself writing any of them, s
 
 1. **Inline duplicate functions** — `calculatePriceImpact`, `getBidAskPrices`, `getCurrentPrice` were each defined in 3–4 files simultaneously. Never define a function that already exists elsewhere. Check `src/utils/calculations.ts` before writing any price/portfolio math.
 
-2. **Inline theme strings** — `const cardClass = darkMode ? 'bg-zinc-900 ...' : 'bg-white ...'` was copy-pasted 50+ times. Use `getThemeClasses(darkMode)` from `src/utils/theme.ts`.
+2. **Inline theme strings** — `const cardClass = darkMode ? 'bg-zinc-900 ...' : 'bg-white ...'` was copy-pasted 50+ times. Use `themeClasses` from `src/utils/theme.ts`, or write `light:`/`dark:` classes.
 
 3. **God files** — `App.jsx` at 3,900 lines, `AdminPanel.jsx` at 7,400 lines, `functions/index.js` at 11,000 lines. These took days to untangle. Never let a file grow past its limit without splitting it.
 
@@ -288,7 +289,7 @@ Quick reference so you know where to look and where to add things.
 | `src/features/missions/hooks/useDailyOperations.ts` | handleDailyCheckin, handleBailout |
 | `src/features/profile/hooks/usePinShop.ts` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
 | `src/utils/calculations.ts` | All price/portfolio math — canonical, do not duplicate. Includes `getShortRisk`/`getShortMargin` (mirror the backend force-cover check) and `getAccountAgeImpactFactor` |
-| `src/utils/theme.ts` | Dark mode class strings via `getThemeClasses(darkMode)` — canonical, do not duplicate |
+| `src/utils/theme.ts` | Shared theme class strings (`themeClasses`), each carrying its `light:` and `dark:` styles — canonical, do not duplicate |
 | `src/utils/formatters.ts` | Currency, number, percentage formatting |
 | `src/utils/marketHours.ts` | Halt detection, countdown logic |
 | `src/constants/economy.ts` | Frontend economy constants (dividend rates, hold times) |

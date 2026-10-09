@@ -6,14 +6,13 @@
 import { useState, useMemo } from 'react';
 import DonutChart from '../../../shared/components/charts/DonutChart';
 import { CHARACTER_MAP } from '../../../characters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 
 import { CREW_TICKER_MAP, CREW_COLORS, OTHER_GROUP, ETF_GROUP } from '../../../constants/crewGroups';
 import { sharesOf } from '../../../utils/holdings';
 import type { PriceMap, ShareMap, ShortMap } from '../../../types';
 
 interface PortfolioAnalyticsProps {
-  darkMode?: boolean;
   colorBlindMode?: boolean;
   holdings?: ShareMap | null;
   shorts?: ShortMap | null;
@@ -35,7 +34,6 @@ interface AnalyticsPosition {
 }
 
 const PortfolioAnalytics = ({
-  darkMode = false,
   colorBlindMode = false,
   holdings,
   shorts,
@@ -151,7 +149,7 @@ const PortfolioAnalytics = ({
   const pnlColor = (val: number) => {
     if (val > 0) return colorBlindMode ? 'text-teal-400' : 'text-green-400';
     if (val < 0) return colorBlindMode ? 'text-purple-400' : 'text-red-400';
-    return darkMode ? 'text-zinc-400' : 'text-zinc-500';
+    return 'light:text-zinc-500 dark:text-zinc-400';
   };
 
   const scoreColor = (score: number) => {
@@ -166,11 +164,10 @@ const PortfolioAnalytics = ({
     return colorBlindMode ? 'text-purple-400' : 'text-red-400';
   };
 
-  const cardClass = darkMode
-    ? 'bg-zinc-800/50 border border-zinc-700 rounded-sm p-4'
-    : 'bg-amber-50 border border-amber-200 rounded-sm p-4';
+  const cardClass =
+    'light:bg-amber-50 light:border light:border-amber-200 light:rounded-sm light:p-4 dark:bg-zinc-800/50 dark:border dark:border-zinc-700 dark:rounded-sm dark:p-4';
 
-  const { borderClass } = getThemeClasses(darkMode);
+  const { borderClass } = themeClasses;
   if (positionData.length === 0 && !expanded) return null;
 
   return (
@@ -178,11 +175,7 @@ const PortfolioAnalytics = ({
       {/* Header toggle */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className={`w-full flex items-center justify-between px-4 py-3 text-sm font-semibold transition-colors ${
-          darkMode
-            ? 'bg-zinc-800/50 text-zinc-100 hover:bg-zinc-700/50'
-            : 'bg-amber-50 text-slate-900 hover:bg-amber-100'
-        }`}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold transition-colors light:bg-amber-50 light:text-slate-900 light:hover:bg-amber-100 dark:bg-zinc-800/50 dark:text-zinc-100 dark:hover:bg-zinc-700/50"
       >
         <span>📊 Portfolio Analytics</span>
         <svg
@@ -197,10 +190,10 @@ const PortfolioAnalytics = ({
       </button>
 
       {expanded && (
-        <div className={`p-4 space-y-4 ${darkMode ? 'bg-zinc-900/30' : 'bg-white/50'}`}>
+        <div className="p-4 space-y-4 light:bg-white/50 dark:bg-zinc-900/30">
           {/* No positions guard */}
           {positionData.length === 0 ? (
-            <p className={`text-sm text-center py-4 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+            <p className="text-sm text-center py-4 light:text-zinc-400 dark:text-zinc-500">
               No positions to analyze. Buy some stocks first!
             </p>
           ) : (
@@ -209,30 +202,24 @@ const PortfolioAnalytics = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Crew Allocation */}
                 <div className={cardClass}>
-                  <h3
-                    className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
-                  >
+                  <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 light:text-zinc-500 dark:text-zinc-400">
                     Crew Allocation
                   </h3>
-                  <DonutChart data={crewData} size={180} darkMode={darkMode} />
+                  <DonutChart data={crewData} size={180} />
                 </div>
 
                 {/* Diversification Score */}
                 <div className={cardClass}>
-                  <h3
-                    className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
-                  >
+                  <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 light:text-zinc-500 dark:text-zinc-400">
                     Diversification Score
                   </h3>
                   <div className="flex flex-col items-center gap-3 py-2">
                     <span className={`text-4xl font-bold ${scoreTextColor(diversification.score)}`}>
                       {diversification.score}
                     </span>
-                    <span className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>out of 100</span>
+                    <span className="text-xs light:text-zinc-400 dark:text-zinc-500">out of 100</span>
                     {/* Progress bar */}
-                    <div
-                      className={`w-full h-3 rounded-full overflow-hidden ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}
-                    >
+                    <div className="w-full h-3 rounded-full overflow-hidden light:bg-zinc-200 dark:bg-zinc-700">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${scoreColor(diversification.score)}`}
                         style={{ width: `${diversification.score}%` }}
@@ -242,7 +229,7 @@ const PortfolioAnalytics = ({
                       <span className={colorBlindMode ? 'text-purple-400' : 'text-red-400'}>Concentrated</span>
                       <span className={colorBlindMode ? 'text-teal-400' : 'text-green-400'}>Diversified</span>
                     </div>
-                    <p className={`text-xs mt-1 ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    <p className="text-xs mt-1 light:text-zinc-400 dark:text-zinc-500">
                       HHI: {diversification.hhi.toLocaleString()} / 10,000
                     </p>
                   </div>
@@ -251,9 +238,7 @@ const PortfolioAnalytics = ({
 
               {/* Row 2: Best/Worst Positions */}
               <div className={cardClass}>
-                <h3
-                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
-                >
+                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 light:text-zinc-500 dark:text-zinc-400">
                   Best & Worst Positions
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -265,7 +250,7 @@ const PortfolioAnalytics = ({
                     <div className="space-y-1.5">
                       {best.map((p) => (
                         <div key={`best-${p.ticker}`} className="flex items-center justify-between text-xs">
-                          <span className={`font-mono font-medium ${darkMode ? 'text-zinc-200' : 'text-slate-800'}`}>
+                          <span className="font-mono font-medium light:text-slate-800 dark:text-zinc-200">
                             {p.ticker}
                           </span>
                           <div className="flex items-center gap-2">
@@ -287,7 +272,7 @@ const PortfolioAnalytics = ({
                     <div className="space-y-1.5">
                       {worst.map((p) => (
                         <div key={`worst-${p.ticker}`} className="flex items-center justify-between text-xs">
-                          <span className={`font-mono font-medium ${darkMode ? 'text-zinc-200' : 'text-slate-800'}`}>
+                          <span className="font-mono font-medium light:text-slate-800 dark:text-zinc-200">
                             {p.ticker}
                           </span>
                           <div className="flex items-center gap-2">
@@ -306,28 +291,17 @@ const PortfolioAnalytics = ({
 
               {/* Row 3: Summary Stats */}
               <div className={cardClass}>
-                <h3
-                  className={`text-xs font-semibold uppercase tracking-wider mb-3 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
-                >
+                <h3 className="text-xs font-semibold uppercase tracking-wider mb-3 light:text-zinc-500 dark:text-zinc-400">
                   Portfolio Summary
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <StatBox label="Total Positions" value={stats.totalPositions} darkMode={darkMode} />
-                  <StatBox
-                    label="Long Positions"
-                    value={`${stats.longCount} ($${stats.longValue.toFixed(0)})`}
-                    darkMode={darkMode}
-                  />
-                  <StatBox
-                    label="Short Positions"
-                    value={`${stats.shortCount} ($${stats.shortValue.toFixed(0)})`}
-                    darkMode={darkMode}
-                  />
+                  <StatBox label="Total Positions" value={stats.totalPositions} />
+                  <StatBox label="Long Positions" value={`${stats.longCount} ($${stats.longValue.toFixed(0)})`} />
+                  <StatBox label="Short Positions" value={`${stats.shortCount} ($${stats.shortValue.toFixed(0)})`} />
                   <StatBox
                     label="Unrealized P&L"
                     value={fmtMoney(stats.totalPnl)}
                     valueColor={pnlColor(stats.totalPnl)}
-                    darkMode={darkMode}
                   />
                   <StatBox
                     label="Win Rate"
@@ -341,13 +315,11 @@ const PortfolioAnalytics = ({
                           ? 'text-purple-400'
                           : 'text-red-400'
                     }
-                    darkMode={darkMode}
                   />
                   <StatBox
                     label="Portfolio Value"
                     value={`$${portfolioValue.toFixed(0)}`}
                     valueColor="text-orange-500"
-                    darkMode={darkMode}
                   />
                 </div>
               </div>
@@ -359,22 +331,10 @@ const PortfolioAnalytics = ({
   );
 };
 
-const StatBox = ({
-  label,
-  value,
-  valueColor,
-  darkMode,
-}: {
-  label: string;
-  value: string | number;
-  valueColor?: string;
-  darkMode: boolean;
-}) => (
+const StatBox = ({ label, value, valueColor }: { label: string; value: string | number; valueColor?: string }) => (
   <div className="text-center">
-    <p className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>{label}</p>
-    <p className={`text-sm font-semibold mt-0.5 ${valueColor || (darkMode ? 'text-zinc-100' : 'text-slate-900')}`}>
-      {value}
-    </p>
+    <p className="text-xs light:text-zinc-400 dark:text-zinc-500">{label}</p>
+    <p className={`text-sm font-semibold mt-0.5 ${valueColor || 'light:text-slate-900 dark:text-zinc-100'}`}>{value}</p>
   </div>
 );
 

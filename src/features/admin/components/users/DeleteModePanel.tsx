@@ -3,7 +3,7 @@ import type { AdminCommonProps } from '../types';
 import type { AdminUser } from '../../utils/adminShared';
 import type { PriceMap } from '../../../../types';
 
-type DeleteModePanelProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass' | 'loading'> & {
+type DeleteModePanelProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'loading'> & {
   selectedForDeletion: Set<string>;
   allUsers: AdminUser[];
   prices: PriceMap;
@@ -12,7 +12,6 @@ type DeleteModePanelProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'm
 
 /** Bulk-delete controls, with a live total of what the selection would remove. */
 const DeleteModePanel = ({
-  darkMode,
   textClass,
   mutedClass,
   loading,
@@ -24,7 +23,7 @@ const DeleteModePanel = ({
   const summary = selectedForDeletion.size > 0 ? summarizeForDeletion(selectedForDeletion, allUsers, prices) : null;
 
   return (
-    <div className={`p-3 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
+    <div className="p-3 rounded-sm border-2 border-red-500 light:bg-red-50 dark:bg-red-900/20">
       <div className="flex justify-between items-center">
         <div>
           <span className="text-red-500 font-semibold">Delete Mode Active</span>
@@ -40,7 +39,7 @@ const DeleteModePanel = ({
       </div>
 
       {summary && (
-        <div className={`mt-2 pt-2 border-t ${darkMode ? 'border-red-800' : 'border-red-300'} text-xs`}>
+        <div className="mt-2 pt-2 border-t light:border-red-300 dark:border-red-800 text-xs">
           <div className="grid grid-cols-3 gap-2">
             <div>
               <span className={mutedClass}>Cash: </span>

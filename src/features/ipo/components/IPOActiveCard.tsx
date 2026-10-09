@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { CHARACTER_MAP } from '../../../characters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../../../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../../../constants';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import type { IPO } from '../../../types';
 
 const IPOActiveCard = ({
@@ -13,7 +14,6 @@ const IPOActiveCard = ({
   ipo: IPO;
   onBuyIPO: (ticker: string, quantity: number) => Promise<boolean | undefined>;
 }) => {
-  const { darkMode } = useTheme();
   const { userData, user } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   const isGuest = !user;
@@ -22,7 +22,7 @@ const IPOActiveCard = ({
   // The buy goes through a Cloud Function, which is not instant. Without this
   // the button looked inert the whole time and people clicked it again.
   const [buyState, setBuyState] = useState('idle'); // 'idle' | 'buying' | 'bought'
-  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass } = themeClasses;
 
   const character = CHARACTER_MAP[ipo.ticker];
   const timeRemaining = ipo.ipoEndsAt - Date.now();
@@ -102,7 +102,7 @@ const IPOActiveCard = ({
 
         {/* Progress bar */}
         <div className="mt-2">
-          <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'}`}>
+          <div className="h-2 rounded-full light:bg-zinc-200 dark:bg-zinc-700">
             <div
               className={`h-full rounded-full bg-gradient-to-r ${colorBlindMode ? 'from-teal-500' : 'from-green-500'} to-orange-500 transition-all`}
               style={{ width: `${((ipoTotalShares - sharesRemaining) / ipoTotalShares) * 100}%` }}
@@ -129,7 +129,7 @@ const IPOActiveCard = ({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setQuantity(Math.max(1, qtyNum - 1))}
-              className={`px-3 py-2 rounded-sm font-bold ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-slate-200 text-slate-900'}`}
+              className="px-3 py-2 rounded-sm font-bold light:bg-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:text-zinc-100"
             >
               -
             </button>
@@ -150,11 +150,11 @@ const IPOActiveCard = ({
               onBlur={() => {
                 if (quantity === '' || quantity < 1) setQuantity(maxCanBuy >= 1 ? 1 : 0);
               }}
-              className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
+              className="flex-1 text-center py-2 rounded-sm border light:bg-white light:border-amber-200 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
             />
             <button
               onClick={() => setQuantity(Math.min(maxCanBuy, qtyNum + 1))}
-              className={`px-3 py-2 rounded-sm font-bold ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-slate-200 text-slate-900'}`}
+              className="px-3 py-2 rounded-sm font-bold light:bg-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:text-zinc-100"
             >
               +
             </button>

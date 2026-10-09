@@ -8,10 +8,9 @@ import {
   GRACE_PERIOD_MINUTES,
 } from '../../../utils/marketHours';
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
 
 const MarketTicker = () => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -100,9 +99,7 @@ const MarketTicker = () => {
             : 'bg-red-900/80 border-b border-red-700'
           : gracePeriod
             ? 'bg-amber-700/80 border-b border-amber-600'
-            : darkMode
-              ? 'bg-zinc-800 border-b border-zinc-700'
-              : 'bg-slate-100 border-b border-slate-200'
+            : 'light:bg-slate-100 light:border-b light:border-slate-200 dark:bg-zinc-800 dark:border-b dark:border-zinc-700'
       }`}
       style={{ height: '32px' }}
     >
@@ -135,7 +132,7 @@ const MarketTicker = () => {
           }}
         >
           <>
-            <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
+            <span className="text-xs font-medium px-4 light:text-slate-600 dark:text-zinc-300">
               <a
                 href="https://discord.gg/hpVm8nQMvY"
                 target="_blank"
@@ -145,12 +142,12 @@ const MarketTicker = () => {
               >
                 💬 Join the Discord!
               </a>
-              <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>
+              <span className="light:text-slate-300 dark:text-zinc-600"> · </span>
               {movers.map((m, i) => (
                 <span key={m.ticker}>
-                  {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}
-                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>{' '}
-                  <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>{' '}
+                  {i > 0 && <span className="light:text-slate-300 dark:text-zinc-600"> · </span>}
+                  <span className="light:text-slate-600 dark:text-zinc-400">{m.ticker}</span>{' '}
+                  <span className="light:text-slate-700 dark:text-zinc-200">${m.price.toFixed(2)}</span>{' '}
                   <span
                     className={
                       m.change >= 0
@@ -168,11 +165,11 @@ const MarketTicker = () => {
                   </span>
                 </span>
               ))}
-              {movers.length > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> | </span>}
-              <span className={darkMode ? 'text-zinc-500' : 'text-slate-500'}>{scheduleText}</span>
+              {movers.length > 0 && <span className="light:text-slate-300 dark:text-zinc-600"> | </span>}
+              <span className="light:text-slate-500 dark:text-zinc-500">{scheduleText}</span>
             </span>
             {/* Duplicate for seamless loop */}
-            <span className={`text-xs font-medium px-4 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>
+            <span className="text-xs font-medium px-4 light:text-slate-600 dark:text-zinc-300">
               <a
                 href="https://discord.gg/hpVm8nQMvY"
                 target="_blank"
@@ -182,12 +179,12 @@ const MarketTicker = () => {
               >
                 💬 Join the Discord!
               </a>
-              <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>
+              <span className="light:text-slate-300 dark:text-zinc-600"> · </span>
               {movers.map((m, i) => (
                 <span key={m.ticker}>
-                  {i > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> · </span>}
-                  <span className={darkMode ? 'text-zinc-400' : 'text-slate-600'}>{m.ticker}</span>{' '}
-                  <span className={darkMode ? 'text-zinc-200' : 'text-slate-700'}>${m.price.toFixed(2)}</span>{' '}
+                  {i > 0 && <span className="light:text-slate-300 dark:text-zinc-600"> · </span>}
+                  <span className="light:text-slate-600 dark:text-zinc-400">{m.ticker}</span>{' '}
+                  <span className="light:text-slate-700 dark:text-zinc-200">${m.price.toFixed(2)}</span>{' '}
                   <span
                     className={
                       m.change >= 0
@@ -205,8 +202,8 @@ const MarketTicker = () => {
                   </span>
                 </span>
               ))}
-              {movers.length > 0 && <span className={darkMode ? 'text-zinc-600' : 'text-slate-300'}> | </span>}
-              <span className={darkMode ? 'text-zinc-500' : 'text-slate-500'}>{scheduleText}</span>
+              {movers.length > 0 && <span className="light:text-slate-300 dark:text-zinc-600"> | </span>}
+              <span className="light:text-slate-500 dark:text-zinc-500">{scheduleText}</span>
             </span>
           </>
         </div>

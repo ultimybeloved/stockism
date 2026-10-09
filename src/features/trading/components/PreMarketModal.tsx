@@ -3,12 +3,13 @@ import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firest
 import { db } from '../../../firebase';
 import { createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '../../../api/callables';
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { calculatePriceImpactDollars, getBidAskPrices, liquidityFor } from '../../../utils/calculations';
 import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../../utils/marketHours';
 import { PRE_MARKET_MAX_BUY_BUFFER, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '../../../constants/economy';
 import { formatShares, roundShares } from '../../../utils/tradeLimits';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { marketTimes } from '../../../utils/localTime';
 import { errorMessage } from '../../../utils/errors';
@@ -42,7 +43,6 @@ const PreMarketModal = ({
   onClose,
 }: PreMarketModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const { user, showNotification } = useSession();
   const [action, setAction] = useState<PreMarketAction>(initialAction);
   const [shares, setShares] = useState(1);
@@ -51,7 +51,7 @@ const PreMarketModal = ({
   const [allOrders, setAllOrders] = useState<PreMarketOrder[]>([]);
   const [countdown, setCountdown] = useState('');
 
-  const { textClass, mutedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass } = themeClasses;
 
   // Countdown to 21:00 UTC
   useEffect(() => {
@@ -158,9 +158,7 @@ const PreMarketModal = ({
           </button>
         </div>
 
-        <div
-          className={`p-3 rounded-sm mb-3 text-xs ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'}`}
-        >
+        <div className="p-3 rounded-sm mb-3 text-xs light:bg-slate-100 light:text-slate-600 dark:bg-zinc-800 dark:text-zinc-400">
           All queued orders execute at the same opening price. Submitting early gives no advantage. Buys fill as many
           shares as your cash allows at that price.
           <span className="block mt-1 font-semibold">
@@ -174,7 +172,7 @@ const PreMarketModal = ({
           )}
         </div>
 
-        <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+        <div className="p-3 rounded-sm mb-3 light:bg-slate-100 dark:bg-zinc-800">
           <div className="flex justify-between text-sm">
             <span className={mutedClass}>Current price</span>
             <span className={`font-bold ${textClass}`}>{formatCurrency(price)}</span>
@@ -201,28 +199,24 @@ const PreMarketModal = ({
         <div className="flex gap-2 mb-3">
           <button
             onClick={() => setAction('buy')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'buy' ? 'bg-green-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'}`}
+            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'buy' ? 'bg-green-600 text-white' : 'light:bg-slate-200 light:text-slate-600 dark:bg-zinc-800 dark:text-zinc-400'}`}
           >
             Buy
           </button>
           <button
             onClick={() => setAction('sell')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'sell' ? 'bg-red-600 text-white' : darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-600'}`}
+            className={`flex-1 py-2 text-sm font-semibold rounded-sm ${action === 'sell' ? 'bg-red-600 text-white' : 'light:bg-slate-200 light:text-slate-600 dark:bg-zinc-800 dark:text-zinc-400'}`}
           >
             Sell
           </button>
         </div>
 
         {myActionOrder ? (
-          <div
-            className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}
-          >
+          <div className="mb-3 p-2 rounded-sm text-xs light:bg-yellow-50 light:border light:border-yellow-300 light:text-yellow-800 dark:bg-yellow-900/30 dark:border dark:border-yellow-600/40 dark:text-yellow-300">
             You already have a {action} order queued ({myActionOrder.shares} shares). Cancel it below to replace it.
           </div>
         ) : locked ? (
-          <div
-            className={`mb-3 p-2 rounded-sm text-xs ${darkMode ? 'bg-yellow-900/30 border border-yellow-600/40 text-yellow-300' : 'bg-yellow-50 border border-yellow-300 text-yellow-800'}`}
-          >
+          <div className="mb-3 p-2 rounded-sm text-xs light:bg-yellow-50 light:border light:border-yellow-300 light:text-yellow-800 dark:bg-yellow-900/30 dark:border dark:border-yellow-600/40 dark:text-yellow-300">
             New orders are closed for this open. The queue reopens {marketTimes().preMarketOpens}.
           </div>
         ) : (
@@ -235,7 +229,7 @@ const PreMarketModal = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShares((s) => Math.max(minShares, snap(s - 1)))}
-                  className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
+                  className="px-3 py-2 rounded-sm light:bg-slate-200 dark:bg-zinc-800"
                 >
                   −
                 </button>
@@ -249,18 +243,18 @@ const PreMarketModal = ({
                     const n = parseFloat(e.target.value);
                     if (!isNaN(n)) setShares(clampShares(n));
                   }}
-                  className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
+                  className="flex-1 text-center py-2 rounded-sm border light:bg-white light:border-amber-200 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
                 />
                 <button
                   onClick={() => setShares((s) => Math.min(maxShares, snap(s + 1)))}
-                  className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
+                  className="px-3 py-2 rounded-sm light:bg-slate-200 dark:bg-zinc-800"
                 >
                   +
                 </button>
                 <button
                   onClick={() => setShares(maxShares)}
                   disabled={maxShares === 0}
-                  className={`px-3 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'} disabled:opacity-50`}
+                  className="px-3 py-2 text-sm font-semibold rounded-sm light:bg-teal-600 light:hover:bg-teal-700 light:text-white dark:bg-teal-700 dark:hover:bg-teal-600 dark:text-white disabled:opacity-50"
                 >
                   Max
                 </button>
@@ -283,7 +277,7 @@ const PreMarketModal = ({
         )}
 
         {myOrders.length > 0 && (
-          <div className={`border-t pt-3 mb-3 ${darkMode ? 'border-zinc-700' : 'border-slate-200'}`}>
+          <div className="border-t pt-3 mb-3 light:border-slate-200 dark:border-zinc-700">
             <p className={`text-xs font-semibold mb-2 ${mutedClass}`}>Your queued orders</p>
             {myOrders.map((o) => (
               <div key={o.id} className="flex items-center justify-between py-1.5 text-sm">
@@ -294,12 +288,12 @@ const PreMarketModal = ({
                   {o.shares} shares @ {formatCurrency(o.action === 'buy' ? ask : bid)} est.
                 </span>
                 {locked ? (
-                  <span className={`text-xs px-2 py-1 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Locked</span>
+                  <span className="text-xs px-2 py-1 light:text-slate-400 dark:text-zinc-500">Locked</span>
                 ) : (
                   <button
                     onClick={() => handleCancel(o.id)}
                     disabled={cancelling === o.id}
-                    className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300' : 'bg-slate-200 hover:bg-slate-300 text-slate-600'} disabled:opacity-50`}
+                    className="text-xs px-2 py-1 rounded light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-600 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-300 disabled:opacity-50"
                   >
                     {cancelling === o.id ? '…' : 'Cancel'}
                   </button>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useTheme, useMarket } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { useMarket } from '../../../context/AppContext';
+
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { CREWS } from '../../../crews';
 import { CHARACTERS } from '../../../characters';
@@ -14,9 +15,8 @@ import type { Character } from '../../../characters';
 // It owns the expand state and derives its own crew/fund lookups because
 // nothing else on the card reads them.
 const CharacterMeta = ({ character }: { character: Character }) => {
-  const { darkMode } = useTheme();
   const { prices } = useMarket();
-  const { mutedClass } = getThemeClasses(darkMode);
+  const { mutedClass } = themeClasses;
   const [etfExpanded, setEtfExpanded] = useState(false);
 
   const isETF = character.isETF;
@@ -48,7 +48,7 @@ const CharacterMeta = ({ character }: { character: Character }) => {
           {characterEtfs.map((etf) => (
             <span
               key={etf.ticker}
-              className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}
+              className="text-[10px] font-mono px-1 rounded light:bg-purple-100 light:text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
             >
               {etf.ticker}
             </span>
@@ -63,7 +63,7 @@ const CharacterMeta = ({ character }: { character: Character }) => {
           {(etfExpanded ? sorted : sorted.slice(0, 6)).map((t) => (
             <span
               key={t}
-              className={`text-[10px] font-mono px-1 rounded ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700'}`}
+              className="text-[10px] font-mono px-1 rounded light:bg-purple-100 light:text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
             >
               {t}
               {etfExpanded && prices?.[t] ? ` ${formatCurrency(prices[t])}` : ''}

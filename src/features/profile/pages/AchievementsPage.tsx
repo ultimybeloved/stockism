@@ -1,7 +1,8 @@
 import { memo } from 'react';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../constants/achievements';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { getMaxAchievementSlots, toggleDisplayedPin } from '../../../utils/pinSlots';
 import type { PinAction } from '../hooks/usePinShop';
 
@@ -10,10 +11,9 @@ const AchievementsPage = ({
 }: {
   onPinAction?: (action: PinAction, payload: unknown, cost?: number) => void;
 }) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass } = themeClasses;
 
   const earnedAchievements = userData?.achievements || [];
   const allAchievements = Object.values(ACHIEVEMENTS);
@@ -74,7 +74,7 @@ const AchievementsPage = ({
   return (
     <div className="max-w-4xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden`}>
-        <div className={`p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className="p-4 border-b light:border-amber-200 dark:border-zinc-800">
           <h2 className={`text-xl font-bold ${textClass}`}>🏆 Achievements</h2>
           <p className={`text-sm ${mutedClass}`}>
             {earnedAchievements.length} / {allAchievements.length} unlocked
@@ -103,12 +103,8 @@ const AchievementsPage = ({
                       key={id}
                       className={`p-3 rounded-sm border ${
                         earned
-                          ? darkMode
-                            ? 'bg-orange-900/30 border-orange-700'
-                            : 'bg-orange-50 border-orange-300'
-                          : darkMode
-                            ? 'bg-zinc-800/30 border-zinc-700'
-                            : 'bg-amber-50 border-amber-200'
+                          ? 'light:bg-orange-50 light:border-orange-300 dark:bg-orange-900/30 dark:border-orange-700'
+                          : 'light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/30 dark:border-zinc-700'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -152,12 +148,8 @@ const AchievementsPage = ({
                                     isWorn
                                       ? 'border-orange-500 text-orange-500 bg-orange-500/10'
                                       : slotsFull
-                                        ? darkMode
-                                          ? 'border-zinc-700 text-zinc-600 cursor-not-allowed'
-                                          : 'border-slate-200 text-slate-400 cursor-not-allowed'
-                                        : darkMode
-                                          ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500'
-                                          : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'
+                                        ? 'light:border-slate-200 light:text-slate-400 light:cursor-not-allowed dark:border-zinc-700 dark:text-zinc-600 dark:cursor-not-allowed'
+                                        : 'light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500'
                                   }`}
                                 >
                                   {isWorn ? '📌 Equipped ✓' : slotsFull ? '📌 Slots full' : '📌 Equip'}

@@ -1,4 +1,4 @@
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatTimeAgo, formatCurrency } from '../../../utils/formatters';
 import { getNotificationMeta } from '../../../utils/notifications';
 import { LOYALTY_TIER_LABEL } from '../../../characters';
@@ -6,7 +6,6 @@ import type { StoredNotification } from '../../../utils/notifications';
 
 interface NotificationRowProps {
   notification: StoredNotification;
-  darkMode: boolean;
   expanded: boolean;
   actionable: boolean;
   canExpand: boolean;
@@ -32,7 +31,6 @@ const ACCENT: Record<string, string> = {
 // buttons that stop propagation so they don't trigger the card action.
 export default function NotificationRow({
   notification,
-  darkMode,
   expanded,
   actionable,
   canExpand,
@@ -40,18 +38,14 @@ export default function NotificationRow({
   onToggleExpand,
   onDelete,
 }: NotificationRowProps) {
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const meta = getNotificationMeta(notification);
   const data = notification.data || {};
   const accent = expanded || !notification.read ? ACCENT[meta.colorKey] || ACCENT.gray : 'border-l-transparent';
 
   const rowBg = !notification.read
-    ? darkMode
-      ? 'bg-zinc-800/50 hover:bg-zinc-800'
-      : 'bg-orange-50/50 hover:bg-orange-50'
-    : darkMode
-      ? 'hover:bg-zinc-800/50'
-      : 'hover:bg-zinc-50';
+    ? 'light:bg-orange-50/50 light:hover:bg-orange-50 dark:bg-zinc-800/50 dark:hover:bg-zinc-800'
+    : 'light:hover:bg-zinc-50 dark:hover:bg-zinc-800/50';
 
   const breakdown = data.breakdown && Object.entries(data.breakdown);
   const reinvested = data.reinvestedBreakdown && Object.entries(data.reinvestedBreakdown);

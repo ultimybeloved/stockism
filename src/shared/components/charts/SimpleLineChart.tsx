@@ -7,7 +7,6 @@
  * Simple line chart component for sparklines
  * @param {Object} props
  * @param {Array} props.data - Array of { timestamp, price } objects
- * @param {boolean} props.darkMode - Dark mode flag
  * @param {boolean} props.colorBlindMode - Color blind mode flag
  * @param {number} props.width - Chart width (default 100)
  * @param {number} props.height - Chart height (default 32)

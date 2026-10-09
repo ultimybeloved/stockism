@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { CHARACTER_MAP } from '../../../characters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import PortfolioChart from './PortfolioChart';
 import HoldingRow from './HoldingRow';
 import ShortRow from './ShortRow';
@@ -52,7 +53,6 @@ const PortfolioModal = ({
   onToggleDrip,
 }: PortfolioModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const { user, userData, holdings, shorts, costBasis, showNotification } = useSession();
   const { prices, priceHistory, marketData, activeIPOs = [], rarityTiers } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -87,8 +87,7 @@ const PortfolioModal = ({
     }
   };
 
-  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } =
-    getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } = themeClasses;
 
   const { pendingOrders, loadingOrders, handleCancelOrder, portfolioHistory, loadingHistory } = usePortfolioModalData(
     user,
@@ -241,7 +240,6 @@ const PortfolioModal = ({
             timeRange={timeRange}
             setTimeRange={setTimeRange}
             timeRanges={TIME_RANGES}
-            darkMode={darkMode}
             colorBlindMode={colorBlindMode}
           />
         )}
@@ -255,7 +253,7 @@ const PortfolioModal = ({
           ) : (
             <>
               {/* IPO Holdings */}
-              <IpoHoldingsList items={ipoItems} darkMode={darkMode} />
+              <IpoHoldingsList items={ipoItems} />
 
               {/* Long / Short positions — tabbed */}
               {(portfolioItems.length > 0 || shortItems.length > 0) && (
@@ -273,9 +271,7 @@ const PortfolioModal = ({
                         className={`flex-1 py-1.5 text-sm font-semibold rounded-sm transition-colors ${
                           positionTab === t.key
                             ? 'bg-orange-600 text-white'
-                            : darkMode
-                              ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                              : 'bg-amber-50 text-slate-500 hover:bg-amber-100'
+                            : 'light:bg-amber-50 light:text-slate-500 light:hover:bg-amber-100 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
                         }`}
                       >
                         {t.label} <span className="text-xs font-normal">({t.count})</span>
@@ -284,7 +280,6 @@ const PortfolioModal = ({
                   </div>
 
                   <HoldingsControls
-                    darkMode={darkMode}
                     search={search}
                     setSearch={setSearch}
                     sortKey={sortKey}
@@ -300,7 +295,6 @@ const PortfolioModal = ({
                           total={dustTotal}
                           sweeping={sweeping}
                           onConfirm={handleSweep}
-                          darkMode={darkMode}
                         />
                       )}
                       {portfolioItems.length === 0 ? (
@@ -328,7 +322,6 @@ const PortfolioModal = ({
                                 onLimitSell={onLimitSell}
                                 drip={drip}
                                 onToggleDrip={onToggleDrip}
-                                darkMode={darkMode}
                                 colorBlindMode={colorBlindMode}
                               />
                             ))}
@@ -351,7 +344,6 @@ const PortfolioModal = ({
                           coverAmounts={coverAmounts}
                           setCoverAmounts={setCoverAmounts}
                           onCover={handleCover}
-                          darkMode={darkMode}
                           colorBlindMode={colorBlindMode}
                         />
                       ))}
@@ -366,7 +358,6 @@ const PortfolioModal = ({
                 prices={prices}
                 onCancel={handleCancelOrder}
                 loadingOrders={loadingOrders}
-                darkMode={darkMode}
               />
             </>
           )}

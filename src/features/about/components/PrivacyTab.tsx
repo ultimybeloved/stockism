@@ -1,17 +1,16 @@
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
 
 // The Privacy tab: exactly what the game stores about a player, in plain words.
 const PrivacyTab = () => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const linkClass = 'text-orange-500 hover:text-orange-400 underline';
 
   return (
     <div className={`space-y-4 ${textClass}`}>
       <div
-        className={`p-3 rounded-sm ${userData?.colorBlindMode ? (darkMode ? 'bg-teal-900/30 border border-teal-700' : 'bg-teal-50 border border-teal-200') : darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-200'}`}
+        className={`p-3 rounded-sm ${userData?.colorBlindMode ? 'light:bg-teal-50 light:border light:border-teal-200 dark:bg-teal-900/30 dark:border dark:border-teal-700' : 'light:bg-green-50 light:border light:border-green-200 dark:bg-green-900/30 dark:border dark:border-green-700'}`}
       >
         <p className={`font-semibold text-sm ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
           🛡️ TL;DR: We store almost nothing about you. No real names, no profile pictures, no tracking.
@@ -22,24 +21,24 @@ const PrivacyTab = () => {
         <h3 className="font-semibold text-orange-500 mb-2">What we store in our game database:</h3>
         <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
           <li>
-            • <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Username</span>: The name YOU choose (not
-            your real name)
+            • <span className="light:text-slate-700 dark:text-zinc-300">Username</span>: The name YOU choose (not your
+            real name)
           </li>
           <li>
-            • <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Game data</span>: Your cash balance,
-            holdings, and trade history
+            • <span className="light:text-slate-700 dark:text-zinc-300">Game data</span>: Your cash balance, holdings,
+            and trade history
           </li>
           <li>
-            • <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Account ID</span>: A random ID to identify
-            your account
+            • <span className="light:text-slate-700 dark:text-zinc-300">Account ID</span>: A random ID to identify your
+            account
           </li>
           <li>
-            • <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>Discord ID</span>: If you link Discord, so
-            one Discord account maps to one player. Never shown to other players
+            • <span className="light:text-slate-700 dark:text-zinc-300">Discord ID</span>: If you link Discord, so one
+            Discord account maps to one player. Never shown to other players
           </li>
           <li>
-            • <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>IP address</span>: Used only to stop
-            people making alt accounts. Never shown to other players
+            • <span className="light:text-slate-700 dark:text-zinc-300">IP address</span>: Used only to stop people
+            making alt accounts. Never shown to other players
           </li>
         </ul>
       </div>
@@ -52,8 +51,8 @@ const PrivacyTab = () => {
         </p>
         <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
           <li>
-            • <span className={darkMode ? 'text-amber-400' : 'text-amber-600'}>📧 Email</span>: Stored by Firebase Auth
-            (not our game database). Never visible to other players or used for marketing.
+            • <span className="light:text-amber-600 dark:text-amber-400">📧 Email</span>: Stored by Firebase Auth (not
+            our game database). Never visible to other players or used for marketing.
           </li>
         </ul>
       </div>
@@ -114,7 +113,7 @@ const PrivacyTab = () => {
         </p>
       </div>
 
-      <div className={`mt-4 p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+      <div className="mt-4 p-3 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50">
         <p className={`text-xs ${mutedClass}`}>
           Last updated: September 2026. This is a fan project with no legal entity behind it. If you have privacy
           concerns, please reach out to us directly.

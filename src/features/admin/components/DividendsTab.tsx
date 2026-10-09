@@ -15,7 +15,6 @@ const runTime = (run: DividendRunLog): Date | null => {
 const OVERRIDE_TIERS = ['legendary', 'epic', 'rare', 'uncommon', 'common', 'none'];
 
 const DividendsTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -35,7 +34,7 @@ const DividendsTab = ({
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-emerald-50'}`}>
+      <div className="p-3 rounded-sm light:bg-emerald-50 dark:bg-slate-700/50">
         <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Dividend Controls</h3>
         <div className="flex flex-wrap gap-2">
           <button
@@ -48,7 +47,7 @@ const DividendsTab = ({
           <button
             onClick={loadDividendConfig}
             disabled={dividendActionLoading}
-            className={`px-3 py-2 text-xs rounded-sm font-semibold border ${darkMode ? 'border-slate-600 text-slate-300 hover:bg-slate-600' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+            className="px-3 py-2 text-xs rounded-sm font-semibold border light:border-slate-300 light:text-slate-700 light:hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-600"
           >
             ↻ Refresh
           </button>
@@ -63,7 +62,7 @@ const DividendsTab = ({
       </div>
 
       {/* Rate table */}
-      <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-amber-200'}`}>
+      <div className="p-3 rounded-sm border light:border-amber-200 dark:border-slate-700">
         <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Weekly Base Rates (auto from rarity tier)</h3>
         <div className={`text-xs ${mutedClass} grid grid-cols-3 gap-2`}>
           <div>
@@ -92,7 +91,7 @@ const DividendsTab = ({
 
       {/* Recent runs */}
       {dividendLastRuns.length > 0 && (
-        <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-amber-200'}`}>
+        <div className="p-3 rounded-sm border light:border-amber-200 dark:border-slate-700">
           <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Recent Runs</h3>
           <div className="space-y-1">
             {dividendLastRuns.map((run) => (
@@ -111,7 +110,7 @@ const DividendsTab = ({
       )}
 
       {/* Per-ticker tier overrides */}
-      <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-amber-200'}`}>
+      <div className="p-3 rounded-sm border light:border-amber-200 dark:border-slate-700">
         <div className="flex justify-between items-center mb-2">
           <h3 className={`text-sm font-bold ${textClass}`}>Per-Ticker Tier Overrides</h3>
           <input

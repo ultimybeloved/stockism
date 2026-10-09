@@ -1,15 +1,14 @@
 import { CHARACTER_MAP } from '../../../characters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../../../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../../../constants';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
 import type { IPO } from '../../../types';
 
 const IPOHypeCard = ({ ipo }: { ipo: IPO }) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass } = themeClasses;
 
   const timeRemaining = ipo.ipoStartsAt - Date.now();
   const character = CHARACTER_MAP[ipo.ticker];
@@ -48,7 +47,7 @@ const IPOHypeCard = ({ ipo }: { ipo: IPO }) => {
 
         <div className="mt-3 text-center">
           <p className={`text-xs ${mutedClass}`}>IPO Opens In</p>
-          <p className={`text-xl font-bold text-orange-500`}>{formatTimeRemaining(timeRemaining)}</p>
+          <p className="text-xl font-bold text-orange-500">{formatTimeRemaining(timeRemaining)}</p>
         </div>
 
         <p className={`text-xs ${mutedClass} mt-2 text-center`}>

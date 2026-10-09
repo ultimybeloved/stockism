@@ -17,11 +17,7 @@ const CUTS: [string, string][] = [
 // market over the same days. Season tiers are shares of the season board rather
 // than fixed targets, so this is a health check on the field, not a threshold
 // picker.
-const ReturnDistributionPanel = ({
-  darkMode,
-  textClass,
-  mutedClass,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'>) => {
+const ReturnDistributionPanel = ({ textClass, mutedClass }: Pick<AdminCommonProps, 'textClass' | 'mutedClass'>) => {
   const [report, setReport] = useState<ReturnDistributionReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +100,7 @@ const ReturnDistributionPanel = ({
   const cov = report?.grantCoverage;
 
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+    <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
       <div className="flex justify-between items-start gap-2 mb-1">
         <h3 className={`font-semibold ${textClass}`}>📐 30-Day Return Distribution</h3>
         <button

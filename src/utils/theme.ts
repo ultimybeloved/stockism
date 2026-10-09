@@ -1,64 +1,64 @@
-// Central theme class definitions.
-// All components call getThemeClasses(darkMode) instead of repeating these ternaries.
+// Central theme class definitions. Each string carries both themes: `light:`
+// and `dark:` styles switch on the `dark` class App puts on <html>
+// (tailwind.config.js), so components use these as they are instead of
+// repeating darkMode ternaries.
 
-export const getThemeClasses = (darkMode: boolean) => {
-  // Shared building block: card surface (also the modal shell surface).
-  const card = darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200';
+// Shared building block: card surface (also the modal shell surface).
+const card = 'light:bg-white light:border-amber-200 dark:bg-zinc-900 dark:border-zinc-800';
 
-  return {
-    // Card/panel containers
-    cardClass: card,
-    // Page/section background
-    bgClass: darkMode ? 'bg-zinc-950' : 'bg-amber-50',
-    // Primary text
-    textClass: darkMode ? 'text-zinc-100' : 'text-slate-900',
-    // Secondary/muted text
-    mutedClass: darkMode ? 'text-zinc-400' : 'text-zinc-600',
-    // Form inputs
-    inputClass: darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-300 text-zinc-900',
-    // Subtle section fill (inside a card)
-    subtleClass: darkMode ? 'bg-zinc-800' : 'bg-amber-50',
-    // Dividers/separators
-    divideClass: darkMode ? 'divide-zinc-700' : 'divide-amber-200',
-    // Borders standalone
-    borderClass: darkMode ? 'border-zinc-700' : 'border-amber-200',
-    // Border color matching the card edge (modal header/footer dividers).
-    // Pair with border-b/border-t at the call site.
-    cardEdgeClass: darkMode ? 'border-zinc-800' : 'border-amber-200',
+export const themeClasses = {
+  // Card/panel containers
+  cardClass: card,
+  // Page/section background
+  bgClass: 'light:bg-amber-50 dark:bg-zinc-950',
+  // Primary text
+  textClass: 'light:text-slate-900 dark:text-zinc-100',
+  // Secondary/muted text
+  mutedClass: 'light:text-zinc-600 dark:text-zinc-400',
+  // Form inputs
+  inputClass:
+    'light:bg-white light:border-amber-300 light:text-zinc-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100',
+  // Subtle section fill (inside a card)
+  subtleClass: 'light:bg-amber-50 dark:bg-zinc-800',
+  // Dividers/separators
+  divideClass: 'light:divide-amber-200 dark:divide-zinc-700',
+  // Borders standalone
+  borderClass: 'light:border-amber-200 dark:border-zinc-700',
+  // Border color matching the card edge (modal header/footer dividers).
+  // Pair with border-b/border-t at the call site.
+  cardEdgeClass: 'light:border-amber-200 dark:border-zinc-800',
 
-    // --- Elevation ---
-    // Ambient depth for cards/panels that sit on the page background.
-    // Pair with cardClass + `border`. Rarity-tiered cards get their own
-    // shadows from index.css (.rarity-*) and don't need this.
-    raisedClass: darkMode ? 'shadow-md shadow-black/40' : 'shadow-sm shadow-amber-900/10',
+  // --- Elevation ---
+  // Ambient depth for cards/panels that sit on the page background.
+  // Pair with cardClass + `border`. Rarity-tiered cards get their own
+  // shadows from index.css (.rarity-*) and don't need this.
+  raisedClass: 'light:shadow-sm light:shadow-amber-900/10 dark:shadow-md dark:shadow-black/40',
 
-    // --- Accent ---
-    // Brand accent for tickers, links, and highlights. Text accents are
-    // orange-500 everywhere; filled buttons stay bg-orange-600.
-    accentClass: 'text-orange-500',
-    accentHoverClass: 'hover:text-orange-400',
+  // --- Accent ---
+  // Brand accent for tickers, links, and highlights. Text accents are
+  // orange-500 everywhere; filled buttons stay bg-orange-600.
+  accentClass: 'text-orange-500',
+  accentHoverClass: 'hover:text-orange-400',
 
-    // --- Buttons ---
-    // Quiet bordered button (tabs, pagination, secondary actions).
-    // Pair with `border` + your own padding/rounding at the call site.
-    ghostBtnClass: darkMode
-      ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800'
-      : 'border-amber-200 text-zinc-600 hover:bg-amber-50',
+  // --- Buttons ---
+  // Quiet bordered button (tabs, pagination, secondary actions).
+  // Pair with `border` + your own padding/rounding at the call site.
+  ghostBtnClass:
+    'light:border-amber-200 light:text-zinc-600 light:hover:bg-amber-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800',
 
-    // --- Chips/tags ---
-    // Small neutral tag fill (filters, counts, metadata).
-    chipClass: darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-zinc-600',
+  // --- Chips/tags ---
+  // Small neutral tag fill (filters, counts, metadata).
+  chipClass: 'light:bg-slate-200 light:text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300',
 
-    // --- Modal shell ---
-    // Fullscreen scrim + centering. Add a z-index at the call site (z-50 for
-    // normal modals; walls/tutorials that sit above everything go higher).
-    overlayClass: 'fixed inset-0 bg-black/60 flex items-center justify-center p-4',
-    // Darker scrim for blocking walls and tutorials that demand full focus.
-    overlayHeavyClass: 'fixed inset-0 bg-black/70 flex items-center justify-center p-4',
-    // Modal container. Add max-w-* (and overflow/max-h/flex if the modal
-    // scrolls) at the call site.
-    modalShellClass: `w-full ${card} border rounded-sm shadow-xl`,
-  };
+  // --- Modal shell ---
+  // Fullscreen scrim + centering. Add a z-index at the call site (z-50 for
+  // normal modals; walls/tutorials that sit above everything go higher).
+  overlayClass: 'fixed inset-0 bg-black/60 flex items-center justify-center p-4',
+  // Darker scrim for blocking walls and tutorials that demand full focus.
+  overlayHeavyClass: 'fixed inset-0 bg-black/70 flex items-center justify-center p-4',
+  // Modal container. Add max-w-* (and overflow/max-h/flex if the modal
+  // scrolls) at the call site.
+  modalShellClass: `w-full ${card} border rounded-sm shadow-xl`,
 };
 
 // Spacing rhythm — shared paddings/gaps so sections breathe evenly.

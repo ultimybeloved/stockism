@@ -6,29 +6,23 @@ interface DustCleanupBannerProps {
   total: number;
   sweeping: boolean;
   onConfirm: () => void;
-  darkMode: boolean;
 }
 
 // Small banner shown above the long-positions list when the user has tiny
 // (sub-$5) positions. Two-step confirm so it can't be hit by accident.
-const DustCleanupBanner = ({ count, total, sweeping, onConfirm, darkMode }: DustCleanupBannerProps) => {
+const DustCleanupBanner = ({ count, total, sweeping, onConfirm }: DustCleanupBannerProps) => {
   const [confirming, setConfirming] = useState(false);
 
-  const secondaryBtn = darkMode
-    ? 'bg-zinc-700 text-zinc-200 hover:bg-zinc-600'
-    : 'bg-slate-200 text-slate-600 hover:bg-slate-300';
+  const secondaryBtn =
+    'light:bg-slate-200 light:text-slate-600 light:hover:bg-slate-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600';
 
   return (
-    <div
-      className={`mb-3 p-3 rounded-sm border flex items-center justify-between gap-3 ${
-        darkMode ? 'border-zinc-700 bg-zinc-800/60' : 'border-amber-200 bg-amber-50'
-      }`}
-    >
+    <div className="mb-3 p-3 rounded-sm border flex items-center justify-between gap-3 light:border-amber-200 light:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-800/60">
       <div>
-        <p className={`text-sm font-semibold ${darkMode ? 'text-zinc-200' : 'text-slate-700'}`}>
+        <p className="text-sm font-semibold light:text-slate-700 dark:text-zinc-200">
           {count} tiny position{count === 1 ? '' : 's'} worth about {formatCurrency(total)}
         </p>
-        <p className={`text-xs ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>
+        <p className="text-xs light:text-slate-500 dark:text-zinc-400">
           Sell them all to cash in one go. Locked shares are left alone.
         </p>
       </div>

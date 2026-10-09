@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useSeason } from '../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+
 import {
   SEASON_TIERS,
   seasonTierRule,
@@ -19,8 +19,7 @@ import {
 // No countdown by design — a season ends when the arc's Finale chapter lands and
 // nobody knows that in advance.
 const SeasonCard = () => {
-  const { darkMode } = useTheme();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const {
     active,
     season,
@@ -67,11 +66,7 @@ const SeasonCard = () => {
   const firstTitled = SEASON_TIERS.find((t) => tierGivesTitle(t.id, rules));
 
   return (
-    <div
-      className={`p-4 rounded-sm border mb-4 ${
-        darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'
-      }`}
-    >
+    <div className="p-4 rounded-sm border mb-4 light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h3 className={`font-semibold ${textClass}`}>

@@ -1,6 +1,7 @@
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { ReactNode } from 'react';
 import type { useStockPageData } from '../hooks/useStockPageData';
 
@@ -33,9 +34,8 @@ const StockPositionCard = ({
   handleToggleDrip,
   currentPrice,
 }: StockPositionCardProps) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-500' : 'text-red-500';
@@ -80,7 +80,7 @@ const StockPositionCard = ({
               <button
                 onClick={handleToggleDrip}
                 title={drip[ticker] ? 'DRIP on: click to turn off' : 'DRIP off: click to reinvest'}
-                className={`text-xs px-2 py-1 rounded font-semibold transition-colors ${drip[ticker] ? 'bg-emerald-600 text-white' : darkMode ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'}`}
+                className={`text-xs px-2 py-1 rounded font-semibold transition-colors ${drip[ticker] ? 'bg-emerald-600 text-white' : 'light:bg-zinc-200 light:text-zinc-500 light:hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-600'}`}
               >
                 {drip[ticker] ? 'ON' : 'OFF'}
               </button>
@@ -90,7 +90,7 @@ const StockPositionCard = ({
       )}
       {shortShares > 0 && (
         <div
-          className={`${positionShares > 0 ? 'mt-3 pt-3 border-t ' + (darkMode ? 'border-zinc-800' : 'border-amber-200') : ''} space-y-2 text-sm`}
+          className={`${positionShares > 0 ? 'mt-3 pt-3 border-t ' + 'light:border-amber-200 dark:border-zinc-800' : ''} space-y-2 text-sm`}
         >
           {(
             [

@@ -5,7 +5,6 @@ import type { AdminCommonProps } from '../types';
 import type { useAdminDiagnostics } from '../../hooks/useAdminDiagnostics';
 
 const DropAuditPanel = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -22,9 +21,7 @@ const DropAuditPanel = ({
   return (
     <>
       {/* Drop Audit Section */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <h3 className={`font-semibold mb-3 ${textClass}`}>🎁 Drop Audit</h3>
         <div className="flex gap-2 items-end">
           <div className="flex-1">
@@ -50,9 +47,7 @@ const DropAuditPanel = ({
 
       {/* Drop Audit Results */}
       {dropAuditResult && (
-        <div
-          className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-        >
+        <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
           <div className="flex justify-between items-center mb-3">
             <h4 className={`font-semibold ${textClass}`}>{dropAuditResult.displayName}</h4>
             <span className={`text-xs ${mutedClass}`}>{dropAuditResult.uid}</span>
@@ -84,7 +79,7 @@ const DropAuditPanel = ({
             ].map((card, i) => (
               <div
                 key={i}
-                className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'} border ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}
+                className="p-2 rounded-sm light:bg-slate-50 dark:bg-slate-700/50 border light:border-slate-200 dark:border-slate-600"
               >
                 <div className={`text-xs ${mutedClass}`}>{card.label}</div>
                 <div className={`text-sm font-bold ${card.color}`}>{card.value}</div>
@@ -96,12 +91,10 @@ const DropAuditPanel = ({
           {Object.keys(dropAuditResult.giftedSharesByTicker).length > 0 && (
             <div className="mb-3">
               <h5 className={`text-xs font-semibold mb-1 ${mutedClass}`}>Gifted Shares by Ticker</h5>
-              <div
-                className={`rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-200'} overflow-hidden`}
-              >
+              <div className="rounded-sm border light:border-slate-200 dark:border-slate-600 overflow-hidden">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className={darkMode ? 'bg-slate-700' : 'bg-slate-100'}>
+                    <tr className="light:bg-slate-100 dark:bg-slate-700">
                       <th className={`text-left px-2 py-1 ${mutedClass}`}>Ticker</th>
                       <th className={`text-right px-2 py-1 ${mutedClass}`}>Gifted</th>
                       <th className={`text-right px-2 py-1 ${mutedClass}`}>Price</th>
@@ -112,7 +105,7 @@ const DropAuditPanel = ({
                     {Object.entries(dropAuditResult.giftedSharesByTicker)
                       .sort((a, b) => b[1].value - a[1].value)
                       .map(([ticker, info]) => (
-                        <tr key={ticker} className={`border-t ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+                        <tr key={ticker} className="border-t light:border-slate-200 dark:border-slate-600">
                           <td className={`px-2 py-1 font-semibold ${textClass}`}>{ticker}</td>
                           <td className="px-2 py-1 text-right text-amber-400">{info.shares}</td>
                           <td className={`px-2 py-1 text-right ${mutedClass}`}>${info.price.toFixed(2)}</td>
@@ -128,7 +121,7 @@ const DropAuditPanel = ({
           {/* Suspicious Days */}
           {dropAuditResult.suspiciousDays.length > 0 && (
             <div className="mb-3">
-              <h5 className={`text-xs font-semibold mb-1 text-red-400`}>Suspicious Days (4+ claims)</h5>
+              <h5 className="text-xs font-semibold mb-1 text-red-400">Suspicious Days (4+ claims)</h5>
               <div className="flex flex-wrap gap-1">
                 {dropAuditResult.suspiciousDays.map(({ day, count }) => (
                   <span
@@ -146,16 +139,14 @@ const DropAuditPanel = ({
           {Object.keys(dropAuditResult.claimsByDay).length > 0 && (
             <div>
               <h5 className={`text-xs font-semibold mb-1 ${mutedClass}`}>Claims Timeline</h5>
-              <div
-                className={`max-h-40 overflow-y-auto rounded-sm border ${darkMode ? 'border-slate-600 bg-slate-700/30' : 'border-slate-200 bg-slate-50'} p-2`}
-              >
+              <div className="max-h-40 overflow-y-auto rounded-sm border light:border-slate-200 light:bg-slate-50 dark:border-slate-600 dark:bg-slate-700/30 p-2">
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(dropAuditResult.claimsByDay)
                     .sort((a, b) => a[0].localeCompare(b[0]))
                     .map(([day, count]) => (
                       <span
                         key={day}
-                        className={`px-1.5 py-0.5 text-xs rounded-sm ${count > 3 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : count > 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : `${darkMode ? 'bg-slate-600 text-slate-300' : 'bg-slate-200 text-slate-600'}`}`}
+                        className={`px-1.5 py-0.5 text-xs rounded-sm ${count > 3 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : count > 1 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : `light:bg-slate-200 light:text-slate-600 dark:bg-slate-600 dark:text-slate-300`}`}
                       >
                         {day.slice(5)}: {count}
                       </span>

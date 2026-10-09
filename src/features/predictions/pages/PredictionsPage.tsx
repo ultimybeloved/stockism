@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import { useNewPredictions } from '../hooks/useNewPredictions';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { getTotalInvested } from '../../../utils/calculations';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import PredictionCard from '../components/PredictionCard';
@@ -37,10 +38,9 @@ const PredictionsPage = ({
   onBuyEventShares,
   onSellEventShares,
 }: PredictionsPageProps) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const { marketData } = useMarket();
-  const { bgClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { bgClass, textClass, mutedClass } = themeClasses;
 
   // Opening the page is what clears the nav badge.
   const { markSeen } = useNewPredictions();
@@ -86,9 +86,7 @@ const PredictionsPage = ({
         <p className={`text-sm mb-6 ${mutedClass}`}>Bet on what happens next in the series.</p>
 
         {isHalted && (
-          <div
-            className={`mb-6 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}
-          >
+          <div className="mb-6 p-3 rounded-sm text-sm light:bg-amber-50 light:border light:border-amber-200 light:text-amber-800 dark:bg-zinc-900 dark:border dark:border-zinc-800 dark:text-zinc-300">
             🔒 Predictions are closed for chapter review. Trading reopens {marketTimes().reopen}.
           </div>
         )}

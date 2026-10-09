@@ -154,14 +154,17 @@ body {
   --tier-legendary-hi: 253 224 71; /* yellow-300 — tick highlight */
 }
 
-.rarity-common {
+/* The `html` prefix outweighs a plain class, so these trims beat the card's
+   `dark:`/`light:` border and shadow classes, which Tailwind emits after this
+   file. Same for the cosmetic name effects and the reduced-motion glow below. */
+html .rarity-common {
   border-color: rgb(var(--tier-common) / 0.4);
   box-shadow:
     var(--tw-ring-offset-shadow, 0 0 #0000),
     var(--tw-ring-shadow, 0 0 #0000),
     0 1px 2px rgb(0 0 0 / 0.1);
 }
-.rarity-uncommon {
+html .rarity-uncommon {
   border-color: rgb(var(--tier-uncommon) / 0.5);
   box-shadow:
     var(--tw-ring-offset-shadow, 0 0 #0000),
@@ -169,7 +172,7 @@ body {
     0 1px 3px rgb(0 0 0 / 0.12),
     0 0 6px rgb(var(--tier-uncommon) / 0.22);
 }
-.rarity-rare {
+html .rarity-rare {
   border-color: rgb(var(--tier-rare) / 0.55);
   box-shadow:
     var(--tw-ring-offset-shadow, 0 0 #0000),
@@ -177,7 +180,7 @@ body {
     0 2px 6px rgb(0 0 0 / 0.14),
     0 0 10px rgb(var(--tier-rare) / 0.26);
 }
-.rarity-epic {
+html .rarity-epic {
   border-color: rgb(var(--tier-epic) / 0.65);
   box-shadow:
     var(--tw-ring-offset-shadow, 0 0 #0000),
@@ -296,7 +299,7 @@ body {
       0 0 24px rgb(var(--tier-legendary-hi) / 0.6);
   }
 }
-.rarity-legendary {
+html .rarity-legendary {
   border-color: rgb(var(--tier-legendary) / 0.9);
   box-shadow:
     var(--tw-ring-offset-shadow, 0 0 #0000),
@@ -339,9 +342,9 @@ body {
 
 /* ===== Animated cosmetics ===== */
 /* Name effects: animate a gradient behind clipped text. */
-.cos-name-shimmer,
-.cos-name-rainbow,
-.cos-name-aurora {
+html .cos-name-shimmer,
+html .cos-name-rainbow,
+html .cos-name-aurora {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -630,7 +633,7 @@ body {
     animation: none;
   }
   /* Pulse glows fall back to a steady glow instead of vanishing. */
-  [class*='cos-glow-pulse-'] {
+  html [class*='cos-glow-pulse-'] {
     animation: none;
     box-shadow: 0 0 14px color-mix(in srgb, var(--cgp) 55%, transparent);
   }

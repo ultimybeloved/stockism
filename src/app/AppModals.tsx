@@ -1,5 +1,6 @@
 import { lazy } from 'react';
-import { useTheme, useSession, useMarket } from '../context/AppContext';
+import { useSession, useMarket } from '../context/AppContext';
+
 import { ADMIN_UIDS } from '../constants';
 import { ToastContainer } from '../shared/components/ToastNotification';
 import InstallPrompt from './InstallPrompt';
@@ -141,16 +142,15 @@ const AppModals = ({
   tradeConfirmation,
   userNotifications,
 }: AppModalsProps) => {
-  const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const { prices, predictions, marketData } = useMarket();
 
   return (
     <>
-      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} darkMode={darkMode} />}
-      {needsEmailVerification && user && <EmailVerificationModal user={user} darkMode={darkMode} userData={userData} />}
+      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
+      {needsEmailVerification && user && <EmailVerificationModal user={user} userData={userData} />}
       {needsUsername && user && (
-        <UsernameModal suggestedName={suggestedName} onComplete={() => adoptUserDoc(user.uid)} darkMode={darkMode} />
+        <UsernameModal suggestedName={suggestedName} onComplete={() => adoptUserDoc(user.uid)} />
       )}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
       {showLending && !isGuest && !userData?.marginTutorialCompleted && (
@@ -224,7 +224,6 @@ const AppModals = ({
           user={user}
           predictions={predictions}
           prices={prices}
-          darkMode={darkMode}
           marketData={marketData}
           onClose={() => setShowAdmin(false)}
         />
@@ -233,7 +232,6 @@ const AppModals = ({
       {/* Notification Panel */}
       {showNotificationPanel && user && (
         <NotificationPanel
-          darkMode={darkMode}
           notifications={userNotifications}
           onClose={() => setShowNotificationPanel(false)}
           onMarkRead={handleMarkNotificationRead}
@@ -251,7 +249,6 @@ const AppModals = ({
         <PriceAlertModal
           ticker={showPriceAlertModal}
           currentPrice={prices[showPriceAlertModal] || 0}
-          darkMode={darkMode}
           onClose={() => setShowPriceAlertModal(null)}
           existingAlerts={priceAlerts.filter((a) => a.ticker === showPriceAlertModal)}
           onCreateAlert={handleCreatePriceAlert}
@@ -260,10 +257,10 @@ const AppModals = ({
       )}
 
       {/* PWA Install Prompt */}
-      <InstallPrompt darkMode={darkMode} />
+      <InstallPrompt />
 
       {/* Toast Notifications */}
-      <ToastContainer notifications={notifications} onDismiss={dismissNotification} darkMode={darkMode} />
+      <ToastContainer notifications={notifications} onDismiss={dismissNotification} />
 
       {showPortfolio && !isGuest && (
         <PortfolioModal

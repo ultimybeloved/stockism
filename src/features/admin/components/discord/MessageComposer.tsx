@@ -15,7 +15,6 @@ const MAX_BUTTONS = 5;
 // the two is decided by draft.id: an existing message edits in place, which is
 // what keeps its pins, reactions and links alive.
 export default function MessageComposer({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -49,9 +48,7 @@ export default function MessageComposer({
   const channel = channels.find((c) => c.id === draft.channelId);
 
   return (
-    <div
-      className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-    >
+    <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
       <div className="flex items-center justify-between mb-3">
         <h3 className={`font-semibold ${textClass}`}>{editing ? '✏️ Editing a live message' : '💬 New message'}</h3>
         {editing && (
@@ -134,9 +131,7 @@ export default function MessageComposer({
       </label>
 
       {draft.useEmbed && (
-        <div
-          className={`p-3 mb-3 rounded-sm border ${darkMode ? 'border-slate-700 bg-slate-900/40' : 'border-slate-200 bg-slate-50'}`}
-        >
+        <div className="p-3 mb-3 rounded-sm border light:border-slate-200 light:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40">
           <div className="grid sm:grid-cols-[1fr_auto] gap-3 mb-3">
             <div>
               <label className={labelCls}>Box title</label>
@@ -246,7 +241,7 @@ export default function MessageComposer({
       </label>
 
       <div className="mb-4">
-        <EmbedPreview draft={draft} darkMode={darkMode} />
+        <EmbedPreview draft={draft} />
       </div>
 
       <button

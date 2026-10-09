@@ -1,6 +1,7 @@
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { TradeConfirmation } from '../../../shared/hooks/types';
 
@@ -14,9 +15,8 @@ interface TradeConfirmModalProps {
 // Confirmation step for buy/sell/short/cover, shown before the trade executes.
 const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: TradeConfirmModalProps) => {
   useEscapeKey(onCancel);
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { borderClass, chipClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
+  const { borderClass, chipClass, overlayClass, modalShellClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
 
   const { ticker, action, amount, total, exitDiscount = 0 } = confirmation;
@@ -26,10 +26,10 @@ const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: Trade
   return (
     <div className={`${overlayClass} z-[60]`} onClick={onCancel}>
       <div className={`${modalShellClass} max-w-sm p-5`} onClick={(e) => e.stopPropagation()}>
-        <h3 className={`text-lg font-semibold mb-4 ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>
+        <h3 className="text-lg font-semibold mb-4 light:text-slate-900 dark:text-zinc-100">
           Confirm {action === 'buy' ? 'Purchase' : action === 'sell' ? 'Sale' : 'Short'}
         </h3>
-        <div className={`space-y-2 mb-5 ${darkMode ? 'text-zinc-300' : 'text-slate-700'}`}>
+        <div className="space-y-2 mb-5 light:text-slate-700 dark:text-zinc-300">
           <div className="flex justify-between">
             <span>Stock:</span>
             <span className="font-semibold text-orange-500">${ticker}</span>
@@ -88,7 +88,7 @@ const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: Trade
           <button
             onClick={onCancel}
             disabled={loading}
-            className={`flex-1 py-2 rounded-sm font-semibold ${chipClass} ${darkMode ? 'hover:bg-zinc-700' : 'hover:bg-slate-300'} disabled:opacity-50`}
+            className={`flex-1 py-2 rounded-sm font-semibold ${chipClass} light:hover:bg-slate-300 dark:hover:bg-zinc-700 disabled:opacity-50`}
           >
             Cancel
           </button>

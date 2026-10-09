@@ -1,21 +1,14 @@
 import type { AdminCommonProps } from '../types';
 import type { IpHealthReport } from '../../../../api/types';
 
-type DefenseHealthCardProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass' | 'loading'> & {
+type DefenseHealthCardProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'loading'> & {
   ipHealth: IpHealthReport | null;
   loadIpHealth: () => void;
 };
 
 /** Read-only check that the anti-alt defenses are actually firing in production. */
-const DefenseHealthCard = ({
-  darkMode,
-  textClass,
-  mutedClass,
-  loading,
-  ipHealth,
-  loadIpHealth,
-}: DefenseHealthCardProps) => (
-  <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-emerald-50'}`}>
+const DefenseHealthCard = ({ textClass, mutedClass, loading, ipHealth, loadIpHealth }: DefenseHealthCardProps) => (
+  <div className="p-3 rounded-sm light:bg-emerald-50 dark:bg-slate-700/50">
     <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Anti-Alt Defense Health</h3>
     <p className={`text-xs mb-2 ${mutedClass}`}>
       Shows whether the alt-account defenses are firing in production: accounts per address, blocked signups in the last

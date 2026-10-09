@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import CharacterMeta from './CharacterMeta';
 import ReviewChangeBadge from './ReviewChangeBadge';
-import { getThemeClasses, getRarityStagger, SPACING } from '../../../utils/theme';
+import { themeClasses, getRarityStagger, SPACING } from '../../../utils/theme';
 import { rarityClassFor } from '../../../utils/rarity';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import ShortRiskTag from '../../trading/components/ShortRiskTag';
 import TradeActionModal, { type OrderFormMode } from '../../trading/components/TradeActionModal';
 import PreMarketModal from '../../trading/components/PreMarketModal';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import { isPreMarketWindow, getMarketClosedState, type ReviewChange } from '../../../utils/marketHours';
 import type { Character } from '../../../characters';
 import type { PricePoint, ShortPosition, TradeAction } from '../../../types';
@@ -80,7 +81,6 @@ const CharacterCard = ({
   onSetAlert,
   reviewChange,
 }: CharacterCardProps) => {
-  const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const { priceHistory, marketData, rarityTiers } = useMarket();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
@@ -145,7 +145,7 @@ const CharacterCard = ({
     }
   };
 
-  const { cardClass: themeCardClass, textClass, mutedClass, ghostBtnClass, raisedClass } = getThemeClasses(darkMode);
+  const { cardClass: themeCardClass, textClass, mutedClass, ghostBtnClass, raisedClass } = themeClasses;
   const cardClass = `${themeCardClass} ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
 
   const getSentimentColor = () => {
@@ -365,7 +365,7 @@ const CharacterCard = ({
                   setTradeAction('short');
                   setShowTradeMenu(false);
                 }}
-                className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-orange-500 ${darkMode ? 'text-orange-400 hover:bg-orange-900/30' : 'text-orange-500 hover:bg-orange-50'}`}
+                className="py-2 text-xs font-semibold uppercase rounded-sm border-2 border-orange-500 light:text-orange-500 light:hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
               >
                 Short
               </button>
@@ -375,7 +375,7 @@ const CharacterCard = ({
                   setShowTradeMenu(false);
                 }}
                 disabled={!shorted}
-                className={`py-2 text-xs font-semibold uppercase rounded-sm border-2 border-blue-500 ${darkMode ? 'text-blue-400 hover:bg-blue-900/30' : 'text-blue-600 hover:bg-blue-50'} disabled:opacity-50`}
+                className="py-2 text-xs font-semibold uppercase rounded-sm border-2 border-blue-500 light:text-blue-600 light:hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 disabled:opacity-50"
               >
                 Cover
               </button>

@@ -1,5 +1,5 @@
 import { CHARACTERS } from '../../../characters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { getWeekStart } from '../../../utils/date';
 import { newThisWeek } from '../../../utils/marketFilters';
 import type { PriceHistory, PriceMap } from '../../../types';
@@ -7,7 +7,6 @@ import type { PriceHistory, PriceMap } from '../../../types';
 interface NewCharactersBoardProps {
   prices: PriceMap;
   priceHistory: PriceHistory;
-  darkMode: boolean;
   colorBlindMode?: boolean;
   launchedTickers?: string[];
 }
@@ -15,11 +14,10 @@ interface NewCharactersBoardProps {
 const NewCharactersBoard = ({
   prices,
   priceHistory,
-  darkMode,
   colorBlindMode = false,
   launchedTickers = [],
 }: NewCharactersBoardProps) => {
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass } = themeClasses;
 
   const weekStart = getWeekStart();
 
@@ -53,7 +51,7 @@ const NewCharactersBoard = ({
           return (
             <div
               key={char.ticker}
-              className={`flex items-center justify-between py-1 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} last:border-0`}
+              className="flex items-center justify-between py-1 border-b light:border-amber-200 dark:border-zinc-800 last:border-0"
             >
               <div className="min-w-0 flex-1">
                 <span className={`text-sm font-semibold ${textClass}`}>{char.name}</span>

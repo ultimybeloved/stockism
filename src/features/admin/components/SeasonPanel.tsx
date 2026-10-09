@@ -5,9 +5,9 @@ import SeasonCoordFlags from './season/SeasonCoordFlags';
 // Market tab because ending a season is tied to the chapter cycle.
 import type { AdminCommonProps } from './types';
 import type { useAdminSeason } from '../hooks/useAdminSeason';
+import { useTheme } from '../../../context/AppContext';
 
 const SeasonPanel = ({
-  darkMode,
   textClass,
   mutedClass,
   loading,
@@ -22,12 +22,11 @@ const SeasonPanel = ({
   handleEndSeason,
   handleRunCheckpoint,
 }: Omit<AdminCommonProps, 'inputClass'> & ReturnType<typeof useAdminSeason>) => {
+  const { darkMode } = useTheme();
   const active = season?.status === 'active';
   const weeks = active ? Math.max(1, Math.ceil((Date.now() - season.startedAt) / (7 * 24 * 60 * 60 * 1000))) : 0;
 
-  const inputClass = `px-2 py-1 text-sm rounded border ${
-    darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
-  }`;
+  const inputClass = `px-2 py-1 text-sm rounded border light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white`;
 
   // A running season shows the rules it was started with; otherwise the ones a
   // new season would get.
@@ -46,7 +45,7 @@ const SeasonPanel = ({
   );
 
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+    <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
       <h3 className={`font-semibold ${textClass} mb-1`}>🏅 Season</h3>
 
       {active ? (

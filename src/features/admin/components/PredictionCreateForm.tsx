@@ -7,7 +7,6 @@ import type { useAdminPredictionCreate } from '../hooks/useAdminPredictionCreate
 // (event shares) forms. Extracted from PredictionsTab to keep it under the
 // component line limit.
 const PredictionCreateForm = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -34,9 +33,7 @@ const PredictionCreateForm = ({
   setOpeningOdds,
 }: AdminCommonProps & Omit<ReturnType<typeof useAdminPredictionCreate>, 'getEndTime'>) => {
   return (
-    <div
-      className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-50'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-    >
+    <div className="p-4 rounded-sm light:bg-slate-50 dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
       <h3 className={`font-semibold ${textClass} mb-3`}>➕ Create New Prediction</h3>
       <div className="space-y-3">
         <div>
@@ -45,14 +42,14 @@ const PredictionCreateForm = ({
             <button
               type="button"
               onClick={() => setPredictionType('weekly')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'weekly' ? 'border-teal-500 bg-teal-500 text-white' : darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'weekly' ? 'border-teal-500 bg-teal-500 text-white' : 'light:border-slate-300 light:text-slate-600 dark:border-slate-600 dark:text-slate-300'}`}
             >
               Weekly (cash)
             </button>
             <button
               type="button"
               onClick={() => setPredictionType('event')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'event' ? 'border-teal-500 bg-teal-500 text-white' : darkMode ? 'border-slate-600 text-slate-300' : 'border-slate-300 text-slate-600'}`}
+              className={`flex-1 py-2 text-sm font-semibold rounded-sm border-2 transition-all ${predictionType === 'event' ? 'border-teal-500 bg-teal-500 text-white' : 'light:border-slate-300 light:text-slate-600 dark:border-slate-600 dark:text-slate-300'}`}
             >
               Long-Term (shares)
             </button>
@@ -158,7 +155,6 @@ const PredictionCreateForm = ({
           </>
         ) : (
           <EventMarketFields
-            darkMode={darkMode}
             mutedClass={mutedClass}
             inputClass={inputClass}
             seedLiquidity={seedLiquidity}

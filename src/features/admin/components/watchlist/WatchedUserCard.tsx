@@ -20,7 +20,6 @@ type WatchedUserCardProps = AdminCommonProps &
 
 /** One watched player: their linked alts and known addresses, with forms to add either. */
 const WatchedUserCard = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -38,7 +37,7 @@ const WatchedUserCard = ({
   setWatchAddIPValue,
   handleAddWatchedIP,
 }: WatchedUserCardProps) => (
-  <div className={`p-3 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-200'}`}>
+  <div className="p-3 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-600">
     <div className="flex justify-between items-start mb-2">
       <div>
         <span className={`text-sm font-bold ${textClass}`}>{wu.displayName}</span>

@@ -1,5 +1,4 @@
-import { useTheme } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 
 interface LimitOrderControlsProps {
@@ -29,8 +28,7 @@ const LimitOrderControls = ({
   allowPartialFills,
   setAllowPartialFills,
 }: LimitOrderControlsProps) => {
-  const { darkMode } = useTheme();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
 
   return (
     <>
@@ -79,7 +77,7 @@ const LimitOrderControls = ({
       </div>
 
       {(isLimitOrder || isStopLoss) && (
-        <div className={`p-3 rounded-sm mb-4 space-y-3 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+        <div className="p-3 rounded-sm mb-4 space-y-3 light:bg-slate-100 dark:bg-zinc-800">
           <div>
             <label className={`block text-sm font-semibold mb-1 ${textClass}`}>
               {isStopLoss ? 'Stop Price' : 'Limit Price'}
@@ -92,7 +90,7 @@ const LimitOrderControls = ({
               value={limitPrice}
               onChange={(e) => setLimitPrice(e.target.value)}
               placeholder="0.00"
-              className={`w-full px-3 py-2 border rounded-sm ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
+              className="w-full px-3 py-2 border rounded-sm light:bg-white light:border-amber-200 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
             />
             <p className={`text-xs ${mutedClass} mt-1`}>
               {isStopLoss

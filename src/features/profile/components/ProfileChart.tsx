@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { formatCurrency, formatChange, formatAxisLabels } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { PortfolioPoint } from '../../portfolio/hooks/usePortfolioHistory';
 import type { ChartHoverPoint } from '../../portfolio/utils/shared';
+import { useTheme } from '../../../context/AppContext';
 
 interface ProfileChartPoint {
   timestamp: number;
@@ -13,7 +14,6 @@ interface ProfileChartPoint {
 interface ProfileChartProps {
   portfolioValue: number;
   portfolioHistory: PortfolioPoint[];
-  darkMode: boolean;
   colorBlindMode: boolean;
   timeRange: string;
   onTimeRangeChange: (key: string) => void;
@@ -32,14 +32,14 @@ const TIME_RANGES = [
 const ProfileChart = ({
   portfolioValue,
   portfolioHistory,
-  darkMode,
   colorBlindMode,
   timeRange,
   onTimeRangeChange,
 }: ProfileChartProps) => {
+  const { darkMode } = useTheme();
   const chartTimeRange = timeRange;
   const [hoveredPoint, setHoveredPoint] = useState<ChartHoverPoint | null>(null);
-  const { textClass } = getThemeClasses(darkMode);
+  const { textClass } = themeClasses;
 
   const chartData = useMemo((): ProfileChartPoint[] => {
     if (!portfolioHistory || portfolioHistory.length === 0) {
@@ -111,9 +111,7 @@ const ProfileChart = ({
       : 'rgba(239, 68, 68, 0.1)';
 
   return (
-    <div
-      className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
-    >
+    <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
       <div className="flex justify-between items-center mb-2">
         <div>
           <h3 className={`font-semibold ${textClass}`}>Portfolio Value</h3>
@@ -136,9 +134,7 @@ const ProfileChart = ({
               className={`px-2 py-1 text-xs font-semibold rounded-sm ${
                 chartTimeRange === range.key
                   ? 'bg-orange-600 text-white'
-                  : darkMode
-                    ? 'text-zinc-400 hover:bg-zinc-700'
-                    : 'text-zinc-600 hover:bg-slate-200'
+                  : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-700'
               }`}
             >
               {range.label}
@@ -259,7 +255,7 @@ const ProfileChart = ({
         />
         {hoveredPoint !== null && (
           <div
-            className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 ${darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'}`}
+            className="absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 light:bg-zinc-900 light:text-white dark:bg-zinc-800 dark:text-zinc-100"
             style={{
               left: `${(hoveredPoint.x / svgWidth) * 100}%`,
               top: `${(hoveredPoint.y / svgHeight) * 100}%`,

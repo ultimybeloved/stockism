@@ -1,5 +1,5 @@
 import { getCosmeticStyles } from '../../../../utils/cosmetics';
-import { getThemeClasses } from '../../../../utils/theme';
+import { themeClasses } from '../../../../utils/theme';
 import { formatCurrency } from '../../../../utils/formatters';
 import { useTheme, useSession } from '../../../../context/AppContext';
 import { CREW_MAP } from '../../../../crews';
@@ -14,7 +14,7 @@ import type { Cosmetic } from '../../../../constants/cosmetics';
 const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?: Cosmetic | null }) => {
   const { darkMode } = useTheme();
   const { userData, holdings } = useSession();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   // `tryOn` is a shop item being browsed: layer it over the equipped set so the
   // row previews it before purchase. The owned filter is skipped for try-ons
   // (they aren't owned yet — that's the point); display-only, nothing persists.
@@ -41,7 +41,7 @@ const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?:
         )}
       </p>
       <div
-        className={`relative p-3 flex items-center gap-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'} ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''}`}
+        className={`relative p-3 flex items-center gap-3 rounded-sm border light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50 ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''}`}
         style={{
           ...(glowColor ? { boxShadow: `0 0 18px ${glowColor}50` } : {}),
           ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),

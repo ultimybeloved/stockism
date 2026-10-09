@@ -1,10 +1,10 @@
-import { getThemeClasses } from '../utils/theme';
+import { themeClasses } from '../utils/theme';
 
 // Full-page states shown before the app itself can render. They sit outside the
 // context provider, so they take the theme as a prop.
 
-export const LoadingScreen = ({ darkMode }: { darkMode: boolean }) => {
-  const { bgClass, mutedClass } = getThemeClasses(darkMode);
+export const LoadingScreen = () => {
+  const { bgClass, mutedClass } = themeClasses;
   return (
     <div className={`min-h-screen ${bgClass} flex items-center justify-center`}>
       <div className={`text-lg ${mutedClass}`}>Loading Stockism...</div>
@@ -20,8 +20,8 @@ export const LoadingScreen = ({ darkMode }: { darkMode: boolean }) => {
 //
 // Only shown when the FIRST read fails. A later failure keeps the real prices
 // already on screen.
-export const MarketUnavailableScreen = ({ darkMode }: { darkMode: boolean }) => {
-  const { bgClass, mutedClass, textClass } = getThemeClasses(darkMode);
+export const MarketUnavailableScreen = () => {
+  const { bgClass, mutedClass, textClass } = themeClasses;
   return (
     <div className={`min-h-screen ${bgClass} flex items-center justify-center p-6`}>
       <div className="text-center max-w-sm">

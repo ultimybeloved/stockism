@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { CHARACTER_MAP } from '../../../characters';
 import type { PendingOrder } from '../hooks/usePortfolioModalData';
 import type { PriceMap } from '../../../types';
@@ -9,24 +9,21 @@ interface PendingOrdersListProps {
   prices: PriceMap;
   onCancel: (orderId: string) => void;
   loadingOrders: boolean;
-  darkMode: boolean;
 }
 
 // Pending limit / stop-loss orders section of the portfolio modal (renders nothing
 // when there are no pending orders).
-const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }: PendingOrdersListProps) => {
+const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders }: PendingOrdersListProps) => {
   // Two-step cancel so a stray tap can't kill an order.
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   if (!orders || orders.length === 0) return null;
 
   return (
     <div className="mt-6">
       <div className="flex items-center gap-2 mb-3">
         <h3 className={`text-lg font-bold ${textClass}`}>Pending Orders</h3>
-        <span
-          className={`text-sm px-2 py-0.5 rounded ${darkMode ? 'bg-blue-900 text-blue-200' : 'bg-blue-100 text-blue-700'}`}
-        >
+        <span className="text-sm px-2 py-0.5 rounded light:bg-blue-100 light:text-blue-700 dark:bg-blue-900 dark:text-blue-200">
           {orders.length}
         </span>
       </div>
@@ -39,7 +36,7 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }
           return (
             <div
               key={order.id}
-              className={`p-3 border rounded-sm ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-slate-50 border-slate-300'}`}
+              className="p-3 border rounded-sm light:bg-slate-50 light:border-slate-300 dark:bg-zinc-800 dark:border-zinc-700"
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
@@ -74,7 +71,7 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders, darkMode }
                     <button
                       onClick={() => setConfirmingId(null)}
                       disabled={loadingOrders}
-                      className={`px-2 py-1 text-xs font-semibold rounded-sm disabled:opacity-50 ${darkMode ? 'bg-zinc-700 text-zinc-200 hover:bg-zinc-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                      className="px-2 py-1 text-xs font-semibold rounded-sm disabled:opacity-50 light:bg-slate-200 light:text-slate-600 light:hover:bg-slate-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
                     >
                       Keep
                     </button>

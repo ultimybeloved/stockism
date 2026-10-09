@@ -4,7 +4,7 @@ import { useTheme, useSession } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import PinDisplay from '../../../shared/components/PinDisplay';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
-import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { getRankEmoji, getRankStyle, formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
 import type { RankedLeader } from '../hooks/useLeaderboard';
@@ -31,7 +31,7 @@ const LeaderboardRow = ({
 }: LeaderboardRowProps) => {
   const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
@@ -57,7 +57,7 @@ const LeaderboardRow = ({
     <div
       ref={isCurrentUser ? userRowRef : null}
       className={`relative p-3 flex items-center gap-3 ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''} ${
-        displayRank <= 3 ? (darkMode ? 'bg-zinc-900/50' : 'bg-amber-50') : ''
+        displayRank <= 3 ? 'light:bg-amber-50 dark:bg-zinc-900/50' : ''
       } ${isCurrentUser ? 'border-l-4' : ''}`}
       style={{
         ...(isCurrentUser
@@ -105,9 +105,7 @@ const LeaderboardRow = ({
           <PinDisplay userData={leader} size="sm" />
         </div>
         {leader.title && (
-          <div className={`text-xs font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
-            {leader.title.text}
-          </div>
+          <div className="text-xs font-semibold light:text-amber-600 dark:text-amber-400">{leader.title.text}</div>
         )}
         {leader.previousDisplayName &&
           leader.nameChangedAt &&

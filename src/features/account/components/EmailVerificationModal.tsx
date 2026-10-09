@@ -1,19 +1,11 @@
 import { useState } from 'react';
 import { sendEmailVerification, signOut } from 'firebase/auth';
 import { auth } from '../../../firebase';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
 
-const EmailVerificationModal = ({
-  user,
-  darkMode,
-  userData,
-}: {
-  user: User;
-  darkMode: boolean;
-  userData: UserData | null;
-}) => {
+const EmailVerificationModal = ({ user, userData }: { user: User; userData: UserData | null }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -47,7 +39,7 @@ const EmailVerificationModal = ({
     }
   };
 
-  const { textClass, mutedClass, overlayClass, modalShellClass, ghostBtnClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, ghostBtnClass } = themeClasses;
 
   return (
     <div className={`${overlayClass} z-50`}>
@@ -64,19 +56,15 @@ const EmailVerificationModal = ({
           <div
             className={`mb-4 p-3 rounded-sm text-sm ${
               message.includes('sent')
-                ? darkMode
-                  ? 'bg-green-900/30 text-green-400'
-                  : 'bg-green-100 text-green-800'
-                : darkMode
-                  ? 'bg-red-900/30 text-red-400'
-                  : 'bg-red-100 text-red-800'
+                ? 'light:bg-green-100 light:text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                : 'light:bg-red-100 light:text-red-800 dark:bg-red-900/30 dark:text-red-400'
             }`}
           >
             {message}
           </div>
         )}
 
-        <div className={`mb-6 p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+        <div className="mb-6 p-4 rounded-sm light:bg-slate-100 dark:bg-slate-800">
           <p className={`text-sm ${textClass} mb-2`}>📋 Next steps:</p>
           <ol className={`text-sm ${mutedClass} space-y-1 list-decimal list-inside`}>
             <li>Check your email inbox (and spam folder)</li>

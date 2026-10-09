@@ -9,7 +9,6 @@ import type { useAdminUserEdit } from '../../hooks/useAdminUserEdit';
 // The odd one-off user fixes that used to mean opening the Firebase console:
 // crew, achievements, margin, and a single holding.
 const UserFieldEditor = ({
-  darkMode,
   mutedClass,
   loading,
   selectedUser,
@@ -23,19 +22,17 @@ const UserFieldEditor = ({
   setEditShares,
   editCostBasis,
   setEditCostBasis,
-}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'loading'> &
+}: Pick<AdminCommonProps, 'mutedClass' | 'loading'> &
   ReturnType<typeof useAdminUserEdit> & { selectedUser: LoadedAdminUser }) => {
   const [achievementId, setAchievementId] = useState('');
   const name = selectedUser.displayName || selectedUser.username || '';
   const owned = selectedUser.achievements || [];
   const marginUsed = selectedUser.marginUsed || 0;
 
-  const fieldClass = `px-2 py-1 text-sm rounded border ${
-    darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
-  }`;
+  const fieldClass = `px-2 py-1 text-sm rounded border light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white`;
 
   return (
-    <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+    <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
       <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>🛠️ Direct Edits</h4>
       <div className="space-y-3">
         {/* Crew */}

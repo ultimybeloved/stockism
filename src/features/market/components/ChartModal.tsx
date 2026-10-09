@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+
 import PriceChart, { TIME_RANGES } from './PriceChart';
 import { usePriceHistory } from '../hooks/usePriceHistory';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
@@ -18,7 +19,6 @@ interface ChartModalProps {
 
 const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }: ChartModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
@@ -44,7 +44,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;
 
-  const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
@@ -92,7 +92,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
         </div>
 
         {/* Time Range Selector */}
-        <div className={`px-4 py-2 border-b ${cardEdgeClass} ${darkMode ? 'bg-zinc-900/50' : 'bg-amber-50'}`}>
+        <div className={`px-4 py-2 border-b ${cardEdgeClass} light:bg-amber-50 dark:bg-zinc-900/50`}>
           <div className="flex gap-1">
             {TIME_RANGES.map((r) => (
               <button
@@ -101,9 +101,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
                 className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                   timeRange === r.key
                     ? 'bg-orange-600 text-white'
-                    : darkMode
-                      ? 'text-zinc-400 hover:bg-zinc-800'
-                      : 'text-zinc-600 hover:bg-slate-200'
+                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
                 }`}
               >
                 {r.label}

@@ -5,7 +5,6 @@ import type { useAdminPredictionManage } from '../hooks/useAdminPredictionManage
 import type { PredictionDoc } from '../../../types';
 
 const PredictionExtendForm = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -34,8 +33,8 @@ const PredictionExtendForm = ({
     getEndTime: (days: number) => number;
   }) => {
   return (
-    <div className={`p-4 rounded-sm border-2 border-blue-500 ${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-      <h3 className={`font-semibold text-blue-500 mb-3`}>⏰ Extend/Reopen Prediction</h3>
+    <div className="p-4 rounded-sm border-2 border-blue-500 light:bg-blue-50 dark:bg-blue-900/20">
+      <h3 className="font-semibold text-blue-500 mb-3">⏰ Extend/Reopen Prediction</h3>
       <div className="space-y-3">
         <div>
           <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Prediction</label>

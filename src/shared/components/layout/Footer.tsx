@@ -1,9 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useTheme } from '../../../context/AppContext';
 
 const Footer = () => {
-  const { darkMode } = useTheme();
   const links = [
     { href: 'https://discord.gg/hpVm8nQMvY', label: 'Discord', external: true },
     { href: 'https://reddit.com/r/stockismapp', label: 'Reddit', external: true },
@@ -16,11 +14,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer
-      className={`py-6 text-center text-sm border-t ${
-        darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-400' : 'bg-white border-amber-200 text-zinc-600'
-      }`}
-    >
+    <footer className="py-6 text-center text-sm border-t light:bg-white light:border-amber-200 light:text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
           {links.map((link) => (
@@ -30,15 +24,12 @@ const Footer = () => {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`hover:underline ${darkMode ? 'hover:text-orange-400' : 'hover:text-orange-500'}`}
+                  className="hover:underline light:hover:text-orange-500 dark:hover:text-orange-400"
                 >
                   {link.label}
                 </a>
               ) : (
-                <Link
-                  to={link.href}
-                  className={`hover:underline ${darkMode ? 'hover:text-orange-400' : 'hover:text-orange-500'}`}
-                >
+                <Link to={link.href} className="hover:underline light:hover:text-orange-500 dark:hover:text-orange-400">
                   {link.label}
                 </Link>
               )}

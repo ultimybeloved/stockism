@@ -3,7 +3,6 @@ import type { AdminCommonProps } from './types';
 import type { useAdminBadges } from '../hooks/useAdminBadges';
 
 const BadgesTab = ({
-  darkMode,
   mutedClass,
   loading,
   badgesLoaded,
@@ -11,10 +10,10 @@ const BadgesTab = ({
   expandedBadge,
   setExpandedBadge,
   handleRemoveAchievement,
-}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'loading'> & ReturnType<typeof useAdminBadges>) => {
+}: Pick<AdminCommonProps, 'mutedClass' | 'loading'> & ReturnType<typeof useAdminBadges>) => {
   return (
     <div className="space-y-4 p-4" onClick={(e) => e.stopPropagation()}>
-      <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Achievement Badges</h3>
+      <h3 className="text-lg font-bold light:text-slate-900 dark:text-white">Achievement Badges</h3>
       {!badgesLoaded ? (
         <p className={mutedClass}>Loading...</p>
       ) : (
@@ -25,18 +24,16 @@ const BadgesTab = ({
             return (
               <div
                 key={ach.id}
-                className={`rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+                className="rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700"
               >
                 <button
                   onClick={() => setExpandedBadge(isExpanded ? null : ach.id)}
-                  className={`w-full text-left p-3 flex items-center justify-between hover:bg-slate-500/10 transition-colors`}
+                  className="w-full text-left p-3 flex items-center justify-between hover:bg-slate-500/10 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xl">{ach.emoji}</span>
                     <div>
-                      <div className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-                        {ach.name}
-                      </div>
+                      <div className="font-semibold text-sm light:text-slate-900 dark:text-white">{ach.name}</div>
                       <div className={`text-xs ${mutedClass}`}>{ach.description}</div>
                     </div>
                   </div>
@@ -45,18 +42,16 @@ const BadgesTab = ({
                   </span>
                 </button>
                 {isExpanded && holders.length > 0 && (
-                  <div
-                    className={`border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} max-h-64 overflow-y-auto`}
-                  >
+                  <div className="border-t light:border-slate-200 dark:border-slate-700 max-h-64 overflow-y-auto">
                     {holders
                       .sort((a, b) => (b.portfolioValue || 0) - (a.portfolioValue || 0))
                       .map((u) => (
                         <div
                           key={u.id}
-                          className={`px-3 py-2 flex items-center justify-between text-sm ${darkMode ? 'hover:bg-slate-700' : 'hover:bg-slate-50'}`}
+                          className="px-3 py-2 flex items-center justify-between text-sm light:hover:bg-slate-50 dark:hover:bg-slate-700"
                         >
                           <div>
-                            <span className={darkMode ? 'text-white' : 'text-slate-900'}>{u.displayName}</span>
+                            <span className="light:text-slate-900 dark:text-white">{u.displayName}</span>
                             {u.isBot && <span className="ml-1 text-xs text-purple-400">(bot)</span>}
                             <span className={`ml-2 text-xs ${mutedClass}`}>
                               ${(u.portfolioValue || 0).toLocaleString()}
@@ -79,9 +74,7 @@ const BadgesTab = ({
                   </div>
                 )}
                 {isExpanded && holders.length === 0 && (
-                  <div
-                    className={`p-3 text-sm border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} ${mutedClass}`}
-                  >
+                  <div className={`p-3 text-sm border-t light:border-slate-200 dark:border-slate-700 ${mutedClass}`}>
                     No holders
                   </div>
                 )}

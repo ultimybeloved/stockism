@@ -129,8 +129,16 @@ their public profile and the leaderboard.
    App itself still subscribes to prices (its trade/portfolio hooks need them),
    so everything it renders with changing props still re-renders; step 5 is
    where that tightens.
-4. Tailwind `dark:` variant instead of `getThemeClasses(darkMode)`; removes the
-   63 `darkMode={darkMode}` props. Verify with the screenshot rig.
+4. ~~Tailwind `dark:` variant~~ **Done 2026-10-09.** The theme is a `dark` class on
+   `<html>` (`useDarkMode` sets it before paint); `tailwind.config.js` adds a
+   `light:` variant so each string carries both themes exactly as the old
+   ternary did (680 converted). `getThemeClasses(darkMode)` is the constant
+   `themeClasses`; all 63 `darkMode={darkMode}` props are gone. `darkMode` is
+   still read through `useTheme()` for chart colours, image paths and inline
+   styles. The rarity trims and cosmetic name effects in `index.css` got an
+   `html` prefix, since the theme classes now load after them. Checked by
+   comparing every element's computed styles, old build vs new, on every route
+   in both themes.
 5. Break `App.tsx` further into router and providers (the shell, status screens and
    small state hooks already moved out on 2026-10-08).
 

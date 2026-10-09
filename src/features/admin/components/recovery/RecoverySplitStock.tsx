@@ -5,17 +5,14 @@ import type { ShowMessage } from '../../utils/adminShared';
 
 // Admin front end for the stock split engine (functions/src/market/stockSplit.js).
 const RecoverySplitStock = ({
-  darkMode,
   textClass,
   mutedClass,
   showMessage,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & { showMessage: ShowMessage }) => {
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & { showMessage: ShowMessage }) => {
   const { ticker, setTicker, ratio, setRatio, result, busy, journal, incomplete, dryRun, execute, resume, abort } =
     useStockSplit(showMessage);
 
-  const inputClass = `w-full px-3 py-2 border rounded-sm text-sm font-mono ${
-    darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
-  }`;
+  const inputClass = `w-full px-3 py-2 border rounded-sm text-sm font-mono light:bg-white light:border-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100`;
   // Written out in full: Tailwind purges classes built from variables.
   const BTN = 'flex-1 px-4 py-2 text-white font-semibold rounded-sm disabled:opacity-50';
   const btn = (color: 'blue' | 'red' | 'amber') =>
@@ -28,18 +25,14 @@ const RecoverySplitStock = ({
     }`;
 
   return (
-    <div
-      className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-    >
+    <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
       <h3 className={`font-semibold mb-2 ${textClass}`}>✂️ Split Stock</h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         N-for-1: the price is divided by N and every holder gets N times the shares, so nobody&apos;s money changes.
         Shorts, open orders, alerts, dividend lots, chart history and the index all move with it.
       </p>
 
-      <div
-        className={`p-2.5 rounded-sm mb-3 text-xs ${darkMode ? 'bg-amber-900/30 border border-amber-700 text-amber-200' : 'bg-amber-50 border border-amber-300 text-amber-900'}`}
-      >
+      <div className="p-2.5 rounded-sm mb-3 text-xs light:bg-amber-50 light:border light:border-amber-300 light:text-amber-900 dark:bg-amber-900/30 dark:border dark:border-amber-700 dark:text-amber-200">
         <strong>In this order.</strong> 1) Halt the market. 2) Add <code>splitFactor: N</code> to the stock in
         src/characters.ts (times any earlier factor), run <code>npm run sync:chars</code>, push, and deploy functions.
         3) Dry run, then Execute. 4) Check the stock, then reopen the market yourself.
@@ -98,11 +91,11 @@ const RecoverySplitStock = ({
         )}
       </div>
 
-      <PhaseProgress journal={journal} textClass={textClass} mutedClass={mutedClass} darkMode={darkMode} />
+      <PhaseProgress journal={journal} textClass={textClass} mutedClass={mutedClass} />
 
       {result?.dryRun && (
         <>
-          <PreflightTable checks={result.checks} textClass={textClass} mutedClass={mutedClass} darkMode={darkMode} />
+          <PreflightTable checks={result.checks} textClass={textClass} mutedClass={mutedClass} />
           {result.breakdown && (
             <p className={`text-xs ${textClass}`}>
               ${result.ticker} at {result.priceNow} becomes{' '}

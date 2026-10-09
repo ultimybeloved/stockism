@@ -7,9 +7,9 @@ import type { useAdminScheduledJobs } from '../hooks/useAdminScheduledJobs';
 import type { useAdminReviewJobs } from '../hooks/useAdminReviewJobs';
 import type { useAdminSeason } from '../hooks/useAdminSeason';
 import type { PriceMap } from '../../../types';
+import { useTheme } from '../../../context/AppContext';
 
 const MarketTab = ({
-  darkMode,
   textClass,
   mutedClass,
   loading,
@@ -44,12 +44,13 @@ const MarketTab = ({
   ReturnType<typeof useAdminScheduledJobs> &
   ReturnType<typeof useAdminReviewJobs> &
   ReturnType<typeof useAdminSeason> & { prices: PriceMap }) => {
+  const { darkMode } = useTheme();
   return (
     // Plain panel, like every other tab. It used to add its own
     // `overflow-y-auto flex-1 p-4`, which nested a second scroll area inside the
     // panel's content wrapper and clipped everything above the halt controls.
     <div className="space-y-4">
-      <h3 className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Controls</h3>
+      <h3 className="text-lg font-bold light:text-slate-900 dark:text-white">Market Controls</h3>
 
       <SeasonPanel
         {...{
@@ -71,12 +72,10 @@ const MarketTab = ({
       />
 
       {/* Status */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
         <div className="flex items-center gap-3 mb-3">
           <div className={`w-3 h-3 rounded-full ${prices && !marketHaltStatus ? 'bg-emerald-500' : 'bg-red-500'}`} />
-          <span className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+          <span className="font-semibold light:text-slate-900 dark:text-white">
             Market Status: {marketHaltStatus ? 'HALTED' : 'OPEN'}
           </span>
         </div>
@@ -86,16 +85,14 @@ const MarketTab = ({
       </div>
 
       {/* Emergency Halt Controls */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-3 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Emergency Halt</h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-3 light:text-slate-900 dark:text-white">Emergency Halt</h4>
         <input
           type="text"
           value={haltReasonInput}
           onChange={(e) => setHaltReasonInput(e.target.value)}
           placeholder="Halt reason (e.g., Emergency maintenance)"
-          className={`w-full p-2 rounded-sm border text-sm mb-3 ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+          className="w-full p-2 rounded-sm border text-sm mb-3 light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
         />
         <div className="flex gap-2">
           <button
@@ -116,12 +113,8 @@ const MarketTab = ({
       </div>
 
       {/* Crew stats recompute */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          Crew Rankings & Underdog Bonus
-        </h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Crew Rankings & Underdog Bonus</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Recomputes each crew's active-player count and reward multiplier from last week's activity. Runs automatically{' '}
           {localWeeklyTime(90, 1)}; use this to seed or fix it.
@@ -145,10 +138,8 @@ const MarketTab = ({
       </div>
 
       {/* Market reports */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Market Reports</h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Market Reports</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Posts a report to Discord: trades, volume, player counts, top movers. The daily one runs automatically at
           market close, the weekly one {localWeeklyTime(0, 1)}. Nothing is saved, so you can post either again any time.
@@ -172,10 +163,8 @@ const MarketTab = ({
       </div>
 
       {/* Review tab rebuild */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Chapter Review Tab</h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Chapter Review Tab</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Rebuilds the list of stocks you adjusted in the last chapter review, which is what the Review tab shows
           players. This is saved automatically when the review recap posts on Thursday, so you only need this if that
@@ -191,10 +180,8 @@ const MarketTab = ({
       </div>
 
       {/* Fold the review's price-history staircase down to one point */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Tidy Review Chart</h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Tidy Review Chart</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Adjusting one stock also drags every stock linked to it, so a review leaves each chart with a run of steps
           that players read as trading during the halt. This folds them into one point, stamped {localDailyTime(1254)}{' '}
@@ -212,10 +199,8 @@ const MarketTab = ({
       </div>
 
       {/* Crew head Discord roles */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Crew Head Discord Roles</h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Crew Head Discord Roles</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Crew heads get their crew's Discord role automatically every Monday. Check Setup looks for missing roles and
           the hierarchy problem that makes every assignment fail silently. Sync Now re-hands the roles from the current
@@ -240,10 +225,8 @@ const MarketTab = ({
       </div>
 
       {/* Free stock drop */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Free Stock Drop</h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Free Stock Drop</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Posts an extra drop to Discord on top of the automatic one at {localDailyTime(840)}. Every linked player gets
           another claim, worth about $400 each on average, and it stays claimable for 72 hours. Use this for events, not
@@ -259,12 +242,8 @@ const MarketTab = ({
       </div>
 
       {/* Missing fill history */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-          Backfill Old Fill History
-        </h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Backfill Old Fill History</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Limit orders, stop losses and pre-market orders used to fill without writing anything to trade history, so
           players cannot see those trades. This adds the missing entries. Running it twice does nothing the second time,
@@ -280,10 +259,8 @@ const MarketTab = ({
       </div>
 
       {/* Price history archive */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-      >
-        <h4 className={`font-semibold mb-1 ${darkMode ? 'text-white' : 'text-slate-900'}`}>Price History Archive</h4>
+      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Price History Archive</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
           Moves old chart points out of the live price doc into the permanent archive. Charts keep all their data. Runs
           automatically every day; press this if trades fail with an index-entries error.
@@ -298,9 +275,7 @@ const MarketTab = ({
       </div>
 
       {/* Info */}
-      <div
-        className={`p-3 rounded-sm text-xs ${darkMode ? 'bg-blue-900/30 text-blue-300 border border-blue-800' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}
-      >
+      <div className="p-3 rounded-sm text-xs light:bg-blue-50 light:text-blue-700 light:border light:border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border dark:border-blue-800">
         Automatic weekly halt ({marketTimes().halt}) is always active. This is for emergencies only.
       </div>
     </div>

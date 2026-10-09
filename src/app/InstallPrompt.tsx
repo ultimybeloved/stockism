@@ -9,7 +9,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export default function InstallPrompt({ darkMode }: { darkMode: boolean }) {
+export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -46,11 +46,7 @@ export default function InstallPrompt({ darkMode }: { darkMode: boolean }) {
   if (!visible) return null;
 
   return (
-    <div
-      className={`fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md rounded-xl border p-4 shadow-lg ${
-        darkMode ? 'border-zinc-700 bg-zinc-900 text-zinc-100' : 'border-amber-200 bg-white text-zinc-900'
-      }`}
-    >
+    <div className="fixed bottom-20 left-4 right-4 z-50 mx-auto max-w-md rounded-xl border p-4 shadow-lg light:border-amber-200 light:bg-white light:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100">
       <div className="flex items-center gap-3">
         <img src="/favicon.png" alt="Stockism" className="h-10 w-10 rounded-lg" />
         <div className="flex-1 min-w-0">
@@ -60,9 +56,7 @@ export default function InstallPrompt({ darkMode }: { darkMode: boolean }) {
       <div className="mt-3 flex items-center justify-end gap-2">
         <button
           onClick={handleDismiss}
-          className={`rounded-lg px-3 py-1.5 text-sm ${
-            darkMode ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-700'
-          }`}
+          className="rounded-lg px-3 py-1.5 text-sm light:text-zinc-500 light:hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
           Not Now
         </button>

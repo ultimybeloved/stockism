@@ -9,7 +9,6 @@ import type { useAdminPriceMaintenance } from '../hooks/useAdminPriceMaintenance
 import type { useAdminOrphans } from '../hooks/useAdminOrphans';
 
 const StatsTab = ({
-  darkMode,
   textClass,
   mutedClass,
   loading,
@@ -31,7 +30,7 @@ const StatsTab = ({
   ReturnType<typeof useAdminOrphans>) => {
   return (
     <div className="space-y-4">
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-cyan-900/20' : 'bg-cyan-50'}`}>
+      <div className="p-3 rounded-sm light:bg-cyan-50 dark:bg-cyan-900/20">
         <div className="flex justify-between items-center">
           <p className={`text-sm ${mutedClass}`}>📈 Market overview and platform statistics</p>
           <div className="flex gap-2 flex-wrap">
@@ -78,11 +77,11 @@ const StatsTab = ({
         </div>
       </div>
 
-      <FeatureUsagePanel darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
+      <FeatureUsagePanel textClass={textClass} mutedClass={mutedClass} />
 
-      <ReturnDistributionPanel darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
+      <ReturnDistributionPanel textClass={textClass} mutedClass={mutedClass} />
 
-      <SeasonDryRunPanel darkMode={darkMode} textClass={textClass} mutedClass={mutedClass} />
+      <SeasonDryRunPanel textClass={textClass} mutedClass={mutedClass} />
 
       {statsLoading ? (
         <p className={`text-center py-8 ${mutedClass}`}>Loading market stats...</p>
@@ -91,9 +90,7 @@ const StatsTab = ({
       ) : (
         <>
           {/* User Stats */}
-          <div
-            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-          >
+          <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
             <h3 className={`font-semibold mb-3 ${textClass}`}>👥 Users</h3>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
@@ -112,9 +109,7 @@ const StatsTab = ({
           </div>
 
           {/* Financial Stats */}
-          <div
-            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-          >
+          <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
             <h3 className={`font-semibold mb-3 ${textClass}`}>💰 Financials</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
@@ -169,13 +164,11 @@ const StatsTab = ({
           </div>
 
           {/* Activity Stats */}
-          <div
-            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-          >
+          <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
             <h3 className={`font-semibold mb-3 ${textClass}`}>📊 Activity</h3>
 
             {/* 24h Activity */}
-            <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-cyan-900/20' : 'bg-cyan-50'}`}>
+            <div className="p-3 rounded-sm mb-3 light:bg-cyan-50 dark:bg-cyan-900/20">
               <h4 className="text-cyan-500 font-semibold text-sm mb-2">Last 24 Hours</h4>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 <div className="text-center">
@@ -235,7 +228,7 @@ const StatsTab = ({
             )}
 
             {/* All Time */}
-            <div className={`pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+            <div className="pt-3 border-t light:border-slate-200 dark:border-slate-700">
               <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>All Time</h4>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="flex justify-between">
@@ -251,9 +244,7 @@ const StatsTab = ({
           </div>
 
           {/* Top Held Characters */}
-          <div
-            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-          >
+          <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
             <h3 className={`font-semibold ${textClass}`}>🏆 Most Held Characters</h3>
             <p className={`text-xs mb-3 ${mutedClass}`}>Real players only, bots excluded</p>
             <div className="space-y-2">
@@ -280,10 +271,8 @@ const StatsTab = ({
           {/* Price Movers */}
           <div className="grid grid-cols-2 gap-4">
             {/* Top Gainers */}
-            <div
-              className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-            >
-              <h3 className={`font-semibold mb-3 text-green-500`}>📈 Top Gainers</h3>
+            <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
+              <h3 className="font-semibold mb-3 text-green-500">📈 Top Gainers</h3>
               <div className="space-y-1">
                 {marketStats.topGainers.map((item) => (
                   <div key={item.ticker} className="flex justify-between text-sm">
@@ -295,10 +284,8 @@ const StatsTab = ({
             </div>
 
             {/* Top Losers */}
-            <div
-              className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-            >
-              <h3 className={`font-semibold mb-3 text-red-500`}>📉 Top Losers</h3>
+            <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
+              <h3 className="font-semibold mb-3 text-red-500">📉 Top Losers</h3>
               <div className="space-y-1">
                 {marketStats.topLosers.map((item) => (
                   <div key={item.ticker} className="flex justify-between text-sm">
@@ -311,9 +298,7 @@ const StatsTab = ({
           </div>
 
           {/* Crew Membership */}
-          <div
-            className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-          >
+          <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
             <h3 className={`font-semibold mb-3 ${textClass}`}>🏴 Crew Membership</h3>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(marketStats.crewCounts)
@@ -337,10 +322,8 @@ const StatsTab = ({
       )}
 
       {/* Orphan Cleanup Section */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}
-      >
-        <h3 className={`font-semibold mb-3 text-red-500`}>🧹 Orphaned Account Cleanup</h3>
+      <div className="p-4 rounded-sm light:bg-red-50 light:border light:border-red-200 dark:bg-red-900/20 dark:border dark:border-red-800">
+        <h3 className="font-semibold mb-3 text-red-500">🧹 Orphaned Account Cleanup</h3>
         <p className={`text-xs ${mutedClass} mb-3`}>
           Find and remove user documents that have zero activity (no trades, no checkins, default $1000 cash). These are
           likely bot accounts or users who were deleted from Firebase Auth.
@@ -375,9 +358,7 @@ const StatsTab = ({
               {orphanedUsers.slice(0, 100).map((u) => (
                 <div
                   key={u.id}
-                  className={`p-2 rounded-sm flex justify-between items-center text-sm ${
-                    darkMode ? 'bg-slate-800' : 'bg-white'
-                  }`}
+                  className="p-2 rounded-sm flex justify-between items-center text-sm light:bg-white dark:bg-slate-800"
                 >
                   <div>
                     <span className={textClass}>{u.displayName}</span>

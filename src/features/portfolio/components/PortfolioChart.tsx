@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { formatCurrency, formatAxisLabels } from '../../../utils/formatters';
 import type { PortfolioChartPoint } from '../hooks/usePortfolioChartData';
 import type { ChartHoverPoint, TimeRange } from '../utils/shared';
+import { useTheme } from '../../../context/AppContext';
 
 interface PortfolioChartProps {
   chartData: PortfolioChartPoint[];
@@ -17,7 +18,6 @@ interface PortfolioChartProps {
   timeRange: string;
   setTimeRange: (key: string) => void;
   timeRanges: TimeRange[];
-  darkMode: boolean;
   colorBlindMode: boolean;
 }
 
@@ -39,9 +39,9 @@ const PortfolioChart = ({
   timeRange,
   setTimeRange,
   timeRanges,
-  darkMode,
   colorBlindMode,
 }: PortfolioChartProps) => {
+  const { darkMode } = useTheme();
   const svgRef = useRef<SVGSVGElement>(null);
 
   // SVG chart dimensions
@@ -85,11 +85,11 @@ const PortfolioChart = ({
       : 'rgba(239, 68, 68, 0.1)'; // green / red
 
   return (
-    <div className={`border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+    <div className="border-b light:border-amber-200 dark:border-zinc-800">
       <div className="flex items-center justify-between px-4 py-2">
         <button
           onClick={() => setShowChart(!showChart)}
-          className={`text-xs font-semibold ${darkMode ? 'text-zinc-500' : 'text-zinc-500'} hover:text-orange-500`}
+          className="text-xs font-semibold light:text-zinc-500 dark:text-zinc-500 hover:text-orange-500"
         >
           {showChart ? '▼ Hide Chart' : '▶ Show Chart'}
         </button>
@@ -102,9 +102,7 @@ const PortfolioChart = ({
                 className={`px-2 py-1 text-xs font-semibold rounded-sm ${
                   timeRange === range.key
                     ? 'bg-orange-600 text-white'
-                    : darkMode
-                      ? 'text-zinc-400 hover:bg-zinc-800'
-                      : 'text-zinc-600 hover:bg-slate-200'
+                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
                 }`}
               >
                 {range.label}
@@ -115,15 +113,13 @@ const PortfolioChart = ({
       </div>
 
       {showChart && loadingHistory && (
-        <div
-          className={`px-4 pb-4 ${darkMode ? 'bg-zinc-950/50' : 'bg-amber-50'} h-32 flex items-center justify-center`}
-        >
-          <span className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-zinc-500'}`}>Loading...</span>
+        <div className="px-4 pb-4 light:bg-amber-50 dark:bg-zinc-950/50 h-32 flex items-center justify-center">
+          <span className="text-xs light:text-zinc-500 dark:text-zinc-500">Loading...</span>
         </div>
       )}
 
       {showChart && !loadingHistory && (
-        <div className={`px-4 pb-4 ${darkMode ? 'bg-zinc-950/50' : 'bg-amber-50'} relative`}>
+        <div className="px-4 pb-4 light:bg-amber-50 dark:bg-zinc-950/50 relative">
           <svg ref={svgRef} viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full">
             {/* Grid lines */}
             {(() => {
@@ -254,9 +250,7 @@ const PortfolioChart = ({
           {/* Tooltip */}
           {hoveredPoint !== null && (
             <div
-              className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 ${
-                darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'
-              }`}
+              className="absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 light:bg-zinc-900 light:text-white dark:bg-zinc-800 dark:text-zinc-100"
               style={{
                 left: `${(hoveredPoint.x / svgWidth) * 100}%`,
                 top: `${(hoveredPoint.y / svgHeight) * 100}%`,

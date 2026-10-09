@@ -5,7 +5,6 @@ import type { LoadedAdminUser } from '../../utils/adminShared';
 import type { PriceMap, UserData } from '../../../../types';
 
 const UserFinancials = ({
-  darkMode,
   textClass,
   mutedClass,
   loading,
@@ -13,7 +12,7 @@ const UserFinancials = ({
   selectedUser,
   calculateLivePortfolioValue,
   handleSyncSingleUser,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass' | 'loading'> & {
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'loading'> & {
   prices: PriceMap;
   selectedUser: LoadedAdminUser;
   calculateLivePortfolioValue: (userData: UserData) => number | null;
@@ -29,7 +28,7 @@ const UserFinancials = ({
       const lastSynced = selectedUser.lastSyncedAt;
 
       return (
-        <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+        <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
           <div className="flex items-center justify-between mb-2">
             <h4 className={`text-xs font-semibold uppercase ${mutedClass}`}>🔄 Sync Status</h4>
             <button
@@ -69,9 +68,7 @@ const UserFinancials = ({
           </div>
 
           {lastSynced && (
-            <div
-              className={`mt-2 pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-200'} text-xs ${mutedClass}`}
-            >
+            <div className={`mt-2 pt-2 border-t light:border-slate-200 dark:border-slate-500 text-xs ${mutedClass}`}>
               Last synced:{' '}
               {lastSynced instanceof Date
                 ? lastSynced.toLocaleString()
@@ -139,7 +136,7 @@ const UserFinancials = ({
       const unrealizedGains = holdingsValue - totalCostBasis;
 
       return (
-        <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+        <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
           <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-3`}>💰 Money Breakdown</h4>
 
           <div className="space-y-2 text-sm">
@@ -194,7 +191,7 @@ const UserFinancials = ({
               </div>
             )}
 
-            <div className={`flex justify-between pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-300'}`}>
+            <div className="flex justify-between pt-2 border-t light:border-slate-300 dark:border-slate-500">
               <span className={`font-semibold ${textClass}`}>Total Income:</span>
               <span
                 className={`font-bold ${tradingProfit + betProfit + checkinBonus >= 0 ? 'text-green-500' : 'text-red-500'}`}
@@ -204,7 +201,7 @@ const UserFinancials = ({
               </span>
             </div>
 
-            <div className={`pt-2 border-t ${darkMode ? 'border-slate-500' : 'border-slate-300'}`}>
+            <div className="pt-2 border-t light:border-slate-300 dark:border-slate-500">
               <div className="flex justify-between text-xs">
                 <span className={mutedClass}>Total Trades:</span>
                 <span className={textClass}>{selectedUser.totalTrades || 0}</span>
@@ -225,8 +222,8 @@ const UserFinancials = ({
 
     {/* Margin/Loan Info */}
     {(selectedUser.marginEnabled || selectedUser.activeLoan) && (
-      <div className={`p-2 rounded mb-4 ${darkMode ? 'bg-amber-900/30' : 'bg-amber-50'}`}>
-        <h4 className={`text-xs font-semibold uppercase text-amber-500 mb-2`}>Debt Info</h4>
+      <div className="p-2 rounded mb-4 light:bg-amber-50 dark:bg-amber-900/30">
+        <h4 className="text-xs font-semibold uppercase text-amber-500 mb-2">Debt Info</h4>
         {selectedUser.marginEnabled && (
           <div className="text-sm flex justify-between">
             <span className={mutedClass}>Margin Used:</span>

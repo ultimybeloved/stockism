@@ -11,6 +11,7 @@ import type { useAdminUserOps } from '../hooks/useAdminUserOps';
 import type { useAdminCosmetics } from '../hooks/useAdminCosmetics';
 import type { useAdminUserDeletion } from '../hooks/useAdminUserDeletion';
 import type { PriceMap } from '../../../types';
+import { useTheme } from '../../../context/AppContext';
 
 type UsersTabProps = AdminCommonProps &
   ReturnType<typeof useAdminUserList> &
@@ -20,7 +21,6 @@ type UsersTabProps = AdminCommonProps &
   ReturnType<typeof useAdminUserDeletion> & { prices: PriceMap };
 
 const UsersTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -77,9 +77,10 @@ const UsersTab = ({
   toggleUserForDeletion,
   deleteSelectedUsers,
 }: UsersTabProps) => {
+  const { darkMode } = useTheme();
   return (
     <div className="space-y-4">
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+      <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
         <p className={`text-sm ${mutedClass}`}>👥 Browse, search, and manage users. Click "Load" to fetch all users.</p>
       </div>
 
@@ -127,9 +128,7 @@ const UsersTab = ({
           className={`px-4 py-2 font-semibold rounded-sm ${
             deleteMode
               ? 'bg-red-600 hover:bg-red-700 text-white'
-              : darkMode
-                ? 'bg-slate-600 hover:bg-slate-500 text-white'
-                : 'bg-slate-300 hover:bg-slate-400 text-slate-700'
+              : 'light:bg-slate-300 light:hover:bg-slate-400 light:text-slate-700 dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-white'
           }`}
         >
           {deleteMode ? '✕ Cancel' : '🗑️ Delete Mode'}
@@ -152,7 +151,7 @@ const UsersTab = ({
 
       {/* Selected User Detail */}
       {selectedUser && !deleteMode && (
-        <div className={`p-4 rounded-sm border-2 border-teal-500 ${darkMode ? 'bg-slate-700' : 'bg-teal-50'}`}>
+        <div className="p-4 rounded-sm border-2 border-teal-500 light:bg-teal-50 dark:bg-slate-700">
           <div className="flex justify-between items-start mb-3">
             <div>
               <h3 className={`font-bold text-lg ${textClass}`}>{selectedUser.displayName}</h3>
@@ -170,7 +169,7 @@ const UsersTab = ({
           </div>
 
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+            <div className="p-2 rounded light:bg-white dark:bg-slate-600">
               <div className="flex items-center justify-between">
                 <div className={`text-xs ${mutedClass}`}>Cash</div>
                 <div className="flex gap-1">
@@ -204,15 +203,15 @@ const UsersTab = ({
                 {isNaN(selectedUser.cash) ? '$NaN' : `$${selectedUser.cash.toFixed(2)}`}
               </div>
             </div>
-            <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+            <div className="p-2 rounded light:bg-white dark:bg-slate-600">
               <div className={`text-xs ${mutedClass}`}>Portfolio</div>
               <div className={`font-bold ${textClass}`}>${selectedUser.portfolioValue.toFixed(2)}</div>
             </div>
-            <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+            <div className="p-2 rounded light:bg-white dark:bg-slate-600">
               <div className={`text-xs ${mutedClass}`}>Peak Value</div>
-              <div className={`font-bold text-cyan-500`}>${(selectedUser.peakPortfolioValue || 0).toFixed(2)}</div>
+              <div className="font-bold text-cyan-500">${(selectedUser.peakPortfolioValue || 0).toFixed(2)}</div>
             </div>
-            <div className={`p-2 rounded ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+            <div className="p-2 rounded light:bg-white dark:bg-slate-600">
               <div className={`text-xs ${mutedClass}`}>Total P&L</div>
               <div className={`font-bold ${selectedUser.portfolioValue >= 1000 ? 'text-green-500' : 'text-red-500'}`}>
                 {selectedUser.portfolioValue >= 1000 ? '+' : ''}${(selectedUser.portfolioValue - 1000).toFixed(2)}
@@ -295,10 +294,8 @@ const UsersTab = ({
                     deleteMode && isSelected
                       ? 'bg-red-500/30 border border-red-500'
                       : deleteMode && isAdminUser
-                        ? `${darkMode ? 'bg-slate-800 opacity-50' : 'bg-slate-200 opacity-50'} cursor-not-allowed`
-                        : darkMode
-                          ? 'hover:bg-slate-700'
-                          : 'hover:bg-slate-100'
+                        ? `light:bg-slate-200 light:opacity-50 dark:bg-slate-800 dark:opacity-50 cursor-not-allowed`
+                        : 'light:hover:bg-slate-100 dark:hover:bg-slate-700'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -332,7 +329,7 @@ const UsersTab = ({
                 disabled={usersPage === 0}
                 className={`px-2 py-1 text-xs rounded-sm ${
                   usersPage === 0 ? 'opacity-30 cursor-not-allowed' : ''
-                } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                } light:bg-slate-200 light:text-zinc-600 dark:bg-slate-700 dark:text-zinc-300`}
               >
                 ««
               </button>
@@ -341,7 +338,7 @@ const UsersTab = ({
                 disabled={usersPage === 0}
                 className={`px-3 py-1 text-xs rounded-sm ${
                   usersPage === 0 ? 'opacity-30 cursor-not-allowed' : ''
-                } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                } light:bg-slate-200 light:text-zinc-600 dark:bg-slate-700 dark:text-zinc-300`}
               >
                 ‹ Prev
               </button>
@@ -357,7 +354,7 @@ const UsersTab = ({
                   usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1
                     ? 'opacity-30 cursor-not-allowed'
                     : ''
-                } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                } light:bg-slate-200 light:text-zinc-600 dark:bg-slate-700 dark:text-zinc-300`}
               >
                 Next ›
               </button>
@@ -368,7 +365,7 @@ const UsersTab = ({
                   usersPage >= Math.ceil(userSearchResults.length / USERS_PER_PAGE) - 1
                     ? 'opacity-30 cursor-not-allowed'
                     : ''
-                } ${darkMode ? 'bg-slate-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'}`}
+                } light:bg-slate-200 light:text-zinc-600 dark:bg-slate-700 dark:text-zinc-300`}
               >
                 »»
               </button>

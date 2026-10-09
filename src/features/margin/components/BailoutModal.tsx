@@ -1,7 +1,8 @@
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { BAILOUT_CASH } from '../../../constants';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
 // Bankruptcy bailout confirmation — destructive last resort (clears holdings,
@@ -14,9 +15,8 @@ interface BailoutModalProps {
 
 const BailoutModal = ({ onConfirm, onCancel, loading }: BailoutModalProps) => {
   useEscapeKey(onCancel);
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { ghostBtnClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
+  const { ghostBtnClass, overlayClass, modalShellClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
 
   return (
@@ -24,20 +24,20 @@ const BailoutModal = ({ onConfirm, onCancel, loading }: BailoutModalProps) => {
       <div className={`${modalShellClass} max-w-md p-6`} onClick={(e) => e.stopPropagation()}>
         <div className="text-center mb-4">
           <div className="text-4xl mb-2">💸</div>
-          <h2 className={`text-xl font-bold ${darkMode ? 'text-zinc-100' : 'text-slate-900'}`}>Bankruptcy Bailout</h2>
+          <h2 className="text-xl font-bold light:text-slate-900 dark:text-zinc-100">Bankruptcy Bailout</h2>
         </div>
 
         <div
-          className={`p-4 rounded-sm mb-4 ${colorBlindMode ? (darkMode ? 'bg-purple-900/30 border border-purple-700' : 'bg-purple-50 border border-purple-200') : darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200'}`}
+          className={`p-4 rounded-sm mb-4 ${colorBlindMode ? 'light:bg-purple-50 light:border light:border-purple-200 dark:bg-purple-900/30 dark:border dark:border-purple-700' : 'light:bg-red-50 light:border light:border-red-200 dark:bg-red-900/30 dark:border dark:border-red-700'}`}
         >
           <p
-            className={`text-center font-semibold ${colorBlindMode ? (darkMode ? 'text-purple-400' : 'text-purple-600') : darkMode ? 'text-red-400' : 'text-red-600'}`}
+            className={`text-center font-semibold ${colorBlindMode ? 'light:text-purple-600 dark:text-purple-400' : 'light:text-red-600 dark:text-red-400'}`}
           >
             You are {formatCurrency(Math.abs(userData?.cash || 0))} in debt
           </p>
         </div>
 
-        <div className={`text-sm ${darkMode ? 'text-zinc-300' : 'text-slate-600'} mb-4 space-y-2`}>
+        <div className="text-sm light:text-slate-600 dark:text-zinc-300 mb-4 space-y-2">
           <p>
             Accept a bailout to clear your debt and restart with{' '}
             <strong className={colorBlindMode ? 'text-teal-500' : 'text-green-500'}>

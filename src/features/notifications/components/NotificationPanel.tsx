@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import {
   FILTER_TABS,
   getNotificationCategory,
@@ -12,7 +12,6 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { StoredNotification } from '../../../utils/notifications';
 
 interface NotificationPanelProps {
-  darkMode: boolean;
   notifications: StoredNotification[];
   onClose: () => void;
   onMarkRead: (id: string) => void;
@@ -22,7 +21,6 @@ interface NotificationPanelProps {
 }
 
 export default function NotificationPanel({
-  darkMode,
   notifications,
   onClose,
   onMarkRead,
@@ -35,7 +33,7 @@ export default function NotificationPanel({
   const [filter, setFilter] = useState('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass } = themeClasses;
 
   const all = notifications || [];
   const unreadCount = all.filter((n) => !n.read).length;
@@ -67,9 +65,7 @@ export default function NotificationPanel({
         className={`fixed top-16 right-4 w-80 rounded-sm shadow-xl border z-50 flex flex-col max-h-[70vh] ${cardClass}`}
       >
         {/* Header */}
-        <div
-          className={`flex items-center justify-between px-4 py-3 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}
-        >
+        <div className="flex items-center justify-between px-4 py-3 border-b light:border-amber-200 dark:border-zinc-800">
           <h3 className={`font-semibold text-sm ${textClass}`}>
             Notifications{unreadCount > 0 && <span className="text-orange-500"> ({unreadCount})</span>}
           </h3>
@@ -90,9 +86,7 @@ export default function NotificationPanel({
         </div>
 
         {/* Filter tabs */}
-        <div
-          className={`flex items-center gap-1 px-2 py-2 border-b overflow-x-auto ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}
-        >
+        <div className="flex items-center gap-1 px-2 py-2 border-b overflow-x-auto light:border-amber-200 dark:border-zinc-800">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab}
@@ -100,9 +94,7 @@ export default function NotificationPanel({
               className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors ${
                 filter === tab
                   ? 'bg-orange-600 text-white'
-                  : darkMode
-                    ? 'text-zinc-400 hover:bg-zinc-800'
-                    : 'text-slate-500 hover:bg-zinc-100'
+                  : 'light:text-slate-500 light:hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'
               }`}
             >
               {tab}
@@ -121,7 +113,6 @@ export default function NotificationPanel({
               <NotificationRow
                 key={notification.id}
                 notification={notification}
-                darkMode={darkMode}
                 expanded={expandedId === notification.id}
                 actionable={!!getNotificationRoute(notification)}
                 canExpand={!getNotificationRoute(notification) && hasExpandableDetail(notification)}

@@ -266,8 +266,8 @@ export default function App() {
     ],
   );
 
-  if (loading) return <LoadingScreen darkMode={darkMode} />;
-  if (marketStatus === 'unavailable') return <MarketUnavailableScreen darkMode={darkMode} />;
+  if (loading) return <LoadingScreen />;
+  if (marketStatus === 'unavailable') return <MarketUnavailableScreen />;
 
   return (
     <AppProvider theme={themeValue} session={sessionValue} market={marketValue}>

@@ -24,22 +24,19 @@ const alertColor = (alert: WatchlistAlert) => {
   return ALERT_COLORS[alert.type] || 'text-blue-400';
 };
 
-type WatchlistAlertsProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+type WatchlistAlertsProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   alerts: WatchlistAlert[];
   markAlertReviewed: (alertId: string) => void;
 };
 
-const WatchlistAlerts = ({ darkMode, textClass, mutedClass, alerts, markAlertReviewed }: WatchlistAlertsProps) => {
+const WatchlistAlerts = ({ textClass, mutedClass, alerts, markAlertReviewed }: WatchlistAlertsProps) => {
   if (alerts.length === 0) return null;
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-yellow-50'}`}>
+    <div className="p-3 rounded-sm light:bg-yellow-50 dark:bg-slate-700/50">
       <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Recent Alerts ({alerts.length})</h3>
       <div className="space-y-1 max-h-60 overflow-y-auto">
         {alerts.map((alert) => (
-          <div
-            key={alert.id}
-            className={`text-xs p-1.5 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'} ${mutedClass}`}
-          >
+          <div key={alert.id} className={`text-xs p-1.5 rounded light:bg-white dark:bg-slate-800 ${mutedClass}`}>
             <span className={`font-semibold ${alertColor(alert)}`}>{ALERT_ICONS[alert.type] || '📋'}</span>{' '}
             {alert.details}
             <span className="ml-1 opacity-50">{alert.timestamp ? new Date(alert.timestamp).toLocaleString() : ''}</span>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../../../constants';
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { calculateMarginStatus } from '../../../utils/calculations';
 import { getDynamicPrices, getMaxShares, getTradeCount, roundShares } from '../../../utils/tradeLimits';
 import { createLimitOrderFunction } from '../../../api/callables';
@@ -9,7 +9,8 @@ import MarginImpactPreview from './MarginImpactPreview';
 import TradeAmountInput from './TradeAmountInput';
 import LimitOrderControls from './LimitOrderControls';
 import { isWeeklyHalt, getMarketClosedState } from '../../../utils/marketHours';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { errorMessage } from '../../../utils/errors';
 import type { Character } from '../../../characters';
@@ -51,7 +52,6 @@ const TradeActionModal = ({
   haltInfo,
 }: TradeActionModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const { userData, showNotification } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -65,7 +65,7 @@ const TradeActionModal = ({
   // Max defaults to cash only; margin buying power is opt-in via the checkbox.
   const [useMarginMax, setUseMarginMax] = useState(false);
 
-  const { textClass, mutedClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass } = themeClasses;
 
   // Color blind friendly colors for price indicators (bid/ask displays)
   const getColors = (isPositive: boolean): ActionColors => {
@@ -179,7 +179,7 @@ const TradeActionModal = ({
           colors: {
             text: 'text-orange-400',
             border: 'border-orange-500',
-            bg: darkMode ? 'hover:bg-orange-900/30' : 'hover:bg-orange-50',
+            bg: 'light:hover:bg-orange-50 dark:hover:bg-orange-900/30',
           },
           buttonStyle: 'outline',
           price: bid,
@@ -211,7 +211,7 @@ const TradeActionModal = ({
           colors: {
             text: 'text-blue-400',
             border: 'border-blue-500',
-            bg: darkMode ? 'hover:bg-blue-900/30' : 'hover:bg-blue-50',
+            bg: 'light:hover:bg-blue-50 dark:hover:bg-blue-900/30',
           },
           buttonStyle: 'outline',
           price: ask,
@@ -316,7 +316,7 @@ const TradeActionModal = ({
         </div>
 
         {/* Price info */}
-        <div className={`p-3 rounded-sm mb-4 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+        <div className="p-3 rounded-sm mb-4 light:bg-slate-100 dark:bg-zinc-800">
           <div className="flex justify-between items-center text-sm mb-2">
             <span className={mutedClass}>Market Price</span>
             <span className={`font-bold ${textClass}`}>{formatCurrency(price)}</span>
@@ -379,7 +379,7 @@ const TradeActionModal = ({
 
         {/* Total (only show for immediate trades) */}
         {!isLimitOrder && !isStopLoss && (
-          <div className={`p-3 rounded-sm mb-4 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+          <div className="p-3 rounded-sm mb-4 light:bg-slate-100 dark:bg-zinc-800">
             <div className="flex justify-between items-center">
               <span className={`text-sm ${mutedClass}`}>{config.label}</span>
               <span className={`text-lg font-bold ${config.colors.text}`}>{formatCurrency(config.total)}</span>
@@ -434,7 +434,7 @@ const TradeActionModal = ({
           </button>
           <button
             onClick={onClose}
-            className={`px-4 py-3 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+            className="px-4 py-3 text-sm font-semibold rounded-sm light:bg-slate-200 light:text-slate-700 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
           >
             Cancel
           </button>

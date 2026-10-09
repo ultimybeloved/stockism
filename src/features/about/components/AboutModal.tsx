@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import AboutTab from './AboutTab';
 import FaqTab from './FaqTab';
@@ -10,10 +10,9 @@ type AboutTabKey = 'about' | 'faq' | 'privacy';
 
 const AboutModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const [activeTab, setActiveTab] = useState<AboutTabKey>('about');
 
-  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>

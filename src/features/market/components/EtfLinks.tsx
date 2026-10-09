@@ -1,7 +1,8 @@
 import { useNavigate } from 'react-router-dom';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import { formatCurrency, formatChange } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { Character } from '../../../characters';
 import type { useStockPageData } from '../hooks/useStockPageData';
 
@@ -14,10 +15,9 @@ interface EtfLinksProps {
 // ETF's own holdings with their 24h move.
 const EtfLinks = ({ character, memberOfETFs }: EtfLinksProps) => {
   const navigate = useNavigate();
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const { prices, priceHistory } = useMarket();
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-500' : 'text-red-500';
@@ -36,7 +36,7 @@ const EtfLinks = ({ character, memberOfETFs }: EtfLinksProps) => {
               <button
                 key={etf.ticker}
                 onClick={() => navigate(`/stock/${etf.ticker}`)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
+                className="flex items-center gap-2 px-3 py-2 rounded-sm border text-left hover:border-orange-500 transition-colors light:border-amber-200 light:hover:bg-amber-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
               >
                 <span className="text-orange-500 font-mono text-xs font-bold">${etf.ticker}</span>
                 <span className={`text-xs ${mutedClass}`}>{etf.name}</span>
@@ -62,7 +62,7 @@ const EtfLinks = ({ character, memberOfETFs }: EtfLinksProps) => {
                   <button
                     key={t}
                     onClick={() => navigate(`/stock/${t}`)}
-                    className={`flex justify-between items-center p-2 rounded-sm border text-left hover:border-orange-500 transition-colors ${darkMode ? 'border-zinc-800 hover:bg-zinc-800' : 'border-amber-200 hover:bg-amber-50'}`}
+                    className="flex justify-between items-center p-2 rounded-sm border text-left hover:border-orange-500 transition-colors light:border-amber-200 light:hover:bg-amber-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
                   >
                     <span className="text-orange-500 font-mono text-xs font-semibold">${t}</span>
                     <div className="text-right">

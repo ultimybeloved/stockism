@@ -14,6 +14,7 @@ import type { useAdminRecoveryTools } from '../hooks/useAdminRecoveryTools';
 import type { renameTickerFunction as RenameTickerFn } from '../../../api/callables';
 import type { Character } from '../../../characters';
 import type { PriceMap } from '../../../types';
+import { useTheme } from '../../../context/AppContext';
 
 type RecoveryTabProps = AdminCommonProps &
   Omit<ReturnType<typeof useAdminBankruptcy>, 'handleRollbackUser'> &
@@ -30,17 +31,14 @@ type RecoveryTabProps = AdminCommonProps &
   };
 
 const RecoveryTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
   loading,
-  // Bankrupt users
   bankruptLoaded,
   bankruptUsers,
   loadBankruptUsers,
   handleReinstateUser,
-  // Spike victims
   scanningSpike,
   repairingSpike,
   spikeScanned,
@@ -48,30 +46,24 @@ const RecoveryTab = ({
   handleScanSpikeVictims,
   handleRepairAllSpikeVictims,
   handleRepairSpikeVictim,
-  // Diagnose users
   diagnosisIds,
   setDiagnosisIds,
   diagnosing,
   diagnosisResults,
   handleDiagnoseUsers,
-  // Manual backup
   handleManualBackup,
-  // NaN repair
   handleRepairCorruptedAccounts,
-  // Restore from backup
   loadingBackups,
   backups,
   handleListBackups,
   restoringBackup,
   handleRestoreBackup,
-  // User data transfer
   oldUserId,
   setOldUserId,
   newUserId,
   setNewUserId,
   transferring,
   handleTransferUserData,
-  // Rename ticker
   renameOldTicker,
   setRenameOldTicker,
   renameNewTicker,
@@ -80,13 +72,11 @@ const RecoveryTab = ({
   setRenameResult,
   showMessage,
   renameTickerFunction,
-  // Portfolio history reconstruction from trades
   reconstructingHistory,
   reconstructionResult,
   reconstructUid,
   setReconstructUid,
   handleReconstructPortfolioHistory,
-  // Trade history & rollback
   tradeFilterTicker,
   setTradeFilterTicker,
   sortedCharacters,
@@ -100,12 +90,11 @@ const RecoveryTab = ({
   setRollbackConfirm,
   executeFullRollback,
 }: RecoveryTabProps) => {
+  const { darkMode } = useTheme();
   return (
     <div className="space-y-4">
       {/* Bankrupt Users */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <div className="flex justify-between items-center mb-2">
           <h3 className={`font-semibold ${textClass}`}>💔 Bankrupt Users</h3>
           <button
@@ -124,7 +113,7 @@ const RecoveryTab = ({
               {bankruptUsers.map((u) => (
                 <div
                   key={u.id}
-                  className={`flex items-center justify-between p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}
+                  className="flex items-center justify-between p-2 rounded-sm light:bg-slate-50 dark:bg-slate-700/50"
                 >
                   <div>
                     <span className={`font-semibold text-sm ${textClass}`}>{u.displayName}</span>
@@ -182,9 +171,7 @@ const RecoveryTab = ({
         }}
       />
       {/* Manual Backup */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <h3 className={`font-semibold mb-2 ${textClass}`}>💾 Manual Backup</h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Create an instant backup of all market data (prices, price history, liquidity). Backups are stored in Firebase
@@ -200,10 +187,8 @@ const RecoveryTab = ({
       </div>
 
       {/* Portfolio History Reconstruction */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-blue-700' : 'border-blue-300'}`}
-      >
-        <h3 className={`font-semibold mb-2 text-blue-500`}>🔁 Reconstruct Portfolio History</h3>
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-blue-300 dark:border-blue-700">
+        <h3 className="font-semibold mb-2 text-blue-500">🔁 Reconstruct Portfolio History</h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Rebuilds historical portfolio values from the permanent trades collection and price archives. Leave the UID
           field blank to run for all non-bot users. Runs up to 9 minutes.
@@ -213,7 +198,7 @@ const RecoveryTab = ({
           value={reconstructUid}
           onChange={(e) => setReconstructUid(e.target.value)}
           placeholder="User UID (leave blank for all users)"
-          className={`w-full px-3 py-2 mb-3 rounded-sm border text-sm font-mono ${darkMode ? 'bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'} focus:outline-none focus:border-blue-500`}
+          className="w-full px-3 py-2 mb-3 rounded-sm border text-sm font-mono light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
         />
         {reconstructionResult && (
           <p
@@ -236,10 +221,8 @@ const RecoveryTab = ({
       </div>
 
       {/* NaN Account Repair */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
-        <h3 className={`font-semibold mb-2 text-red-500`}>🔧 Repair Corrupted Accounts</h3>
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
+        <h3 className="font-semibold mb-2 text-red-500">🔧 Repair Corrupted Accounts</h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Scans all accounts for NaN/corrupted values in cash, holdings, shorts, and portfolio data. Fixes them
           automatically.
@@ -254,10 +237,8 @@ const RecoveryTab = ({
       </div>
 
       {/* Restore from Backup */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
-        <h3 className={`font-semibold mb-2 text-orange-500`}>🔄 Restore Price History</h3>
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
+        <h3 className="font-semibold mb-2 text-orange-500">🔄 Restore Price History</h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Restore price history from a backup. Current prices will be kept, only historical data is restored.
         </p>
@@ -271,13 +252,11 @@ const RecoveryTab = ({
         </button>
 
         {backups.length > 0 && (
-          <div
-            className={`max-h-64 overflow-y-auto space-y-2 p-3 rounded-sm ${darkMode ? 'bg-slate-900' : 'bg-slate-50'}`}
-          >
+          <div className="max-h-64 overflow-y-auto space-y-2 p-3 rounded-sm light:bg-slate-50 dark:bg-slate-900">
             {backups.map((backup, i) => (
               <div
                 key={i}
-                className={`p-3 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
+                className="p-3 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700"
               >
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1">
@@ -300,9 +279,7 @@ const RecoveryTab = ({
       </div>
 
       {/* User Data Transfer */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <h3 className={`font-semibold mb-2 ${textClass}`}>👤 Transfer User Data</h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Copy all data from one user account to another. Useful when a user lost access to their email. The new user's
@@ -317,7 +294,7 @@ const RecoveryTab = ({
               placeholder="User ID with old email/data"
               value={oldUserId}
               onChange={(e) => setOldUserId(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+              className="w-full px-3 py-2 border rounded-sm text-sm light:bg-white light:border-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
               disabled={transferring}
             />
           </div>
@@ -329,12 +306,12 @@ const RecoveryTab = ({
               placeholder="User ID of new account"
               value={newUserId}
               onChange={(e) => setNewUserId(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+              className="w-full px-3 py-2 border rounded-sm text-sm light:bg-white light:border-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
               disabled={transferring}
             />
           </div>
 
-          <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+          <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
             <p className={`text-xs ${mutedClass}`}>
               <strong>How to find User IDs:</strong>
               <br />

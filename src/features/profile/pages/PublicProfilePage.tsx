@@ -11,7 +11,7 @@ import { formatCurrency } from '../../../utils/formatters';
 import PinDisplay from '../../../shared/components/PinDisplay';
 import ProfileAdminPanel from '../components/ProfileAdminPanel';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { ADMIN_UIDS } from '../../../constants/economy';
 
 const PublicProfilePage = () => {
@@ -37,7 +37,7 @@ const PublicProfilePage = () => {
     fetch();
   }, [username]);
 
-  const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass } = themeClasses;
 
   if (loading) {
     return (
@@ -112,9 +112,7 @@ const PublicProfilePage = () => {
               <PinDisplay userData={profile} size="sm" />
             </h1>
             {profileTitle && (
-              <p className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
-                {profileTitle.text}
-              </p>
+              <p className="text-sm font-semibold light:text-amber-600 dark:text-amber-400">{profileTitle.text}</p>
             )}
             {crew && (
               <div className="flex items-center gap-1.5 mt-1">
@@ -202,7 +200,7 @@ const PublicProfilePage = () => {
               return (
                 <div
                   key={ticker}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800 dark:border-zinc-700"
                 >
                   <span className="text-orange-500 font-mono text-sm font-bold">${ticker}</span>
                   {char && !char.isETF && <span className={`text-xs ${mutedClass}`}>{char.name}</span>}
@@ -217,7 +215,7 @@ const PublicProfilePage = () => {
                 .map((ticker) => (
                   <span
                     key={ticker}
-                    className={`px-2 py-0.5 text-xs font-mono rounded ${darkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-100 text-zinc-500'}`}
+                    className="px-2 py-0.5 text-xs font-mono rounded light:bg-zinc-100 light:text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
                   >
                     ${ticker}
                   </span>
@@ -235,7 +233,7 @@ const PublicProfilePage = () => {
             {profile.shortTickers.map((ticker) => (
               <div
                 key={ticker}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-red-50 border-red-200'}`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border light:bg-red-50 light:border-red-200 dark:bg-zinc-800 dark:border-zinc-700"
               >
                 <span className="text-red-500 font-mono text-sm font-bold">${ticker}</span>
               </div>
@@ -260,7 +258,7 @@ const PublicProfilePage = () => {
               <div
                 key={a.id}
                 title={a.description}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold ${darkMode ? 'bg-zinc-800 text-zinc-200' : 'bg-amber-100 text-slate-700'}`}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold light:bg-amber-100 light:text-slate-700 dark:bg-zinc-800 dark:text-zinc-200"
               >
                 {a.icon ? (
                   <img src={`/${a.icon}`} alt="" className="w-3.5 h-3.5 object-contain" />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useTheme, useSession } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
 import { REVIEW_SORTS, activeFilterCount } from '../../../utils/marketFilters';
 import MarketFilterPanel from './MarketFilterPanel';
 import type { useMarketBrowser } from '../hooks/useMarketBrowser';
@@ -57,10 +57,8 @@ const MarketControls = ({
   setShowAll,
   reviewChanges,
 }: MarketControlsProps) => {
-  const { darkMode } = useTheme();
   const { user, userData } = useSession();
-  const { cardClass, textClass, mutedClass, inputClass, ghostBtnClass, chipClass, raisedClass } =
-    getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, inputClass, ghostBtnClass, chipClass, raisedClass } = themeClasses;
   const [panelOpen, setPanelOpen] = useState(false);
 
   const hasReviewChanges = Object.keys(reviewChanges).length > 0;
@@ -119,7 +117,6 @@ const MarketControls = ({
           filters={filters}
           setFilter={setFilter}
           userData={userData}
-          darkMode={darkMode}
           chipClass={chipClass}
           mutedClass={mutedClass}
           textClass={textClass}

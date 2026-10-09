@@ -39,7 +39,6 @@ import type { useAdminBets } from '../hooks/useAdminBets';
 import type { PredictionDoc } from '../../../types';
 
 const PredictionsTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -106,10 +105,8 @@ const PredictionsTab = ({
     <div className="space-y-6">
       {/* SECTION 1: Resolve Pending Predictions */}
       {unresolvedPredictions.length > 0 && (
-        <div className={`p-4 rounded-sm border-2 border-amber-500 ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'}`}>
-          <h3 className={`font-semibold text-amber-500 mb-3`}>
-            ⏳ Pending Resolution ({unresolvedPredictions.length})
-          </h3>
+        <div className="p-4 rounded-sm border-2 border-amber-500 light:bg-amber-50 dark:bg-amber-900/20">
+          <h3 className="font-semibold text-amber-500 mb-3">⏳ Pending Resolution ({unresolvedPredictions.length})</h3>
           <div className="space-y-2 mb-3">
             {unresolvedPredictions.map((p) => (
               <button
@@ -121,9 +118,7 @@ const PredictionsTab = ({
                 className={`w-full p-3 text-left rounded-sm border transition-all ${
                   selectedPrediction?.id === p.id
                     ? 'border-teal-500 bg-teal-500/10'
-                    : darkMode
-                      ? 'border-slate-600 hover:border-slate-500'
-                      : 'border-slate-300 hover:border-slate-400'
+                    : 'light:border-slate-300 light:hover:border-slate-400 dark:border-slate-600 dark:hover:border-slate-500'
                 }`}
               >
                 <div className={`font-semibold ${textClass}`}>{p.question}</div>
@@ -151,9 +146,7 @@ const PredictionsTab = ({
                       className={`p-3 rounded-sm border-2 font-semibold transition-all ${
                         isSelected
                           ? 'border-green-500 bg-green-500 text-white'
-                          : darkMode
-                            ? 'border-slate-600 text-slate-300 hover:border-green-500'
-                            : 'border-slate-300 hover:border-green-500'
+                          : 'light:border-slate-300 light:hover:border-green-500 dark:border-slate-600 dark:text-slate-300 dark:hover:border-green-500'
                       }`}
                     >
                       {isSelected ? '✓ ' : ''}
@@ -187,7 +180,6 @@ const PredictionsTab = ({
 
       {/* SECTION 2: Create New Prediction */}
       <PredictionCreateForm
-        darkMode={darkMode}
         textClass={textClass}
         mutedClass={mutedClass}
         inputClass={inputClass}
@@ -217,7 +209,6 @@ const PredictionsTab = ({
       {/* SECTION 3: Extend/Reopen Prediction */}
       {predictions.length > 0 && (
         <PredictionExtendForm
-          darkMode={darkMode}
           textClass={textClass}
           mutedClass={mutedClass}
           inputClass={inputClass}
@@ -235,9 +226,7 @@ const PredictionsTab = ({
       )}
 
       {/* SECTION 4: All Predictions List */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <div className="flex justify-between items-center mb-3">
           <h3 className={`font-semibold ${textClass}`}>📋 All Predictions ({predictions.length})</h3>
           <button
@@ -254,7 +243,7 @@ const PredictionsTab = ({
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {predictions.map((p) => (
-              <div key={p.id} className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+              <div key={p.id} className="p-3 rounded-sm border light:border-slate-200 dark:border-slate-700">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -300,7 +289,6 @@ const PredictionsTab = ({
       </div>
 
       <OverridePayoutPanel
-        darkMode={darkMode}
         mutedClass={mutedClass}
         inputClass={inputClass}
         loading={loading}
@@ -319,9 +307,7 @@ const PredictionsTab = ({
 
       {/* SECTION 5: Bets Summary */}
       {allBets.length > 0 && (
-        <div
-          className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-        >
+        <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
           <h3 className={`font-semibold ${textClass} mb-3`}>🎲 Bets Summary ({allBets.length} total bets)</h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {(() => {
@@ -343,17 +329,14 @@ const PredictionsTab = ({
               });
 
               return Object.entries(byPrediction).map(([predId, data]) => (
-                <div key={predId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-50'}`}>
+                <div key={predId} className="p-3 rounded-sm light:bg-slate-50 dark:bg-slate-700">
                   <div className={`font-semibold ${textClass} text-sm`}>{data.question}</div>
                   <div className={`text-xs ${mutedClass} mt-1`}>
                     {data.betCount} bets • Total: ${data.totalAmount.toFixed(0)}
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {Object.entries(data.byOption).map(([opt, amt]) => (
-                      <span
-                        key={opt}
-                        className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-slate-600' : 'bg-slate-200'}`}
-                      >
+                      <span key={opt} className="text-xs px-2 py-1 rounded light:bg-slate-200 dark:bg-slate-600">
                         {opt}: ${amt.toFixed(0)}
                       </span>
                     ))}

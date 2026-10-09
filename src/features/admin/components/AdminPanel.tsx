@@ -58,26 +58,24 @@ interface AdminPanelProps {
   user: User | null;
   predictions: PredictionDoc[];
   prices: PriceMap;
-  darkMode: boolean;
   marketData: MarketData | null;
   onClose: () => void;
 }
 
 // Orchestrator only: state and handlers live in src/features/admin/hooks/*, one hook per
 // domain, and each tab component receives its hook's return spread as props.
-const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }: AdminPanelProps) => {
+const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPanelProps) => {
   const [activeTab, setActiveTab] = useState('users');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
 
-  const cardClass = darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-300';
-  const textClass = darkMode ? 'text-slate-100' : 'text-slate-900';
-  const mutedClass = darkMode ? 'text-slate-400' : 'text-slate-600';
-  const inputClass = darkMode
-    ? 'bg-slate-900 border-slate-600 text-slate-100'
-    : 'bg-white border-slate-300 text-slate-900';
+  const cardClass = 'light:bg-white light:border-slate-300 dark:bg-slate-800 dark:border-slate-700';
+  const textClass = 'light:text-slate-900 dark:text-slate-100';
+  const mutedClass = 'light:text-slate-600 dark:text-slate-400';
+  const inputClass =
+    'light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-900 dark:border-slate-600 dark:text-slate-100';
 
   const showMessage = (type: string, text: string) => {
     setMessage({ type, text });
@@ -85,7 +83,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
   };
 
   // Shared theme/status props consumed by every tab
-  const common = { darkMode, textClass, mutedClass, inputClass, loading };
+  const common = { textClass, mutedClass, inputClass, loading };
 
   // Domain hooks. Order matters only where one hook consumes another's state.
   const userList = useAdminUserList({ showMessage, setLoading, prices });
@@ -179,7 +177,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className="p-4 border-b light:border-slate-200 dark:border-slate-700">
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🔧 Admin Panel</h2>
             <div className="flex gap-2">
@@ -197,7 +195,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
         </div>
 
         {/* Tabs — uniform pills, wrap as needed */}
-        <div className={`px-3 py-2.5 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className="px-3 py-2.5 border-b light:border-slate-200 dark:border-slate-700">
           <div className="flex flex-wrap gap-1.5">
             {[
               { id: 'users', icon: '👥', label: 'Users' },
@@ -271,7 +269,7 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
                 className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
                   activeTab === tab.id
                     ? 'bg-teal-600 text-white'
-                    : `${mutedClass} ${darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-slate-100 hover:bg-slate-200'}`
+                    : `${mutedClass} light:bg-slate-100 light:hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700`
                 }`}
               >
                 {tab.icon} {tab.label}
@@ -394,7 +392,6 @@ const AdminPanel = ({ user, predictions, prices, darkMode, marketData, onClose }
           the centred overlay and let their clicks reach the close handler. */}
       {marketTools.showPriceModal && (
         <PriceAdjustModal
-          darkMode={darkMode}
           cardClass={cardClass}
           textClass={textClass}
           mutedClass={mutedClass}

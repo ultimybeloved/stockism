@@ -1,5 +1,5 @@
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { useMarket } from '../../../context/AppContext';
 import { lmsrPrices } from '../../../utils/calculations';
 import { EVENT_AMM_LIQUIDITY } from '../../../constants/economy';
@@ -15,13 +15,11 @@ export type BetHistoryEntry = UserBet & {
 const PredictionHistory = ({
   userBetHistory = [],
   userData,
-  darkMode,
 }: {
   userBetHistory?: BetHistoryEntry[];
   userData: UserData | null;
-  darkMode: boolean;
 }) => {
-  const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass } = themeClasses;
   const { predictions } = useMarket();
 
   // Calculate potential payout for active bets
@@ -139,19 +137,11 @@ const PredictionHistory = ({
               const paidOut = bet.paid === true;
               const colorBlindMode = userData?.colorBlindMode || false;
               const winBorderBg = colorBlindMode
-                ? darkMode
-                  ? 'border-teal-700 bg-teal-900/20'
-                  : 'border-teal-300 bg-teal-50'
-                : darkMode
-                  ? 'border-green-700 bg-green-900/20'
-                  : 'border-green-300 bg-green-50';
+                ? 'light:border-teal-300 light:bg-teal-50 dark:border-teal-700 dark:bg-teal-900/20'
+                : 'light:border-green-300 light:bg-green-50 dark:border-green-700 dark:bg-green-900/20';
               const loseBorderBg = colorBlindMode
-                ? darkMode
-                  ? 'border-purple-700/50 bg-purple-900/10'
-                  : 'border-purple-200 bg-purple-50'
-                : darkMode
-                  ? 'border-red-700/50 bg-red-900/10'
-                  : 'border-red-200 bg-red-50';
+                ? 'light:border-purple-200 light:bg-purple-50 dark:border-purple-700/50 dark:bg-purple-900/10'
+                : 'light:border-red-200 light:bg-red-50 dark:border-red-700/50 dark:bg-red-900/10';
               const winText = colorBlindMode ? 'text-teal-500' : 'text-green-500';
               const loseText = colorBlindMode ? 'text-purple-400' : 'text-red-400';
 

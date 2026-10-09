@@ -9,14 +9,13 @@ import {
   signOut,
 } from 'firebase/auth';
 import { auth, googleProvider, twitterProvider } from '../../../firebase';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 
 interface LoginModalProps {
   onClose: () => void;
-  darkMode: boolean;
 }
 
-const LoginModal = ({ onClose, darkMode }: LoginModalProps) => {
+const LoginModal = ({ onClose }: LoginModalProps) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -150,7 +149,7 @@ const LoginModal = ({ onClose, darkMode }: LoginModalProps) => {
     setLoading(false);
   };
 
-  const { textClass, mutedClass, inputClass, overlayClass, modalShellClass, ghostBtnClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, inputClass, overlayClass, modalShellClass, ghostBtnClass } = themeClasses;
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>

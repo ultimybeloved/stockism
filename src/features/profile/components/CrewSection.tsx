@@ -1,21 +1,22 @@
 import { useState } from 'react';
 import { CREW_SWITCH_PENALTY } from '../../../crews';
-import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { Crew } from '../../../crews';
 import type { UserData } from '../../../types';
+import { useTheme } from '../../../context/AppContext';
 
 interface CrewSectionProps {
   userCrew: string | null | undefined;
   crewData: Crew | null | undefined;
   userData: UserData | null;
-  darkMode: boolean;
   onOpenCrewSelection: () => void;
 }
 
 // Collapsible crew card, or a "Join a Crew" button when the user has no crew.
-const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelection }: CrewSectionProps) => {
+const CrewSection = ({ userCrew, crewData, userData, onOpenCrewSelection }: CrewSectionProps) => {
+  const { darkMode } = useTheme();
   const [showCrewSection, setShowCrewSection] = useState(false);
-  const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass } = themeClasses;
 
   if (!userCrew) {
     return (
@@ -34,7 +35,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
     <div className={`rounded-sm border ${borderClass} overflow-hidden`} style={{ borderColor: crewData.color }}>
       <button
         onClick={() => setShowCrewSection(!showCrewSection)}
-        className={`w-full p-3 flex items-center justify-between ${darkMode ? 'bg-zinc-800/50 hover:bg-zinc-800' : 'bg-amber-50 hover:bg-amber-100'}`}
+        className="w-full p-3 flex items-center justify-between light:bg-amber-50 light:hover:bg-amber-100 dark:bg-zinc-800/50 dark:hover:bg-zinc-800"
       >
         <div className="flex items-center gap-2">
           {crewData.icon ? (
@@ -60,7 +61,7 @@ const CrewSection = ({ userCrew, crewData, userData, darkMode, onOpenCrewSelecti
           </div>
           <button
             onClick={onOpenCrewSelection}
-            className={`w-full py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+            className="w-full py-2 text-sm font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
           >
             Switch Crew ({Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)
           </button>

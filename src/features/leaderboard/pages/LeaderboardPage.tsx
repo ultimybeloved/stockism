@@ -13,7 +13,7 @@ import { useAdminNetWorth } from '../../admin/hooks/useAdminNetWorth';
 import { formatCurrency } from '../../../utils/formatters';
 import LeaderboardPodium from '../components/LeaderboardPodium';
 import LeaderboardRow from '../components/LeaderboardRow';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 
 type BoardMode = 'value' | 'gain' | 'season';
 
@@ -41,7 +41,7 @@ const LeaderboardPage = () => {
   } = useAdminNetWorth(rawLeaders, user);
   const { scrollContainerRef, userRowRef, userRowPosition } = useUserRowPosition([filteredLeaders, user]);
 
-  const { cardClass, textClass, mutedClass, divideClass, chipClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, divideClass, chipClass, cardEdgeClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
@@ -85,13 +85,7 @@ const LeaderboardPage = () => {
           {/* Crew Filter */}
           <CrewFilter crewFilter={crewFilter} setCrewFilter={setCrewFilter} chipClass={chipClass} />
 
-          <AdminNetToggle
-            isAdmin={isAdmin}
-            netMode={netMode}
-            setNetMode={setNetMode}
-            loading={loadingMargins}
-            darkMode={darkMode}
-          />
+          <AdminNetToggle isAdmin={isAdmin} netMode={netMode} setNetMode={setNetMode} loading={loadingMargins} />
 
           {/* Sort Toggle */}
           <div className="flex gap-2 mt-3">
@@ -100,9 +94,7 @@ const LeaderboardPage = () => {
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 sortMode === 'value'
                   ? 'bg-orange-600 text-white'
-                  : darkMode
-                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+                  : 'light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
               }`}
             >
               Net Worth
@@ -112,9 +104,7 @@ const LeaderboardPage = () => {
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                 sortMode === 'gain'
                   ? `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
-                  : darkMode
-                    ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                    : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+                  : 'light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
               }`}
             >
               Top Gainers
@@ -125,9 +115,7 @@ const LeaderboardPage = () => {
                 className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                   sortMode === 'season'
                     ? 'bg-amber-500 text-white'
-                    : darkMode
-                      ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
-                      : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+                    : 'light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
                 }`}
               >
                 🏅 Season
@@ -142,9 +130,7 @@ const LeaderboardPage = () => {
                     className={`px-3 py-1.5 text-xs font-bold rounded-sm transition-colors ${
                       gainUnit === unit
                         ? `${colorBlindMode ? 'bg-teal-600' : 'bg-emerald-600'} text-white`
-                        : darkMode
-                          ? 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                          : 'bg-slate-200 text-slate-500 hover:text-slate-700'
+                        : 'light:bg-slate-200 light:text-slate-500 light:hover:text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                     }`}
                   >
                     {unit}

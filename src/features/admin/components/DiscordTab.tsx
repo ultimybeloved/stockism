@@ -4,6 +4,7 @@ import ImportMessageForm from './discord/ImportMessageForm';
 import AnnounceCard from './AnnounceCard';
 import type { AdminCommonProps } from './types';
 import type { useAdminDiscordMessages } from '../hooks/useAdminDiscordMessages';
+import { useTheme } from '../../../context/AppContext';
 
 type DiscordTabProps = Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminDiscordMessages>;
 
@@ -13,7 +14,6 @@ type DiscordTabProps = Omit<AdminCommonProps, 'loading'> & ReturnType<typeof use
 // sent here is recorded with its channel and message id. Fixing a typo later is
 // an edit, not a repost, which keeps the pin and any links to it alive.
 export default function DiscordTab({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -35,6 +35,7 @@ export default function DiscordTab({
   deleteDiscordMessage,
   importDiscordMessage,
 }: DiscordTabProps) {
+  const { darkMode } = useTheme();
   const common = { darkMode, textClass, mutedClass, inputClass };
 
   return (
@@ -49,7 +50,7 @@ export default function DiscordTab({
         <button
           onClick={loadDiscordMessages}
           disabled={discordBusy}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} ${textClass} disabled:opacity-50`}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 dark:bg-slate-700 ${textClass} disabled:opacity-50`}
         >
           {discordBusy ? 'Loading…' : 'Refresh'}
         </button>
@@ -90,7 +91,7 @@ export default function DiscordTab({
 
       {/* In-app bell announcements live next to Discord ones because they are the
           same job from the admin's side: tell everybody something. */}
-      <AnnounceCard darkMode={darkMode} />
+      <AnnounceCard />
     </div>
   );
 }

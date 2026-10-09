@@ -16,7 +16,6 @@ import type { renameTickerFunction as RenameTickerFn } from '../../../../api/cal
 // time budget, and the HTTP connection often dies before it finishes — the
 // journal keeps updating either way.
 const RecoveryRenameTicker = ({
-  darkMode,
   textClass,
   mutedClass,
   renameOldTicker,
@@ -27,7 +26,7 @@ const RecoveryRenameTicker = ({
   setRenameResult,
   showMessage,
   renameTickerFunction,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> &
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> &
   Pick<
     ReturnType<typeof useAdminRecoveryTools>,
     | 'renameOldTicker'
@@ -56,9 +55,7 @@ const RecoveryRenameTicker = ({
   );
 
   const incomplete = journal && journal.status !== 'complete';
-  const inputClass = `w-full px-3 py-2 border rounded-sm text-sm font-mono ${
-    darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
-  }`;
+  const inputClass = `w-full px-3 py-2 border rounded-sm text-sm font-mono light:bg-white light:border-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100`;
 
   const call = async (mode: RenameTickerRequest['mode'], onOk?: (data: RenameTickerResponse) => void) => {
     setRenaming(true);
@@ -143,9 +140,7 @@ const RecoveryRenameTicker = ({
     }`;
 
   return (
-    <div
-      className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-    >
+    <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
       <h3 className={`font-semibold mb-2 ${textClass}`}>🔄 Rename Ticker</h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         Rewrites the ticker everywhere the game computes on it: prices, history, holdings, loyalty lots, open orders,
@@ -153,9 +148,7 @@ const RecoveryRenameTicker = ({
         run first.
       </p>
 
-      <div
-        className={`p-2.5 rounded-sm mb-3 text-xs ${darkMode ? 'bg-amber-900/30 border border-amber-700 text-amber-200' : 'bg-amber-50 border border-amber-300 text-amber-900'}`}
-      >
+      <div className="p-2.5 rounded-sm mb-3 text-xs light:bg-amber-50 light:border light:border-amber-300 light:text-amber-900 dark:bg-amber-900/30 dark:border dark:border-amber-700 dark:text-amber-200">
         <strong>Do this first.</strong> Edit src/characters.ts and src/crews.ts, run <code>npm run check:data</code>,{' '}
         <code>npm run sync:chars</code>, then deploy functions. Preflight refuses until the new name is live in the
         deployed roster. Renaming before deploying can re-seed the old ticker as a duplicate stock.
@@ -224,26 +217,19 @@ const RecoveryRenameTicker = ({
         )}
       </div>
 
-      <PhaseProgress journal={journal} textClass={textClass} mutedClass={mutedClass} darkMode={darkMode} />
+      <PhaseProgress journal={journal} textClass={textClass} mutedClass={mutedClass} />
 
       {renameResult?.dryRun && (
         <>
-          <PreflightTable
-            checks={renameResult.checks}
-            textClass={textClass}
-            mutedClass={mutedClass}
-            darkMode={darkMode}
-          />
+          <PreflightTable checks={renameResult.checks} textClass={textClass} mutedClass={mutedClass} />
           {!renameResult.blocked && (
-            <DryRunBreakdown result={renameResult} textClass={textClass} mutedClass={mutedClass} darkMode={darkMode} />
+            <DryRunBreakdown result={renameResult} textClass={textClass} mutedClass={mutedClass} />
           )}
         </>
       )}
 
       {renameResult?.success && (
-        <div
-          className={`p-3 rounded-sm ${darkMode ? 'bg-green-900/30 border border-green-700' : 'bg-green-50 border border-green-300'}`}
-        >
+        <div className="p-3 rounded-sm light:bg-green-50 light:border light:border-green-300 dark:bg-green-900/30 dark:border dark:border-green-700">
           <p className="text-sm font-semibold text-green-400 mb-1">✅ Rename complete and verified</p>
           <p className={`text-xs ${textClass}`}>
             ${renameResult.oldTicker} → ${renameResult.newTicker}.{' '}

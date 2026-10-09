@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { COSMETICS, COSMETIC_MAP, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../../../constants/cosmetics';
 import { PIN_SLOT_COSTS, getActiveShopPins } from '../../../../crews';
 import { formatCurrency } from '../../../../utils/formatters';
-import { getThemeClasses } from '../../../../utils/theme';
-import { useTheme, useSession } from '../../../../context/AppContext';
+import { themeClasses } from '../../../../utils/theme';
+import { useSession } from '../../../../context/AppContext';
+
 import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { PendingPurchase } from '../PinShopModal';
 
@@ -29,9 +30,8 @@ const toPulse = (id: string) => (id.startsWith(PULSE_PREFIX) ? id : id.replace('
 const toStandard = (id: string) => id.replace(PULSE_PREFIX, 'glow_');
 
 const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabProps) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass } = themeClasses;
   const ownedCosmetics = userData?.ownedCosmetics || [];
   const activeCosmetics = userData?.activeCosmetics || {};
   const ownedPins = userData?.ownedShopPins || [];
@@ -62,9 +62,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
     `shrink-0 px-3 py-1.5 text-xs font-semibold rounded-sm ${
       enabled
         ? 'bg-orange-600 hover:bg-orange-700 text-white'
-        : darkMode
-          ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+        : 'light:bg-slate-100 light:text-slate-400 light:cursor-not-allowed dark:bg-zinc-800 dark:text-zinc-500 dark:cursor-not-allowed'
     }`;
 
   const renderDetailPanel = (cosmetic: Cosmetic) => {
@@ -88,9 +86,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
             className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-sm ${
               equipped
                 ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                : darkMode
-                  ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
-                  : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                : 'light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200'
             }`}
           >
             {equipped ? 'Equipped ✓' : 'Equip'}
@@ -139,9 +135,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
                       className={`px-3 py-1 text-xs font-semibold rounded-sm ${
                         glowVariant === variant
                           ? 'bg-orange-600 text-white'
-                          : darkMode
-                            ? 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                            : 'bg-slate-100 text-slate-500 hover:text-slate-700'
+                          : 'light:bg-slate-100 light:text-slate-500 light:hover:text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
                       }`}
                     >
                       {label}
@@ -222,7 +216,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
                     ) : (
                       <>
                         {pin.requiredCheckinStreak && !streakMet && (
-                          <div className={`text-xs text-center mb-1 ${darkMode ? 'text-red-400' : 'text-red-500'}`}>
+                          <div className="text-xs text-center mb-1 light:text-red-500 dark:text-red-400">
                             Requires {pin.requiredCheckinStreak}-day streak
                           </div>
                         )}

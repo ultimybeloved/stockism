@@ -9,10 +9,9 @@ interface AdminNetToggleProps {
   netMode: boolean;
   setNetMode: (on: boolean) => void;
   loading: boolean;
-  darkMode: boolean;
 }
 
-const AdminNetToggle = ({ isAdmin, netMode, setNetMode, loading, darkMode }: AdminNetToggleProps) => {
+const AdminNetToggle = ({ isAdmin, netMode, setNetMode, loading }: AdminNetToggleProps) => {
   if (!isAdmin) return null;
 
   return (
@@ -21,9 +20,7 @@ const AdminNetToggle = ({ isAdmin, netMode, setNetMode, loading, darkMode }: Adm
       className={`mt-2 w-full py-1.5 text-xs font-semibold rounded-sm transition-colors ${
         netMode
           ? 'bg-red-600 text-white'
-          : darkMode
-            ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-            : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
+          : 'light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
       }`}
       title="Admin only. Ranks on net worth instead of the public gross figure."
     >

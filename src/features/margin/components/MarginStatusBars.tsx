@@ -1,7 +1,8 @@
 import { MARGIN_WARNING_THRESHOLD, MARGIN_DANGER_THRESHOLD, MARGIN_CALL_THRESHOLD } from '../../../constants';
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+
 import type { MarginStatus } from '../../../utils/calculations';
 
 /**
@@ -16,12 +17,11 @@ const MarginStatusBars = ({
   marginStatus: MarginStatus;
   statusColorClass: string;
 }) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { mutedClass } = getThemeClasses(darkMode);
+  const { mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
 
-  const trackClass = `h-3 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-zinc-200'} overflow-hidden`;
+  const trackClass = `h-3 rounded-full light:bg-zinc-200 dark:bg-zinc-700 overflow-hidden`;
 
   const ratio = marginStatus.equityRatio;
   const fillPct = Math.min(100, Math.max(0, ratio * 100));
@@ -99,7 +99,7 @@ const MarginStatusBars = ({
           {ticks.slice(1, -1).map((t) => (
             <div
               key={t.at}
-              className={`absolute top-0 h-full w-px ${darkMode ? 'bg-zinc-900/70' : 'bg-white/80'}`}
+              className="absolute top-0 h-full w-px light:bg-white/80 dark:bg-zinc-900/70"
               style={{ left: `${t.at}%` }}
             />
           ))}

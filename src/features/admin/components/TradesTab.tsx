@@ -2,7 +2,6 @@ import type { AdminCommonProps } from './types';
 import type { useAdminTrades } from '../hooks/useAdminTrades';
 
 const TradesTab = ({
-  darkMode,
   textClass,
   mutedClass,
   tradeTimePeriod,
@@ -16,19 +15,17 @@ const TradesTab = ({
   tradesLoading,
   recentTrades,
   loadRecentTrades,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & ReturnType<typeof useAdminTrades>) => {
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & ReturnType<typeof useAdminTrades>) => {
   return (
     <div className="space-y-4">
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-yellow-900/20' : 'bg-yellow-50'}`}>
+      <div className="p-3 rounded-sm light:bg-yellow-50 dark:bg-yellow-900/20">
         <p className={`text-sm ${mutedClass}`}>
           💹 View trade history across all users. Filter by time period, trade type, or ticker.
         </p>
       </div>
 
       {/* Filters */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <div className="flex flex-wrap gap-3 items-end">
           {/* Time Period */}
           <div>
@@ -36,7 +33,7 @@ const TradesTab = ({
             <select
               value={tradeTimePeriod}
               onChange={(e) => setTradeTimePeriod(e.target.value)}
-              className={`px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
+              className="px-3 py-2 rounded-sm border text-sm light:bg-white light:border-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
             >
               <option value="24h">Last 24 Hours</option>
               <option value="week">Last 7 Days</option>
@@ -51,7 +48,7 @@ const TradesTab = ({
             <select
               value={tradeTypeFilter}
               onChange={(e) => setTradeTypeFilter(e.target.value)}
-              className={`px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
+              className="px-3 py-2 rounded-sm border text-sm light:bg-white light:border-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
             >
               <option value="all">All Types</option>
               <option value="BUY">Buy</option>
@@ -69,7 +66,7 @@ const TradesTab = ({
               value={tradeFilterTicker}
               onChange={(e) => setTradeFilterTicker(e.target.value.toUpperCase())}
               placeholder="e.g. LUFFY"
-              className={`w-24 px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
+              className="w-24 px-3 py-2 rounded-sm border text-sm light:bg-white light:border-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
             />
           </div>
 
@@ -79,7 +76,7 @@ const TradesTab = ({
             <select
               value={tradeBotFilter}
               onChange={(e) => setTradeBotFilter(e.target.value)}
-              className={`px-3 py-2 rounded-sm border text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300'}`}
+              className="px-3 py-2 rounded-sm border text-sm light:bg-white light:border-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
             >
               <option value="real">Real Users Only</option>
               <option value="bots">Bots Only</option>
@@ -100,9 +97,7 @@ const TradesTab = ({
 
       {/* Trade Stats Summary */}
       {recentTrades.length > 0 && (
-        <div
-          className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-        >
+        <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
           <div className="grid grid-cols-5 gap-4 text-center">
             <div>
               <p className="text-xl font-bold text-yellow-500">{recentTrades.length}</p>
@@ -133,9 +128,7 @@ const TradesTab = ({
       )}
 
       {/* Trades Feed */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <h3 className={`font-semibold mb-3 ${textClass}`}>Trade Feed</h3>
 
         {tradesLoading ? (
@@ -147,7 +140,7 @@ const TradesTab = ({
             {recentTrades.map((trade, i) => (
               <div
                 key={`${trade.userId}-${trade.timestamp}-${i}`}
-                className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'} flex justify-between items-center`}
+                className="p-3 rounded-sm light:bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center"
               >
                 <div className="flex items-center gap-3">
                   {/* Trade Type Badge */}

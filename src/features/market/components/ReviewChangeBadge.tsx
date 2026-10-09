@@ -1,5 +1,6 @@
-import { useTheme, useSession } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, emphasisMarks } from '../../../utils/formatters';
 import type { ReviewChange } from '../../../utils/marketHours';
 
@@ -22,9 +23,8 @@ import type { ReviewChange } from '../../../utils/marketHours';
 // percentages keep the normal up/down colours (teal/purple in colour-blind
 // mode), and the frame never competes with them.
 const ReviewChangeBadge = ({ change, currentPrice }: { change: ReviewChange; currentPrice: number }) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { mutedClass } = getThemeClasses(darkMode);
+  const { mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
 
   if (!change || typeof change.percentChange !== 'number') return null;
@@ -57,11 +57,7 @@ const ReviewChangeBadge = ({ change, currentPrice }: { change: ReviewChange; cur
     setPrice > 0 && typeof currentPrice === 'number' ? ((currentPrice - setPrice) / setPrice) * 100 : null;
 
   return (
-    <div
-      className={`mb-2 rounded-sm border-l-4 border border-amber-500/40 border-l-amber-500 px-2 py-1.5 ${
-        darkMode ? 'bg-amber-500/10' : 'bg-amber-50'
-      }`}
-    >
+    <div className="mb-2 rounded-sm border-l-4 border border-amber-500/40 border-l-amber-500 px-2 py-1.5 light:bg-amber-50 dark:bg-amber-500/10">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">📖 Chapter Review</span>
         <span className={`font-extrabold text-base leading-none ${toneFor(reviewPct)}`}>

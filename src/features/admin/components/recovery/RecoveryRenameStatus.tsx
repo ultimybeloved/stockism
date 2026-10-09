@@ -7,7 +7,7 @@
 import type { PreflightCheck, RenameJournal, RenameTickerResponse } from '../../../../api/types';
 import type { AdminCommonProps } from '../types';
 
-type PanelTheme = Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'darkMode'>;
+type PanelTheme = Pick<AdminCommonProps, 'textClass' | 'mutedClass'>;
 
 const PHASE_LABELS: Record<string, string> = {
   marketCurrent: 'Market document',
@@ -40,18 +40,17 @@ export const PreflightTable = ({
   checks,
   textClass,
   mutedClass,
-  darkMode,
 }: PanelTheme & { checks: PreflightCheck[] | null | undefined }) => {
   if (!checks?.length) return null;
   return (
     <div className="mb-3">
       <p className={`text-xs font-semibold uppercase mb-1.5 ${mutedClass}`}>Preflight</p>
-      <div className={`rounded-sm border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+      <div className="rounded-sm border light:border-slate-200 dark:border-slate-700">
         {checks.map((c, i) => (
           <div
             key={c.id}
             className={`flex gap-2 px-2.5 py-1.5 text-xs ${
-              i > 0 ? (darkMode ? 'border-t border-slate-700' : 'border-t border-slate-200') : ''
+              i > 0 ? 'light:border-t light:border-slate-200 dark:border-t dark:border-slate-700' : ''
             }`}
           >
             <span className="shrink-0">{c.pass ? '✅' : '❌'}</span>
@@ -70,14 +69,11 @@ export const DryRunBreakdown = ({
   result,
   textClass,
   mutedClass,
-  darkMode,
 }: PanelTheme & { result: RenameTickerResponse | null }) => {
   if (!result?.breakdown) return null;
   const total = Object.values(result.breakdown).reduce((s, n) => s + (n || 0), 0);
   return (
-    <div
-      className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-300'}`}
-    >
+    <div className="p-3 rounded-sm light:bg-blue-50 light:border light:border-blue-300 dark:bg-blue-900/30 dark:border dark:border-blue-700">
       <p className="text-sm font-semibold mb-2 text-blue-400">🔍 Dry run preview</p>
       <p className={`text-xs mb-2 ${textClass}`}>
         <strong>${result.oldTicker}</strong> → <strong>${result.newTicker}</strong>
@@ -104,20 +100,13 @@ export const DryRunBreakdown = ({
   );
 };
 
-export const PhaseProgress = ({
-  journal,
-  textClass,
-  mutedClass,
-  darkMode,
-}: PanelTheme & { journal: RenameJournal | null }) => {
+export const PhaseProgress = ({ journal, textClass, mutedClass }: PanelTheme & { journal: RenameJournal | null }) => {
   if (!journal?.phases) return null;
   const entries = Object.entries(journal.phases);
   const complete = entries.filter(([, p]) => p.status === 'complete').length;
 
   return (
-    <div
-      className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-slate-50 border border-slate-200'}`}
-    >
+    <div className="p-3 rounded-sm mb-3 light:bg-slate-50 light:border light:border-slate-200 dark:bg-slate-900 dark:border dark:border-slate-700">
       <div className="flex justify-between items-baseline mb-2">
         <p className={`text-sm font-semibold ${textClass}`}>
           ${journal.old} → ${journal.new}

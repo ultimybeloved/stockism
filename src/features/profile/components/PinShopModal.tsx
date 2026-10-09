@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import RowPreview from './pinshop/RowPreview';
 import MyLookTab from './pinshop/MyLookTab';
@@ -36,14 +37,13 @@ const PinShopModal = ({
   portfolioValue,
 }: PinShopModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const [activeTab, setActiveTab] = useState('look');
   const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [tryOn, setTryOn] = useState<Cosmetic | null>(null); // shop cosmetic being previewed on the row
 
-  const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
   const cash = userData?.cash || 0;
 
   const handleConfirmPurchase = async () => {
@@ -122,7 +122,7 @@ const PinShopModal = ({
 
         {/* Purchase Confirmation Dialog */}
         {confirmPurchase && (
-          <div className={`absolute inset-0 bg-black/50 flex items-center justify-center`}>
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <div className={`${cardClass} border rounded-sm p-6 m-4 max-w-sm`}>
               <h3 className={`text-lg font-semibold ${textClass} mb-3`}>Confirm Purchase</h3>
               <p className={`${mutedClass} mb-4`}>
@@ -157,7 +157,7 @@ const PinShopModal = ({
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmPurchase(null)}
-                  className={`flex-1 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200 text-zinc-600'}`}
+                  className="flex-1 py-2 rounded-sm border light:border-amber-200 light:text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
                 >
                   Cancel
                 </button>

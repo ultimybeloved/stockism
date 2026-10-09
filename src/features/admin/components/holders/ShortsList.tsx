@@ -4,11 +4,11 @@
 import type { AdminCommonProps } from '../types';
 import type { ShortHolderRow } from '../../hooks/useAdminHolders';
 
-type ShortsListProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+type ShortsListProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   shortsData: ShortHolderRow[];
 };
 
-const ShortsList = ({ darkMode, textClass, mutedClass, shortsData }: ShortsListProps) => {
+const ShortsList = ({ textClass, mutedClass, shortsData }: ShortsListProps) => {
   if (shortsData.length === 0) return null;
 
   return (
@@ -18,7 +18,7 @@ const ShortsList = ({ darkMode, textClass, mutedClass, shortsData }: ShortsListP
         {shortsData.map((s, idx) => (
           <div
             key={s.userId}
-            className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white hover:bg-slate-50'} ${
+            className={`p-2 rounded-sm light:bg-white light:hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 ${
               s.isCritical ? 'border-2 border-red-500' : s.isAtRisk ? 'border border-amber-500' : ''
             }`}
           >

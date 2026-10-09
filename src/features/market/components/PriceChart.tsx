@@ -271,9 +271,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
           className={`absolute top-1 right-1 px-2 py-1 text-[10px] font-semibold rounded-sm border transition-colors ${
             showReviewSteps
               ? 'bg-amber-500 text-white border-amber-500'
-              : darkMode
-                ? 'bg-zinc-800/80 text-zinc-300 border-zinc-700 hover:text-white'
-                : 'bg-white/80 text-slate-600 border-slate-300 hover:text-slate-900'
+              : 'light:bg-white/80 light:text-slate-600 light:border-slate-300 light:hover:text-slate-900 dark:bg-zinc-800/80 dark:text-zinc-300 dark:border-zinc-700 dark:hover:text-white'
           }`}
           title="Admin only. Shows every price step the chapter review made, instead of the single tidied point players see."
         >
@@ -284,9 +282,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       {/* Tooltip */}
       {hoveredPoint && (
         <div
-          className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-sm z-10 ${
-            darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-white text-slate-900 border'
-          }`}
+          className="absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-sm z-10 light:bg-white light:text-slate-900 light:border dark:bg-zinc-800 dark:text-zinc-100"
           style={{
             left: `${(hoveredPoint.x / SVG_W) * 100}%`,
             top: `${(hoveredPoint.y / SVG_H) * 100}%`,

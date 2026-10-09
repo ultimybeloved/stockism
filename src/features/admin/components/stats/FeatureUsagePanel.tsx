@@ -34,11 +34,7 @@ const LABELS: Record<string, string> = {
   portfolio: 'Dust sweep',
 };
 
-const FeatureUsagePanel = ({
-  darkMode,
-  textClass,
-  mutedClass,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'>) => {
+const FeatureUsagePanel = ({ textClass, mutedClass }: Pick<AdminCommonProps, 'textClass' | 'mutedClass'>) => {
   const [report, setReport] = useState<FeatureUsageReport | null>(null);
   const [state, setState] = useState('loading');
 
@@ -62,7 +58,7 @@ const FeatureUsagePanel = ({
   const total = report?.totalUsers || 0;
 
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+    <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
       <h3 className={`font-semibold ${textClass} mb-1`}>📊 Feature Usage (last 7 days)</h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         {state === 'ready'
@@ -85,7 +81,7 @@ const FeatureUsagePanel = ({
             return (
               <div key={key} className="flex items-center gap-2">
                 <span className={`text-xs w-36 shrink-0 ${textClass}`}>{LABELS[key] || key}</span>
-                <div className={`flex-1 h-3 rounded-sm overflow-hidden ${darkMode ? 'bg-slate-800' : 'bg-slate-300'}`}>
+                <div className="flex-1 h-3 rounded-sm overflow-hidden light:bg-slate-300 dark:bg-slate-800">
                   <div
                     className={count === 0 ? 'h-full bg-red-500' : 'h-full bg-teal-500'}
                     style={{ width: `${Math.max(pct, count > 0 ? 2 : 0)}%` }}

@@ -10,7 +10,6 @@ import type { SetMessage } from '../utils/adminShared';
 import type { useAdminIpo } from '../hooks/useAdminIpo';
 
 const IpoTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -40,7 +39,7 @@ const IpoTab = ({
   const startValid = !!startDate && !isNaN(startDate.getTime());
   const startMs = startValid ? startDate.getTime() : 0;
   const startsImmediately = startValid && startMs <= Date.now();
-  const presetBtnClass = `text-xs px-2 py-1 rounded-sm ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`;
+  const presetBtnClass = `text-xs px-2 py-1 rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200`;
 
   const handleInitPrices = async () => {
     setInitingPrices(true);
@@ -61,7 +60,7 @@ const IpoTab = ({
 
   return (
     <div className="space-y-4">
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-orange-50'}`}>
+      <div className="p-3 rounded-sm light:bg-orange-50 dark:bg-slate-700/50">
         <p className={`text-sm ${mutedClass}`}>
           🚀 <strong>IPO System:</strong> Create limited-time offerings for new characters.
           <br />• Hype Phase: from creation until your chosen start time. Announcement only, no buying
@@ -71,7 +70,7 @@ const IpoTab = ({
       </div>
 
       {/* Initialize prices for newly added characters */}
-      <div className={`p-3 rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+      <div className="p-3 rounded-sm border light:border-slate-200 dark:border-slate-600">
         <div className="flex items-center justify-between">
           <div>
             <h4 className={`text-sm font-semibold ${textClass}`}>New Character Prices</h4>
@@ -90,7 +89,7 @@ const IpoTab = ({
       </div>
 
       {/* Create IPO Form */}
-      <div className={`p-4 rounded-sm border ${darkMode ? 'border-slate-600' : 'border-slate-200'}`}>
+      <div className="p-4 rounded-sm border light:border-slate-200 dark:border-slate-600">
         <h3 className={`font-semibold ${textClass} mb-3`}>Create New IPO</h3>
 
         <div className="space-y-3">
@@ -183,7 +182,7 @@ const IpoTab = ({
           </div>
 
           {ipoTicker && (
-            <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+            <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-800">
               <p className={`text-sm ${textClass}`}>
                 <strong>${ipoTicker}</strong> IPO will:
               </p>
@@ -290,7 +289,7 @@ const IpoTab = ({
               .filter((i) => i.priceJumped)
               .slice(-5)
               .map((ipo) => (
-                <div key={ipo.ticker} className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+                <div key={ipo.ticker} className="p-2 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
                   <span className={`text-sm ${textClass}`}>${ipo.ticker}</span>
                   <span className={`text-xs ${mutedClass} ml-2`}>
                     Sold {(ipo.totalShares || 150) - (ipo.sharesRemaining || 0)} shares

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
-import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
 import TradeActionModal from '../../trading/components/TradeActionModal';
 import { getMarketClosedState } from '../../../utils/marketHours';
@@ -60,7 +60,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
     memberOfETFs,
   } = useStockPageData(ticker, timeRange);
 
-  const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, bgClass } = themeClasses;
 
   const aliasTarget = useTickerAliasRedirect(ticker, !!character, marketData);
 
@@ -71,7 +71,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
   const cd = (pct: number) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
 
   const stat = (label: string, value: ReactNode, cls = textClass) => (
-    <div className={`p-3 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900' : 'border-amber-200 bg-white'}`}>
+    <div className="p-3 rounded-sm border light:border-amber-200 light:bg-white dark:border-zinc-800 dark:bg-zinc-900">
       <div className={`text-xs ${mutedClass} uppercase mb-1`}>{label}</div>
       <div className={`font-semibold text-sm ${cls}`}>{value}</div>
     </div>
@@ -213,15 +213,13 @@ const StockPage = ({ onTrade }: StockPageProps) => {
 
         {/* Chart */}
         <div className={`${cardClass} border rounded-sm mb-4 overflow-hidden`}>
-          <div
-            className={`px-4 py-2 border-b flex flex-wrap gap-2 justify-between items-center ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}
-          >
+          <div className="px-4 py-2 border-b flex flex-wrap gap-2 justify-between items-center light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50">
             <div className="flex gap-1 flex-wrap">
               {TIME_RANGES.map((r) => (
                 <button
                   key={r.key}
                   onClick={() => setTimeRange(r.key)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${timeRange === r.key ? 'bg-orange-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}
+                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${timeRange === r.key ? 'bg-orange-600 text-white' : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}
                 >
                   {r.label}
                 </button>
@@ -232,7 +230,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
                 <button
                   key={t.key}
                   onClick={() => setChartType(t.key)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${chartType === t.key ? 'bg-orange-600 text-white' : darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}
+                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${chartType === t.key ? 'bg-orange-600 text-white' : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}
                 >
                   {t.label}
                 </button>
@@ -249,9 +247,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
               onHover={setHoveredChartPoint}
             />
           </div>
-          <div
-            className={`px-4 pb-3 pt-3 grid grid-cols-4 gap-3 text-center border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}
-          >
+          <div className="px-4 pb-3 pt-3 grid grid-cols-4 gap-3 text-center border-t light:border-amber-200 dark:border-zinc-800">
             {[
               ['Open', formatCurrency(priceStats.first), textClass],
               ['High', formatCurrency(priceStats.high), upColor],

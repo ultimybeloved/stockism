@@ -1,7 +1,8 @@
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import { formatCurrency } from '../../../utils/formatters';
 import { calculateMarginStatus } from '../../../utils/calculations';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import {
   MARGIN_WARNING_THRESHOLD,
   MARGIN_DANGER_THRESHOLD,
@@ -12,10 +13,9 @@ import {
 // Shows how a buy that dips into borrowed money changes the user's margin.
 // Returns null for pure-cash buys, so the parent can always render it.
 const MarginImpactPreview = ({ cost, userCash }: { cost: number; userCash: number }) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const { prices, priceHistory } = useMarket();
-  const { textClass } = getThemeClasses(darkMode);
+  const { textClass } = themeClasses;
 
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
   if (!marginStatus.enabled) return null;
@@ -40,7 +40,7 @@ const MarginImpactPreview = ({ cost, userCash }: { cost: number; userCash: numbe
         ? 'text-yellow-500'
         : textClass;
 
-  const mutedClass = darkMode ? 'text-zinc-400' : 'text-slate-500';
+  const mutedClass = 'light:text-slate-500 dark:text-zinc-400';
 
   return (
     <div className="p-3 rounded-sm mb-4 border border-orange-500/50 bg-orange-500/10">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
 
 // Ladder icon component - tan circle with X
@@ -14,7 +15,6 @@ const LadderIcon = () => (
 );
 
 const MobileBottomNav = () => {
-  const { darkMode } = useTheme();
   const { user } = useSession();
   const location = useLocation();
   const navigate = useNavigate();
@@ -68,7 +68,7 @@ const MobileBottomNav = () => {
     <nav
       className={`md:hidden fixed bottom-0 left-0 right-0 z-40 border-t shadow-lg transition-transform duration-300 ${
         isVisible ? 'translate-y-0' : 'translate-y-full'
-      } ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'}`}
+      } light:bg-white light:border-amber-200 dark:bg-zinc-900 dark:border-zinc-800`}
     >
       <div className="flex items-center justify-around h-16">
         {navItems.map((item) => (
@@ -76,7 +76,7 @@ const MobileBottomNav = () => {
             key={item.path}
             onClick={() => navigate(item.path === '/' ? '/' : isActivePage(item.path) ? '/' : item.path)}
             className={`relative flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-              isActivePage(item.path) ? 'text-orange-500' : darkMode ? 'text-zinc-400' : 'text-zinc-600'
+              isActivePage(item.path) ? 'text-orange-500' : 'light:text-zinc-600 dark:text-zinc-400'
             }`}
           >
             <span className="text-2xl mb-1">{item.icon}</span>

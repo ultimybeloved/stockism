@@ -2,27 +2,27 @@ import { useState } from 'react';
 import { changeDisplayNameFunction } from '../../../api/callables';
 import { getCosmeticStyles, getActiveTitle } from '../../../utils/cosmetics';
 import { validateUsername } from '../../../utils/username';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { errorMessage } from '../../../utils/errors';
 import type { UserData } from '../../../types';
+import { useTheme } from '../../../context/AppContext';
 
 // Profile card header: display name (with cosmetics), the customization
 // shortcut, and the name-change form. Owns the name-edit state and the 2-week
 // cooldown logic.
 const ProfileHeader = ({
   userData,
-  darkMode,
   onOpenCustomization,
 }: {
   userData: UserData | null;
-  darkMode: boolean;
   onOpenCustomization: () => void;
 }) => {
+  const { darkMode } = useTheme();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
 
   const nameChangedAt = (userData?.nameChangedAt as { toDate?: () => Date } | undefined)?.toDate?.() || null;
   const cooldownMs = 14 * 24 * 60 * 60 * 1000;
@@ -57,7 +57,7 @@ const ProfileHeader = ({
 
   return (
     <div
-      className={`relative p-4 border-b ${darkMode ? 'border-zinc-800' : 'border-amber-200'} ${rowClass}`}
+      className={`relative p-4 border-b light:border-amber-200 dark:border-zinc-800 ${rowClass}`}
       style={{
         ...(glowColor ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
         ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
@@ -70,7 +70,7 @@ const ProfileHeader = ({
         </span>
       </h2>
       {activeTitle && (
-        <p className={`text-sm font-semibold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{activeTitle.text}</p>
+        <p className="text-sm font-semibold light:text-amber-600 dark:text-amber-400">{activeTitle.text}</p>
       )}
       <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
 
@@ -79,7 +79,7 @@ const ProfileHeader = ({
           {onOpenCustomization && (
             <button
               onClick={onOpenCustomization}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'} transition-colors`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
             >
               🎨 Customize
             </button>
@@ -91,7 +91,7 @@ const ProfileHeader = ({
                 setNewName(userData?.displayName || '');
                 setNameError('');
               }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${darkMode ? 'border-zinc-600 text-zinc-300 hover:border-orange-500 hover:text-orange-500' : 'border-slate-300 text-slate-600 hover:border-orange-500 hover:text-orange-500'} transition-colors`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
             >
               ✏️ Change name ($10,000)
             </button>
@@ -109,7 +109,7 @@ const ProfileHeader = ({
             onChange={(e) => setNewName(e.target.value)}
             maxLength={20}
             placeholder="New username"
-            className={`w-full px-3 py-1.5 text-sm rounded-sm border ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-300 text-slate-900'} focus:outline-none focus:border-orange-500`}
+            className="w-full px-3 py-1.5 text-sm rounded-sm border light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 focus:outline-none focus:border-orange-500"
           />
           {nameError && <p className="text-xs text-red-500">{nameError}</p>}
           <div className="flex gap-2">
@@ -125,7 +125,7 @@ const ProfileHeader = ({
                 setEditingName(false);
                 setNameError('');
               }}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+              className="flex-1 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
             >
               Cancel
             </button>

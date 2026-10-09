@@ -11,7 +11,6 @@ const money = (n: unknown) =>
 // The memo column is your own internal note. It is never shown to the player:
 // they only ever see the amount.
 export default function CashLogCard({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -25,12 +24,10 @@ export default function CashLogCard({
   cashLogLoaded,
   loadCashLog,
 }: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminCashLog>) {
-  const rowBorder = darkMode ? 'border-slate-700' : 'border-slate-200';
+  const rowBorder = 'light:border-slate-200 dark:border-slate-700';
 
   return (
-    <div
-      className={`p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}
-    >
+    <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
       <div className="flex items-start justify-between mb-3 gap-3">
         <div>
           <h3 className={`font-semibold ${textClass}`}>💸 Cash I Have Handed Out</h3>

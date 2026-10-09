@@ -5,8 +5,9 @@ import IPOActiveCard from '../../ipo/components/IPOActiveCard';
 import DashboardRail from '../components/DashboardRail';
 import MarketControls from '../components/MarketControls';
 import MarketGrid from '../components/MarketGrid';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { useSession, useMarket } from '../../../context/AppContext';
+
+import { themeClasses } from '../../../utils/theme';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import type { ComponentProps } from 'react';
 
@@ -64,10 +65,9 @@ const HomePage = ({
   onShowPortfolio,
   onShowBailout,
 }: HomePageProps) => {
-  const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const { prices, priceHistory, activeIPOs, ipoRestrictedTickers, launchedTickers, storedReviewChanges } = useMarket();
-  const { bgClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
+  const { bgClass, mutedClass, ghostBtnClass } = themeClasses;
 
   const browser = useMarketBrowser({
     userData,
@@ -78,7 +78,7 @@ const HomePage = ({
     storedReviewChanges,
   });
 
-  const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors ${darkMode ? 'bg-zinc-900' : 'bg-white'} ${ghostBtnClass}`;
+  const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
@@ -110,9 +110,7 @@ const HomePage = ({
 
         {/* Guest Banner */}
         {isGuest && (
-          <div
-            className={`mb-4 p-3 rounded-sm text-sm ${darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-300' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}
-          >
+          <div className="mb-4 p-3 rounded-sm text-sm light:bg-amber-50 light:border light:border-amber-200 light:text-amber-800 dark:bg-zinc-900 dark:border dark:border-zinc-800 dark:text-zinc-300">
             👋 Browsing as guest.{' '}
             <button onClick={onShowLogin} className="font-semibold text-orange-500 hover:underline">
               Sign in

@@ -1,6 +1,6 @@
 import { formatCurrency } from '../../../utils/formatters';
 import { calculatePortfolioValue } from '../../../utils/calculations';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { PriceMap, ShareMap, ShortMap, UserData } from '../../../types';
 
 interface TradingStatsProps {
@@ -11,7 +11,6 @@ interface TradingStatsProps {
   costBasis: Record<string, number>;
   predictionWins: number;
   betsPlaced: number;
-  darkMode: boolean;
 }
 
 interface StockReturn {
@@ -32,9 +31,8 @@ const TradingStats = ({
   costBasis,
   predictionWins,
   betsPlaced,
-  darkMode,
 }: TradingStatsProps) => {
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
 
   const joinDate = (userData?.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() || null;
   // The stored peak only updates on backend sync, so never show it below the
@@ -91,14 +89,14 @@ const TradingStats = ({
   return (
     <>
       {/* Stats Summary */}
-      <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+      <div className="p-4 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50">
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className={`text-2xl font-bold text-orange-500`}>{userData?.totalTrades || 0}</p>
+            <p className="text-2xl font-bold text-orange-500">{userData?.totalTrades || 0}</p>
             <p className={`text-xs ${mutedClass}`}>Total Trades</p>
           </div>
           <div>
-            <p className={`text-2xl font-bold text-orange-500`}>{predictionWins}</p>
+            <p className="text-2xl font-bold text-orange-500">{predictionWins}</p>
             <p className={`text-xs ${mutedClass}`}>Correct Predictions</p>
           </div>
           <div>
@@ -109,9 +107,7 @@ const TradingStats = ({
       </div>
 
       {/* Trading Stats */}
-      <div
-        className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
-      >
+      <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
         <h3 className={`font-semibold ${textClass} mb-3`}>📊 Trading Stats</h3>
         <div className="space-y-2 text-sm">
           {joinDate && (

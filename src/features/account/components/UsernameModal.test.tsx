@@ -44,7 +44,7 @@ afterEach(() => {
 
 describe('UsernameModal availability check', () => {
   it('does not call the server until typing settles', async () => {
-    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+    render(<UsernameModal onComplete={() => {}} />);
 
     type('cool');
     type('coolname');
@@ -57,7 +57,7 @@ describe('UsernameModal availability check', () => {
   });
 
   it('reports a free name', async () => {
-    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+    render(<UsernameModal onComplete={() => {}} />);
     type('freename');
     await advance(DEBOUNCE);
     expect(screen.getByText(/that name is free/i)).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe('UsernameModal availability check', () => {
 
   it('reports a taken name and blocks submit', async () => {
     h.checkUsername.mockResolvedValue({ data: { available: false, reason: 'Username taken' } });
-    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+    render(<UsernameModal onComplete={() => {}} />);
 
     type('takenname');
     await advance(DEBOUNCE);
@@ -78,7 +78,7 @@ describe('UsernameModal availability check', () => {
   });
 
   it('never asks the server about a name the local rules already reject', async () => {
-    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+    render(<UsernameModal onComplete={() => {}} />);
     type('ab'); // too short
     await advance(DEBOUNCE * 2);
     expect(h.checkUsername).not.toHaveBeenCalled();
@@ -94,7 +94,7 @@ describe('UsernameModal availability check', () => {
           resolveFirst = r;
         }),
     );
-    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+    render(<UsernameModal onComplete={() => {}} />);
 
     type('firstname');
     await advance(DEBOUNCE);
@@ -112,7 +112,7 @@ describe('UsernameModal availability check', () => {
 
   it('stays silent when the check itself fails', async () => {
     h.checkUsername.mockRejectedValue(new Error('offline'));
-    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+    render(<UsernameModal onComplete={() => {}} />);
 
     type('somename');
     await advance(DEBOUNCE);
@@ -129,7 +129,7 @@ describe('UsernameModal Discord suggestion', () => {
   const input = () => screen.getByPlaceholderText('Enter a username...');
 
   it('prefills a usable Discord name', () => {
-    render(<UsernameModal onComplete={() => {}} darkMode={false} suggestedName="Ricky_YG" />);
+    render(<UsernameModal onComplete={() => {}} suggestedName="Ricky_YG" />);
 
     expect(input()).toHaveValue('Ricky_YG');
     expect(screen.getByText(/filled in your Discord name/i)).toBeInTheDocument();
@@ -137,21 +137,21 @@ describe('UsernameModal Discord suggestion', () => {
 
   it('refuses a Discord name that breaks the rules and says why', () => {
     // Periods are legal on Discord, not here.
-    render(<UsernameModal onComplete={() => {}} darkMode={false} suggestedName="ricky.yg" />);
+    render(<UsernameModal onComplete={() => {}} suggestedName="ricky.yg" />);
 
     expect(input()).toHaveValue('');
     expect(screen.getByText(/can't be used here/i)).toBeInTheDocument();
   });
 
   it('refuses a Discord name that is too short', () => {
-    render(<UsernameModal onComplete={() => {}} darkMode={false} suggestedName="ab" />);
+    render(<UsernameModal onComplete={() => {}} suggestedName="ab" />);
 
     expect(input()).toHaveValue('');
     expect(screen.getByText(/can't be used here/i)).toBeInTheDocument();
   });
 
   it('is the normal empty form when there is no suggestion', () => {
-    render(<UsernameModal onComplete={() => {}} darkMode={false} />);
+    render(<UsernameModal onComplete={() => {}} />);
 
     expect(input()).toHaveValue('');
     expect(screen.queryByText(/Discord name/i)).not.toBeInTheDocument();

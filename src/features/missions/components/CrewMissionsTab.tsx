@@ -14,7 +14,7 @@ import {
   getCrewMultiplier,
 } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 
 // Contribution fields stored booleans before June 2026; treat those as
@@ -81,7 +81,7 @@ export default function CrewMissionsTab() {
   const { darkMode } = useTheme();
   const { userData, user } = useSession();
   const { crewStats } = useMarket();
-  const { cardClass: _, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
+  const { cardClass: _, textClass, mutedClass, borderClass } = themeClasses;
   const [missionData, setMissionData] = useState<CrewMissionWeek | null>(null);
   const [claiming, setClaiming] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
@@ -112,7 +112,7 @@ export default function CrewMissionsTab() {
 
   if (!crew) {
     return (
-      <div className={`p-4 rounded-sm text-center ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+      <div className="p-4 rounded-sm text-center light:bg-amber-50 dark:bg-zinc-800/50">
         <p className={mutedClass}>Join a crew to participate in crew missions.</p>
       </div>
     );
@@ -126,13 +126,13 @@ export default function CrewMissionsTab() {
   return (
     <div className="space-y-3">
       {/* Crew banner */}
-      <div className={`px-3 py-2 rounded-sm flex items-center gap-2 ${darkMode ? 'bg-zinc-800/50' : 'bg-blue-50'}`}>
+      <div className="px-3 py-2 rounded-sm flex items-center gap-2 light:bg-blue-50 dark:bg-zinc-800/50">
         {crewInfo?.icon ? (
           <img src={crewInfo.icon} alt="" className="w-4 h-4 object-contain" />
         ) : (
           <span style={{ color: getReadableCrewColor(crewInfo?.color, darkMode) }}>{crewInfo?.emblem}</span>
         )}
-        <span className={`text-xs font-semibold`} style={{ color: getReadableCrewColor(crewInfo?.color, darkMode) }}>
+        <span className="text-xs font-semibold" style={{ color: getReadableCrewColor(crewInfo?.color, darkMode) }}>
           {crewInfo?.name || crew}
         </span>
         <span className={`text-xs ${mutedClass}`}>(resets Monday)</span>
@@ -173,7 +173,7 @@ export default function CrewMissionsTab() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
+              <div className="flex-1 h-2 rounded-full light:bg-slate-200 dark:bg-zinc-800">
                 <div
                   className={`h-full rounded-full transition-all ${goalMet ? 'bg-blue-500' : 'bg-blue-400/60'}`}
                   style={{ width: `${pct}%` }}

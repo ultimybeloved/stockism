@@ -24,7 +24,7 @@ const Layout = ({
   const { darkMode } = useTheme();
   usePageTitle();
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-zinc-950' : 'bg-amber-50'}`}>
+    <div className="min-h-screen light:bg-amber-50 dark:bg-zinc-950">
       <Header
         setDarkMode={setDarkMode}
         onShowAdminPanel={onShowAdminPanel}

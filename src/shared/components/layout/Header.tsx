@@ -10,7 +10,7 @@ import { isPreMarketWindow } from '../../../utils/marketHours';
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
 import { useAdminAlerts } from '../../../features/admin/hooks/useAdminAlerts';
 import MyPreMarketOrdersModal from '../../../features/trading/components/MyPreMarketOrdersModal';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { Character } from '../../../characters';
 
 /** A character added this week, with its live price and change since the week opened. */
@@ -51,7 +51,7 @@ const Header = ({
   const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const { prices } = useMarket();
-  const { textClass } = getThemeClasses(darkMode);
+  const { textClass } = themeClasses;
   // Live value from current prices — the stored userData.portfolioValue only
   // updates on the backend sync, so it can visibly disagree with the rest of
   // the page while prices move.
@@ -138,11 +138,7 @@ const Header = ({
   return (
     <>
       {showPreMarketOrders && <MyPreMarketOrdersModal onClose={() => setShowPreMarketOrders(false)} />}
-      <header
-        className={`sticky top-0 z-40 border-b shadow-sm ${
-          darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'
-        }`}
-      >
+      <header className="sticky top-0 z-40 border-b shadow-sm light:bg-white light:border-amber-200 dark:bg-zinc-900 dark:border-zinc-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative flex items-center justify-between h-16">
             {/* Mobile: Logo on left */}
@@ -166,9 +162,7 @@ const Header = ({
                   className={`relative px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePage(link.path)
                       ? 'bg-orange-600 text-white'
-                      : darkMode
-                        ? 'text-zinc-300 hover:bg-zinc-800'
-                        : 'text-zinc-600 hover:bg-amber-50'
+                      : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
                 >
                   <span className="mr-1">{link.icon}</span>
@@ -204,7 +198,7 @@ const Header = ({
               {/* Dark Mode Toggle */}
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className={`p-2 rounded-md transition-colors ${darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'}`}
+                className="p-2 rounded-md transition-colors light:hover:bg-amber-50 dark:hover:bg-zinc-800"
                 aria-label="Toggle dark mode"
               >
                 {darkMode ? '☀️' : '🌙'}
@@ -214,11 +208,7 @@ const Header = ({
               {user && !isGuest && inPreMarket && (
                 <button
                   onClick={() => setShowPreMarketOrders(true)}
-                  className={`px-2 py-1 text-xs font-semibold rounded-sm border transition-colors ${
-                    darkMode
-                      ? 'border-orange-500 text-orange-400 hover:bg-orange-500/20'
-                      : 'border-orange-500 text-orange-500 hover:bg-orange-50'
-                  }`}
+                  className="px-2 py-1 text-xs font-semibold rounded-sm border transition-colors light:border-orange-500 light:text-orange-500 light:hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-500/20"
                   title="My pre-market orders"
                 >
                   📋 My Orders
@@ -229,9 +219,7 @@ const Header = ({
               {user && !isGuest && (
                 <button
                   onClick={onToggleNotifications}
-                  className={`p-2 rounded-md transition-colors relative ${
-                    darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'
-                  }`}
+                  className="p-2 rounded-md transition-colors relative light:hover:bg-amber-50 dark:hover:bg-zinc-800"
                   aria-label="Notifications"
                 >
                   🔔
@@ -248,9 +236,7 @@ const Header = ({
                 <div className="relative" ref={newCharsRef}>
                   <button
                     onClick={openNewCharsPopout}
-                    className={`p-2 rounded-md transition-colors relative ${
-                      darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'
-                    }`}
+                    className="p-2 rounded-md transition-colors relative light:hover:bg-amber-50 dark:hover:bg-zinc-800"
                     aria-label="New characters this week"
                     title="New characters this week"
                   >
@@ -263,29 +249,19 @@ const Header = ({
                   </button>
 
                   {showNewCharsPopout && (
-                    <div
-                      className={`absolute right-0 top-full mt-2 w-72 rounded-sm border shadow-lg z-50 ${
-                        darkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-amber-200'
-                      }`}
-                    >
-                      <div
-                        className={`px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide ${
-                          darkMode ? 'border-zinc-700 text-zinc-400' : 'border-amber-200 text-zinc-500'
-                        }`}
-                      >
+                    <div className="absolute right-0 top-full mt-2 w-72 rounded-sm border shadow-lg z-50 light:bg-white light:border-amber-200 dark:bg-zinc-900 dark:border-zinc-700">
+                      <div className="px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide light:border-amber-200 light:text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                         ✨ New This Week
                       </div>
                       <div className="max-h-60 overflow-y-auto">
                         {newCharacters.map((char) => (
                           <div
                             key={char.ticker}
-                            className={`flex items-center justify-between px-3 py-2 border-b last:border-0 ${
-                              darkMode ? 'border-zinc-800' : 'border-amber-100'
-                            }`}
+                            className="flex items-center justify-between px-3 py-2 border-b last:border-0 light:border-amber-100 dark:border-zinc-800"
                           >
                             <div className="min-w-0 flex-1">
                               <span className={`text-sm font-semibold ${textClass}`}>{char.name}</span>
-                              <span className={`text-xs ml-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                              <span className="text-xs ml-1 light:text-zinc-500 dark:text-zinc-400">
                                 ${char.ticker}
                               </span>
                             </div>
@@ -320,9 +296,7 @@ const Header = ({
               {isAdmin && (
                 <button
                   onClick={onShowAdminPanel}
-                  className={`relative p-2 rounded-md transition-colors ${
-                    darkMode ? 'hover:bg-zinc-800 text-red-400' : 'hover:bg-amber-50 text-red-600'
-                  }`}
+                  className="relative p-2 rounded-md transition-colors light:hover:bg-amber-50 light:text-red-600 dark:hover:bg-zinc-800 dark:text-red-400"
                   aria-label={
                     unreviewedCount
                       ? `Admin Panel, ${unreviewedCount} unreviewed alert${unreviewedCount === 1 ? '' : 's'}`
@@ -355,16 +329,14 @@ const Header = ({
                     className={`flex items-center space-x-2 px-2 py-1 sm:px-3 sm:py-2 rounded-md text-sm font-medium transition-colors ${
                       isActivePage('/profile')
                         ? 'bg-orange-600 text-white'
-                        : darkMode
-                          ? 'text-zinc-300 hover:bg-zinc-800'
-                          : 'text-zinc-600 hover:bg-amber-50'
+                        : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                     }`}
                   >
                     <span className="text-base sm:text-lg">👤</span>
                     <div className="text-right">
                       <div
                         className={`text-[10px] sm:text-xs ${
-                          isActivePage('/profile') ? 'text-white/70' : darkMode ? 'text-zinc-400' : 'text-zinc-600'
+                          isActivePage('/profile') ? 'text-white/70' : 'light:text-zinc-600 dark:text-zinc-400'
                         }`}
                       >
                         {userData?.displayName || user.email?.split('@')[0] || 'Anonymous'}
@@ -387,12 +359,8 @@ const Header = ({
                     onClick={handleSignOut}
                     className={`px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                       userData?.colorBlindMode
-                        ? darkMode
-                          ? 'text-zinc-400 hover:bg-zinc-800'
-                          : 'text-zinc-600 hover:bg-amber-50'
-                        : darkMode
-                          ? 'text-red-400 hover:bg-zinc-800'
-                          : 'text-red-600 hover:bg-amber-50'
+                        ? 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                        : 'light:text-red-600 light:hover:bg-amber-50 dark:text-red-400 dark:hover:bg-zinc-800'
                     }`}
                   >
                     Sign Out
@@ -401,9 +369,7 @@ const Header = ({
               ) : (
                 <button
                   onClick={onShowLogin}
-                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                    darkMode ? 'text-green-400 hover:bg-zinc-800' : 'text-green-600 hover:bg-amber-50'
-                  }`}
+                  className="px-3 py-2 text-sm font-medium rounded-md transition-colors light:text-green-600 light:hover:bg-amber-50 dark:text-green-400 dark:hover:bg-zinc-800"
                 >
                   Sign In
                 </button>

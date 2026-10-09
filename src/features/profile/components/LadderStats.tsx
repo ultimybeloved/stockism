@@ -3,7 +3,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import * as Sentry from '@sentry/react';
 import { db } from '../../../firebase';
 import { formatCurrency } from '../../../utils/formatters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { User } from 'firebase/auth';
 import type { LadderData } from '../../../utils/ladderTax';
 import type { UserData } from '../../../types';
@@ -13,16 +13,8 @@ import type { UserData } from '../../../types';
 // context). A ladder win pays exactly 2x the stake, so totalWon (net winnings)
 // equals the amount staked-and-won, which makes totalWon + totalLost the total
 // wagered and totalWon - totalLost the net result.
-const LadderStats = ({
-  user,
-  userData,
-  darkMode,
-}: {
-  user: User | null;
-  userData: UserData | null;
-  darkMode: boolean;
-}) => {
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+const LadderStats = ({ user, userData }: { user: User | null; userData: UserData | null }) => {
+  const { textClass, mutedClass } = themeClasses;
   const [stats, setStats] = useState<LadderData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -64,9 +56,7 @@ const LadderStats = ({
   const downClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
 
   return (
-    <div
-      className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
-    >
+    <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
       <h3 className={`font-semibold ${textClass} mb-3`}>🎰 Ladder Stats</h3>
 
       {/* Headline net result */}

@@ -5,7 +5,7 @@ import { CREW_MAP } from '../../../crews';
 import { formatCompactCurrency } from '../../../utils/formatters';
 import PinDisplay from '../../../shared/components/PinDisplay';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
-import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { CSSProperties, Ref } from 'react';
 import type { User } from 'firebase/auth';
 import type { RankedLeader } from '../hooks/useLeaderboard';
@@ -38,7 +38,7 @@ interface PodiumCardProps {
 const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place, sortBy }, ref) => {
   const { darkMode } = useTheme();
   const { user, userData } = useSession();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
@@ -101,7 +101,7 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
         )}
       </div>
       {leader.title && (
-        <div className={`text-[11px] font-semibold truncate ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+        <div className="text-[11px] font-semibold truncate light:text-amber-600 dark:text-amber-400">
           {leader.title.text}
         </div>
       )}

@@ -3,7 +3,6 @@ import type { AdminCommonProps } from '../types';
 import type { useAdminSpikeRepair } from '../../hooks/useAdminSpikeRepair';
 
 const RecoveryDiagnose = ({
-  darkMode,
   textClass,
   mutedClass,
   diagnosisIds,
@@ -11,14 +10,12 @@ const RecoveryDiagnose = ({
   diagnosing,
   diagnosisResults,
   handleDiagnoseUsers,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> &
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> &
   Pick<
     ReturnType<typeof useAdminSpikeRepair>,
     'diagnosisIds' | 'setDiagnosisIds' | 'diagnosing' | 'diagnosisResults' | 'handleDiagnoseUsers'
   >) => (
-  <div
-    className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-  >
+  <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
     <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Diagnose User Accounts</h3>
     <p className={`text-xs ${mutedClass} mb-2`}>
       Paste user IDs (comma or newline separated) to see their account state and recent trades.
@@ -28,7 +25,7 @@ const RecoveryDiagnose = ({
       onChange={(e) => setDiagnosisIds(e.target.value)}
       placeholder="Paste user IDs here..."
       rows={3}
-      className={`w-full px-3 py-2 border rounded-sm text-xs font-mono mb-2 ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'}`}
+      className="w-full px-3 py-2 border rounded-sm text-xs font-mono mb-2 light:bg-white light:border-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100"
     />
     <button
       onClick={handleDiagnoseUsers}
@@ -40,7 +37,7 @@ const RecoveryDiagnose = ({
     {diagnosisResults.length > 0 && (
       <div className="space-y-3">
         {diagnosisResults.map((u) => (
-          <div key={u.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+          <div key={u.userId} className="p-3 rounded-sm light:bg-slate-50 dark:bg-slate-700/50">
             {u.error ? (
               <p className="text-red-400 text-sm">
                 {u.userId}: {u.error}
@@ -101,7 +98,7 @@ const RecoveryDiagnose = ({
                       {u.recentTrades.map((t, i) => (
                         <div
                           key={i}
-                          className={`text-xs py-1 px-2 rounded flex justify-between ${darkMode ? 'bg-slate-800' : 'bg-white'}`}
+                          className="text-xs py-1 px-2 rounded flex justify-between light:bg-white dark:bg-slate-800"
                         >
                           <span>
                             <span

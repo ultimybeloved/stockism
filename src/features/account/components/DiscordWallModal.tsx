@@ -1,8 +1,9 @@
 import { memo } from 'react';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import { auth } from '../../../firebase';
 import { signOut } from 'firebase/auth';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { useDiscordLink } from '../../profile/hooks/useDiscordLink';
 
 /**
@@ -12,14 +13,13 @@ import { useDiscordLink } from '../../profile/hooks/useDiscordLink';
  * makes this disappear automatically.
  */
 function DiscordWallModal() {
-  const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const { beginDiscordLink, linking, error } = useDiscordLink();
 
   // Only walls a logged-in, flagged, not-yet-linked account.
   if (!user || !userData?.requiresDiscordLink || userData?.discordId) return null;
 
-  const { textClass, mutedClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayHeavyClass, modalShellClass } = themeClasses;
 
   return (
     <div className={`${overlayHeavyClass} z-[100] backdrop-blur-sm`}>
@@ -40,7 +40,7 @@ function DiscordWallModal() {
         {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
         <button
           onClick={() => signOut(auth)}
-          className={`text-xs underline ${darkMode ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-500 hover:text-zinc-700'}`}
+          className="text-xs underline light:text-zinc-500 light:hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
         >
           Not you? Log out
         </button>

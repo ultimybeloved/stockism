@@ -10,7 +10,6 @@ interface MarketFilterPanelProps {
   filters: MarketFilters;
   setFilter: <K extends keyof MarketFilters>(key: K, value: MarketFilters[K]) => void;
   userData: UserData | null;
-  darkMode: boolean;
   chipClass: string;
   mutedClass: string;
   textClass: string;
@@ -28,7 +27,6 @@ const MarketFilterPanel = ({
   filters,
   setFilter,
   userData,
-  darkMode,
   chipClass,
   mutedClass,
   textClass,
@@ -49,9 +47,7 @@ const MarketFilterPanel = ({
   );
 
   return (
-    <div
-      className={`rounded-sm border p-3 mb-4 ${darkMode ? 'border-zinc-800 bg-zinc-900/40' : 'border-slate-200 bg-slate-50'}`}
-    >
+    <div className="rounded-sm border p-3 mb-4 light:border-slate-200 light:bg-slate-50 dark:border-zinc-800 dark:bg-zinc-900/40">
       {group(
         'Crew',
         <>

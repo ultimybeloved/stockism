@@ -11,10 +11,9 @@ export interface Toast {
 interface ToastNotificationProps {
   notification: Toast;
   onDismiss: () => void;
-  darkMode: boolean;
 }
 
-const ToastNotification = ({ notification, onDismiss, darkMode }: ToastNotificationProps) => {
+const ToastNotification = ({ notification, onDismiss }: ToastNotificationProps) => {
   const [isExiting, setIsExiting] = useState(false);
   // Keep the latest onDismiss without restarting the timer: the container
   // passes a fresh arrow function every render, and with it in the effect
@@ -43,26 +42,26 @@ const ToastNotification = ({ notification, onDismiss, darkMode }: ToastNotificat
     switch (notification.type) {
       case 'error':
         return {
-          bg: darkMode ? 'bg-red-900/90 border-red-700' : 'bg-red-100 border-red-400',
-          text: darkMode ? 'text-red-100' : 'text-red-800',
+          bg: 'light:bg-red-100 light:border-red-400 dark:bg-red-900/90 dark:border-red-700',
+          text: 'light:text-red-800 dark:text-red-100',
           icon: '❌',
         };
       case 'info':
         return {
-          bg: darkMode ? 'bg-blue-900/90 border-blue-700' : 'bg-blue-100 border-blue-400',
-          text: darkMode ? 'text-blue-100' : 'text-blue-800',
+          bg: 'light:bg-blue-100 light:border-blue-400 dark:bg-blue-900/90 dark:border-blue-700',
+          text: 'light:text-blue-800 dark:text-blue-100',
           icon: 'ℹ️',
         };
       case 'achievement':
         return {
-          bg: darkMode ? 'bg-amber-900/90 border-amber-500' : 'bg-amber-100 border-amber-400',
-          text: darkMode ? 'text-amber-100' : 'text-amber-800',
+          bg: 'light:bg-amber-100 light:border-amber-400 dark:bg-amber-900/90 dark:border-amber-500',
+          text: 'light:text-amber-800 dark:text-amber-100',
           icon: '🏆',
         };
       default: // success
         return {
-          bg: darkMode ? 'bg-green-900/90 border-green-700' : 'bg-green-100 border-green-400',
-          text: darkMode ? 'text-green-100' : 'text-green-800',
+          bg: 'light:bg-green-100 light:border-green-400 dark:bg-green-900/90 dark:border-green-700',
+          text: 'light:text-green-800 dark:text-green-100',
           icon: '✓',
         };
     }
@@ -88,24 +87,11 @@ const ToastNotification = ({ notification, onDismiss, darkMode }: ToastNotificat
   );
 };
 
-const ToastContainer = ({
-  notifications,
-  onDismiss,
-  darkMode,
-}: {
-  notifications: Toast[];
-  onDismiss: (id: number) => void;
-  darkMode: boolean;
-}) => {
+const ToastContainer = ({ notifications, onDismiss }: { notifications: Toast[]; onDismiss: (id: number) => void }) => {
   return (
     <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 max-w-sm">
       {notifications.map((notif) => (
-        <ToastNotification
-          key={notif.id}
-          notification={notif}
-          onDismiss={() => onDismiss(notif.id)}
-          darkMode={darkMode}
-        />
+        <ToastNotification key={notif.id} notification={notif} onDismiss={() => onDismiss(notif.id)} />
       ))}
     </div>
   );

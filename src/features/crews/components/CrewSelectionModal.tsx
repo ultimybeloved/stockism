@@ -10,7 +10,7 @@ import {
 } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/localTime';
-import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
@@ -40,7 +40,7 @@ const CrewSelectionModal = ({
   const [confirming, setConfirming] = useState(false);
   const [leavingCrew, setLeavingCrew] = useState(false);
 
-  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
   const crewColor = (hex: string | undefined) => getReadableCrewColor(hex, darkMode);
 
   const currentCrew = userData?.crew;
@@ -101,7 +101,7 @@ const CrewSelectionModal = ({
               ×
             </button>
           </div>
-          {isGuest && <p className={`text-sm text-amber-500 mt-1`}>Sign in to join a crew!</p>}
+          {isGuest && <p className="text-sm text-amber-500 mt-1">Sign in to join a crew!</p>}
           {!isGuest && currentCrew && (
             <p className={`text-sm ${mutedClass} mt-1 flex items-center gap-1`}>
               Current:
@@ -122,7 +122,7 @@ const CrewSelectionModal = ({
 
         {/* Free-switch event banner */}
         {eventCrew && !confirming && !leavingCrew && (
-          <div className={`p-3 ${darkMode ? 'bg-emerald-900/30' : 'bg-emerald-100'} border-b border-emerald-500/30`}>
+          <div className="p-3 light:bg-emerald-100 dark:bg-emerald-900/30 border-b border-emerald-500/30">
             <p className="text-emerald-400 text-sm text-center">
               🎉 <strong>Free to join {eventCrew.name}</strong>
               <br />
@@ -136,7 +136,7 @@ const CrewSelectionModal = ({
 
         {/* Warning Banner - show for users without a crew AND users with a crew */}
         {!isGuest && !confirming && !leavingCrew && (
-          <div className={`p-3 ${darkMode ? 'bg-amber-900/30' : 'bg-amber-100'} border-b border-amber-500/30`}>
+          <div className="p-3 light:bg-amber-100 dark:bg-amber-900/30 border-b border-amber-500/30">
             <p className="text-amber-400 text-sm text-center">
               ⚠️ <strong>Warning:</strong> Leaving a crew costs <strong>{penaltyPct}% of your entire portfolio</strong>
               <br />
@@ -152,7 +152,7 @@ const CrewSelectionModal = ({
           <div className="p-6 text-center">
             <div className="text-4xl mb-4">🚪</div>
             <h3 className={`text-xl font-bold mb-2 ${textClass}`}>Leave {current?.name}?</h3>
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} border border-red-500/30 mb-4`}>
+            <div className="p-4 rounded-sm light:bg-red-50 dark:bg-red-900/20 border border-red-500/30 mb-4">
               <p className="text-red-400 font-semibold mb-2">
                 You will lose approximately {formatCurrency(penaltyAmount)}
               </p>
@@ -165,7 +165,7 @@ const CrewSelectionModal = ({
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => setLeavingCrew(false)}
-                className={`px-6 py-2 rounded-sm border ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200'}`}
+                className="px-6 py-2 rounded-sm border light:border-amber-200 dark:border-zinc-700 dark:text-zinc-300"
               >
                 Back
               </button>
@@ -198,9 +198,7 @@ const CrewSelectionModal = ({
             )}
 
             {currentCrew && isFreeTarget(chosenId) ? (
-              <div
-                className={`p-4 rounded-sm ${darkMode ? 'bg-emerald-900/20' : 'bg-emerald-50'} border border-emerald-500/30 mb-4`}
-              >
+              <div className="p-4 rounded-sm light:bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-500/30 mb-4">
                 <p className="text-emerald-400 font-semibold mb-2">This switch is free</p>
                 <p className={`text-xs ${mutedClass}`}>
                   Nothing is taken from your cash or shares, and {current?.name} stays open to you if you want to go
@@ -208,9 +206,7 @@ const CrewSelectionModal = ({
                 </p>
               </div>
             ) : currentCrew ? (
-              <div
-                className={`p-4 rounded-sm ${darkMode ? 'bg-red-900/20' : 'bg-red-50'} border border-red-500/30 mb-4`}
-              >
+              <div className="p-4 rounded-sm light:bg-red-50 dark:bg-red-900/20 border border-red-500/30 mb-4">
                 <p className="text-red-400 font-semibold mb-2">
                   You will lose approximately {formatCurrency(penaltyAmount)}
                 </p>
@@ -221,10 +217,8 @@ const CrewSelectionModal = ({
               </div>
             ) : (
               <div className="mb-4">
-                <p className={`text-sm text-orange-500 mb-3`}>✓ Joining a crew is free!</p>
-                <div
-                  className={`p-3 rounded-sm ${darkMode ? 'bg-amber-900/20' : 'bg-amber-50'} border border-amber-500/30`}
-                >
+                <p className="text-sm text-orange-500 mb-3">✓ Joining a crew is free!</p>
+                <div className="p-3 rounded-sm light:bg-amber-50 dark:bg-amber-900/20 border border-amber-500/30">
                   <p className="text-amber-400 text-sm">
                     ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose{' '}
                     <strong>{penaltyPct}% of your portfolio</strong>.
@@ -237,7 +231,7 @@ const CrewSelectionModal = ({
               <button
                 onClick={() => setConfirming(false)}
                 disabled={selectLoading}
-                className={`px-6 py-2 rounded-sm border disabled:opacity-50 ${darkMode ? 'border-zinc-700 text-zinc-300' : 'border-amber-200'}`}
+                className="px-6 py-2 rounded-sm border disabled:opacity-50 light:border-amber-200 dark:border-zinc-700 dark:text-zinc-300"
               >
                 Back
               </button>
@@ -262,7 +256,7 @@ const CrewSelectionModal = ({
             {currentCrew && (
               <button
                 onClick={() => setLeavingCrew(true)}
-                className={`w-full mb-4 p-3 rounded-sm border-2 border-red-500/50 text-red-400 hover:bg-red-500/10 transition-all`}
+                className="w-full mb-4 p-3 rounded-sm border-2 border-red-500/50 text-red-400 hover:bg-red-500/10 transition-all"
               >
                 🚪 Leave Current Crew
               </button>
@@ -282,9 +276,7 @@ const CrewSelectionModal = ({
                     className={`p-4 rounded-sm border-2 text-center transition-all ${
                       disabled
                         ? 'opacity-50 cursor-not-allowed border-zinc-700'
-                        : darkMode
-                          ? 'border-zinc-700 hover:border-orange-500 bg-zinc-800/50'
-                          : 'border-amber-200 hover:border-orange-500 bg-amber-50'
+                        : 'light:border-amber-200 light:hover:border-orange-500 light:bg-amber-50 dark:border-zinc-700 dark:hover:border-orange-500 dark:bg-zinc-800/50'
                     }`}
                   >
                     <div className="flex items-center justify-center gap-2">

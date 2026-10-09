@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { cancelPreMarketOrderFunction } from '../../../api/callables';
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { errorMessage } from '../../../utils/errors';
 
@@ -18,11 +19,10 @@ interface PreMarketOrder {
 
 const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const { user, showNotification } = useSession();
   const [orders, setOrders] = useState<PreMarketOrder[]>([]);
   const [cancelling, setCancelling] = useState<string | null>(null);
-  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass } = themeClasses;
 
   useEffect(() => {
     if (!user) return;
@@ -101,7 +101,6 @@ const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
                         order={o}
                         onCancel={handleCancel}
                         cancelling={cancelling}
-                        darkMode={darkMode}
                         textClass={textClass}
                         mutedClass={mutedClass}
                       />
@@ -119,7 +118,6 @@ const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
                         order={o}
                         onCancel={handleCancel}
                         cancelling={cancelling}
-                        darkMode={darkMode}
                         textClass={textClass}
                         mutedClass={mutedClass}
                       />
@@ -139,20 +137,16 @@ const OrderRow = ({
   order,
   onCancel,
   cancelling,
-  darkMode,
   textClass,
   mutedClass,
 }: {
   order: PreMarketOrder;
   onCancel: (orderId: string) => void;
   cancelling: string | null;
-  darkMode: boolean;
   textClass: string;
   mutedClass: string;
 }) => (
-  <div
-    className={`flex items-center justify-between px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}
-  >
+  <div className="flex items-center justify-between px-3 py-2 rounded-sm light:bg-slate-100 dark:bg-zinc-800">
     <div>
       <span className={`font-bold text-sm ${textClass}`}>${order.ticker}</span>
       <span className={`text-xs ml-2 ${order.action === 'buy' ? 'text-green-500' : 'text-red-400'}`}>

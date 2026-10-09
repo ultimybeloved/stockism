@@ -6,6 +6,7 @@ import WatchlistAlerts from './watchlist/WatchlistAlerts';
 import type { AdminCommonProps } from './types';
 import type { useAdminWatchlist } from '../hooks/useAdminWatchlist';
 import type { useAltScan } from '../hooks/useAltScan';
+import { useTheme } from '../../../context/AppContext';
 
 type WatchlistTabProps = AdminCommonProps &
   ReturnType<typeof useAdminWatchlist> & {
@@ -16,7 +17,6 @@ type WatchlistTabProps = AdminCommonProps &
   };
 
 const WatchlistTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -57,10 +57,10 @@ const WatchlistTab = ({
   runAltScan,
   markAlertReviewed,
 }: WatchlistTabProps) => {
+  const { darkMode } = useTheme();
   return (
     <div className="space-y-4">
       <AltScanCard
-        darkMode={darkMode}
         textClass={textClass}
         mutedClass={mutedClass}
         scanning={altScanning}
@@ -69,7 +69,6 @@ const WatchlistTab = ({
       />
 
       <DefenseHealthCard
-        darkMode={darkMode}
         textClass={textClass}
         mutedClass={mutedClass}
         loading={loading}
@@ -79,7 +78,6 @@ const WatchlistTab = ({
 
       {/* Recent Signups / Alt Ring report */}
       <RecentSignups
-        darkMode={darkMode}
         textClass={textClass}
         mutedClass={mutedClass}
         inputClass={inputClass}
@@ -93,7 +91,7 @@ const WatchlistTab = ({
       />
 
       {/* Add to Watchlist */}
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-red-50'}`}>
+      <div className="p-3 rounded-sm light:bg-red-50 dark:bg-slate-700/50">
         <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Add User to Watchlist</h3>
         <div className="space-y-2">
           <input
@@ -132,7 +130,7 @@ const WatchlistTab = ({
       </div>
 
       {/* Username Integrity */}
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-blue-50'}`}>
+      <div className="p-3 rounded-sm light:bg-blue-50 dark:bg-slate-700/50">
         <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Username Integrity</h3>
         <p className={`text-xs mb-2 ${mutedClass}`}>
           Reserves a unique name for every account and flags duplicates (same name, different capitalization). Any
@@ -163,7 +161,6 @@ const WatchlistTab = ({
       ))}
 
       <WatchlistAlerts
-        darkMode={darkMode}
         textClass={textClass}
         mutedClass={mutedClass}
         alerts={watchlistAlerts}
@@ -174,7 +171,7 @@ const WatchlistTab = ({
       <button
         onClick={loadWatchlist}
         disabled={loading}
-        className={`w-full py-2 text-xs font-semibold rounded-sm ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'} disabled:opacity-50`}
+        className="w-full py-2 text-xs font-semibold rounded-sm light:bg-slate-100 light:hover:bg-slate-200 light:text-slate-600 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-300 disabled:opacity-50"
       >
         {loading ? 'Loading...' : 'Refresh Watchlist'}
       </button>

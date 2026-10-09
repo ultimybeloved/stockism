@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import CharacterCard from './CharacterCard';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { useSession, useMarket } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
 import { getSentiment } from '../../../utils/marketStats';
 import type { ComponentProps } from 'react';
 import type { Character } from '../../../characters';
@@ -56,10 +56,9 @@ const MarketGrid = ({
   totalPages,
   showAll,
 }: MarketGridProps) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
-  const { cardClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
+  const { cardClass, mutedClass, ghostBtnClass } = themeClasses;
   // Review tab only: 'all' shows every section stacked, which is the default.
   // Picking one narrows to it, for when you only care about what was adjusted.
   const [openSection, setOpenSection] = useState('all');

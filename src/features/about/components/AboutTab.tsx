@@ -1,11 +1,10 @@
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
 
 // The About tab: what the game is, who made it, and where the community is.
 const AboutTab = () => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
 
   return (
     <div className={`space-y-4 ${textClass}`}>
@@ -61,7 +60,7 @@ const AboutTab = () => {
             href="https://discord.gg/hpVm8nQMvY"
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex items-center gap-2 px-3 py-2 rounded ${darkMode ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-indigo-500 hover:bg-indigo-600'} text-white text-sm font-medium`}
+            className="flex items-center gap-2 px-3 py-2 rounded light:bg-indigo-500 light:hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium"
           >
             Discord
           </a>
@@ -69,7 +68,7 @@ const AboutTab = () => {
             href="https://reddit.com/r/stockismapp"
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex items-center gap-2 px-3 py-2 rounded ${darkMode ? 'bg-orange-600 hover:bg-orange-500' : 'bg-orange-500 hover:bg-orange-600'} text-white text-sm font-medium`}
+            className="flex items-center gap-2 px-3 py-2 rounded light:bg-orange-500 light:hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-500 text-white text-sm font-medium"
           >
             Reddit
           </a>

@@ -3,7 +3,6 @@ import type { AdminCommonProps } from '../types';
 import type { useAdminSpikeRepair } from '../../hooks/useAdminSpikeRepair';
 
 const RecoverySpikeRepair = ({
-  darkMode,
   textClass,
   mutedClass,
   scanningSpike,
@@ -13,7 +12,7 @@ const RecoverySpikeRepair = ({
   handleScanSpikeVictims,
   handleRepairAllSpikeVictims,
   handleRepairSpikeVictim,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> &
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> &
   Pick<
     ReturnType<typeof useAdminSpikeRepair>,
     | 'scanningSpike'
@@ -24,9 +23,7 @@ const RecoverySpikeRepair = ({
     | 'handleRepairAllSpikeVictims'
     | 'handleRepairSpikeVictim'
   >) => (
-  <div
-    className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-  >
+  <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
     <div className="flex justify-between items-center mb-2">
       <h3 className={`font-semibold ${textClass}`}>⚡ Spike Victim Repair</h3>
       <div className="flex gap-2">
@@ -57,7 +54,7 @@ const RecoverySpikeRepair = ({
       ) : (
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
           {spikeVictims.map((v) => (
-            <div key={v.userId} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+            <div key={v.userId} className="p-3 rounded-sm light:bg-slate-50 dark:bg-slate-700/50">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center flex-wrap gap-1">
@@ -69,7 +66,7 @@ const RecoverySpikeRepair = ({
                       <span className="px-1.5 py-0.5 text-xs bg-orange-500/20 text-orange-400 rounded">Bailed Out</span>
                     )}
                   </div>
-                  {v.reason && <div className={`text-xs mt-0.5 text-purple-400`}>Reason: {v.reason}</div>}
+                  {v.reason && <div className="text-xs mt-0.5 text-purple-400">Reason: {v.reason}</div>}
                   <div className={`text-xs mt-1 ${mutedClass}`}>
                     Cash:{' '}
                     <span className="text-red-400 font-semibold">
@@ -114,10 +111,7 @@ const RecoverySpikeRepair = ({
                       <summary className={`text-xs cursor-pointer ${mutedClass}`}>Recent trades</summary>
                       <div className="mt-1 space-y-0.5">
                         {v.trades.map((t, i) => (
-                          <div
-                            key={i}
-                            className={`text-xs py-0.5 px-1 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'}`}
-                          >
+                          <div key={i} className="text-xs py-0.5 px-1 rounded light:bg-white dark:bg-slate-800">
                             <span
                               className={
                                 t.action === 'margin_call_cover'

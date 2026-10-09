@@ -1,11 +1,9 @@
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
 import { marketTimes } from '../../../utils/localTime';
 
 // The FAQ tab: how the market, orders, shorts, dividends and seasons work.
 const FaqTab = () => {
-  const { darkMode } = useTheme();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
 
   return (
     <div className={`space-y-4 ${textClass}`}>

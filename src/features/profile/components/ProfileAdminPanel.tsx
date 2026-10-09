@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useTheme } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import type { ShareMap, ShortMap } from '../../../types';
 
@@ -23,8 +23,7 @@ export interface ProfileAdminData {
 // (past the 300-line page limit); it was also called `AdminPanel` there, which
 // collided with the real admin panel in src/features/admin/components/AdminPanel.tsx.
 const ProfileAdminPanel = ({ data }: { data: ProfileAdminData }) => {
-  const { darkMode } = useTheme();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const [copied, setCopied] = useState(false);
 
   const copyUID = () => {
@@ -40,7 +39,7 @@ const ProfileAdminPanel = ({ data }: { data: ProfileAdminData }) => {
     .sort((a, b) => b[1] - a[1]);
 
   return (
-    <div className={`border-2 border-orange-500 rounded-sm p-4 ${darkMode ? 'bg-zinc-900' : 'bg-orange-50'} space-y-4`}>
+    <div className="border-2 border-orange-500 rounded-sm p-4 light:bg-orange-50 dark:bg-zinc-900 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-orange-500 font-bold text-sm uppercase tracking-widest">Admin View</h2>
         {(data.isBanned || data.isBot) && (
@@ -99,7 +98,7 @@ const ProfileAdminPanel = ({ data }: { data: ProfileAdminData }) => {
             {activeHoldings.map(([ticker, shares]) => (
               <span
                 key={ticker}
-                className={`text-xs px-2 py-0.5 rounded font-mono ${darkMode ? 'bg-zinc-800 text-zinc-200' : 'bg-white text-zinc-700'} border ${darkMode ? 'border-zinc-700' : 'border-zinc-200'}`}
+                className="text-xs px-2 py-0.5 rounded font-mono light:bg-white light:text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 border light:border-zinc-200 dark:border-zinc-700"
               >
                 ${ticker} <span className="font-bold">{shares}</span>
               </span>
@@ -116,7 +115,7 @@ const ProfileAdminPanel = ({ data }: { data: ProfileAdminData }) => {
             {activeShorts.map(([ticker, pos]) => (
               <div
                 key={ticker}
-                className={`text-xs px-2 py-1.5 rounded font-mono flex flex-wrap gap-x-3 gap-y-0.5 ${darkMode ? 'bg-zinc-800' : 'bg-red-50 border border-red-100'}`}
+                className="text-xs px-2 py-1.5 rounded font-mono flex flex-wrap gap-x-3 gap-y-0.5 light:bg-red-50 light:border light:border-red-100 dark:bg-zinc-800"
               >
                 <span className="text-red-500 font-bold">${ticker}</span>
                 <span className={textClass}>{pos.shares} shares</span>

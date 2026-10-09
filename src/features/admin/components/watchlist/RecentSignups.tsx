@@ -6,7 +6,6 @@ import type { AdminCommonProps } from '../types';
 import type { SignupCluster, SignupMember, SignupReport } from '../../../../api/types';
 
 const RecentSignups = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -34,8 +33,8 @@ const RecentSignups = ({
     return `${Math.round(hrs / 24)}d ago`;
   };
 
-  const rowBg = darkMode ? 'bg-slate-800' : 'bg-white';
-  const clusterBg = darkMode ? 'bg-slate-900/60' : 'bg-red-50';
+  const rowBg = 'light:bg-white dark:bg-slate-800';
+  const clusterBg = 'light:bg-red-50 dark:bg-slate-900/60';
 
   const MemberRow = ({ m }: { m: SignupMember }) => (
     <div className={`flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs p-1.5 rounded ${rowBg} ${mutedClass}`}>
@@ -91,7 +90,7 @@ const RecentSignups = ({
   );
 
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-orange-50'}`}>
+    <div className="p-3 rounded-sm light:bg-orange-50 dark:bg-slate-700/50">
       <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Recent Signups / Alt Ring</h3>
       <p className={`text-xs mb-2 ${mutedClass}`}>
         Groups recent signups by shared signup IP, email domain, and gmail identity (dot/+ aliases collapse to one

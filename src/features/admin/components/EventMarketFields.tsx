@@ -7,7 +7,7 @@ import {
 import type { AdminCommonProps } from './types';
 import type { useAdminPredictionCreate } from '../hooks/useAdminPredictionCreate';
 
-type EventMarketFieldsProps = Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'inputClass'> &
+type EventMarketFieldsProps = Pick<AdminCommonProps, 'mutedClass' | 'inputClass'> &
   Pick<
     ReturnType<typeof useAdminPredictionCreate>,
     | 'seedLiquidity'
@@ -23,7 +23,6 @@ type EventMarketFieldsProps = Pick<AdminCommonProps, 'darkMode' | 'mutedClass' |
 // opening odds, and the announce-before-open delay. Extracted from PredictionsTab
 // to keep that file under the component line limit.
 const EventMarketFields = ({
-  darkMode,
   mutedClass,
   inputClass,
   seedLiquidity,
@@ -103,9 +102,7 @@ const EventMarketFields = ({
               className={`flex-1 py-1.5 text-xs font-semibold rounded-sm border-2 transition-all ${
                 delay === h
                   ? 'border-teal-500 bg-teal-500 text-white'
-                  : darkMode
-                    ? 'border-slate-600 text-slate-300'
-                    : 'border-slate-300 text-slate-600'
+                  : 'light:border-slate-300 light:text-slate-600 dark:border-slate-600 dark:text-slate-300'
               }`}
             >
               {presetLabel(h)}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { broadcastNotificationFunction } from '../../../api/callables';
 import {
   CREW_MAP,
@@ -28,8 +28,8 @@ const DEFAULT_MESSAGE = eventCrew
   : '';
 
 // Admin tool: send a notification to every user's bell.
-export default function AnnounceCard({ darkMode }: { darkMode: boolean }) {
-  const { textClass, mutedClass, inputClass } = getThemeClasses(darkMode);
+export default function AnnounceCard() {
+  const { textClass, mutedClass, inputClass } = themeClasses;
   const [title, setTitle] = useState(DEFAULT_TITLE);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [sending, setSending] = useState(false);
@@ -53,9 +53,7 @@ export default function AnnounceCard({ darkMode }: { darkMode: boolean }) {
   };
 
   return (
-    <div
-      className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-    >
+    <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
       <h3 className={`font-semibold mb-1 ${textClass}`}>📢 Announce to Everyone</h3>
       <p className={`text-xs mb-3 ${mutedClass}`}>
         Sends a notification to every user&apos;s bell. Edit the text, then send.

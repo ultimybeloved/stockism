@@ -3,8 +3,9 @@ import { MARGIN_INTEREST_RATE } from '../../../constants';
 import MarginStatusBars from './MarginStatusBars';
 import { formatCurrency } from '../../../utils/formatters';
 import { checkMarginEligibility, calculateMarginStatus, type MarginStatusLevel } from '../../../utils/calculations';
-import { getThemeClasses } from '../../../utils/theme';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { themeClasses } from '../../../utils/theme';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
 interface MarginModalProps {
@@ -31,13 +32,12 @@ const MarginModal = ({
   onReviewTutorial,
 }: MarginModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const { prices, priceHistory } = useMarket();
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
 
-  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
 
   const eligibility = checkMarginEligibility(userData, isAdmin);
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
@@ -82,34 +82,22 @@ const MarginModal = ({
     switch (status) {
       case 'safe':
         return colorBlindMode
-          ? darkMode
-            ? 'bg-teal-900/20 border-teal-800'
-            : 'bg-teal-50 border-teal-200'
-          : darkMode
-            ? 'bg-green-900/20 border-green-800'
-            : 'bg-green-50 border-green-200';
+          ? 'light:bg-teal-50 light:border-teal-200 dark:bg-teal-900/20 dark:border-teal-800'
+          : 'light:bg-green-50 light:border-green-200 dark:bg-green-900/20 dark:border-green-800';
       case 'warning':
-        return darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200';
+        return 'light:bg-amber-50 light:border-amber-200 dark:bg-amber-900/20 dark:border-amber-700';
       case 'danger':
-        return darkMode ? 'bg-orange-900/30 border-orange-700' : 'bg-orange-50 border-orange-200';
+        return 'light:bg-orange-50 light:border-orange-200 dark:bg-orange-900/30 dark:border-orange-700';
       case 'margin_call':
         return colorBlindMode
-          ? darkMode
-            ? 'bg-purple-900/30 border-purple-700'
-            : 'bg-purple-50 border-purple-200'
-          : darkMode
-            ? 'bg-red-900/30 border-red-700'
-            : 'bg-red-50 border-red-200';
+          ? 'light:bg-purple-50 light:border-purple-200 dark:bg-purple-900/30 dark:border-purple-700'
+          : 'light:bg-red-50 light:border-red-200 dark:bg-red-900/30 dark:border-red-700';
       case 'liquidation':
         return colorBlindMode
-          ? darkMode
-            ? 'bg-purple-900/30 border-purple-700'
-            : 'bg-purple-50 border-purple-200'
-          : darkMode
-            ? 'bg-red-900/30 border-red-700'
-            : 'bg-red-50 border-red-200';
+          ? 'light:bg-purple-50 light:border-purple-200 dark:bg-purple-900/30 dark:border-purple-700'
+          : 'light:bg-red-50 light:border-red-200 dark:bg-red-900/30 dark:border-red-700';
       default:
-        return darkMode ? 'bg-zinc-800/50' : 'bg-slate-100';
+        return 'light:bg-slate-100 dark:bg-zinc-800/50';
     }
   };
 
@@ -132,7 +120,7 @@ const MarginModal = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {!eligibility.eligible && (marginStatus.marginUsed || 0) === 0 ? (
             // Locked state - show requirements (only if no debt)
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+            <div className="p-4 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50">
               <h3 className={`font-semibold mb-2 ${textClass}`}>🔒 Margin Trading Locked</h3>
               <p className={`text-sm ${mutedClass} mb-3`}>Meet these requirements to unlock:</p>
               <div className="space-y-1">
@@ -156,7 +144,7 @@ const MarginModal = ({
             // Eligible but not enabled
             <div className="space-y-4">
               <div
-                className={`p-4 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-teal-900/20 border border-teal-800' : 'bg-teal-50 border border-teal-200') : darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}
+                className={`p-4 rounded-sm ${colorBlindMode ? 'light:bg-teal-50 light:border light:border-teal-200 dark:bg-teal-900/20 dark:border dark:border-teal-800' : 'light:bg-green-50 light:border light:border-green-200 dark:bg-green-900/20 dark:border dark:border-green-800'}`}
               >
                 <h3 className={`font-semibold mb-2 ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
                   ✓ Eligible for Margin
@@ -166,7 +154,7 @@ const MarginModal = ({
                 </p>
               </div>
 
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'}`}>
+              <div className="p-3 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50">
                 <h4 className={`font-semibold mb-2 ${textClass}`}>How Margin Works</h4>
                 <p className={`text-xs ${mutedClass} mb-2`}>
                   Margin is <span className="text-orange-500 font-semibold">borrowing power</span> - like a credit card
@@ -205,7 +193,7 @@ const MarginModal = ({
               </div>
 
               <div
-                className={`p-3 rounded-sm border ${colorBlindMode ? (darkMode ? 'bg-purple-900/10 border-purple-800' : 'bg-purple-50 border-purple-200') : darkMode ? 'bg-red-900/10 border-red-800' : 'bg-red-50 border-red-200'}`}
+                className={`p-3 rounded-sm border ${colorBlindMode ? 'light:bg-purple-50 light:border-purple-200 dark:bg-purple-900/10 dark:border-purple-800' : 'light:bg-red-50 light:border-red-200 dark:bg-red-900/10 dark:border-red-800'}`}
               >
                 <h4 className={`font-semibold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>
                   ⚠️ Risk Warning
@@ -229,7 +217,7 @@ const MarginModal = ({
                   <div className="flex gap-2">
                     <button
                       onClick={() => setShowConfirmEnable(false)}
-                      className={`flex-1 py-2 font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-slate-200 text-slate-600'}`}
+                      className="flex-1 py-2 font-semibold rounded-sm light:bg-slate-200 light:text-slate-600 dark:bg-zinc-700 dark:text-zinc-300"
                     >
                       Cancel
                     </button>
@@ -286,10 +274,8 @@ const MarginModal = ({
               </div>
 
               {/* How It Works Info */}
-              <div
-                className={`p-3 rounded-sm ${darkMode ? 'bg-blue-900/20 border border-blue-800' : 'bg-blue-50 border border-blue-200'}`}
-              >
-                <h4 className={`font-semibold mb-1 text-blue-500 text-sm`}>💡 How Margin Works</h4>
+              <div className="p-3 rounded-sm light:bg-blue-50 light:border light:border-blue-200 dark:bg-blue-900/20 dark:border dark:border-blue-800">
+                <h4 className="font-semibold mb-1 text-blue-500 text-sm">💡 How Margin Works</h4>
                 <p className={`text-xs ${mutedClass}`}>
                   Margin is borrowing power. It's only used when your{' '}
                   <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase. Your limit is{' '}
@@ -304,9 +290,7 @@ const MarginModal = ({
 
               {/* Margin Call Warning */}
               {marginStatus.status === 'margin_call' && (
-                <div
-                  className={`p-3 rounded-sm ${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'} border border-orange-500`}
-                >
+                <div className="p-3 rounded-sm light:bg-orange-50 dark:bg-orange-900/30 border border-orange-500">
                   <h4 className="font-bold text-orange-500 mb-1">🚨 Margin Call!</h4>
                   <p className={`text-xs ${mutedClass}`}>
                     Deposit funds or sell positions to bring your equity above 30%. Auto-liquidation occurs at 25%
@@ -320,7 +304,7 @@ const MarginModal = ({
 
               {marginStatus.status === 'liquidation' && (
                 <div
-                  className={`p-3 rounded-sm ${colorBlindMode ? (darkMode ? 'bg-purple-900/30' : 'bg-purple-50') : darkMode ? 'bg-red-900/30' : 'bg-red-50'} border ${colorBlindMode ? 'border-purple-500' : 'border-red-500'}`}
+                  className={`p-3 rounded-sm ${colorBlindMode ? 'light:bg-purple-50 dark:bg-purple-900/30' : 'light:bg-red-50 dark:bg-red-900/30'} border ${colorBlindMode ? 'border-purple-500' : 'border-red-500'}`}
                 >
                   <h4 className={`font-bold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>
                     💀 Liquidation Imminent!
@@ -333,7 +317,7 @@ const MarginModal = ({
 
               {/* Repay Margin */}
               {marginStatus.marginUsed > 0 && (
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-100'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-zinc-800/50">
                   <h4 className={`font-semibold mb-2 ${textClass}`}>Repay Margin</h4>
                   <div className="flex gap-2 mb-2">
                     <input
@@ -343,15 +327,11 @@ const MarginModal = ({
                       value={repayAmount}
                       onChange={(e) => setRepayAmount(Math.max(0, parseFloat(e.target.value) || 0))}
                       placeholder="Amount"
-                      className={`flex-1 px-3 py-2 rounded-sm border text-sm ${
-                        darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
-                      }`}
+                      className="flex-1 px-3 py-2 rounded-sm border text-sm light:bg-white light:border-amber-200 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
                     />
                     <button
                       onClick={() => setRepayAmount(Math.min(userData?.cash || 0, marginStatus.marginUsed))}
-                      className={`px-3 py-2 text-xs font-semibold rounded-sm ${
-                        darkMode ? 'bg-zinc-700 text-zinc-300' : 'bg-slate-200 text-zinc-600'
-                      }`}
+                      className="px-3 py-2 text-xs font-semibold rounded-sm light:bg-slate-200 light:text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
                     >
                       Max
                     </button>
@@ -371,7 +351,7 @@ const MarginModal = ({
               )}
 
               {/* Interest Info */}
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800/30' : 'bg-amber-50'}`}>
+              <div className="p-3 rounded-sm light:bg-amber-50 dark:bg-zinc-800/30">
                 <div className="flex items-center gap-2 mb-1">
                   <span>💰</span>
                   <span className={`text-sm font-semibold ${textClass}`}>Daily Interest</span>
@@ -396,11 +376,7 @@ const MarginModal = ({
                 <button
                   onClick={onDisableMargin}
                   disabled={disableLoading}
-                  className={`w-full py-2 text-sm font-semibold rounded-sm ${
-                    darkMode
-                      ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                      : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                  } disabled:opacity-50`}
+                  className="w-full py-2 text-sm font-semibold rounded-sm light:bg-slate-200 light:text-slate-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 disabled:opacity-50"
                 >
                   {disableLoading ? 'Disabling...' : 'Disable Margin Trading'}
                 </button>

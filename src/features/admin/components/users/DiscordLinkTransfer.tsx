@@ -12,7 +12,6 @@ import type { useAdminDiscordRecovery } from '../../hooks/useAdminDiscordRecover
 // The selected user is the ORIGINAL account. The ID pasted here is the new
 // throwaway one.
 const DiscordLinkTransfer = ({
-  darkMode,
   mutedClass,
   loading,
   selectedUser,
@@ -24,13 +23,13 @@ const DiscordLinkTransfer = ({
   freeDiscordId,
   setFreeDiscordId,
   handleFreeDiscord,
-}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'loading'> &
+}: Pick<AdminCommonProps, 'mutedClass' | 'loading'> &
   ReturnType<typeof useAdminDiscordRecovery> & { selectedUser: AdminUser }) => {
   const targetName = selectedUser.displayName || selectedUser.username;
   const sameAccount = moveSource && moveSource.id === selectedUser.id;
 
   return (
-    <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-slate-500' : 'border-slate-200'}`}>
+    <div className="mt-3 pt-3 border-t light:border-slate-200 dark:border-slate-500">
       <label className={`text-xs ${mutedClass} block mb-1`}>Recover this account (move a Discord onto it):</label>
       <div className="flex gap-2">
         <input
@@ -38,9 +37,7 @@ const DiscordLinkTransfer = ({
           value={moveSourceId}
           onChange={(e) => setMoveSourceId(e.target.value)}
           placeholder="New account: name, Discord, or user ID"
-          className={`flex-1 px-2 py-1 text-sm rounded border ${
-            darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
-          }`}
+          className="flex-1 px-2 py-1 text-sm rounded border light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
         />
         <button
           onClick={() => handleLookupMoveSource(moveSourceId)}
@@ -52,7 +49,7 @@ const DiscordLinkTransfer = ({
       </div>
 
       {moveSource && (
-        <div className={`mt-2 p-2 rounded text-xs ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+        <div className="mt-2 p-2 rounded text-xs light:bg-slate-100 dark:bg-slate-700">
           <div className="font-semibold text-indigo-400">{moveSource.displayName}</div>
           <div className={mutedClass}>
             Discord: {moveSource.discordUsername || moveSource.discordId || 'none linked'}
@@ -93,9 +90,7 @@ const DiscordLinkTransfer = ({
           value={freeDiscordId}
           onChange={(e) => setFreeDiscordId(e.target.value)}
           placeholder="Discord ID (numbers only)"
-          className={`flex-1 px-2 py-1 text-sm rounded border ${
-            darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
-          }`}
+          className="flex-1 px-2 py-1 text-sm rounded border light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
         />
         <button
           onClick={() => handleFreeDiscord(freeDiscordId)}

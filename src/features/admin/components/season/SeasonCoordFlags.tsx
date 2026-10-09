@@ -6,18 +6,15 @@ import type { AdminCommonProps } from '../types';
 // Players flagged for coordinated trading this season. Repeat cases are marked,
 // but nothing happens to anyone until the admin presses the button.
 const SeasonCoordFlags = ({
-  darkMode,
   textClass,
   mutedClass,
   active,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & { active: boolean }) => {
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & { active: boolean }) => {
   const { players, loading, busyUid, error, reload, toggleExclusion } = useSeasonCoordFlags(active);
   if (!active) return null;
 
-  const rowClass = darkMode ? 'border-slate-600' : 'border-slate-300';
-  const inputClass = `px-2 py-1 rounded border ${
-    darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'
-  }`;
+  const rowClass = 'light:border-slate-300 dark:border-slate-600';
+  const inputClass = `px-2 py-1 rounded border light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white`;
 
   return (
     <div className={`mt-3 pt-3 border-t ${rowClass}`}>

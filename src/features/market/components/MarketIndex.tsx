@@ -3,23 +3,22 @@ import { createPortal } from 'react-dom';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import IndexChartModal, { type IndexHoverPoint } from './IndexChartModal';
 import { useIndexHistory } from '../hooks/useIndexHistory';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { nonETFCharacters, TIME_RANGES, computeIndex, buildIndexSeries } from '../../../utils/marketIndex';
 import type { PriceHistory, PriceMap } from '../../../types';
 
 interface MarketIndexProps {
   prices: PriceMap;
   priceHistory: PriceHistory;
-  darkMode: boolean;
   colorBlindMode?: boolean;
 }
 
-const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode = false }: MarketIndexProps) => {
+const MarketIndex = ({ prices, priceHistory, colorBlindMode = false }: MarketIndexProps) => {
   const [expanded, setExpanded] = useState(false);
   const [timeRange, setTimeRange] = useState('7d');
   const [hoveredPoint, setHoveredPoint] = useState<IndexHoverPoint | null>(null);
 
-  const { cardClass } = getThemeClasses(darkMode);
+  const { cardClass } = themeClasses;
   const { index30dAgo, divisor } = useIndexHistory();
 
   const currentIndex = useMemo(() => computeIndex(prices, nonETFCharacters, divisor), [prices, divisor]);
@@ -59,13 +58,11 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode = false }:
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div
-              className={`text-xs font-semibold tracking-wider mb-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}
-            >
+            <div className="text-xs font-semibold tracking-wider mb-1 light:text-zinc-500 dark:text-zinc-400">
               STOCKISM MARKET INDEX
             </div>
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-zinc-900'}`}>
+              <span className="text-2xl font-bold light:text-zinc-900 dark:text-white">
                 {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
               <span className={`text-sm font-semibold ${changeColor}`}>
@@ -99,7 +96,6 @@ const MarketIndex = ({ prices, priceHistory, darkMode, colorBlindMode = false }:
             setTimeRange={setTimeRange}
             hoveredPoint={hoveredPoint}
             setHoveredPoint={setHoveredPoint}
-            darkMode={darkMode}
             colorBlindMode={colorBlindMode}
             onClose={() => {
               setExpanded(false);

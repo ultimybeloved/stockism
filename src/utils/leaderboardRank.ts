@@ -10,7 +10,7 @@ export const getRankEmoji = (rank: number): string => {
 
 export const getRankStyle = (rank: number, darkMode: boolean, mutedClass: string): string => {
   if (rank === 1) return 'text-yellow-500';
-  if (rank === 2) return darkMode ? 'text-zinc-400' : 'text-zinc-500';
+  if (rank === 2) return 'light:text-zinc-500 dark:text-zinc-400';
   if (rank === 3) return 'text-amber-600';
   return mutedClass;
 };

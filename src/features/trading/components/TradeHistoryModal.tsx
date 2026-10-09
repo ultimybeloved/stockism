@@ -13,7 +13,7 @@ import {
 import { db } from '../../../firebase';
 import { formatCurrency } from '../../../utils/formatters';
 import { CHARACTER_MAP } from '../../../characters';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { useTheme, useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import {
@@ -54,10 +54,9 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
   const [dateTo, setDateTo] = useState('');
 
   const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } =
-    getThemeClasses(darkMode);
-  const inputClass = darkMode
-    ? 'bg-zinc-950 border-zinc-700 text-zinc-100'
-    : 'bg-white border-amber-300 text-slate-900';
+    themeClasses;
+  const inputClass =
+    'light:bg-white light:border-amber-300 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100';
 
   const fetchTrades = useCallback(
     async (afterDoc: QueryDocumentSnapshot | null = null): Promise<TradeRow[]> => {
@@ -173,7 +172,7 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
               <button
                 onClick={handleExport}
                 title="Export CSV"
-                className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}
+                className="px-2 py-1 text-xs font-semibold rounded-sm light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
               >
                 CSV
               </button>
@@ -215,9 +214,7 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
                 className={`px-2 py-1 text-xs font-semibold rounded-sm ${
                   filterAction === action
                     ? 'bg-orange-600 text-white'
-                    : darkMode
-                      ? 'text-zinc-400 hover:bg-zinc-800'
-                      : 'text-zinc-600 hover:bg-slate-200'
+                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
                 }`}
               >
                 {action.charAt(0).toUpperCase() + action.slice(1)}

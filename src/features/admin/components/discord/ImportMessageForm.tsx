@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { AdminCommonProps } from '../types';
 
-type ImportMessageFormProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass' | 'inputClass'> & {
+type ImportMessageFormProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'inputClass'> & {
   busy: boolean;
   onImport: (target: { channelId: string; messageId: string; label?: string }) => Promise<boolean>;
 };
@@ -13,7 +13,6 @@ type ImportMessageFormProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 
 // anyone else's message, so importing one would just create a row that fails on
 // every save.
 export default function ImportMessageForm({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -46,9 +45,7 @@ export default function ImportMessageForm({
   }
 
   return (
-    <div
-      className={`p-3 rounded-sm border ${darkMode ? 'border-slate-700 bg-slate-800' : 'border-slate-200 bg-white'}`}
-    >
+    <div className="p-3 rounded-sm border light:border-slate-200 light:bg-white dark:border-slate-700 dark:bg-slate-800">
       <h4 className={`text-sm font-semibold mb-1 ${textClass}`}>Import an existing bot message</h4>
       <p className={`text-xs mb-3 ${mutedClass}`}>
         In Discord: turn on Developer Mode, right-click the message, Copy Message Link, and paste the last two numbers
@@ -84,7 +81,7 @@ export default function ImportMessageForm({
         </button>
         <button
           onClick={() => setOpen(false)}
-          className={`px-3 py-1.5 text-xs rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} ${mutedClass}`}
+          className={`px-3 py-1.5 text-xs rounded-sm light:bg-slate-200 dark:bg-slate-700 ${mutedClass}`}
         >
           Cancel
         </button>

@@ -13,7 +13,6 @@ import type { AdminCommonProps } from './types';
 import type { useAdminSiteMessages } from '../hooks/useAdminSiteMessages';
 
 const SiteMessagesTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -29,9 +28,9 @@ const SiteMessagesTab = ({
   moveSiteMessage,
 }: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminSiteMessages>) => {
   const active = siteMessagesList.filter((m) => m.active && m.text?.trim());
-  const card = `p-4 rounded-sm border ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`;
-  const rowCard = `p-3 rounded-sm border ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-slate-50 border-slate-200'}`;
-  const smallBtn = `px-2 py-1 text-xs rounded-sm ${darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-100' : 'bg-slate-200 hover:bg-slate-300 text-slate-800'}`;
+  const card = `p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700`;
+  const rowCard = `p-3 rounded-sm border light:bg-slate-50 light:border-slate-200 dark:bg-slate-900 dark:border-slate-700`;
+  const smallBtn = `px-2 py-1 text-xs rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100`;
 
   return (
     <div className={card}>
@@ -128,11 +127,7 @@ const SiteMessagesTab = ({
           {active.length === 0 ? (
             <p className={`text-xs ${mutedClass}`}>Nothing active. The bar will not render.</p>
           ) : (
-            <div
-              className={`px-3 py-1.5 text-xs font-medium text-center rounded-sm ${
-                darkMode ? 'bg-sky-900/60 text-sky-100' : 'bg-sky-100 text-sky-900'
-              }`}
-            >
+            <div className="px-3 py-1.5 text-xs font-medium text-center rounded-sm light:bg-sky-100 light:text-sky-900 dark:bg-sky-900/60 dark:text-sky-100">
               {active.map((m, i) => (
                 <span key={m.id}>
                   {i > 0 && <span className="mx-3 opacity-40">•</span>}

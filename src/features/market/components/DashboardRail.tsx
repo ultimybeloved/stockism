@@ -1,8 +1,9 @@
 import CheckInButton from '../../missions/components/CheckInButton';
 import PredictionsTeaser from '../../predictions/components/PredictionsTeaser';
 import MarketIndex from './MarketIndex';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { useSession, useMarket } from '../../../context/AppContext';
+
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { CHARACTER_MAP } from '../../../characters';
 import { calculateMarginStatus } from '../../../utils/calculations';
@@ -31,11 +32,10 @@ const DashboardRail = ({
   onShowPortfolio,
   onShowBailout,
 }: DashboardRailProps) => {
-  const { darkMode } = useTheme();
   const { userData, getColorBlindColors } = useSession();
   const { prices, priceHistory, predictions } = useMarket();
-  const { cardClass, mutedClass } = getThemeClasses(darkMode);
-  const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
+  const { cardClass, mutedClass } = themeClasses;
+  const textClass = 'light:text-zinc-900 dark:text-zinc-100';
 
   return (
     <aside className="lg:order-2 lg:w-96 2xl:w-[30rem] lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pl-1">
@@ -91,7 +91,6 @@ const DashboardRail = ({
             checkinStreak={userData?.checkinStreak || 0}
             onCheckin={onCheckin}
             onSignIn={onShowLogin}
-            darkMode={darkMode}
             loading={checkinLoading}
           />
         </div>
@@ -183,7 +182,7 @@ const DashboardRail = ({
                     </div>
                   );
                 })}
-                <div className={`pt-2 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+                <div className="pt-2 border-t light:border-amber-200 dark:border-zinc-800">
                   <div className="flex justify-between items-center text-xs">
                     <span className={mutedClass}>Total Unrealized P/L:</span>
                     <span className={`font-bold ${getColorBlindColors(totalUnrealizedPL >= 0).text}`}>
@@ -208,12 +207,7 @@ const DashboardRail = ({
 
       <PredictionsTeaser predictions={predictions} />
 
-      <MarketIndex
-        prices={prices}
-        priceHistory={priceHistory}
-        darkMode={darkMode}
-        colorBlindMode={userData?.colorBlindMode}
-      />
+      <MarketIndex prices={prices} priceHistory={priceHistory} colorBlindMode={userData?.colorBlindMode} />
     </aside>
   );
 };

@@ -5,7 +5,6 @@ import type { Character } from '../../../../characters';
 import type { PriceMap } from '../../../../types';
 
 const RecoveryTradeRollback = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -39,9 +38,7 @@ const RecoveryTradeRollback = ({
     sortedCharacters: Character[];
     prices: PriceMap;
   }) => (
-  <div
-    className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-  >
+  <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
     <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Trade History & Rollback</h3>
 
     {/* Ticker selector for investigation */}
@@ -80,7 +77,7 @@ const RecoveryTradeRollback = ({
 
     {/* Price History Display */}
     {selectedTickerHistory.length > 0 && (
-      <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-slate-800' : 'bg-slate-100'}`}>
+      <div className="p-3 rounded-sm mb-3 light:bg-slate-100 dark:bg-slate-800">
         <div className="flex justify-between items-center mb-2">
           <span className={`text-sm font-semibold ${textClass}`}>
             ${tradeFilterTicker} Price History ({selectedTickerHistory.length} entries)
@@ -98,7 +95,7 @@ const RecoveryTradeRollback = ({
               return (
                 <div
                   key={i}
-                  className={`text-xs flex justify-between items-center py-1.5 px-2 rounded cursor-pointer hover:bg-blue-500/20 ${darkMode ? 'bg-slate-700' : 'bg-white'}`}
+                  className="text-xs flex justify-between items-center py-1.5 px-2 rounded cursor-pointer hover:bg-blue-500/20 light:bg-white dark:bg-slate-700"
                   onClick={() => setRollbackTimestamp(h.timestamp.toString())}
                 >
                   <span className={mutedClass}>{new Date(h.timestamp).toLocaleString()}</span>
@@ -119,9 +116,7 @@ const RecoveryTradeRollback = ({
     )}
 
     {/* Rollback Controls */}
-    <div
-      className={`p-3 rounded-sm ${darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-300'}`}
-    >
+    <div className="p-3 rounded-sm light:bg-red-50 light:border light:border-red-300 dark:bg-red-900/30 dark:border dark:border-red-700">
       <h4 className="font-semibold text-red-500 mb-2">⚠️ Rollback Trades</h4>
       <p className={`text-xs ${mutedClass} mb-3`}>
         This will reverse ALL trades after the selected timestamp and restore prices.

@@ -1,5 +1,6 @@
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { TIME_RANGES } from '../../../utils/marketIndex';
+import { useTheme } from '../../../context/AppContext';
 
 export interface IndexPoint {
   timestamp: number;
@@ -20,7 +21,6 @@ interface IndexChartModalProps {
   setTimeRange: (key: string) => void;
   hoveredPoint: IndexHoverPoint | null;
   setHoveredPoint: (point: IndexHoverPoint | null) => void;
-  darkMode: boolean;
   colorBlindMode: boolean;
   onClose: () => void;
 }
@@ -33,11 +33,11 @@ const IndexChartModal = ({
   setTimeRange,
   hoveredPoint,
   setHoveredPoint,
-  darkMode,
   colorBlindMode,
   onClose,
 }: IndexChartModalProps) => {
-  const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { darkMode } = useTheme();
+  const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
 
   if (chartData.length < 2) return null;
 
@@ -114,9 +114,7 @@ const IndexChartModal = ({
         </div>
 
         {/* Time Range Selector */}
-        <div
-          className={`px-4 py-2 border-b ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}
-        >
+        <div className="px-4 py-2 border-b light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50">
           <div className="flex gap-1">
             {TIME_RANGES.map((range) => (
               <button
@@ -125,9 +123,7 @@ const IndexChartModal = ({
                 className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
                   timeRange === range.key
                     ? 'bg-orange-600 text-white'
-                    : darkMode
-                      ? 'text-zinc-400 hover:bg-zinc-800'
-                      : 'text-zinc-600 hover:bg-slate-200'
+                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
                 }`}
               >
                 {range.label}
@@ -283,9 +279,7 @@ const IndexChartModal = ({
             {/* Tooltip */}
             {hoveredPoint && (
               <div
-                className={`absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-sm z-10 ${
-                  darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-white text-slate-900 border'
-                }`}
+                className="absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-sm z-10 light:bg-white light:text-slate-900 light:border dark:bg-zinc-800 dark:text-zinc-100"
                 style={{
                   left: `${(hoveredPoint.x / svgWidth) * 100}%`,
                   top: `${(hoveredPoint.y / svgHeight) * 100}%`,
@@ -302,7 +296,7 @@ const IndexChartModal = ({
         </div>
 
         {/* Stats Footer */}
-        <div className={`p-4 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className="p-4 border-t light:border-amber-200 dark:border-zinc-800">
           <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className={`text-xs ${mutedClass} uppercase`}>Open</div>

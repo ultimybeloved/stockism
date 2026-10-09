@@ -9,6 +9,7 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
+vi.mock('../../../context/AppContext', () => ({ useTheme: () => ({ darkMode: false }) }));
 vi.mock('../../../firebase', () => ({ db: {} }));
 vi.mock('../../../api/callables', () => {
   const fn = () => vi.fn(async () => ({ data: {} }));
@@ -78,7 +79,6 @@ const renderPanel = (overrides: Record<string, unknown> = {}) =>
       user={{ uid: ADMIN_UID } as User}
       predictions={[]}
       prices={{ JAKE: 50, GUN: 120 }}
-      darkMode={false}
       marketData={{ marketHalted: false }}
       onClose={vi.fn()}
       {...overrides}

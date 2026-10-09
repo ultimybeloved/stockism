@@ -4,17 +4,14 @@ import type { AdminCommonProps } from './types';
 import type { useAdminDiagnostics } from '../hooks/useAdminDiagnostics';
 
 const DiagnosticTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
-  // Drop Audit
   dropAuditQuery,
   setDropAuditQuery,
   dropAuditRunning,
   handleDropAudit,
   dropAuditResult,
-  // Ticker Rollback Diagnostic
   diagTicker,
   setDiagTicker,
   diagStartDate,
@@ -24,7 +21,6 @@ const DiagnosticTab = ({
   diagResult,
   diagUserSort,
   setDiagUserSort,
-  // Recovery Tool
   recoveryRollbackDate,
   setRecoveryRollbackDate,
   recoveryRunning,
@@ -37,7 +33,6 @@ const DiagnosticTab = ({
   return (
     <div className="space-y-4 overflow-x-hidden" onClick={(e) => e.stopPropagation()}>
       <DropAuditPanel
-        darkMode={darkMode}
         textClass={textClass}
         mutedClass={mutedClass}
         inputClass={inputClass}
@@ -49,9 +44,7 @@ const DiagnosticTab = ({
       />
 
       {/* Controls */}
-      <div
-        className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-      >
+      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <h3 className={`font-semibold mb-3 ${textClass}`}>🔍 Ticker Rollback Diagnostic</h3>
         <div className="flex gap-2 items-end flex-wrap">
           <div>
@@ -110,7 +103,7 @@ const DiagnosticTab = ({
             ].map((card, i) => (
               <div
                 key={i}
-                className={`p-2 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
+                className="p-2 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700"
               >
                 <div className={`text-xs ${mutedClass}`}>{card.label}</div>
                 <div className={`text-base font-bold ${card.color}`}>
@@ -123,9 +116,7 @@ const DiagnosticTab = ({
 
           {/* Ripple Effects */}
           {diagResult.rippleByTicker && diagResult.rippleByTicker.length > 0 && (
-            <div
-              className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-            >
+            <div className="p-3 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
               <h4 className={`font-semibold text-sm mb-1 ${textClass}`}>
                 💸 Dirty Money Trail — Where {diagResult.summary.ticker} profits went
               </h4>
@@ -141,9 +132,7 @@ const DiagnosticTab = ({
           )}
 
           {/* Per-user breakdown */}
-          <div
-            className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-          >
+          <div className="p-3 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
             <div className="flex justify-between items-center mb-1">
               <h4 className={`font-semibold text-sm ${textClass}`}>👤 Per-User Breakdown</h4>
               <select
@@ -173,16 +162,10 @@ const DiagnosticTab = ({
                       key={u.uid}
                       className={`p-2.5 rounded-sm ${
                         isManipulator
-                          ? darkMode
-                            ? 'bg-red-900/30 border border-red-800/50'
-                            : 'bg-red-50 border border-red-200'
+                          ? 'light:bg-red-50 light:border light:border-red-200 dark:bg-red-900/30 dark:border dark:border-red-800/50'
                           : isProfiteer
-                            ? darkMode
-                              ? 'bg-yellow-900/20 border border-yellow-800/50'
-                              : 'bg-yellow-50 border border-yellow-200'
-                            : darkMode
-                              ? 'bg-slate-700/50'
-                              : 'bg-slate-50'
+                            ? 'light:bg-yellow-50 light:border light:border-yellow-200 dark:bg-yellow-900/20 dark:border dark:border-yellow-800/50'
+                            : 'light:bg-slate-50 dark:bg-slate-700/50'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -236,9 +219,7 @@ const DiagnosticTab = ({
           </div>
 
           {/* Recovery Tool */}
-          <div
-            className={`p-3 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-          >
+          <div className="p-3 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
             <h4 className={`font-semibold text-sm mb-2 ${textClass}`}>🔧 Ticker Recovery</h4>
             <div className="flex gap-2 items-end mb-3">
               <div>
@@ -268,7 +249,7 @@ const DiagnosticTab = ({
             {recoveryPreview && (
               <div className="space-y-3">
                 {/* Price Reset */}
-                <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                <div className="p-2 rounded-sm light:bg-slate-50 dark:bg-slate-700/50">
                   <div className={`text-xs font-semibold ${textClass} mb-1`}>Price Reset</div>
                   <div className={`text-sm ${textClass}`}>
                     ${recoveryPreview.priceReset.from.toFixed(2)} → ${recoveryPreview.priceReset.to.toFixed(2)}
@@ -277,7 +258,7 @@ const DiagnosticTab = ({
 
                 {/* History Rewrite */}
                 {recoveryPreview.historyRewrite && (
-                  <div className={`p-2 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+                  <div className="p-2 rounded-sm light:bg-slate-50 dark:bg-slate-700/50">
                     <div className={`text-xs font-semibold ${textClass} mb-1`}>Price History Rewrite</div>
                     <div className={`text-sm ${textClass}`}>
                       Removing {recoveryPreview.historyRewrite.removedEntries} bad entries, keeping{' '}
@@ -302,7 +283,7 @@ const DiagnosticTab = ({
                       {recoveryPreview.clawbacks.map((cb) => (
                         <div
                           key={cb.uid}
-                          className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${cb.wasFloored ? (darkMode ? 'bg-red-900/20' : 'bg-red-50') : darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}
+                          className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${cb.wasFloored ? 'light:bg-red-50 dark:bg-red-900/20' : 'light:bg-slate-50 dark:bg-slate-700/30'}`}
                         >
                           <span className={textClass}>{cb.displayName}</span>
                           <div className="text-right">
@@ -328,7 +309,7 @@ const DiagnosticTab = ({
                       {recoveryPreview.holdersAffected.map((h) => (
                         <div
                           key={h.uid}
-                          className={`flex justify-between items-center text-xs p-1.5 rounded-sm ${darkMode ? 'bg-slate-700/30' : 'bg-slate-50'}`}
+                          className="flex justify-between items-center text-xs p-1.5 rounded-sm light:bg-slate-50 dark:bg-slate-700/30"
                         >
                           <span className={textClass}>
                             {h.displayName} ({h.holdings} shares)

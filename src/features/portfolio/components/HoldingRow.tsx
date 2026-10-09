@@ -1,4 +1,4 @@
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { DIVIDEND_TIER_META, formatShares } from '../utils/shared';
 import type { Dispatch, SetStateAction } from 'react';
@@ -16,7 +16,6 @@ interface HoldingRowProps {
   onLimitSell?: (ticker: string, side: 'sell', kind?: 'stopLoss') => void;
   drip?: Record<string, boolean>;
   onToggleDrip?: (ticker: string) => void;
-  darkMode: boolean;
   colorBlindMode: boolean;
 }
 
@@ -33,16 +32,13 @@ const HoldingRow = ({
   onLimitSell,
   drip = {},
   onToggleDrip,
-  darkMode,
   colorBlindMode,
 }: HoldingRowProps) => {
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const diversityPercent = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
 
   return (
-    <div
-      className={`rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-900/50' : 'border-amber-200 bg-amber-50'}`}
-    >
+    <div className="rounded-sm border light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50">
       {/* Main Row - Clickable */}
       <div className="p-3 cursor-pointer hover:bg-opacity-80" onClick={() => onToggle(item.ticker)}>
         <div className="flex justify-between items-center">
@@ -79,18 +75,18 @@ const HoldingRow = ({
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className={`px-3 pb-3 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className="px-3 pb-3 border-t light:border-amber-200 dark:border-zinc-800">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Avg Cost / Share</div>
               <div className={`font-semibold ${textClass}`}>{formatCurrency(item.avgCost)}</div>
             </div>
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Current Price</div>
               <div className={`font-semibold ${textClass}`}>{formatCurrency(item.currentPrice)}</div>
             </div>
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Today's Return</div>
               <div
                 className={`font-semibold ${item.todayReturnDollar >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
@@ -103,7 +99,7 @@ const HoldingRow = ({
                 </span>
               </div>
             </div>
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Total Return</div>
               <div
                 className={`font-semibold ${item.totalReturnDollar >= 0 ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
@@ -121,7 +117,7 @@ const HoldingRow = ({
           {/* Portfolio Diversity Bar */}
           <div className="mb-3">
             <div className={`text-xs ${mutedClass} mb-1`}>Portfolio Weight: {diversityPercent.toFixed(1)}%</div>
-            <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
+            <div className="h-2 rounded-full light:bg-zinc-200 dark:bg-zinc-800">
               <div
                 className="h-full rounded-full bg-orange-500"
                 style={{ width: `${Math.min(100, diversityPercent)}%` }}
@@ -131,9 +127,7 @@ const HoldingRow = ({
 
           {/* Dividend info */}
           {item.tierRate > 0 && (
-            <div
-              className={`mb-3 p-2 rounded-sm border ${darkMode ? 'border-zinc-800 bg-zinc-950' : 'border-amber-200 bg-white'}`}
-            >
+            <div className="mb-3 p-2 rounded-sm border light:border-amber-200 light:bg-white dark:border-zinc-800 dark:bg-zinc-950">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className={`text-xs ${mutedClass} mb-1`}>
@@ -166,9 +160,7 @@ const HoldingRow = ({
                     className={`shrink-0 text-xs px-2 py-1 rounded font-semibold transition-colors ${
                       drip[item.ticker]
                         ? 'bg-emerald-600 text-white'
-                        : darkMode
-                          ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
-                          : 'bg-zinc-200 text-zinc-500 hover:bg-zinc-300'
+                        : 'light:bg-zinc-200 light:text-zinc-500 light:hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-600'
                     }`}
                   >
                     DRIP {drip[item.ticker] ? 'ON' : 'OFF'}
@@ -205,9 +197,7 @@ const HoldingRow = ({
                 }
               }}
               onClick={(e) => e.stopPropagation()}
-              className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
-                darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
-              }`}
+              className="w-20 px-2 py-1 text-sm text-center rounded-sm border light:bg-white light:border-amber-200 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
             />
             <button
               onClick={(e) => {
@@ -223,11 +213,7 @@ const HoldingRow = ({
                 e.stopPropagation();
                 onSell(item.ticker, item.shares);
               }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${
-                darkMode
-                  ? 'bg-zinc-800 text-zinc-300 hover:bg-slate-600'
-                  : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
-              }`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-slate-600"
             >
               Sell All
             </button>
@@ -236,11 +222,7 @@ const HoldingRow = ({
                 e.stopPropagation();
                 onLimitSell?.(item.ticker, 'sell');
               }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${
-                darkMode
-                  ? 'border-red-600 text-red-400 hover:bg-red-950'
-                  : 'border-red-600 text-red-600 hover:bg-red-50'
-              }`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-red-600 light:text-red-600 light:hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-950"
             >
               Limit Sell
             </button>
@@ -249,11 +231,7 @@ const HoldingRow = ({
                 e.stopPropagation();
                 onLimitSell?.(item.ticker, 'sell', 'stopLoss');
               }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-sm border ${
-                darkMode
-                  ? 'border-orange-600 text-orange-400 hover:bg-orange-950'
-                  : 'border-orange-600 text-orange-500 hover:bg-orange-50'
-              }`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-orange-600 light:text-orange-500 light:hover:bg-orange-50 dark:border-orange-600 dark:text-orange-400 dark:hover:bg-orange-950"
             >
               Stop Loss
             </button>

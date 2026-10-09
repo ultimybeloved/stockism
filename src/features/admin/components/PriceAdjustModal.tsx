@@ -29,7 +29,6 @@ type PriceAdjustModalProps = Omit<AdminCommonProps, 'inputClass'> &
 // top of that. Before this was on screen it was invisible: $GAP was set +4.75%
 // on 2026-08-20 and finished the review +8.71%.
 const PriceAdjustModal = ({
-  darkMode,
   cardClass,
   textClass,
   mutedClass,
@@ -58,7 +57,7 @@ const PriceAdjustModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className={`p-4 border-b ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className="p-4 border-b light:border-slate-200 dark:border-slate-700">
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>💰 Adjust Character Prices</h2>
             <button
@@ -80,7 +79,7 @@ const PriceAdjustModal = ({
               placeholder="Search by name or ticker..."
               value={priceModalSearch}
               onChange={(e) => setPriceModalSearch(e.target.value)}
-              className={`w-full px-3 py-2 border rounded-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+              className="w-full px-3 py-2 border rounded-sm light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
             />
           </div>
 
@@ -103,12 +102,8 @@ const PriceAdjustModal = ({
                   key={character.ticker}
                   className={`p-3 rounded-sm border cursor-pointer transition-all ${
                     isSelected
-                      ? darkMode
-                        ? 'bg-teal-900/30 border-teal-500'
-                        : 'bg-teal-50 border-teal-500'
-                      : darkMode
-                        ? 'bg-slate-800 border-slate-700 hover:border-slate-600'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
+                      ? 'light:bg-teal-50 light:border-teal-500 dark:bg-teal-900/30 dark:border-teal-500'
+                      : 'light:bg-white light:border-slate-200 light:hover:border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:hover:border-slate-600'
                   }`}
                   onClick={() => {
                     if (isSelected) {
@@ -132,19 +127,13 @@ const PriceAdjustModal = ({
 
                   {/* Adjustment Controls - Show when selected */}
                   {isSelected && (
-                    <div
-                      className={`mt-3 pt-3 border-t ${darkMode ? 'border-slate-700' : 'border-slate-200'} space-y-2`}
-                    >
+                    <div className="mt-3 pt-3 border-t light:border-slate-200 dark:border-slate-700 space-y-2">
                       {/* What this review has already done to it */}
                       {(() => {
                         const so = reviewSoFar[character.ticker];
                         if (!so || !notable(so.percentChange)) return null;
                         return (
-                          <div
-                            className={`text-xs rounded-sm px-2 py-1.5 ${
-                              darkMode ? 'bg-amber-500/10 text-amber-200' : 'bg-amber-50 text-amber-800'
-                            }`}
-                          >
+                          <div className="text-xs rounded-sm px-2 py-1.5 light:bg-amber-50 light:text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">
                             <span className="font-semibold">This review so far: {signed(so.percentChange)}</span>
                             {' from $'}
                             {so.oldPrice?.toFixed(2)}
@@ -189,7 +178,7 @@ const PriceAdjustModal = ({
                           }}
                           onClick={(e) => e.stopPropagation()}
                           placeholder="Custom % (e.g., -15, 20)"
-                          className={`flex-1 px-3 py-2 border rounded-sm text-sm ${darkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                          className="flex-1 px-3 py-2 border rounded-sm text-sm light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                         />
                         <button
                           onClick={(e) => {

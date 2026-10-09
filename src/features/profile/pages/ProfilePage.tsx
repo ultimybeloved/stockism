@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import { usePortfolioHistory } from '../../portfolio/hooks/usePortfolioHistory';
 import PortfolioAnalytics from '../../portfolio/components/PortfolioAnalytics';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import ProfileHeader from '../components/ProfileHeader';
 import DiscordLinkBanner from '../components/DiscordLinkBanner';
 import CrewSection from '../components/CrewSection';
@@ -23,7 +23,6 @@ const ProfilePage = ({
   onDeleteAccount: (confirmUsername: string) => Promise<void>;
   onOpenCustomization: () => void;
 }) => {
-  const { darkMode } = useTheme();
   const { user, userData, holdings, shorts, costBasis } = useSession();
   const { predictions, prices } = useMarket();
   // History is fetched per selected chart range so we only read what the
@@ -31,7 +30,7 @@ const ProfilePage = ({
   const [chartTimeRange, setChartTimeRange] = useState('1m');
   const { history: portfolioHistory } = usePortfolioHistory(user, chartTimeRange);
 
-  const { cardClass, mutedClass } = getThemeClasses(darkMode);
+  const { cardClass, mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
 
   const bets = userData?.bets || {};
@@ -82,7 +81,7 @@ const ProfilePage = ({
   return (
     <div className="max-w-2xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden`}>
-        <ProfileHeader userData={userData} darkMode={darkMode} onOpenCustomization={onOpenCustomization} />
+        <ProfileHeader userData={userData} onOpenCustomization={onOpenCustomization} />
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
           <DiscordLinkBanner />
@@ -91,14 +90,12 @@ const ProfilePage = ({
             userCrew={userCrew}
             crewData={crewData}
             userData={userData}
-            darkMode={darkMode}
             onOpenCrewSelection={onOpenCrewSelection}
           />
 
           <ProfileChart
             portfolioValue={portfolioValue}
             portfolioHistory={portfolioHistory}
-            darkMode={darkMode}
             colorBlindMode={colorBlindMode}
             timeRange={chartTimeRange}
             onTimeRangeChange={setChartTimeRange}
@@ -112,13 +109,11 @@ const ProfilePage = ({
             costBasis={costBasis}
             predictionWins={predictionWins}
             betsPlaced={userBetHistory.length}
-            darkMode={darkMode}
           />
 
-          <LadderStats user={user} userData={userData} darkMode={darkMode} />
+          <LadderStats user={user} userData={userData} />
 
           <PortfolioAnalytics
-            darkMode={darkMode}
             holdings={holdings}
             shorts={shorts}
             prices={prices}
@@ -126,11 +121,11 @@ const ProfilePage = ({
             portfolioValue={portfolioValue}
           />
 
-          <ProfileSettings userData={userData} user={user} darkMode={darkMode} />
+          <ProfileSettings userData={userData} user={user} />
 
-          <PredictionHistory userBetHistory={userBetHistory} userData={userData} darkMode={darkMode} />
+          <PredictionHistory userBetHistory={userBetHistory} userData={userData} />
 
-          <DeleteAccountSection userData={userData} darkMode={darkMode} onDeleteAccount={onDeleteAccount} />
+          <DeleteAccountSection userData={userData} onDeleteAccount={onDeleteAccount} />
         </div>
       </div>
     </div>

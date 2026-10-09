@@ -1,4 +1,4 @@
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { formatShares } from '../utils/shared';
 import { SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_WARNING_THRESHOLD } from '../../../constants/economy';
@@ -17,7 +17,6 @@ interface ShortRowProps {
   coverAmounts: CoverAmounts;
   setCoverAmounts: Dispatch<SetStateAction<CoverAmounts>>;
   onCover: (ticker: string, shares: number) => void;
-  darkMode: boolean;
   colorBlindMode: boolean;
 }
 
@@ -30,10 +29,9 @@ const ShortRow = ({
   coverAmounts,
   setCoverAmounts,
   onCover,
-  darkMode,
   colorBlindMode,
 }: ShortRowProps) => {
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const isAtRisk = item.equityRatio < SHORT_MARGIN_WARNING_THRESHOLD;
   const liqPrice = item.liquidationPrice;
   const pctToLiq =
@@ -44,9 +42,7 @@ const ShortRow = ({
       className={`rounded-sm border ${
         isAtRisk
           ? 'border-orange-500 bg-orange-500/10'
-          : darkMode
-            ? 'border-zinc-800 bg-zinc-900/50'
-            : 'border-amber-200 bg-amber-50'
+          : 'light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50'
       }`}
     >
       {/* Main Row - Clickable */}
@@ -55,9 +51,7 @@ const ShortRow = ({
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className="text-orange-500 font-mono font-semibold">${item.ticker}</span>
-              <span
-                className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-500'}`}
-              >
+              <span className="text-xs px-1.5 py-0.5 rounded light:bg-orange-100 light:text-orange-500 dark:bg-orange-900/50 dark:text-orange-400">
                 SHORT
               </span>
               <span className={`text-sm ${mutedClass}`}>{item.character?.name}</span>
@@ -92,22 +86,22 @@ const ShortRow = ({
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className={`px-3 pb-3 border-t ${darkMode ? 'border-zinc-800' : 'border-amber-200'}`}>
+        <div className="px-3 pb-3 border-t light:border-amber-200 dark:border-zinc-800">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-3 mt-3 mb-3">
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Entry Price</div>
               <div className={`font-semibold ${textClass}`}>{formatCurrency(item.entryPrice)}</div>
             </div>
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Current Price</div>
               <div className={`font-semibold ${textClass}`}>{formatCurrency(item.currentPrice)}</div>
             </div>
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Margin Posted</div>
               <div className={`font-semibold ${textClass}`}>{formatCurrency(item.margin)}</div>
             </div>
-            <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-white'}`}>
+            <div className="p-2 rounded-sm light:bg-white dark:bg-zinc-800">
               <div className={`text-xs ${mutedClass}`}>Current Equity</div>
               <div
                 className={`font-semibold ${item.equity >= item.margin ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
@@ -125,7 +119,7 @@ const ShortRow = ({
                 {liqPrice ? `Force-cover at ${formatCurrency(liqPrice)}` : 'Healthy'}
               </span>
             </div>
-            <div className={`h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
+            <div className="h-2 rounded-full light:bg-zinc-200 dark:bg-zinc-800">
               <div
                 className={`h-full rounded-full ${
                   item.equityRatio < SHORT_MARGIN_CALL_THRESHOLD
@@ -169,9 +163,7 @@ const ShortRow = ({
                 }
               }}
               onClick={(e) => e.stopPropagation()}
-              className={`w-20 px-2 py-1 text-sm text-center rounded-sm border ${
-                darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'
-              }`}
+              className="w-20 px-2 py-1 text-sm text-center rounded-sm border light:bg-white light:border-amber-200 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
             />
             <button
               onClick={(e) => {
@@ -187,11 +179,7 @@ const ShortRow = ({
                 e.stopPropagation();
                 onCover(item.ticker, item.shares);
               }}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${
-                darkMode
-                  ? 'bg-zinc-800 text-zinc-300 hover:bg-slate-600'
-                  : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'
-              }`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-slate-600"
             >
               Cover All
             </button>

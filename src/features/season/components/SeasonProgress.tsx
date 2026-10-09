@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTheme, useSession } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { deriveSeasonWeeks, summariseSeasonWeeks, buildSeasonSeries } from '../../../utils/seasonWeeks';
 import { seasonRulesFor } from '../../../constants/seasons';
 import type { SeasonWeekRecord } from '../../../utils/seasonWeeks';
@@ -36,7 +36,7 @@ const SeasonProgress = ({
 }: SeasonProgressProps) => {
   const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
   const rules = seasonRulesFor(season);
 

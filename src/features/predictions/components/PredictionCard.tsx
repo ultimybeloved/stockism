@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { getOutcomeColor, getThemeClasses } from '../../../utils/theme';
+import { getOutcomeColor, themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatTimeRemaining, formatMultiplier } from '../../../utils/formatters';
 import { niceStep } from '../../../utils/calculations';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import { marketTimes } from '../../../utils/localTime';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
+
 import type { PredictionDoc, UserBet } from '../../../types';
 
 interface PredictionCardProps {
@@ -29,7 +30,6 @@ const PredictionCard = ({
   isAdmin = false,
   onHide,
 }: PredictionCardProps) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
   const { marketData } = useMarket();
   // Betting closes with the market, same as trading. Mirrors placeBet's guards.
@@ -38,7 +38,7 @@ const PredictionCard = ({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showBetUI, setShowBetUI] = useState(false);
 
-  const { cardClass, textClass, mutedClass, subtleClass, chipClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass, chipClass } = themeClasses;
   const betStep = niceStep(betLimit, 1);
 
   const timeRemaining = (prediction.endsAt ?? 0) - Date.now();
@@ -150,7 +150,7 @@ const PredictionCard = ({
                 >
                   {option} {isWinner && '✓'}
                 </div>
-                <div className={`flex-1 h-4 rounded-sm overflow-hidden ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
+                <div className="flex-1 h-4 rounded-sm overflow-hidden light:bg-slate-200 dark:bg-zinc-800">
                   <div className={`h-full ${colors.fill} transition-all`} style={{ width: `${percent}%` }} />
                 </div>
                 <div className="w-16 text-right leading-tight">
@@ -207,7 +207,7 @@ const PredictionCard = ({
         <>
           {bettingHalted ? (
             <div
-              className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}
+              className={`text-center py-2 text-sm ${mutedClass} light:bg-slate-200/60 dark:bg-zinc-800/50 rounded-sm`}
             >
               {marketData?.marketHalted
                 ? `⏸️ Betting paused: ${marketData.haltReason || 'market halted'}`
@@ -215,7 +215,7 @@ const PredictionCard = ({
             </div>
           ) : hasExistingBet && !prediction.allowAdditionalBets ? (
             <div
-              className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}
+              className={`text-center py-2 text-sm ${mutedClass} light:bg-slate-200/60 dark:bg-zinc-800/50 rounded-sm`}
             >
               🔒 You've already placed a bet on this prediction
             </div>
@@ -268,14 +268,14 @@ const PredictionCard = ({
                   <button
                     type="button"
                     onClick={() => setBetAmount((a) => Math.max(0, a - betStep))}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+                    className="flex-1 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                   >
                     -{betStep}
                   </button>
                   <button
                     type="button"
                     onClick={() => setBetAmount((a) => Math.min(betLimit || Infinity, a + betStep))}
-                    className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+                    className="flex-1 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
                   >
                     +{betStep}
                   </button>
@@ -305,7 +305,7 @@ const PredictionCard = ({
                   onFocus={(e) => {
                     if (betAmount === 0) e.target.select();
                   }}
-                  className={`w-full mt-2 px-3 py-2 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'}`}
+                  className="w-full mt-2 px-3 py-2 text-sm rounded-sm border light:bg-white light:border-amber-200 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
                   placeholder="Custom amount..."
                 />
                 {betLimit > 0 && (
@@ -368,7 +368,7 @@ const PredictionCard = ({
       {isAdmin && prediction.resolved && onHide && (
         <button
           onClick={() => onHide(prediction.id)}
-          className={`w-full mt-2 py-1 text-xs rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+          className="w-full mt-2 py-1 text-xs rounded-sm light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
         >
           Hide from feed
         </button>

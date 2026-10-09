@@ -1,12 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { useTheme, useSession } from '../context/AppContext';
+import { useSession } from '../context/AppContext';
 import { useDiscordLink } from '../features/profile/hooks/useDiscordLink';
-import { getThemeClasses } from '../utils/theme';
+import { themeClasses } from '../utils/theme';
 
 // /link-discord: sends a signed-in player straight to Discord to link their
 // account, or asks them to log in first.
 const DiscordLinkRedirect = ({ onShowLogin }: { onShowLogin: () => void }) => {
-  const { darkMode } = useTheme();
   const { user } = useSession();
   const { beginDiscordLink, error: linkError } = useDiscordLink();
   const startedRef = useRef(false);
@@ -20,7 +19,7 @@ const DiscordLinkRedirect = ({ onShowLogin }: { onShowLogin: () => void }) => {
     }
   }, [user, beginDiscordLink]);
 
-  const { bgClass, cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
+  const { bgClass, cardClass, textClass, mutedClass } = themeClasses;
 
   if (!user) {
     return (

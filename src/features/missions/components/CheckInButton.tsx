@@ -14,7 +14,6 @@ interface CheckInButtonProps {
   checkinStreak?: number;
   onCheckin: () => void;
   onSignIn: () => void;
-  darkMode: boolean;
   loading?: boolean;
 }
 
@@ -24,7 +23,6 @@ const CheckInButton = ({
   checkinStreak = 0,
   onCheckin,
   onSignIn,
-  darkMode,
   loading,
 }: CheckInButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
@@ -98,7 +96,7 @@ const CheckInButton = ({
   if (isGuest) {
     return (
       <div className="relative mt-2">
-        <p className={`text-[10px] leading-tight mb-1 text-center ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+        <p className="text-[10px] leading-tight mb-1 text-center light:text-zinc-500 dark:text-zinc-400">
           {statusLine}
         </p>
         <button
@@ -124,15 +122,13 @@ const CheckInButton = ({
               key={day}
               title={`Day ${day}${isCap ? '+' : ''}: $${reward}`}
               className={`flex-1 h-1.5 rounded-full transition-colors ${
-                reached ? (isCap ? 'bg-amber-400' : 'bg-orange-500') : darkMode ? 'bg-zinc-700' : 'bg-zinc-200'
+                reached ? (isCap ? 'bg-amber-400' : 'bg-orange-500') : 'light:bg-zinc-200 dark:bg-zinc-700'
               }`}
             />
           );
         })}
       </div>
-      <p className={`text-[10px] leading-tight mb-1 text-center ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
-        {statusLine}
-      </p>
+      <p className="text-[10px] leading-tight mb-1 text-center light:text-zinc-500 dark:text-zinc-400">{statusLine}</p>
 
       <button
         onClick={handleButtonClick}
@@ -151,20 +147,12 @@ const CheckInButton = ({
       </button>
 
       {showTooltip && hasCheckedIn && (
-        <div
-          className={`absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 rounded-sm text-xs whitespace-nowrap z-50 ${
-            darkMode ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-900 text-white'
-          } shadow-lg`}
-        >
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 rounded-sm text-xs whitespace-nowrap z-50 light:bg-zinc-900 light:text-white dark:bg-zinc-800 dark:text-zinc-100 shadow-lg">
           <div className="text-center">
             <div className="font-semibold">Next check-in available in:</div>
             <div className="text-orange-400 font-mono mt-1">{timeUntilReset}</div>
           </div>
-          <div
-            className={`absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent ${
-              darkMode ? 'border-t-slate-700' : 'border-t-slate-800'
-            }`}
-          />
+          <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent light:border-t-slate-800 dark:border-t-slate-700" />
         </div>
       )}
     </div>

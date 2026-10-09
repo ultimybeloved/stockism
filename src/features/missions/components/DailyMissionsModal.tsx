@@ -8,7 +8,7 @@ import {
   getWeeklyMissionProgress,
   getDaysUntilWeeklyReset,
 } from '../../../utils/missionProgress';
-import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
@@ -46,8 +46,7 @@ const DailyMissionsModal = ({
   const { prices, crewStats } = useMarket();
   const [activeTab, setActiveTab] = useState<MissionTab>('daily');
 
-  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } =
-    getThemeClasses(darkMode);
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
 
   const today = getTodayDateString();
   const weekId = getWeekId();
@@ -164,7 +163,7 @@ const DailyMissionsModal = ({
 
         {/* Subheader */}
         {!isGuest && !noCrew && activeTab !== 'crew' && (
-          <div className={`px-4 py-2 ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} flex items-center justify-between`}>
+          <div className="px-4 py-2 light:bg-amber-50 dark:bg-zinc-800/50 flex items-center justify-between">
             {activeTab === 'daily' ? (
               <p className={`text-xs ${mutedClass}`}>
                 Resets daily • Earned: <span className="text-orange-500">{formatCurrency(earnedRewards)}</span> /{' '}
@@ -184,9 +183,7 @@ const DailyMissionsModal = ({
                 className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-sm transition-colors ${
                   rerollLoading
                     ? 'opacity-50 cursor-not-allowed'
-                    : darkMode
-                      ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
-                      : 'bg-amber-200 hover:bg-amber-300 text-amber-800'
+                    : 'light:bg-amber-200 light:hover:bg-amber-300 light:text-amber-800 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200'
                 }`}
                 title="Reroll all missions ($50)"
               >
@@ -199,9 +196,7 @@ const DailyMissionsModal = ({
 
         {/* Underdog bonus banner */}
         {!isGuest && !noCrew && crewMultiplier > 1 && (
-          <div
-            className={`px-4 py-1.5 ${darkMode ? 'bg-orange-900/30' : 'bg-orange-100'} border-b border-orange-500/30`}
-          >
+          <div className="px-4 py-1.5 light:bg-orange-100 dark:bg-orange-900/30 border-b border-orange-500/30">
             <p className="text-orange-500 text-xs text-center font-semibold">
               🔥 Underdog bonus: all mission rewards x{crewMultiplier} this week
             </p>
@@ -212,12 +207,12 @@ const DailyMissionsModal = ({
           {activeTab === 'crew' ? (
             <CrewMissionsTab />
           ) : isGuest ? (
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} text-center`}>
-              <p className={`text-amber-500 mb-2`}>Sign in to access missions!</p>
+            <div className="p-4 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50 text-center">
+              <p className="text-amber-500 mb-2">Sign in to access missions!</p>
               <p className={`text-xs ${mutedClass}`}>Complete missions to earn bonus cash rewards.</p>
             </div>
           ) : noCrew ? (
-            <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-amber-50'} text-center`}>
+            <div className="p-4 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50 text-center">
               <p className={`${mutedClass} mb-2`}>Join a crew to unlock missions!</p>
               <p className={`text-xs ${mutedClass} mb-3`}>Crew missions give you bonus cash rewards.</p>
               {onOpenCrewSelection && (
@@ -257,7 +252,7 @@ const DailyMissionsModal = ({
 
                   {/* Progress bar */}
                   <div className="flex items-center gap-2">
-                    <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
+                    <div className="flex-1 h-2 rounded-full light:bg-slate-200 dark:bg-zinc-800">
                       <div
                         className={`h-full rounded-full transition-all ${mission.complete ? 'bg-orange-500' : 'bg-amber-500'}`}
                         style={{
@@ -285,7 +280,7 @@ const DailyMissionsModal = ({
               ))}
 
               {/* Crew member hint */}
-              <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800/30' : 'bg-amber-50'}`}>
+              <div className="p-2 rounded-sm light:bg-amber-50 dark:bg-zinc-800/30">
                 <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
                   {CREW_MAP[userCrew]?.icon ? (
                     <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
@@ -305,7 +300,7 @@ const DailyMissionsModal = ({
             /* WEEKLY MISSIONS TAB */
             <>
               {weeklyMissions.length === 0 ? (
-                <div className={`p-4 rounded-sm ${darkMode ? 'bg-zinc-800/50' : 'bg-purple-50'} text-center`}>
+                <div className="p-4 rounded-sm light:bg-purple-50 dark:bg-zinc-800/50 text-center">
                   <p className={`${mutedClass}`}>No weekly missions available</p>
                 </div>
               ) : (
@@ -332,7 +327,7 @@ const DailyMissionsModal = ({
 
                     {/* Progress bar */}
                     <div className="flex items-center gap-2">
-                      <div className={`flex-1 h-2 rounded-full ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
+                      <div className="flex-1 h-2 rounded-full light:bg-slate-200 dark:bg-zinc-800">
                         <div
                           className={`h-full rounded-full transition-all ${mission.complete ? 'bg-purple-500' : 'bg-purple-400'}`}
                           style={{
@@ -362,7 +357,7 @@ const DailyMissionsModal = ({
               )}
 
               {/* Crew member hint */}
-              <div className={`p-2 rounded-sm ${darkMode ? 'bg-zinc-800/30' : 'bg-purple-50'}`}>
+              <div className="p-2 rounded-sm light:bg-purple-50 dark:bg-zinc-800/30">
                 <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
                   {CREW_MAP[userCrew]?.icon ? (
                     <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />

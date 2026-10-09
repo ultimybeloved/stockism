@@ -6,7 +6,6 @@ import type { useAdminBetRecovery } from '../../hooks/useAdminBetRecovery';
 import type { PredictionDoc } from '../../../../types';
 
 const OverridePayoutPanel = ({
-  darkMode,
   mutedClass,
   inputClass,
   loading,
@@ -21,10 +20,10 @@ const OverridePayoutPanel = ({
   setRecoveryWinner,
   handleScanForBets,
   handleOverridePayout,
-}: Pick<AdminCommonProps, 'darkMode' | 'mutedClass' | 'inputClass' | 'loading'> &
+}: Pick<AdminCommonProps, 'mutedClass' | 'inputClass' | 'loading'> &
   ReturnType<typeof useAdminBetRecovery> & { predictions: PredictionDoc[] }) => {
   return (
-    <div className={`p-4 rounded-sm border-2 border-red-500 ${darkMode ? 'bg-red-900/20' : 'bg-red-50'}`}>
+    <div className="p-4 rounded-sm border-2 border-red-500 light:bg-red-50 dark:bg-red-900/20">
       <h3 className="font-semibold text-red-500 mb-1">⚠️ Override Previous Decision</h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         Use this if you paid out the wrong winner. Scan the prediction, select the correct winner, and pay them —
@@ -67,7 +66,7 @@ const OverridePayoutPanel = ({
 
         {recoveryBets.length > 0 && (
           <>
-            <div className={`p-2 rounded-sm text-xs ${mutedClass} ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+            <div className={`p-2 rounded-sm text-xs ${mutedClass} light:bg-slate-100 dark:bg-slate-700`}>
               Found {recoveryBets.length} bets • Total pool: $
               {recoveryBets.reduce((s, b) => s + b.amount, 0).toFixed(2)} • Already paid:{' '}
               {recoveryBets.filter((b) => b.paid).length}
@@ -83,9 +82,7 @@ const OverridePayoutPanel = ({
                     className={`p-3 rounded-sm border-2 font-semibold transition-all ${
                       recoveryWinner === opt
                         ? 'border-red-500 bg-red-500 text-white'
-                        : darkMode
-                          ? 'border-slate-600 text-slate-300 hover:border-red-500'
-                          : 'border-slate-300 hover:border-red-400'
+                        : 'light:border-slate-300 light:hover:border-red-400 dark:border-slate-600 dark:text-slate-300 dark:hover:border-red-500'
                     }`}
                   >
                     {opt}

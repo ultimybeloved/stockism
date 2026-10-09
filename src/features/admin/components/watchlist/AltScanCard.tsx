@@ -7,19 +7,17 @@ import { localDailyTime } from '../../../../utils/localTime';
 import type { AdminCommonProps } from '../types';
 import type { AltScanResponse } from '../../../../api/types';
 
-type AltScanCardProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+type AltScanCardProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   scanning: boolean;
   result: AltScanResponse | null;
   runScan: (dryRun?: boolean) => void;
 };
 
-const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runScan }: AltScanCardProps) => {
-  const buttonClass = `flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 ${
-    darkMode ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-  }`;
+const AltScanCard = ({ textClass, mutedClass, scanning, result, runScan }: AltScanCardProps) => {
+  const buttonClass = `flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 light:bg-slate-100 light:hover:bg-slate-200 light:text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200`;
 
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-indigo-50'}`}>
+    <div className="p-3 rounded-sm light:bg-indigo-50 dark:bg-slate-700/50">
       <h3 className={`text-sm font-bold mb-1 ${textClass}`}>Find Alt Accounts</h3>
       <p className={`text-xs mb-2 ${mutedClass}`}>
         Looks through the last 30 days of trades for accounts that keep trading from the same connection. This runs by
@@ -33,25 +31,20 @@ const AltScanCard = ({ darkMode, textClass, mutedClass, scanning, result, runSca
         <button
           onClick={() => runScan(false)}
           disabled={scanning}
-          className={`flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 ${
-            darkMode ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
-          }`}
+          className="flex-1 py-2 text-xs font-semibold rounded-sm disabled:opacity-50 light:bg-indigo-500 light:hover:bg-indigo-600 light:text-white dark:bg-indigo-600 dark:hover:bg-indigo-500 dark:text-white"
         >
           {scanning ? 'Scanning...' : 'Scan Now'}
         </button>
       </div>
 
       {result && (
-        <div className={`mt-2 space-y-1 max-h-60 overflow-y-auto`}>
+        <div className="mt-2 space-y-1 max-h-60 overflow-y-auto">
           <p className={`text-xs ${mutedClass}`}>
             {result.scanned} trades checked · {result.candidates} suspicious pair(s)
             {result.dryRun ? ' · nothing written' : ` · ${result.reported} new alert(s)`}
           </p>
           {(result.findings || []).map((f) => (
-            <div
-              key={f.key}
-              className={`text-xs p-1.5 rounded ${darkMode ? 'bg-slate-800' : 'bg-white'} ${mutedClass}`}
-            >
+            <div key={f.key} className={`text-xs p-1.5 rounded light:bg-white dark:bg-slate-800 ${mutedClass}`}>
               <span className={f.severity === 'high' ? 'text-red-400 font-semibold' : 'text-amber-400 font-semibold'}>
                 {f.severity === 'high' ? '🔴' : '🟡'} {f.names?.join('  +  ')}
               </span>

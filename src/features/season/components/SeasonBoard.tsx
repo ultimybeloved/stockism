@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getSeasonStandingsFunction } from '../../../api/callables';
-import { useTheme, useSession } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+
+import { themeClasses } from '../../../utils/theme';
 import {
   SEASON_TIERS,
   SEASON_TIER_MAP,
@@ -26,9 +27,8 @@ import type { SeasonStandingsResponse } from '../../../api/types';
 // Banked tiers (Bronze) show solid. Everything above is decided when the season
 // ends, so it shows dashed, as where each player would land if it ended now.
 const SeasonBoard = () => {
-  const { darkMode } = useTheme();
   const { user } = useSession();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   const [data, setData] = useState<SeasonStandingsResponse | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [picked, setPicked] = useState<string | null>(null);
@@ -65,7 +65,7 @@ const SeasonBoard = () => {
 
   return (
     <div>
-      <div className={`p-3 rounded-sm mb-3 ${darkMode ? 'bg-zinc-900' : 'bg-amber-50'}`}>
+      <div className="p-3 rounded-sm mb-3 light:bg-amber-50 dark:bg-zinc-900">
         <h3 className={`font-semibold ${textClass}`}>
           {seasonLabel(data)} · {data.name}
         </h3>
@@ -100,9 +100,7 @@ const SeasonBoard = () => {
             className={`px-2 py-1 rounded-sm text-xs font-semibold ${
               d.id === tab
                 ? 'bg-orange-600 text-white'
-                : darkMode
-                  ? 'bg-zinc-900 text-zinc-300'
-                  : 'bg-white text-slate-700'
+                : 'light:bg-white light:text-slate-700 dark:bg-zinc-900 dark:text-zinc-300'
             }`}
           >
             {d.label}
@@ -134,12 +132,8 @@ const SeasonBoard = () => {
               key={e.userId}
               className={`flex items-center gap-2 p-2 rounded-sm text-sm ${
                 isMe
-                  ? darkMode
-                    ? 'bg-orange-900/30 border border-orange-700'
-                    : 'bg-orange-100 border border-orange-300'
-                  : darkMode
-                    ? 'bg-zinc-900'
-                    : 'bg-white'
+                  ? 'light:bg-orange-100 light:border light:border-orange-300 dark:bg-orange-900/30 dark:border dark:border-orange-700'
+                  : 'light:bg-white dark:bg-zinc-900'
               }`}
             >
               <span className={`w-8 text-right font-semibold ${mutedClass}`}>{i + 1}</span>

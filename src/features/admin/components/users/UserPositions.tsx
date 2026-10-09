@@ -4,12 +4,11 @@ import type { LoadedAdminUser } from '../../utils/adminShared';
 import type { PriceMap } from '../../../../types';
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
 const UserPositions = ({
-  darkMode,
   textClass,
   mutedClass,
   prices,
   selectedUser,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+}: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   prices: PriceMap;
   selectedUser: LoadedAdminUser;
 }) => (
@@ -46,7 +45,7 @@ const UserPositions = ({
             .sort((a, b) => b.unrealizedPL - a.unrealizedPL)
             .map(
               ({ ticker, shareCount, currentPrice, currentValue, totalCost, avgCost, unrealizedPL, unrealizedPct }) => (
-                <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                <div key={ticker} className="text-sm p-2 rounded light:bg-slate-100 dark:bg-slate-700">
                   <div className="flex justify-between items-start">
                     <div>
                       <span className={`font-semibold ${textClass}`}>{ticker}</span>
@@ -73,7 +72,7 @@ const UserPositions = ({
     {/* Shorts */}
     {Object.keys(selectedUser.shorts).length > 0 && (
       <div className="mb-4">
-        <h4 className={`text-xs font-semibold uppercase text-red-400 mb-2`}>Short Positions</h4>
+        <h4 className="text-xs font-semibold uppercase text-red-400 mb-2">Short Positions</h4>
         <div className="space-y-2 max-h-48 overflow-y-auto">
           {Object.entries(selectedUser.shorts).map(([ticker, shortData]) => {
             if (!shortData || shortData.shares <= 0) return null;
@@ -82,7 +81,7 @@ const UserPositions = ({
             const pnl = (entryPrice - currentPrice) * shortData.shares;
             const pnlPct = entryPrice > 0 ? (pnl / (entryPrice * shortData.shares)) * 100 : 0;
             return (
-              <div key={ticker} className={`text-sm p-2 rounded ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+              <div key={ticker} className="text-sm p-2 rounded light:bg-slate-100 dark:bg-slate-700">
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="text-red-400 font-semibold">{ticker}</span>

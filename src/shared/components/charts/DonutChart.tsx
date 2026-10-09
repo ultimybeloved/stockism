@@ -2,13 +2,13 @@
 // DonutChart Component
 // Reusable SVG donut chart with legend
 // ============================================
+import { useTheme } from '../../../context/AppContext';
 
 /**
  * Donut chart component
  * @param {Object} props
  * @param {Array} props.data - Array of { label, value, color } objects
  * @param {number} props.size - Chart diameter (default 200)
- * @param {boolean} props.darkMode - Dark mode flag
  */
 export interface DonutSlice {
   label: string;
@@ -16,15 +16,8 @@ export interface DonutSlice {
   color: string;
 }
 
-const DonutChart = ({
-  data = [],
-  size = 200,
-  darkMode = false,
-}: {
-  data?: DonutSlice[];
-  size?: number;
-  darkMode?: boolean;
-}) => {
+const DonutChart = ({ data = [], size = 200 }: { data?: DonutSlice[]; size?: number }) => {
+  const { darkMode } = useTheme();
   const total = data.reduce((sum, d) => sum + d.value, 0);
   if (!data.length || total === 0) return null;
 
@@ -78,7 +71,7 @@ const DonutChart = ({
           y={cy - 6}
           textAnchor="middle"
           dominantBaseline="middle"
-          className={`text-xs font-medium ${darkMode ? 'fill-zinc-400' : 'fill-zinc-500'}`}
+          className="text-xs font-medium light:fill-zinc-500 dark:fill-zinc-400"
         >
           Total
         </text>
@@ -87,7 +80,7 @@ const DonutChart = ({
           y={cy + 10}
           textAnchor="middle"
           dominantBaseline="middle"
-          className={`text-sm font-bold ${darkMode ? 'fill-zinc-100' : 'fill-slate-900'}`}
+          className="text-sm font-bold light:fill-slate-900 dark:fill-zinc-100"
         >
           ${total >= 1000 ? `${(total / 1000).toFixed(1)}k` : total.toFixed(0)}
         </text>
@@ -101,8 +94,8 @@ const DonutChart = ({
               className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0"
               style={{ backgroundColor: seg.color }}
             />
-            <span className={darkMode ? 'text-zinc-300' : 'text-slate-700'}>{seg.label}</span>
-            <span className={darkMode ? 'text-zinc-500' : 'text-zinc-400'}>
+            <span className="light:text-slate-700 dark:text-zinc-300">{seg.label}</span>
+            <span className="light:text-zinc-400 dark:text-zinc-500">
               ${seg.value.toFixed(0)} ({(seg.pct * 100).toFixed(1)}%)
             </span>
           </div>

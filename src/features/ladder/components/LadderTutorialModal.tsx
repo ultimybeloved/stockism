@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useTheme } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+
+import { themeClasses } from '../../../utils/theme';
 
 const STEPS = [
   { id: 1, title: 'How it works' },
@@ -26,8 +26,7 @@ const LadderTutorialModal = ({
   onComplete: () => void;
   reviewMode?: boolean;
 }) => {
-  const { darkMode } = useTheme();
-  const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = themeClasses;
   const [step, setStep] = useState(1);
   const [checks, setChecks] = useState(Array(CHECKS.length).fill(false));
   const [confirmText, setConfirmText] = useState('');
@@ -60,7 +59,7 @@ const LadderTutorialModal = ({
         </div>
 
         {/* Progress bar */}
-        <div className={`h-1 shrink-0 ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+        <div className="h-1 shrink-0 light:bg-slate-100 dark:bg-zinc-800">
           <div
             className="h-full bg-orange-500 transition-all duration-300"
             style={{ width: `${(step / STEPS.length) * 100}%` }}
@@ -78,15 +77,13 @@ const LadderTutorialModal = ({
                 You pick a side (left or right) and a bet (odd or even). The game runs a random ladder. The outcome is
                 random every time.
               </p>
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+              <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                 <p className={`text-sm ${textClass}`}>
                   If you guessed right, you double your bet. If you guessed wrong, you lose it.
                 </p>
               </div>
-              <div
-                className={`p-3 rounded-sm border ${darkMode ? 'border-amber-700 bg-amber-900/20' : 'border-amber-300 bg-amber-50'}`}
-              >
-                <p className={`text-sm font-semibold ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+              <div className="p-3 rounded-sm border light:border-amber-300 light:bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
+                <p className="text-sm font-semibold light:text-amber-800 dark:text-amber-300">
                   There is no strategy. Each game has no connection to the one before it.
                 </p>
               </div>
@@ -95,14 +92,12 @@ const LadderTutorialModal = ({
 
           {step === 2 && (
             <>
-              <div
-                className={`p-3 rounded-sm border ${darkMode ? 'border-red-700 bg-red-900/20' : 'border-red-300 bg-red-50'}`}
-              >
-                <p className={`text-sm font-bold ${darkMode ? 'text-red-300' : 'text-red-700'}`}>
+              <div className="p-3 rounded-sm border light:border-red-300 light:bg-red-50 dark:border-red-700 dark:bg-red-900/20">
+                <p className="text-sm font-bold light:text-red-700 dark:text-red-300">
                   Each game is 50/50. Winning doubles your money. Losing wipes your bet.
                 </p>
               </div>
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+              <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                 <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>EXAMPLE</p>
                 <p className={`text-sm ${textClass}`}>
                   If your bets are large relative to your balance, a few losses in a row can drain it fast. A single bad
@@ -114,17 +109,15 @@ const LadderTutorialModal = ({
 
           {step === 3 && (
             <>
-              <div
-                className={`p-3 rounded-sm border-2 ${darkMode ? 'border-red-600 bg-red-900/30' : 'border-red-500 bg-red-50'}`}
-              >
-                <p className={`text-sm font-bold ${darkMode ? 'text-red-300' : 'text-red-700'} mb-1`}>
+              <div className="p-3 rounded-sm border-2 light:border-red-500 light:bg-red-50 dark:border-red-600 dark:bg-red-900/30">
+                <p className="text-sm font-bold light:text-red-700 dark:text-red-300 mb-1">
                   Losing several games in a row is normal.
                 </p>
-                <p className={`text-sm ${darkMode ? 'text-red-200' : 'text-red-800'}`}>
+                <p className="text-sm light:text-red-800 dark:text-red-200">
                   Each game is a fresh 50/50 and has no connection to the previous result.
                 </p>
               </div>
-              <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+              <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                 <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WHY THIS MATTERS</p>
                 <p className={`text-sm ${textClass}`}>
                   A losing streak does not mean a win is coming. The next game is always 50/50, no matter what happened
@@ -138,7 +131,7 @@ const LadderTutorialModal = ({
             <>
               <p className={`text-sm ${textClass}`}>The ladder balance is separate from your main portfolio cash.</p>
               <div className="space-y-3">
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>DEPOSITS</p>
                   <p className={`text-sm ${textClass}`}>
                     You move money in using the Transfer button. A deposit can&apos;t take your ladder balance past
@@ -146,14 +139,14 @@ const LadderTutorialModal = ({
                     accounts start with lower limits that grow over their first week.
                   </p>
                 </div>
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WINNINGS</p>
                   <p className={`text-sm ${textClass}`}>
                     Your balance can grow beyond $10,000 through winnings. The deposit cap only applies to transfers in,
                     not to your total balance.
                   </p>
                 </div>
-                <div className={`p-3 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-50'}`}>
+                <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-zinc-800">
                   <p className={`text-xs font-semibold tracking-wide ${mutedClass} mb-1`}>WITHDRAWALS</p>
                   <p className={`text-sm ${textClass}`}>
                     You can withdraw back to your main cash at any time using the Transfer button, but withdrawals are
@@ -178,21 +171,13 @@ const LadderTutorialModal = ({
                     key={i}
                     className={`flex items-start gap-3 p-3 rounded-sm cursor-pointer border transition-colors ${
                       checks[i]
-                        ? darkMode
-                          ? 'border-orange-600 bg-orange-900/20'
-                          : 'border-orange-400 bg-orange-50'
-                        : darkMode
-                          ? 'border-zinc-700 bg-zinc-800/50 hover:border-zinc-600'
-                          : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                        ? 'light:border-orange-400 light:bg-orange-50 dark:border-orange-600 dark:bg-orange-900/20'
+                        : 'light:border-slate-200 light:bg-slate-50 light:hover:border-slate-300 dark:border-zinc-700 dark:bg-zinc-800/50 dark:hover:border-zinc-600'
                     }`}
                   >
                     <div
                       className={`w-5 h-5 rounded shrink-0 border-2 flex items-center justify-center mt-0.5 transition-colors ${
-                        checks[i]
-                          ? 'bg-orange-500 border-orange-500'
-                          : darkMode
-                            ? 'border-zinc-600'
-                            : 'border-slate-300'
+                        checks[i] ? 'bg-orange-500 border-orange-500' : 'light:border-slate-300 dark:border-zinc-600'
                       }`}
                     >
                       {checks[i] && <span className="text-white text-xs font-bold">✓</span>}
@@ -211,11 +196,7 @@ const LadderTutorialModal = ({
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
                   placeholder="Type LADDER"
-                  className={`w-full px-3 py-2 rounded-sm border text-sm font-mono ${
-                    darkMode
-                      ? 'bg-zinc-800 border-zinc-700 text-zinc-100 placeholder-zinc-600'
-                      : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400'
-                  } focus:outline-none focus:border-orange-500`}
+                  className="w-full px-3 py-2 rounded-sm border text-sm font-mono light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 dark:placeholder-zinc-600 focus:outline-none focus:border-orange-500"
                 />
               </div>
             </>
@@ -223,11 +204,11 @@ const LadderTutorialModal = ({
         </div>
 
         {/* Footer */}
-        <div className={`p-4 border-t ${darkMode ? 'border-zinc-700' : 'border-slate-200'} flex gap-3 shrink-0`}>
+        <div className="p-4 border-t light:border-slate-200 dark:border-zinc-700 flex gap-3 shrink-0">
           {step > 1 && step < 5 && (
             <button
               onClick={() => setStep((s) => s - 1)}
-              className={`px-4 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+              className="px-4 py-2 text-sm font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
             >
               ← Back
             </button>
@@ -235,7 +216,7 @@ const LadderTutorialModal = ({
           {step === 1 && (
             <button
               onClick={onClose}
-              className={`px-4 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+              className="px-4 py-2 text-sm font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
             >
               {reviewMode ? 'Close' : 'Cancel'}
             </button>

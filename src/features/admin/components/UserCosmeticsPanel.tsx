@@ -7,7 +7,6 @@ import type { useAdminCosmetics } from '../hooks/useAdminCosmetics';
 // Cosmetics section of the selected-user card in the admin Users tab.
 // Give any cosmetic for free (giveaways) or take one back, no Firebase console needed.
 const UserCosmeticsPanel = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -22,7 +21,7 @@ const UserCosmeticsPanel = ({
   const active = selectedUser.activeCosmetics || {};
 
   return (
-    <div className={`p-3 rounded mb-4 ${darkMode ? 'bg-slate-600' : 'bg-white'}`}>
+    <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
       <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>🎨 Cosmetics ({owned.length} owned)</h4>
 
       {/* Give a cosmetic */}
@@ -66,9 +65,7 @@ const UserCosmeticsPanel = ({
             return (
               <span
                 key={id}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full ${
-                  darkMode ? 'bg-slate-700' : 'bg-slate-100'
-                }`}
+                className="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full light:bg-slate-100 dark:bg-slate-700"
               >
                 <span
                   className="w-2.5 h-2.5 rounded-full shrink-0"

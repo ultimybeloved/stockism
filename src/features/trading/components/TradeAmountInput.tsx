@@ -1,5 +1,4 @@
-import { useTheme } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { formatShares, roundShares } from '../../../utils/tradeLimits';
 
 interface TradeAmountInputProps {
@@ -26,8 +25,7 @@ const TradeAmountInput = ({
   marginLockedShares = 0,
   marginLockHours,
 }: TradeAmountInputProps) => {
-  const { darkMode } = useTheme();
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass } = themeClasses;
   // Exits keep six decimals: holdings pick up fractional remainders from
   // dividends and partial fills, and rounding the box to cents would make the
   // last speck of a position untypeable (and so unsellable).
@@ -59,7 +57,7 @@ const TradeAmountInput = ({
               ? setAmount(Math.round(Math.max(0, (amount || 0.1) - 0.1) * 100) / 100)
               : setAmount(Math.max(0, (amount || 1) - 1))
           }
-          className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
+          className="px-3 py-2 rounded-sm light:bg-slate-200 dark:bg-zinc-800"
         >
           -
         </button>
@@ -85,7 +83,7 @@ const TradeAmountInput = ({
               setAmount(maxShares > 0 ? (partialShares ? smallestStep : 1) : 0);
             }
           }}
-          className={`flex-1 text-center py-2 rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200 text-slate-900'}`}
+          className="flex-1 text-center py-2 rounded-sm border light:bg-white light:border-amber-200 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
         />
         <button
           onClick={() =>
@@ -93,13 +91,13 @@ const TradeAmountInput = ({
               ? setAmount(Math.min(maxShares, Math.round(((amount || 0) + 0.1) * 100) / 100))
               : setAmount(Math.min(maxShares, (amount || 0) + 1))
           }
-          className={`px-3 py-2 rounded-sm ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}
+          className="px-3 py-2 rounded-sm light:bg-slate-200 dark:bg-zinc-800"
         >
           +
         </button>
         <button
           onClick={() => setAmount(maxShares)}
-          className={`px-3 py-2 text-sm font-semibold rounded-sm ${darkMode ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+          className="px-3 py-2 text-sm font-semibold rounded-sm light:bg-teal-600 light:hover:bg-teal-700 light:text-white dark:bg-teal-700 dark:hover:bg-teal-600 dark:text-white"
           disabled={maxShares === 0}
         >
           Max

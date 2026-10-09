@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { useTheme } from '../../../context/AppContext';
-import { getThemeClasses } from '../../../utils/theme';
+
+import { themeClasses } from '../../../utils/theme';
 import { marketTimes } from '../../../utils/localTime';
 
 const STEPS = [
@@ -50,7 +50,6 @@ const STEPS = [
 ];
 
 export default function OnboardingTutorial({ onComplete }: { onComplete: () => void }) {
-  const { darkMode } = useTheme();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [animating, setAnimating] = useState(false);
@@ -71,9 +70,9 @@ export default function OnboardingTutorial({ onComplete }: { onComplete: () => v
     [step, animating],
   );
 
-  const { textClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
-  const subtleText = darkMode ? 'text-zinc-400' : 'text-slate-600';
-  const subtleBtn = darkMode ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-500 hover:text-slate-700';
+  const { textClass, overlayHeavyClass, modalShellClass } = themeClasses;
+  const subtleText = 'light:text-slate-600 dark:text-zinc-400';
+  const subtleBtn = 'light:text-slate-500 light:hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200';
 
   return (
     <div className={`${overlayHeavyClass} z-[100]`}>
@@ -101,7 +100,7 @@ export default function OnboardingTutorial({ onComplete }: { onComplete: () => v
             <div
               key={i}
               className={`w-2 h-2 rounded-full transition-colors duration-200 ${
-                i === step ? 'bg-orange-600' : darkMode ? 'bg-zinc-700' : 'bg-slate-300'
+                i === step ? 'bg-orange-600' : 'light:bg-slate-300 dark:bg-zinc-700'
               }`}
             />
           ))}

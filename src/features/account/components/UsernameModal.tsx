@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createUserFunction, checkUsernameFunction } from '../../../api/callables';
 import { containsProfanity, getProfanityMessage } from '../../../utils/profanity';
 import { validateUsername } from '../../../utils/username';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import type { FormEvent } from 'react';
 import { errorMessage } from '../../../utils/errors';
 
@@ -21,15 +21,7 @@ const suggestionProblem = (name: string) => {
   return null;
 };
 
-const UsernameModal = ({
-  onComplete,
-  darkMode,
-  suggestedName = '',
-}: {
-  onComplete: () => void;
-  darkMode: boolean;
-  suggestedName?: string;
-}) => {
+const UsernameModal = ({ onComplete, suggestedName = '' }: { onComplete: () => void; suggestedName?: string }) => {
   const suggestion = (suggestedName || '').trim();
   const rejectedReason = suggestionProblem(suggestion);
   // Prefill only a name that could actually be used; otherwise start empty and
@@ -114,7 +106,7 @@ const UsernameModal = ({
     setLoading(false);
   };
 
-  const { textClass, mutedClass, inputClass, overlayHeavyClass, modalShellClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, inputClass, overlayHeavyClass, modalShellClass } = themeClasses;
 
   return (
     <div className={`${overlayHeavyClass} z-50`}>

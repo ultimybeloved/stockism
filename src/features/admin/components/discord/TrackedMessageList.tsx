@@ -2,7 +2,7 @@ import { formatDateTime } from '../../../../utils/localTime';
 import type { AdminCommonProps } from '../types';
 import type { TrackedDiscordMessage } from '../../../../api/types';
 
-type TrackedMessageListProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'> & {
+type TrackedMessageListProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   messages: TrackedDiscordMessage[];
   activeId: string | null;
   busy: boolean;
@@ -14,7 +14,6 @@ type TrackedMessageListProps = Pick<AdminCommonProps, 'darkMode' | 'textClass' |
 // posted through the panel or imported — the bot's automated posts (daily drop,
 // market alerts) are not tracked and are not meant to be hand-edited.
 export default function TrackedMessageList({
-  darkMode,
   textClass,
   mutedClass,
   messages,
@@ -39,8 +38,8 @@ export default function TrackedMessageList({
           <div
             key={m.id}
             className={`p-3 rounded-sm border ${
-              active ? 'border-teal-500' : darkMode ? 'border-slate-700' : 'border-slate-200'
-            } ${darkMode ? 'bg-slate-800' : 'bg-white'}`}
+              active ? 'border-teal-500' : 'light:border-slate-200 dark:border-slate-700'
+            } light:bg-white dark:bg-slate-800`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -67,7 +66,7 @@ export default function TrackedMessageList({
                 <button
                   onClick={() => onDelete(m, true)}
                   disabled={busy}
-                  className={`px-2 py-1 text-xs rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-200'} ${mutedClass} disabled:opacity-50`}
+                  className={`px-2 py-1 text-xs rounded-sm light:bg-slate-200 dark:bg-slate-700 ${mutedClass} disabled:opacity-50`}
                   title="Stop tracking it here, leave it in Discord"
                 >
                   Forget

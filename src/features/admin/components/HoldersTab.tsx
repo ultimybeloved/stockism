@@ -5,9 +5,9 @@ import ShortsList from './holders/ShortsList';
 import type { AdminCommonProps } from './types';
 import type { useAdminHolders } from '../hooks/useAdminHolders';
 import type { PriceMap } from '../../../types';
+import { useTheme } from '../../../context/AppContext';
 
 const HoldersTab = ({
-  darkMode,
   textClass,
   mutedClass,
   inputClass,
@@ -21,9 +21,10 @@ const HoldersTab = ({
   holdersLoading,
   loadHolders,
 }: Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminHolders> & { prices: PriceMap }) => {
+  const { darkMode } = useTheme();
   return (
     <div className="space-y-4">
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-purple-50'}`}>
+      <div className="p-3 rounded-sm light:bg-purple-50 dark:bg-slate-700/50">
         <p className={`text-sm ${mutedClass}`}>
           📊 View every long holder and short seller of a character. Click a character to load both sides.
         </p>
@@ -54,15 +55,11 @@ const HoldersTab = ({
                   setHoldersTicker(c.ticker);
                   loadHolders(c.ticker);
                 }}
-                className={`p-3 rounded-sm text-left transition-all ${
-                  darkMode
-                    ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700'
-                    : 'bg-white hover:bg-blue-50 border border-slate-200'
-                }`}
+                className="p-3 rounded-sm text-left transition-all light:bg-white light:hover:bg-blue-50 light:border light:border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border dark:border-slate-700"
               >
                 <div className={`text-xs font-semibold ${mutedClass} mb-1`}>${c.ticker}</div>
                 <div className={`text-sm font-semibold ${textClass} truncate`}>{c.name}</div>
-                <div className={`text-xs text-green-500 mt-1`}>${currentPrice.toFixed(2)}</div>
+                <div className="text-xs text-green-500 mt-1">${currentPrice.toFixed(2)}</div>
               </button>
             );
           })}
@@ -114,9 +111,7 @@ const HoldersTab = ({
                   {holdersData.map((holder, idx) => (
                     <div
                       key={holder.userId}
-                      className={`p-2 rounded-sm flex justify-between items-center ${
-                        darkMode ? 'bg-slate-800 hover:bg-slate-700' : 'bg-white hover:bg-slate-50'
-                      } ${idx === 0 ? 'border-2 border-yellow-500' : ''}`}
+                      className={`p-2 rounded-sm flex justify-between items-center light:bg-white light:hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 ${idx === 0 ? 'border-2 border-yellow-500' : ''}`}
                     >
                       <div>
                         <span className={`font-semibold ${textClass}`}>
@@ -130,7 +125,7 @@ const HoldersTab = ({
                       <div className="text-right">
                         <span className={`font-bold ${textClass}`}>{holder.shares}</span>
                         <span className={`text-xs ${mutedClass} ml-1`}>shares</span>
-                        <p className={`text-xs text-green-500`}>${holder.value.toFixed(2)}</p>
+                        <p className="text-xs text-green-500">${holder.value.toFixed(2)}</p>
                       </div>
                     </div>
                   ))}

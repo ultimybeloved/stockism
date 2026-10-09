@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { getOutcomeColor, getThemeClasses } from '../../../utils/theme';
+import { getOutcomeColor, themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
+
 import {
   lmsrPrices,
   lmsrBuyCost,
@@ -41,9 +42,8 @@ const EventMarketCard = ({
   isAdmin = false,
   onHide,
 }: EventMarketCardProps) => {
-  const { darkMode } = useTheme();
   const { userData } = useSession();
-  const { cardClass, textClass, mutedClass, subtleClass, chipClass } = getThemeClasses(darkMode);
+  const { cardClass, textClass, mutedClass, subtleClass, chipClass } = themeClasses;
 
   const colorBlindMode = userData?.colorBlindMode || false;
 
@@ -153,7 +153,7 @@ const EventMarketCard = ({
                 >
                   {o} {isWinner && '✓'}
                 </div>
-                <div className={`flex-1 h-4 rounded-sm overflow-hidden ${darkMode ? 'bg-zinc-800' : 'bg-slate-200'}`}>
+                <div className="flex-1 h-4 rounded-sm overflow-hidden light:bg-slate-200 dark:bg-zinc-800">
                   <div
                     className={`h-full ${colors.fill} transition-all`}
                     style={{ width: `${Math.round(prices(i) * 100)}%` }}
@@ -210,17 +210,13 @@ const EventMarketCard = ({
 
       {/* Trade panel */}
       {!resolved && notYetOpen && (
-        <div
-          className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}
-        >
+        <div className={`text-center py-2 text-sm ${mutedClass} light:bg-slate-200/60 dark:bg-zinc-800/50 rounded-sm`}>
           🔒 Opens in {formatCountdown(market.opensAt! - nowTs)}
         </div>
       )}
 
       {!resolved && !notYetOpen && isHalted && (
-        <div
-          className={`text-center py-2 text-sm ${mutedClass} ${darkMode ? 'bg-zinc-800/50' : 'bg-slate-200/60'} rounded-sm`}
-        >
+        <div className={`text-center py-2 text-sm ${mutedClass} light:bg-slate-200/60 dark:bg-zinc-800/50 rounded-sm`}>
           🔒 Closed for chapter review. Trading reopens {marketTimes().reopen}.
         </div>
       )}
@@ -284,14 +280,14 @@ const EventMarketCard = ({
               <button
                 type="button"
                 onClick={() => setShares((s) => Math.max(0, (Number(s) || 0) - shareStep))}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${chipClass} ${darkMode ? 'hover:bg-zinc-700' : 'hover:bg-slate-300'}`}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${chipClass} light:hover:bg-slate-300 dark:hover:bg-zinc-700`}
               >
                 -{shareStep}
               </button>
               <button
                 type="button"
                 onClick={() => setShares((s) => Math.min(currentMax, (Number(s) || 0) + shareStep))}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${chipClass} ${darkMode ? 'hover:bg-zinc-700' : 'hover:bg-slate-300'}`}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${chipClass} light:hover:bg-slate-300 dark:hover:bg-zinc-700`}
               >
                 +{shareStep}
               </button>
@@ -309,7 +305,7 @@ const EventMarketCard = ({
               min="0"
               value={shares || ''}
               onChange={(e) => setShares(e.target.value === '' ? 0 : Math.max(0, parseFloat(e.target.value) || 0))}
-              className={`w-full mt-2 px-3 py-2 text-sm rounded-sm border ${darkMode ? 'bg-zinc-950 border-zinc-700 text-zinc-100' : 'bg-white border-amber-200'}`}
+              className="w-full mt-2 px-3 py-2 text-sm rounded-sm border light:bg-white light:border-amber-200 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
               placeholder="Custom amount..."
             />
             {mode === 'sell' && (
@@ -361,7 +357,7 @@ const EventMarketCard = ({
       {isAdmin && resolved && onHide && (
         <button
           onClick={() => onHide(market.id)}
-          className={`w-full mt-2 py-1 text-xs rounded-sm ${darkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-zinc-600 hover:bg-slate-300'}`}
+          className="w-full mt-2 py-1 text-xs rounded-sm light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
         >
           Hide from feed
         </button>

@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { PriceAlert } from '../../../types';
 
 interface PriceAlertModalProps {
   ticker: string;
   currentPrice: number;
-  darkMode: boolean;
   onClose: () => void;
   existingAlerts?: PriceAlert[];
   onCreateAlert: (alert: { ticker: string; targetPrice: number; direction: string }) => Promise<boolean>;
@@ -16,7 +15,6 @@ interface PriceAlertModalProps {
 export default function PriceAlertModal({
   ticker,
   currentPrice,
-  darkMode,
   onClose,
   existingAlerts = [],
   onCreateAlert,
@@ -28,7 +26,7 @@ export default function PriceAlertModal({
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { textClass, mutedClass, inputClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
+  const { textClass, mutedClass, inputClass, overlayClass, modalShellClass } = themeClasses;
 
   const parsedTarget = parseFloat(targetPrice);
   const isValid = !isNaN(parsedTarget) && parsedTarget > 0;
@@ -157,9 +155,7 @@ export default function PriceAlertModal({
                 return (
                   <div
                     key={alert.id || i}
-                    className={`flex items-center justify-between px-3 py-2 rounded-sm border text-sm ${
-                      darkMode ? 'border-zinc-800 bg-zinc-950' : 'border-amber-200 bg-amber-50'
-                    }`}
+                    className="flex items-center justify-between px-3 py-2 rounded-sm border text-sm light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-950"
                   >
                     <div className="flex items-center gap-2">
                       <span className={isAbove ? 'text-green-500' : 'text-red-500'}>{isAbove ? '▲' : '▼'}</span>

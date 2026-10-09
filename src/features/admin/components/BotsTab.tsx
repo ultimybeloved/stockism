@@ -4,7 +4,6 @@ import type { PriceMap } from '../../../types';
 import { sharesOf } from '../../../utils/holdings';
 
 const BotsTab = ({
-  darkMode,
   textClass,
   mutedClass,
   loading,
@@ -16,7 +15,7 @@ const BotsTab = ({
 }: Omit<AdminCommonProps, 'inputClass'> & ReturnType<typeof useAdminBots> & { prices: PriceMap }) => {
   return (
     <div className="space-y-4">
-      <div className={`p-3 rounded-sm ${darkMode ? 'bg-purple-900/20' : 'bg-purple-50'}`}>
+      <div className="p-3 rounded-sm light:bg-purple-50 dark:bg-purple-900/20">
         <div className="flex justify-between items-center gap-3">
           <p className={`text-sm ${mutedClass}`}>
             🤖 Bot traders. Creating is safe to repeat, existing bots are skipped.
@@ -34,9 +33,7 @@ const BotsTab = ({
 
       {/* Bot List */}
       {bots.length > 0 && (
-        <div
-          className={`p-4 rounded-sm ${darkMode ? 'bg-slate-800' : 'bg-white'} border ${darkMode ? 'border-slate-700' : 'border-slate-200'}`}
-        >
+        <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
           <h3 className={`text-sm font-semibold ${textClass} mb-3`}>Active Bots ({bots.length})</h3>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {bots.map((bot) => {
@@ -46,7 +43,7 @@ const BotsTab = ({
               }, 0);
 
               return (
-                <div key={bot.id} className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700' : 'bg-slate-100'}`}>
+                <div key={bot.id} className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -61,7 +58,7 @@ const BotsTab = ({
                       <div className="grid grid-cols-4 gap-3 mt-2 text-xs">
                         <div>
                           <span className={mutedClass}>Cash:</span>
-                          <span className={`ml-1 font-semibold text-green-500`}>${bot.cash?.toFixed(2) || '0.00'}</span>
+                          <span className="ml-1 font-semibold text-green-500">${bot.cash?.toFixed(2) || '0.00'}</span>
                         </div>
                         <div>
                           <span className={mutedClass}>Holdings:</span>

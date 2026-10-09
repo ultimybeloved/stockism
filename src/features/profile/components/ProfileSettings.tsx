@@ -1,20 +1,18 @@
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { getThemeClasses } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { STARTING_CASH } from '../../../constants/economy';
 import { useDiscordLink } from '../hooks/useDiscordLink';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
 
 // Profile settings card: color-blind mode, public profile toggle, Discord link.
-const ProfileSettings = ({ userData, user, darkMode }: { userData: UserData; user: User; darkMode: boolean }) => {
-  const { textClass, mutedClass } = getThemeClasses(darkMode);
+const ProfileSettings = ({ userData, user }: { userData: UserData; user: User }) => {
+  const { textClass, mutedClass } = themeClasses;
   const { beginDiscordLink, unlinkDiscord, linking, error: linkError } = useDiscordLink();
 
   return (
-    <div
-      className={`p-4 rounded-sm border ${darkMode ? 'bg-zinc-800/50 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}
-    >
+    <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
       <h3 className={`font-semibold ${textClass} mb-3`}>⚙️ Settings</h3>
       <div className="flex items-center justify-between">
         <div>
@@ -33,7 +31,7 @@ const ProfileSettings = ({ userData, user, darkMode }: { userData: UserData; use
             }
           }}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-            userData?.colorBlindMode ? 'bg-orange-600' : darkMode ? 'bg-zinc-700' : 'bg-slate-300'
+            userData?.colorBlindMode ? 'bg-orange-600' : 'light:bg-slate-300 dark:bg-zinc-700'
           }`}
         >
           <span
@@ -62,7 +60,7 @@ const ProfileSettings = ({ userData, user, darkMode }: { userData: UserData; use
               }
             }}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              userData?.isPublic ? 'bg-orange-600' : darkMode ? 'bg-zinc-700' : 'bg-slate-300'
+              userData?.isPublic ? 'bg-orange-600' : 'light:bg-slate-300 dark:bg-zinc-700'
             }`}
           >
             <span
@@ -103,11 +101,7 @@ const ProfileSettings = ({ userData, user, darkMode }: { userData: UserData; use
             <button
               onClick={() => unlinkDiscord({ walled: !!userData?.requiresDiscordLink })}
               disabled={linking}
-              className={`px-2 py-1 text-xs font-semibold rounded-sm transition-colors disabled:opacity-60 ${
-                darkMode
-                  ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-200'
-                  : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
-              }`}
+              className="px-2 py-1 text-xs font-semibold rounded-sm transition-colors disabled:opacity-60 light:bg-amber-100 light:hover:bg-amber-200 light:text-amber-900 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
             >
               {linking ? '...' : 'Unlink'}
             </button>
@@ -141,9 +135,7 @@ const ProfileSettings = ({ userData, user, darkMode }: { userData: UserData; use
                 console.error('Failed to set title:', err);
               }
             }}
-            className={`w-full px-2 py-1 text-sm rounded-sm border ${
-              darkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-amber-200 text-zinc-900'
-            }`}
+            className="w-full px-2 py-1 text-sm rounded-sm border light:bg-white light:border-amber-200 light:text-zinc-900 dark:bg-zinc-900 dark:border-zinc-700 dark:text-white"
           >
             <option value="">No title</option>
             {(userData.ownedTitles || []).map((id) => (

@@ -10,11 +10,7 @@ import type { SeasonDryRunReport } from '../../../../api/types';
 // running, and this scores those snapshots with the real tier rules, so the
 // tiers can be watched against live data before season 1 starts for real.
 // Nothing here changes a player's account.
-const SeasonDryRunPanel = ({
-  darkMode,
-  textClass,
-  mutedClass,
-}: Pick<AdminCommonProps, 'darkMode' | 'textClass' | 'mutedClass'>) => {
+const SeasonDryRunPanel = ({ textClass, mutedClass }: Pick<AdminCommonProps, 'textClass' | 'mutedClass'>) => {
   const [report, setReport] = useState<SeasonDryRunReport | null>(null);
   const [busy, setBusy] = useState<'report' | 'snapshot' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +40,7 @@ const SeasonDryRunPanel = ({
   const btn = 'px-3 py-1 text-xs font-semibold rounded text-white disabled:opacity-50';
 
   return (
-    <div className={`p-3 rounded-sm ${darkMode ? 'bg-slate-700/50' : 'bg-slate-100'}`}>
+    <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
       <div className="flex justify-between items-start gap-2 mb-1">
         <h3 className={`font-semibold ${textClass}`}>🎭 Season Dry Run</h3>
         <div className="flex gap-2">
