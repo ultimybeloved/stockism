@@ -14,7 +14,7 @@ import { db } from '../../../firebase';
 import { formatCurrency } from '../../../utils/formatters';
 import { CHARACTER_MAP } from '../../../characters';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import {
   SOURCE_LABELS,
@@ -40,7 +40,8 @@ const PAGE_SIZE = 30;
 
 const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
-  const { darkMode, user, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [trades, setTrades] = useState<TradeRow[]>([]);
   const [loading, setLoading] = useState(true);

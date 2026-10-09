@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, type MouseEvent, type TouchEvent } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { usePriceHistory } from '../hooks/usePriceHistory';
 import { formatAxisLabels } from '../../../utils/formatters';
 import { ADMIN_UIDS } from '../../../constants';
@@ -43,7 +43,8 @@ const getY = (price: number, min: number, range: number) => PAD_Y + CHART_H - ((
 const LONG_TERM = new Set<string>(['1m', '3m', '1y', 'all']);
 
 const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area', onHover }: PriceChartProps) => {
-  const { darkMode, userData, user } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData, user } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   // A chapter review is folded to one point on the chart, because the real run
   // of steps reads as trading through the halt. Admins can put the steps back to

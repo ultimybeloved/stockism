@@ -1,7 +1,7 @@
 import { MARGIN_WARNING_THRESHOLD, MARGIN_DANGER_THRESHOLD, MARGIN_CALL_THRESHOLD } from '../../../constants';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import type { MarginStatus } from '../../../utils/calculations';
 
 /**
@@ -16,7 +16,8 @@ const MarginStatusBars = ({
   marginStatus: MarginStatus;
   statusColorClass: string;
 }) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
 

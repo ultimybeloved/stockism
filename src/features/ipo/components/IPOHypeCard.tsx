@@ -2,11 +2,12 @@ import { CHARACTER_MAP } from '../../../characters';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../../../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../../../constants';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import type { IPO } from '../../../types';
 
 const IPOHypeCard = ({ ipo }: { ipo: IPO }) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   const { cardClass, textClass, mutedClass, subtleClass } = getThemeClasses(darkMode);
 

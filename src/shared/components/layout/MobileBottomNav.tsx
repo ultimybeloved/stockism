@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
 
 // Ladder icon component - tan circle with X
@@ -14,7 +14,8 @@ const LadderIcon = () => (
 );
 
 const MobileBottomNav = () => {
-  const { darkMode, user } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user } = useSession();
   const location = useLocation();
   const navigate = useNavigate();
   const [isVisible, setIsVisible] = useState(true);

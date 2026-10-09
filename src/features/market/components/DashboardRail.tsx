@@ -1,7 +1,7 @@
 import CheckInButton from '../../missions/components/CheckInButton';
 import PredictionsTeaser from '../../predictions/components/PredictionsTeaser';
 import MarketIndex from './MarketIndex';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { CHARACTER_MAP } from '../../../characters';
@@ -31,7 +31,9 @@ const DashboardRail = ({
   onShowPortfolio,
   onShowBailout,
 }: DashboardRailProps) => {
-  const { darkMode, userData, prices, priceHistory, predictions, getColorBlindColors } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData, getColorBlindColors } = useSession();
+  const { prices, priceHistory, predictions } = useMarket();
   const { cardClass, mutedClass } = getThemeClasses(darkMode);
   const textClass = darkMode ? 'text-zinc-100' : 'text-zinc-900';
 

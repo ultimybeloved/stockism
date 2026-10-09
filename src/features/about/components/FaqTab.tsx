@@ -1,10 +1,10 @@
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { marketTimes } from '../../../utils/localTime';
 
 // The FAQ tab: how the market, orders, shorts, dividends and seasons work.
 const FaqTab = () => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 
   return (

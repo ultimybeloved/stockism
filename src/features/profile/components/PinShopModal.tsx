@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import RowPreview from './pinshop/RowPreview';
 import MyLookTab from './pinshop/MyLookTab';
@@ -36,7 +36,8 @@ const PinShopModal = ({
   portfolioValue,
 }: PinShopModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const [activeTab, setActiveTab] = useState('look');
   const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
   const [purchasing, setPurchasing] = useState(false);

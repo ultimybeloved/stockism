@@ -7,7 +7,9 @@ import SiteMessageBar from './SiteMessageBar';
 // most is the one where it renders nothing at all.
 const mockContext = vi.fn();
 vi.mock('../../context/AppContext', () => ({
-  useAppContext: () => mockContext(),
+  useTheme: () => mockContext(),
+  useSession: () => mockContext(),
+  useMarket: () => mockContext(),
 }));
 
 const setup = (siteMessages: Record<string, unknown>[] | undefined, darkMode = false) => {

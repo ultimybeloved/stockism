@@ -173,7 +173,8 @@ If a new feature would push a file past its limit, **split the file first, then 
 
 **Context** (`src/context/AppContext.tsx`)
 - Global state that 3+ components need: `darkMode`, `user`, `userData`, `prices`, `priceHistory`, `holdings`, `shorts`, `costBasis`, `marketData`, `showNotification`, `activeIPOs`
-- **Never pass these as props.** Components call `useAppContext()`.
+- Three contexts, so a price tick only re-renders what reads prices: `useTheme()` (`darkMode`), `useSession()` (`user`, `userData`, `holdings`, `shorts`, `costBasis`, `showNotification`, `getColorBlindColors`), `useMarket()` (`prices`, `priceHistory`, `marketData`, `activeIPOs`, `predictions`, and the other live market docs). Call only the ones a component reads.
+- **Never pass these as props.** Components call the hooks above.
 - If you find yourself writing `darkMode={darkMode}` as a prop, stop — use context instead
 
 ### Backend: Where Code Lives
@@ -238,7 +239,7 @@ These specific patterns are banned. If you catch yourself writing any of them, s
 
 3. **God files** — `App.jsx` at 3,900 lines, `AdminPanel.jsx` at 7,400 lines, `functions/index.js` at 11,000 lines. These took days to untangle. Never let a file grow past its limit without splitting it.
 
-4. **Prop drilling** — passing `darkMode`, `user`, `userData`, `prices` through 3–5 component layers. These are in context. Use `useAppContext()`.
+4. **Prop drilling** — passing `darkMode`, `user`, `userData`, `prices` through 3–5 component layers. These are in context. Use `useTheme()` / `useSession()` / `useMarket()`.
 
 5. **Magic numbers** — `0.005`, `0.15`, `500`, `10000` scattered across backend files with no explanation. Every economy value needs a named constant.
 
@@ -251,14 +252,14 @@ Before writing any code, answer these questions:
 - Does similar logic already exist somewhere? (Check `calculations.js`, `helpers.js`, `constants.js` first)
 - Which existing file owns this domain? Add to it — don't create a new file unless the domain is genuinely new
 - Will this push any file past its line limit? Split first
-- Does this component need `darkMode`, `user`, or `prices`? Get them from `useAppContext()`, not props
+- Does this component need `darkMode`, `user`, or `prices`? Get them from `useTheme()` / `useSession()` / `useMarket()`, not props
 - Is there a magic number? Name it in the appropriate constants file first
 
 ### Reviewing Your Own Work
 
 Before committing any feature or fix, scan for:
 - [ ] No function defined more than once across the codebase
-- [ ] No `darkMode={darkMode}` props passed to components that use `useAppContext()`
+- [ ] No `darkMode={darkMode}` props passed to components that can read context
 - [ ] No inline numeric economy values — all named constants
 - [ ] No file past its line limit
 - [ ] `functions/src/index.js` is still a pure re-exporter (≤15 lines; deployable files listed in each domain's `services.js`)
@@ -276,7 +277,7 @@ Quick reference so you know where to look and where to add things.
 |---|---|
 | `src/App.tsx` | Router, top-level subscriptions, state/handler assembly — the modal stack itself is in `src/app/AppModals.tsx` |
 | `src/app/AppModals.tsx` | Every modal's render condition. App.tsx still owns the state and handlers; values already in context are read from context, not drilled |
-| `src/context/AppContext.tsx` | Global state: darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs, showNotification |
+| `src/context/AppContext.tsx` | Global state in three contexts: `useTheme` (darkMode), `useSession` (user, userData, holdings, shorts, costBasis, showNotification), `useMarket` (prices, priceHistory, marketData, activeIPOs, ...) |
 | `src/shared/hooks/useModalManager.ts` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
 | `src/features/trading/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.js`) |
 | `src/features/missions/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |

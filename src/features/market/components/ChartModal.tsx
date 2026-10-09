@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import PriceChart, { TIME_RANGES } from './PriceChart';
 import { usePriceHistory } from '../hooks/usePriceHistory';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
@@ -18,7 +18,8 @@ interface ChartModalProps {
 
 const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }: ChartModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
   const [hoveredChartPoint, setHoveredChartPoint] = useState<PricePoint | null>(null);

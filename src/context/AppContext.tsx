@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import type { ReviewChanges } from '../utils/marketHours';
 import type { ChangeColors } from '../utils/theme';
@@ -23,19 +23,27 @@ export interface LooseDoc {
   [key: string]: unknown;
 }
 
-export interface AppContextValue {
+export interface ThemeContextValue {
   darkMode: boolean;
+}
+
+/** The signed-in player (all null/empty for a guest) and the toast helper. */
+export interface SessionContextValue {
   user: User | null;
   userData: UserData | null;
-  prices: PriceMap;
-  priceHistory: PriceHistory;
-  predictions: PredictionDoc[];
   holdings: ShareMap;
   shorts: ShortMap;
   costBasis: Record<string, number>;
-  marketData: MarketData | null;
   getColorBlindColors: (isPositive: boolean) => ChangeColors;
   showNotification: (type: NotificationKind, message: string, image?: string | null) => void;
+}
+
+/** Live market state. Changes on every price tick. */
+export interface MarketContextValue {
+  prices: PriceMap;
+  priceHistory: PriceHistory;
+  predictions: PredictionDoc[];
+  marketData: MarketData | null;
   activeIPOs: IPO[];
   ipoRestrictedTickers: string[];
   launchedTickers: string[];
@@ -52,18 +60,42 @@ export interface AppContextValue {
   siteMessages: Partial<SiteMessage>[];
 }
 
-/**
- * Shared state for the entire application. Gives every page user data, market
- * data and app settings without prop drilling.
- */
-const AppContext = createContext<AppContextValue | null>(null);
+export type AppContextValue = ThemeContextValue & SessionContextValue & MarketContextValue;
 
-export const useAppContext = (): AppContextValue => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useAppContext must be used within AppProvider');
-  }
-  return context;
+/**
+ * Shared state for the whole app, in three contexts so a component only
+ * re-renders for what it reads: a price tick re-renders market readers, not
+ * every component that only needs the theme or the player.
+ */
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+const SessionContext = createContext<SessionContextValue | null>(null);
+const MarketContext = createContext<MarketContextValue | null>(null);
+
+const required = <T,>(value: T | null, hook: string): T => {
+  if (!value) throw new Error(`${hook} must be used within AppProvider`);
+  return value;
 };
 
-export const AppProvider = AppContext.Provider;
+export const useTheme = (): ThemeContextValue => required(useContext(ThemeContext), 'useTheme');
+export const useSession = (): SessionContextValue => required(useContext(SessionContext), 'useSession');
+export const useMarket = (): MarketContextValue => required(useContext(MarketContext), 'useMarket');
+
+export function AppProvider({
+  theme,
+  session,
+  market,
+  children,
+}: {
+  theme: ThemeContextValue;
+  session: SessionContextValue;
+  market: MarketContextValue;
+  children: ReactNode;
+}) {
+  return (
+    <ThemeContext.Provider value={theme}>
+      <SessionContext.Provider value={session}>
+        <MarketContext.Provider value={market}>{children}</MarketContext.Provider>
+      </SessionContext.Provider>
+    </ThemeContext.Provider>
+  );
+}

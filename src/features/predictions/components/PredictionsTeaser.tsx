@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import type { PredictionDoc } from '../../../types';
 
@@ -13,7 +13,7 @@ const ROTATE_MS = 6000;
 // see what they are clicking for. The whole card is one click target.
 const PredictionsTeaser = ({ predictions = [] }: { predictions?: PredictionDoc[] }) => {
   const navigate = useNavigate();
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { cardClass, mutedClass, textClass } = getThemeClasses(darkMode);
   const trackClass = darkMode ? 'bg-zinc-800' : 'bg-slate-200';
 

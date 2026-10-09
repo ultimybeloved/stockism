@@ -4,7 +4,7 @@ import MarginStatusBars from './MarginStatusBars';
 import { formatCurrency } from '../../../utils/formatters';
 import { checkMarginEligibility, calculateMarginStatus, type MarginStatusLevel } from '../../../utils/calculations';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
 interface MarginModalProps {
@@ -31,7 +31,9 @@ const MarginModal = ({
   onReviewTutorial,
 }: MarginModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode, userData, prices, priceHistory } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { prices, priceHistory } = useMarket();
   const [repayAmount, setRepayAmount] = useState(0);
   const [showConfirmEnable, setShowConfirmEnable] = useState(false);
 

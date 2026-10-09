@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { playLadderGameFunction } from '../../../api/callables';
-import { useAppContext } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
 import { useLadderAnimation } from './useLadderAnimation';
 import { useLadderBanners } from './useLadderBanners';
 import { errorMessage } from '../../../utils/errors';
@@ -20,7 +20,7 @@ export function useLadderGameFlow({
   globalHistory: LadderHistoryEntry[];
   setShowLadderTutorial: (show: boolean) => void;
 }) {
-  const { user, userData, showNotification } = useAppContext();
+  const { user, userData, showNotification } = useSession();
 
   const [selectedStart, setSelectedStart] = useState<LadderSide | null>(null);
   const [_selectedBet, setSelectedBet] = useState<LadderOutcome | null>(null); // write-only: kept for setter call sites in the game flow

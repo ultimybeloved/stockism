@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { CHARACTER_MAP } from '../../../characters';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import PortfolioChart from './PortfolioChart';
 import HoldingRow from './HoldingRow';
 import ShortRow from './ShortRow';
@@ -52,20 +52,9 @@ const PortfolioModal = ({
   onToggleDrip,
 }: PortfolioModalProps) => {
   useEscapeKey(onClose);
-  const {
-    darkMode,
-    user,
-    userData,
-    prices,
-    priceHistory,
-    holdings,
-    shorts,
-    costBasis,
-    marketData,
-    activeIPOs = [],
-    showNotification,
-    rarityTiers,
-  } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData, holdings, shorts, costBasis, showNotification } = useSession();
+  const { prices, priceHistory, marketData, activeIPOs = [], rarityTiers } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [sellAmounts, setSellAmounts] = useState<ShareInputs>({});
   const [coverAmounts, setCoverAmounts] = useState<ShareInputs>({});

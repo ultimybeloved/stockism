@@ -1,4 +1,4 @@
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 
@@ -29,7 +29,7 @@ const LimitOrderControls = ({
   allowPartialFills,
   setAllowPartialFills,
 }: LimitOrderControlsProps) => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 
   return (

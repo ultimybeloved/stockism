@@ -1,6 +1,6 @@
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
 export interface BetConfirmation {
@@ -20,7 +20,7 @@ interface BetConfirmModalProps {
 // Confirmation step for weekly prediction bets.
 const BetConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: BetConfirmModalProps) => {
   useEscapeKey(onCancel);
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { borderClass, chipClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
 
   return (

@@ -5,7 +5,7 @@ import { auth } from '../../../firebase';
 import { ADMIN_UIDS } from '../../../constants';
 import { formatCurrency } from '../../../utils/formatters';
 import { calculatePortfolioValue } from '../../../utils/calculations';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { isPreMarketWindow } from '../../../utils/marketHours';
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
 import { useAdminAlerts } from '../../../features/admin/hooks/useAdminAlerts';
@@ -48,7 +48,9 @@ const Header = ({
   onToggleNotifications,
   newCharacters = [],
 }: HeaderProps) => {
-  const { darkMode, user, userData, prices } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
+  const { prices } = useMarket();
   const { textClass } = getThemeClasses(darkMode);
   // Live value from current prices — the stored userData.portfolioValue only
   // updates on the backend sync, so it can visibly disagree with the rest of

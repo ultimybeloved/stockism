@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import type { Character } from '../../../characters';
@@ -14,7 +14,9 @@ interface EtfLinksProps {
 // ETF's own holdings with their 24h move.
 const EtfLinks = ({ character, memberOfETFs }: EtfLinksProps) => {
   const navigate = useNavigate();
-  const { darkMode, userData, prices, priceHistory } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { prices, priceHistory } = useMarket();
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';

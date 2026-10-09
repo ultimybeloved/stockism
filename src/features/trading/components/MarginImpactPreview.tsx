@@ -1,4 +1,4 @@
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { formatCurrency } from '../../../utils/formatters';
 import { calculateMarginStatus } from '../../../utils/calculations';
 import { getThemeClasses } from '../../../utils/theme';
@@ -12,7 +12,9 @@ import {
 // Shows how a buy that dips into borrowed money changes the user's margin.
 // Returns null for pure-cash buys, so the parent can always render it.
 const MarginImpactPreview = ({ cost, userCash }: { cost: number; userCash: number }) => {
-  const { darkMode, userData, prices, priceHistory } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { prices, priceHistory } = useMarket();
   const { textClass } = getThemeClasses(darkMode);
 
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);

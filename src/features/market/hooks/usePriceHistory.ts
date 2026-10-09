@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { useAppContext } from '../../../context/AppContext';
+import { useMarket } from '../../../context/AppContext';
 import { spliceReviewDetail } from '../../../utils/marketHours';
 import * as Sentry from '@sentry/react';
 import type { ReviewPoint } from '../../../utils/marketHours';
@@ -19,7 +19,7 @@ export const usePriceHistory = (
     showReviewDetail = false,
   }: { loadReviewDetail?: boolean; showReviewDetail?: boolean } = {},
 ) => {
-  const { priceHistory } = useAppContext();
+  const { priceHistory } = useMarket();
   const [archivedHistory, setArchivedHistory] = useState<PricePoint[]>([]);
   const [reviewDetail, setReviewDetail] = useState<Record<string, ReviewPoint[]> | null>(null);
   const [loading, setLoading] = useState(false);

@@ -1,4 +1,5 @@
-import { useAppContext } from '../../../context/AppContext';
+import { memo } from 'react';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { auth } from '../../../firebase';
 import { signOut } from 'firebase/auth';
 import { getThemeClasses } from '../../../utils/theme';
@@ -10,8 +11,9 @@ import { useDiscordLink } from '../../profile/hooks/useDiscordLink';
  * Blocks the app until they link. Linking sets discordId on their user doc, which
  * makes this disappear automatically.
  */
-export default function DiscordWallModal() {
-  const { user, userData, darkMode } = useAppContext();
+function DiscordWallModal() {
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
   const { beginDiscordLink, linking, error } = useDiscordLink();
 
   // Only walls a logged-in, flagged, not-yet-linked account.
@@ -46,3 +48,4 @@ export default function DiscordWallModal() {
     </div>
   );
 }
+export default memo(DiscordWallModal);

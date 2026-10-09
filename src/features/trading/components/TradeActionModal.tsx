@@ -9,7 +9,7 @@ import MarginImpactPreview from './MarginImpactPreview';
 import TradeAmountInput from './TradeAmountInput';
 import LimitOrderControls from './LimitOrderControls';
 import { isWeeklyHalt, getMarketClosedState } from '../../../utils/marketHours';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { errorMessage } from '../../../utils/errors';
 import type { Character } from '../../../characters';
@@ -51,7 +51,9 @@ const TradeActionModal = ({
   haltInfo,
 }: TradeActionModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode, userData, prices, priceHistory, showNotification, marketData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData, showNotification } = useSession();
+  const { prices, priceHistory, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [amount, setAmount] = useState<number | ''>(1);
   const [partialShares, setPartialShares] = useState(false);

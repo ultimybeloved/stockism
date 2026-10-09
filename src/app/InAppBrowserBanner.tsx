@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { useAppContext } from '../context/AppContext';
+import { memo, useState } from 'react';
+import { useTheme } from '../context/AppContext';
 
 const IN_APP_BROWSER = /FBAN|FBAV|Instagram|Discord|Twitter|Snapchat|TikTok|Line|WeChat|MicroMessenger|Pinterest/i;
 
 // Apps like Discord and Instagram open links in their own browser, where sign-in
 // and trading can break. Suggest a real browser, once, dismissible.
 const InAppBrowserBanner = () => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const [show, setShow] = useState(() => IN_APP_BROWSER.test(navigator.userAgent || ''));
   if (!show) return null;
 
@@ -27,4 +27,4 @@ const InAppBrowserBanner = () => {
   );
 };
 
-export default InAppBrowserBanner;
+export default memo(InAppBrowserBanner);

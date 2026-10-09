@@ -1,4 +1,4 @@
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatShares, roundShares } from '../../../utils/tradeLimits';
 
@@ -26,7 +26,7 @@ const TradeAmountInput = ({
   marginLockedShares = 0,
   marginLockHours,
 }: TradeAmountInputProps) => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   // Exits keep six decimals: holdings pick up fractional remainders from
   // dividends and partial fills, and rounding the box to cents would make the

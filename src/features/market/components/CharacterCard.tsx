@@ -10,7 +10,7 @@ import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import ShortRiskTag from '../../trading/components/ShortRiskTag';
 import TradeActionModal, { type OrderFormMode } from '../../trading/components/TradeActionModal';
 import PreMarketModal from '../../trading/components/PreMarketModal';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { isPreMarketWindow, getMarketClosedState, type ReviewChange } from '../../../utils/marketHours';
 import type { Character } from '../../../characters';
 import type { PricePoint, ShortPosition, TradeAction } from '../../../types';
@@ -80,7 +80,9 @@ const CharacterCard = ({
   onSetAlert,
   reviewChange,
 }: CharacterCardProps) => {
-  const { darkMode, user, userData, priceHistory, marketData, rarityTiers } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
+  const { priceHistory, marketData, rarityTiers } = useMarket();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState<TradeAction | null>(null);
   const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState<OrderFormMode>(false);

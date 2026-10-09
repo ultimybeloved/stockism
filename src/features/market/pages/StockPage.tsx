@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
@@ -8,6 +8,7 @@ import TradeActionModal from '../../trading/components/TradeActionModal';
 import { getMarketClosedState } from '../../../utils/marketHours';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import { useStockPageData } from '../hooks/useStockPageData';
+import { useTickerAliasRedirect } from '../hooks/useTickerAliasRedirect';
 import StockPositionCard from '../components/StockPositionCard';
 import EtfLinks from '../components/EtfLinks';
 import type { ReactNode } from 'react';
@@ -28,7 +29,9 @@ const StockPage = ({ onTrade }: StockPageProps) => {
   // The route is /stock/:ticker, so the param is always there.
   const ticker = useParams().ticker ?? '';
   const navigate = useNavigate();
-  const { darkMode, user, userData, marketData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
+  const { marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
   const marketClosed = getMarketClosedState(marketData).closed;
   const [timeRange, setTimeRange] = useState('1d');
@@ -59,14 +62,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
 
   const { cardClass, textClass, mutedClass, bgClass } = getThemeClasses(darkMode);
 
-  // A renamed ticker keeps turning up long after the rename: in old bell
-  // notifications, in links posted to Discord, in someone's browser history.
-  // market/current.tickerAliases maps every retired name to its current one, so
-  // those land on the right stock instead of an "unknown ticker" dead end.
-  const aliasTarget = marketData?.tickerAliases?.[ticker];
-  useEffect(() => {
-    if (!character && aliasTarget) navigate(`/stock/${aliasTarget}`, { replace: true });
-  }, [character, aliasTarget, navigate]);
+  const aliasTarget = useTickerAliasRedirect(ticker, !!character, marketData);
 
   const isUp = priceStats.change >= 0;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';

@@ -22,7 +22,11 @@ vi.mock('firebase/firestore', () => ({
   updateDoc: vi.fn(),
   getDocs: vi.fn(async () => ({ docs: [], empty: true })),
 }));
-vi.mock('../../../context/AppContext', () => ({ useAppContext: () => h.ctx }));
+vi.mock('../../../context/AppContext', () => ({
+  useTheme: () => h.ctx,
+  useSession: () => h.ctx,
+  useMarket: () => h.ctx,
+}));
 
 import PortfolioModal from './PortfolioModal';
 

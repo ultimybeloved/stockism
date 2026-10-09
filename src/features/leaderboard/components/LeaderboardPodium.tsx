@@ -1,6 +1,6 @@
 import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import { formatCompactCurrency } from '../../../utils/formatters';
 import PinDisplay from '../../../shared/components/PinDisplay';
@@ -36,7 +36,8 @@ interface PodiumCardProps {
 }
 
 const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place, sortBy }, ref) => {
-  const { darkMode, user, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';

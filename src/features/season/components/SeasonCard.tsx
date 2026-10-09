@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useSeason } from '../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import {
   SEASON_TIERS,
   seasonTierRule,
@@ -19,7 +19,7 @@ import {
 // No countdown by design — a season ends when the arc's Finale chapter lands and
 // nobody knows that in advance.
 const SeasonCard = () => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const {
     active,

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { getPublicProfileFunction } from '../../../api/callables';
 import { CREW_MAP } from '../../../crews';
 import { CHARACTER_MAP } from '../../../characters';
@@ -16,7 +16,8 @@ import { ADMIN_UIDS } from '../../../constants/economy';
 
 const PublicProfilePage = () => {
   const { username } = useParams();
-  const { darkMode, user } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user } = useSession();
   const viewerIsAdmin = user && ADMIN_UIDS.includes(user.uid);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [error, setError] = useState<'private' | 'notfound' | null>(null);
@@ -279,4 +280,4 @@ const PublicProfilePage = () => {
   );
 };
 
-export default PublicProfilePage;
+export default memo(PublicProfilePage);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import type { ShareMap, ShortMap } from '../../../types';
@@ -23,7 +23,7 @@ export interface ProfileAdminData {
 // (past the 300-line page limit); it was also called `AdminPanel` there, which
 // collided with the real admin panel in src/features/admin/components/AdminPanel.tsx.
 const ProfileAdminPanel = ({ data }: { data: ProfileAdminData }) => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const [copied, setCopied] = useState(false);
 

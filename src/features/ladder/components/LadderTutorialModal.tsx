@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 
 const STEPS = [
@@ -26,7 +26,7 @@ const LadderTutorialModal = ({
   onComplete: () => void;
   reviewMode?: boolean;
 }) => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const [step, setStep] = useState(1);
   const [checks, setChecks] = useState(Array(CHECKS.length).fill(false));

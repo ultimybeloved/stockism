@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
 import { getShortRisk } from '../../../utils/calculations';
 import { formatCurrency } from '../../../utils/formatters';
 
 // Small banner on the main page that warns when one or more open shorts are near
 // auto force-cover. Returns null when nothing is at risk, so it can always be rendered.
 const ShortRiskAlert = ({ onOpenPortfolio }: { onOpenPortfolio?: () => void }) => {
-  const { shorts, prices } = useAppContext();
+  const { shorts } = useSession();
+  const { prices } = useMarket();
 
   const atRisk = useMemo(
     () =>

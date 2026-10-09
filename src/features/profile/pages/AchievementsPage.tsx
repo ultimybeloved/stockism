@@ -1,4 +1,5 @@
-import { useAppContext } from '../../../context/AppContext';
+import { memo } from 'react';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import { getThemeClasses } from '../../../utils/theme';
 import { getMaxAchievementSlots, toggleDisplayedPin } from '../../../utils/pinSlots';
@@ -9,7 +10,8 @@ const AchievementsPage = ({
 }: {
   onPinAction?: (action: PinAction, payload: unknown, cost?: number) => void;
 }) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
 
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
@@ -181,4 +183,4 @@ const AchievementsPage = ({
   );
 };
 
-export default AchievementsPage;
+export default memo(AchievementsPage);

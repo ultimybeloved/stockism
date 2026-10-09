@@ -8,7 +8,7 @@ import { calculatePriceImpactDollars, getBidAskPrices, liquidityFor } from '../.
 import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../../utils/marketHours';
 import { PRE_MARKET_MAX_BUY_BUFFER, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '../../../constants/economy';
 import { formatShares, roundShares } from '../../../utils/tradeLimits';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { marketTimes } from '../../../utils/localTime';
 import { errorMessage } from '../../../utils/errors';
@@ -42,7 +42,8 @@ const PreMarketModal = ({
   onClose,
 }: PreMarketModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode, user, showNotification } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, showNotification } = useSession();
   const [action, setAction] = useState<PreMarketAction>(initialAction);
   const [shares, setShares] = useState(1);
   const [submitting, setSubmitting] = useState(false);

@@ -4,7 +4,7 @@ import { formatCurrency, formatTimeRemaining, formatMultiplier } from '../../../
 import { niceStep } from '../../../utils/calculations';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import { marketTimes } from '../../../utils/localTime';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import type { PredictionDoc, UserBet } from '../../../types';
 
 interface PredictionCardProps {
@@ -29,7 +29,9 @@ const PredictionCard = ({
   isAdmin = false,
   onHide,
 }: PredictionCardProps) => {
-  const { darkMode, userData, marketData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { marketData } = useMarket();
   // Betting closes with the market, same as trading. Mirrors placeBet's guards.
   const bettingHalted = isWeeklyHalt() || !!marketData?.marketHalted;
   const [betAmount, setBetAmount] = useState(50);

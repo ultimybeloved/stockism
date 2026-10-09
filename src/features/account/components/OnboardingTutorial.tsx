@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { marketTimes } from '../../../utils/localTime';
 
@@ -50,7 +50,7 @@ const STEPS = [
 ];
 
 export default function OnboardingTutorial({ onComplete }: { onComplete: () => void }) {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [animating, setAnimating] = useState(false);

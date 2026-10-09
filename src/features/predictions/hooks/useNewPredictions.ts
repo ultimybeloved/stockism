@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useMarket } from '../../../context/AppContext';
 
 const SEEN_KEY = 'stockism.predictionsSeenAt';
 
@@ -31,7 +31,7 @@ const writeSeenAt = (value: number) => {
 };
 
 export function useNewPredictions() {
-  const { predictions } = useAppContext();
+  const { predictions } = useMarket();
   const [seenAt, setSeenAt] = useState(readSeenAt);
 
   useEffect(() => {

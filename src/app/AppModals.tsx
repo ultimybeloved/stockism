@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { useAppContext } from '../context/AppContext';
+import { useTheme, useSession, useMarket } from '../context/AppContext';
 import { ADMIN_UIDS } from '../constants';
 import { ToastContainer } from '../shared/components/ToastNotification';
 import InstallPrompt from './InstallPrompt';
@@ -141,7 +141,9 @@ const AppModals = ({
   tradeConfirmation,
   userNotifications,
 }: AppModalsProps) => {
-  const { darkMode, user, userData, prices, predictions, marketData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
+  const { prices, predictions, marketData } = useMarket();
 
   return (
     <>

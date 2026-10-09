@@ -9,7 +9,11 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 expect.extend(matchers);
 
 const h = vi.hoisted(() => ({ ctx: {}, halted: false }));
-vi.mock('../../../context/AppContext', () => ({ useAppContext: () => h.ctx }));
+vi.mock('../../../context/AppContext', () => ({
+  useTheme: () => h.ctx,
+  useSession: () => h.ctx,
+  useMarket: () => h.ctx,
+}));
 // Pinned rather than read off the real clock: these odds assertions would
 // otherwise fail every Thursday between 13:00 and 21:00 UTC, when the card
 // swaps the bet UI for the chapter-review notice.

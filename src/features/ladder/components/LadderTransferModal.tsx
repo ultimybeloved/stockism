@@ -7,7 +7,7 @@ import {
 } from '../../../constants/economy';
 import { getTotalInvested } from '../../../utils/calculations';
 import { calculateLadderWithdrawTax, getLadderDepositFactor, getLadderWithdrawable } from '../../../utils/ladderTax';
-import { useAppContext } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 import type { useLadderModals } from '../hooks/useLadderModals';
 import type { LadderData } from '../../../utils/ladderTax';
@@ -48,7 +48,7 @@ const LadderTransferModal = ({
   handleDeposit,
   handleWithdraw,
 }: LadderTransferModalProps) => {
-  const { userData } = useAppContext();
+  const { userData } = useSession();
 
   const ladderBalance = userLadderData?.balance || 0;
   // Bonus chips (check-in grants, welcome stake) stay in the game. Only what

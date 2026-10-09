@@ -17,7 +17,9 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('../../../context/AppContext', () => ({
-  useAppContext: () => h.ctx,
+  useTheme: () => h.ctx,
+  useSession: () => h.ctx,
+  useMarket: () => h.ctx,
 }));
 
 vi.mock('../../../firebase', () => ({ db: {} }));

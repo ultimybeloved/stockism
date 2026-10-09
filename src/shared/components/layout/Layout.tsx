@@ -4,7 +4,7 @@ import MobileBottomNav from './MobileBottomNav';
 import Footer from './Footer';
 import MarketTicker from '../../../features/market/components/MarketTicker';
 import SiteMessageBar from '../SiteMessageBar';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import type { ReactNode } from 'react';
 import type { HeaderProps } from './Header';
@@ -21,7 +21,7 @@ const Layout = ({
   onToggleNotifications,
   newCharacters,
 }: LayoutProps) => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   usePageTitle();
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-zinc-950' : 'bg-amber-50'}`}>

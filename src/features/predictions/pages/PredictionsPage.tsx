@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useNewPredictions } from '../hooks/useNewPredictions';
 import { getThemeClasses } from '../../../utils/theme';
 import { getTotalInvested } from '../../../utils/calculations';
@@ -37,7 +37,9 @@ const PredictionsPage = ({
   onBuyEventShares,
   onSellEventShares,
 }: PredictionsPageProps) => {
-  const { darkMode, userData, marketData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { marketData } = useMarket();
   const { bgClass, textClass, mutedClass } = getThemeClasses(darkMode);
 
   // Opening the page is what clears the nav badge.

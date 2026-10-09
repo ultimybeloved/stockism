@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useMarket } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { CREWS } from '../../../crews';
@@ -14,7 +14,8 @@ import type { Character } from '../../../characters';
 // It owns the expand state and derives its own crew/fund lookups because
 // nothing else on the card reads them.
 const CharacterMeta = ({ character }: { character: Character }) => {
-  const { darkMode, prices } = useAppContext();
+  const { darkMode } = useTheme();
+  const { prices } = useMarket();
   const { mutedClass } = getThemeClasses(darkMode);
   const [etfExpanded, setEtfExpanded] = useState(false);
 

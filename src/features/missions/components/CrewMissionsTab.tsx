@@ -15,7 +15,7 @@ import {
 } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 
 // Contribution fields stored booleans before June 2026; treat those as
 // qualifying until the Monday reset clears them (matches the backend).
@@ -78,7 +78,9 @@ const CREW_MISSIONS: CrewMissionDef[] = [
 ];
 
 export default function CrewMissionsTab() {
-  const { darkMode, userData, user, crewStats } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData, user } = useSession();
+  const { crewStats } = useMarket();
   const { cardClass: _, textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const [missionData, setMissionData] = useState<CrewMissionWeek | null>(null);
   const [claiming, setClaiming] = useState<string | null>(null);

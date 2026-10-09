@@ -1,9 +1,10 @@
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 
 // The Privacy tab: exactly what the game stores about a player, in plain words.
 const PrivacyTab = () => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const linkClass = 'text-orange-500 hover:text-orange-400 underline';
 

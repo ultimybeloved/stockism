@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { useAppContext } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
 import { calculateExitValue } from '../../../utils/calculations';
 import { seasonAccountSize, seasonCapital, seasonAverageMargin, moneyIn } from '../../../utils/seasonWeeks';
 import {
@@ -20,7 +20,8 @@ const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 // without polling. Return is computed client-side from the pinned baseline, the
 // same way the server scores it, so the card matches the standings board.
 export function useSeason() {
-  const { userData, prices } = useAppContext();
+  const { userData } = useSession();
+  const { prices } = useMarket();
   const [season, setSeason] = useState<SeasonDoc | null>(null);
 
   useEffect(() => {

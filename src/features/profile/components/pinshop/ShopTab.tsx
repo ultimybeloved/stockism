@@ -3,7 +3,7 @@ import { COSMETICS, COSMETIC_MAP, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '.
 import { PIN_SLOT_COSTS, getActiveShopPins } from '../../../../crews';
 import { formatCurrency } from '../../../../utils/formatters';
 import { getThemeClasses } from '../../../../utils/theme';
-import { useAppContext } from '../../../../context/AppContext';
+import { useTheme, useSession } from '../../../../context/AppContext';
 import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { PendingPurchase } from '../PinShopModal';
 
@@ -29,7 +29,8 @@ const toPulse = (id: string) => (id.startsWith(PULSE_PREFIX) ? id : id.replace('
 const toStandard = (id: string) => id.replace(PULSE_PREFIX, 'glow_');
 
 const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabProps) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
   const ownedCosmetics = userData?.ownedCosmetics || [];
   const activeCosmetics = userData?.activeCosmetics || {};

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getOutcomeColor, getThemeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import {
   lmsrPrices,
   lmsrBuyCost,
@@ -41,7 +41,8 @@ const EventMarketCard = ({
   isAdmin = false,
   onHide,
 }: EventMarketCardProps) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { cardClass, textClass, mutedClass, subtleClass, chipClass } = getThemeClasses(darkMode);
 
   const colorBlindMode = userData?.colorBlindMode || false;

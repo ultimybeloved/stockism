@@ -122,8 +122,13 @@ their public profile and the leaderboard.
    `src/firebase.ts` is only the Firebase setup. The one error path is
    `src/utils/errors.ts`, which every caller already used. Tests that mock a
    callable mock `api/callables`, not `firebase`.
-3. Split AppContext into theme / auth+user / market contexts (price ticks stop
-   re-rendering everything).
+3. ~~Split AppContext~~ **Done 2026-10-09.** `useTheme()`, `useSession()`,
+   `useMarket()` (one context each, `useAppContext` is gone); App builds each
+   value with its own memo. Pages that read no market data (leaderboard,
+   ladder, achievements, public profile) are `memo`'d so price ticks skip them.
+   App itself still subscribes to prices (its trade/portfolio hooks need them),
+   so everything it renders with changing props still re-renders; step 5 is
+   where that tightens.
 4. Tailwind `dark:` variant instead of `getThemeClasses(darkMode)`; removes the
    63 `darkMode={darkMode}` props. Verify with the screenshot rig.
 5. Break `App.tsx` further into router and providers (the shell, status screens and

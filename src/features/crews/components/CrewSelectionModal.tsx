@@ -11,7 +11,7 @@ import {
 import { formatCurrency } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/localTime';
 import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
 interface CrewSelectionModalProps {
@@ -33,7 +33,9 @@ const CrewSelectionModal = ({
   selectLoading,
 }: CrewSelectionModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode, userData, crewStats } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { crewStats } = useMarket();
   const [selectedCrew, setSelectedCrew] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [leavingCrew, setLeavingCrew] = useState(false);

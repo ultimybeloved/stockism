@@ -1,4 +1,4 @@
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency, emphasisMarks } from '../../../utils/formatters';
 import type { ReviewChange } from '../../../utils/marketHours';
@@ -22,7 +22,8 @@ import type { ReviewChange } from '../../../utils/marketHours';
 // percentages keep the normal up/down colours (teal/purple in colour-blind
 // mode), and the frame never competes with them.
 const ReviewChangeBadge = ({ change, currentPrice }: { change: ReviewChange; currentPrice: number }) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
 

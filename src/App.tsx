@@ -27,7 +27,12 @@ import { useDarkMode, useDarkModeToggle } from './shared/hooks/useDarkMode';
 import { useToasts } from './shared/hooks/useToasts';
 import { useActionLoading } from './shared/hooks/useActionLoading';
 import { useNewCharacters } from './features/market/hooks/useNewCharacters';
-import { AppProvider, type AppContextValue } from './context/AppContext';
+import {
+  AppProvider,
+  type MarketContextValue,
+  type SessionContextValue,
+  type ThemeContextValue,
+} from './context/AppContext';
 import { getChangeColors } from './utils/theme';
 import { ADMIN_UIDS, UNVERIFIED_STARTING_CASH } from './constants';
 import { calculatePortfolioValue } from './utils/calculations';
@@ -217,21 +222,27 @@ export default function App() {
   // same ranking instead of each re-ranking the whole roster. See utils/rarity.js.
   const rarityTiers = useMemo(() => computeRarityTiers(CHARACTERS, prices), [prices]);
 
-  // Create context value for AppProvider (memoized to prevent unnecessary re-renders)
-  const contextValue = useMemo(
-    (): AppContextValue => ({
-      darkMode,
+  // The three context values, each memoized on its own inputs so a price tick
+  // leaves the theme and session values (and their readers) untouched.
+  const themeValue = useMemo((): ThemeContextValue => ({ darkMode }), [darkMode]);
+  const sessionValue = useMemo(
+    (): SessionContextValue => ({
       user,
       userData,
-      prices,
-      priceHistory,
-      predictions,
       holdings: userData?.holdings || {},
       shorts: userData?.shorts || {},
       costBasis: userData?.costBasis || {},
-      marketData,
       getColorBlindColors,
       showNotification,
+    }),
+    [user, userData, getColorBlindColors, showNotification],
+  );
+  const marketValue = useMemo(
+    (): MarketContextValue => ({
+      prices,
+      priceHistory,
+      predictions,
+      marketData,
       activeIPOs,
       ipoRestrictedTickers,
       launchedTickers,
@@ -241,15 +252,10 @@ export default function App() {
       siteMessages,
     }),
     [
-      darkMode,
-      user,
-      userData,
       prices,
       priceHistory,
       predictions,
       marketData,
-      getColorBlindColors,
-      showNotification,
       activeIPOs,
       ipoRestrictedTickers,
       launchedTickers,
@@ -264,7 +270,7 @@ export default function App() {
   if (marketStatus === 'unavailable') return <MarketUnavailableScreen darkMode={darkMode} />;
 
   return (
-    <AppProvider value={contextValue}>
+    <AppProvider theme={themeValue} session={sessionValue} market={marketValue}>
       <DiscordWallModal />
       <Layout
         setDarkMode={handleToggleDarkMode}

@@ -11,7 +11,11 @@ import type { SeasonDoc } from '../../../types';
 expect.extend(matchers);
 
 const h = vi.hoisted(() => ({ ctx: { darkMode: true, userData: {} } }));
-vi.mock('../../../context/AppContext', () => ({ useAppContext: () => h.ctx }));
+vi.mock('../../../context/AppContext', () => ({
+  useTheme: () => h.ctx,
+  useSession: () => h.ctx,
+  useMarket: () => h.ctx,
+}));
 
 const SeasonProgress = (await import('./SeasonProgress')).default;
 

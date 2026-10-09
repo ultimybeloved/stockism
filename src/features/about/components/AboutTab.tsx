@@ -1,9 +1,10 @@
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 
 // The About tab: what the game is, who made it, and where the community is.
 const AboutTab = () => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
 
   return (

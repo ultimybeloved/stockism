@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import LadderGame from '../components/LadderGame';
 
 const LadderPage = () => {
@@ -8,4 +9,4 @@ const LadderPage = () => {
   );
 };
 
-export default LadderPage;
+export default memo(LadderPage);

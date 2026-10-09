@@ -3,7 +3,7 @@ import { CHARACTER_MAP } from '../../../characters';
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency, formatTimeRemaining } from '../../../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../../../constants';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import type { IPO } from '../../../types';
 
 const IPOActiveCard = ({
@@ -13,7 +13,8 @@ const IPOActiveCard = ({
   ipo: IPO;
   onBuyIPO: (ticker: string, quantity: number) => Promise<boolean | undefined>;
 }) => {
-  const { darkMode, userData, user } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData, user } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   const isGuest = !user;
   // '' while the box is cleared mid-edit.

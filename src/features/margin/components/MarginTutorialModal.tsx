@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
 import { HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../../../utils/marketHours';
@@ -29,7 +29,7 @@ interface MarginTutorialModalProps {
 }
 
 const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: MarginTutorialModalProps) => {
-  const { darkMode } = useAppContext();
+  const { darkMode } = useTheme();
   const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = getThemeClasses(darkMode);
   const [step, setStep] = useState(1);
   const [checks, setChecks] = useState<boolean[]>(Array(CHECKS.length).fill(false));

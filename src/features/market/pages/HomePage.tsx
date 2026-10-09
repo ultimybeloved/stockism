@@ -5,7 +5,7 @@ import IPOActiveCard from '../../ipo/components/IPOActiveCard';
 import DashboardRail from '../components/DashboardRail';
 import MarketControls from '../components/MarketControls';
 import MarketGrid from '../components/MarketGrid';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import type { ComponentProps } from 'react';
@@ -64,17 +64,9 @@ const HomePage = ({
   onShowPortfolio,
   onShowBailout,
 }: HomePageProps) => {
-  const {
-    darkMode,
-    user,
-    userData,
-    prices,
-    priceHistory,
-    activeIPOs,
-    ipoRestrictedTickers,
-    launchedTickers,
-    storedReviewChanges,
-  } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
+  const { prices, priceHistory, activeIPOs, ipoRestrictedTickers, launchedTickers, storedReviewChanges } = useMarket();
   const { bgClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
 
   const browser = useMarketBrowser({

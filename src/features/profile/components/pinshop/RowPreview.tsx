@@ -1,7 +1,7 @@
 import { getCosmeticStyles } from '../../../../utils/cosmetics';
 import { getThemeClasses } from '../../../../utils/theme';
 import { formatCurrency } from '../../../../utils/formatters';
-import { useAppContext } from '../../../../context/AppContext';
+import { useTheme, useSession } from '../../../../context/AppContext';
 import { CREW_MAP } from '../../../../crews';
 import PinDisplay from '../../../../shared/components/PinDisplay';
 import type { Cosmetic } from '../../../../constants/cosmetics';
@@ -12,7 +12,8 @@ import type { Cosmetic } from '../../../../constants/cosmetics';
 // other player sees. Reads straight from userData, so it updates the moment
 // anything is equipped or purchased.
 const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?: Cosmetic | null }) => {
-  const { darkMode, userData, holdings } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData, holdings } = useSession();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   // `tryOn` is a shop item being browsed: layer it over the equipped set so the
   // row previews it before purchase. The owned filter is skipped for try-ons

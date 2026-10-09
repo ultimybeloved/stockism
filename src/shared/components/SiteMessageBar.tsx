@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppContext } from '../../context/AppContext';
+import { useTheme, useMarket } from '../../context/AppContext';
 
 // Admin-written announcements, shown site-wide under the price ticker.
 //
@@ -20,7 +20,8 @@ const TONES: Record<Tone, { dark: string; light: string }> = {
 };
 
 const SiteMessageBar = () => {
-  const { siteMessages, darkMode } = useAppContext();
+  const { darkMode } = useTheme();
+  const { siteMessages } = useMarket();
   const [paused, setPaused] = useState(false);
 
   const active = (siteMessages || []).filter((m) => m?.active && m?.text?.trim());

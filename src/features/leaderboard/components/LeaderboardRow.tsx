@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { RefObject } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import PinDisplay from '../../../shared/components/PinDisplay';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
@@ -29,7 +29,8 @@ const LeaderboardRow = ({
   userRowRef,
   sortBy,
 }: LeaderboardRowProps) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';

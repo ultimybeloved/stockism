@@ -3,7 +3,7 @@ import { doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { CHARACTER_MAP, getDividendTier, CHARACTERS } from '../../../characters';
 import { CREWS } from '../../../crews';
-import { useAppContext } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
 import { DIVIDEND_RATES, dividendWeightedShares, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../../../constants/economy';
 import { TIME_RANGES } from '../components/PriceChart';
 import { usePriceHistory } from './usePriceHistory';
@@ -17,7 +17,8 @@ import type { PricePoint } from '../../../types';
 // `timeRange` stays owned by the page (it is UI state); this hook just recomputes
 // the stats when it changes.
 export const useStockPageData = (ticker: string, timeRange: string) => {
-  const { user, userData, prices, holdings, shorts, costBasis, rarityTiers } = useAppContext();
+  const { user, userData, holdings, shorts, costBasis } = useSession();
+  const { prices, rarityTiers } = useMarket();
   const { fullHistory } = usePriceHistory(ticker);
 
   const character = CHARACTER_MAP[ticker];

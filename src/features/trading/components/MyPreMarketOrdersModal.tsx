@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firest
 import { db } from '../../../firebase';
 import { cancelPreMarketOrderFunction } from '../../../api/callables';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { errorMessage } from '../../../utils/errors';
 
@@ -18,7 +18,8 @@ interface PreMarketOrder {
 
 const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
-  const { darkMode, user, showNotification } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, showNotification } = useSession();
   const [orders, setOrders] = useState<PreMarketOrder[]>([]);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const { textClass, mutedClass, borderClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);

@@ -8,10 +8,12 @@ import {
   GRACE_PERIOD_MINUTES,
 } from '../../../utils/marketHours';
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 
 const MarketTicker = () => {
-  const { prices, priceHistory, marketData, darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { prices, priceHistory, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [haltBanner, setHaltBanner] = useState<{ text: string; tone: 'red' | 'amber' } | null>(null);
   const [gracePeriod, setGracePeriod] = useState(isMarketOpenGracePeriod());

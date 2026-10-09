@@ -9,7 +9,7 @@ import {
   getDaysUntilWeeklyReset,
 } from '../../../utils/missionProgress';
 import { getThemeClasses, getReadableCrewColor } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
 type ClaimReward = (missionId: string, reward: number) => unknown;
@@ -41,7 +41,9 @@ const DailyMissionsModal = ({
   rerollLoading,
 }: DailyMissionsModalProps) => {
   useEscapeKey(onClose);
-  const { darkMode, userData, prices, crewStats } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { prices, crewStats } = useMarket();
   const [activeTab, setActiveTab] = useState<MissionTab>('daily');
 
   const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass } =

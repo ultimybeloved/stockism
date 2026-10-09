@@ -1,6 +1,6 @@
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
-import { useAppContext } from '../../../context/AppContext';
+import { useMarket } from '../../../context/AppContext';
 import { lmsrPrices } from '../../../utils/calculations';
 import { EVENT_AMM_LIQUIDITY } from '../../../constants/economy';
 import type { EventMarketDoc, PredictionDoc, UserBet, UserData } from '../../../types';
@@ -22,7 +22,7 @@ const PredictionHistory = ({
   darkMode: boolean;
 }) => {
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
-  const { predictions } = useAppContext();
+  const { predictions } = useMarket();
 
   // Calculate potential payout for active bets
   const calculatePotentialPayout = (bet: BetHistoryEntry) => {

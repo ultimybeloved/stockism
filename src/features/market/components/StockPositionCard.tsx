@@ -1,4 +1,4 @@
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { formatCurrency } from '../../../utils/formatters';
 import { getThemeClasses } from '../../../utils/theme';
 import type { ReactNode } from 'react';
@@ -33,7 +33,8 @@ const StockPositionCard = ({
   handleToggleDrip,
   currentPrice,
 }: StockPositionCardProps) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { cardClass, textClass, mutedClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';

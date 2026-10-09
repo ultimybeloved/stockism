@@ -22,7 +22,11 @@ vi.mock('firebase/firestore', () => ({
 }));
 vi.mock('../../portfolio/components/PortfolioAnalytics', () => ({ default: () => null }));
 vi.mock('../../../shared/components/PinDisplay', () => ({ default: () => null }));
-vi.mock('../../../context/AppContext', () => ({ useAppContext: () => h.ctx }));
+vi.mock('../../../context/AppContext', () => ({
+  useTheme: () => h.ctx,
+  useSession: () => h.ctx,
+  useMarket: () => h.ctx,
+}));
 
 import ProfilePage from './ProfilePage';
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSeasonStandingsFunction } from '../../../api/callables';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import {
   SEASON_TIERS,
@@ -26,7 +26,8 @@ import type { SeasonStandingsResponse } from '../../../api/types';
 // Banked tiers (Bronze) show solid. Everything above is decided when the season
 // ends, so it shows dashed, as where each player would land if it ended now.
 const SeasonBoard = () => {
-  const { darkMode, user } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user } = useSession();
   const { textClass, mutedClass } = getThemeClasses(darkMode);
   const [data, setData] = useState<SeasonStandingsResponse | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');

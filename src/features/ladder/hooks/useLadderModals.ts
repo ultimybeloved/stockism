@@ -6,7 +6,7 @@ import {
   withdrawFromLadderGameFunction,
   getLadderLeaderboardFunction,
 } from '../../../api/callables';
-import { useAppContext } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
 import { getLadderWithdrawable } from '../../../utils/ladderTax';
 import { errorMessage } from '../../../utils/errors';
 import type { LadderData } from '../../../utils/ladderTax';
@@ -20,7 +20,7 @@ export function useLadderModals({
   userLadderData: LadderData | null;
   userStockismCash: number;
 }) {
-  const { user, userData, showNotification } = useAppContext();
+  const { user, userData, showNotification } = useSession();
 
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTab, setTransferTab] = useState('deposit');

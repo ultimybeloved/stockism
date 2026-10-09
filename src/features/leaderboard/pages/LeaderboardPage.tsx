@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { useSeason } from '../../season/hooks/useSeason';
 import SeasonBoard from '../../season/components/SeasonBoard';
 import { useUserRowPosition } from '../hooks/useUserRowPosition';
@@ -18,7 +18,8 @@ import { getThemeClasses } from '../../../utils/theme';
 type BoardMode = 'value' | 'gain' | 'season';
 
 const LeaderboardPage = () => {
-  const { darkMode, user, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData } = useSession();
   const [crewFilter, setCrewFilter] = useState('ALL');
   // Two-level sort control: Net Worth vs Top Gainers, and within gainers a
   // $/% flick that remembers its last setting.
@@ -233,4 +234,4 @@ const LeaderboardPage = () => {
   );
 };
 
-export default LeaderboardPage;
+export default memo(LeaderboardPage);

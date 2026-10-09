@@ -1,7 +1,7 @@
 import { getThemeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { BAILOUT_CASH } from '../../../constants';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 
 // Bankruptcy bailout confirmation — destructive last resort (clears holdings,
@@ -14,7 +14,8 @@ interface BailoutModalProps {
 
 const BailoutModal = ({ onConfirm, onCancel, loading }: BailoutModalProps) => {
   useEscapeKey(onCancel);
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { ghostBtnClass, overlayClass, modalShellClass } = getThemeClasses(darkMode);
   const colorBlindMode = userData?.colorBlindMode || false;
 

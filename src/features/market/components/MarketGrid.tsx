@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import CharacterCard from './CharacterCard';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { getThemeClasses } from '../../../utils/theme';
 import { getSentiment } from '../../../utils/marketStats';
 import type { ComponentProps } from 'react';
@@ -56,7 +56,9 @@ const MarketGrid = ({
   totalPages,
   showAll,
 }: MarketGridProps) => {
-  const { darkMode, userData, prices, priceHistory, marketData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
+  const { prices, priceHistory, marketData } = useMarket();
   const { cardClass, mutedClass, ghostBtnClass } = getThemeClasses(darkMode);
   // Review tab only: 'all' shows every section stacked, which is the default.
   // Picking one narrows to it, for when you only care about what was adjusted.

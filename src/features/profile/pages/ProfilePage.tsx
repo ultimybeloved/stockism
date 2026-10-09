@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAppContext } from '../../../context/AppContext';
+import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import { usePortfolioHistory } from '../../portfolio/hooks/usePortfolioHistory';
 import PortfolioAnalytics from '../../portfolio/components/PortfolioAnalytics';
@@ -23,7 +23,9 @@ const ProfilePage = ({
   onDeleteAccount: (confirmUsername: string) => Promise<void>;
   onOpenCustomization: () => void;
 }) => {
-  const { darkMode, user, userData, predictions, prices, holdings, shorts, costBasis } = useAppContext();
+  const { darkMode } = useTheme();
+  const { user, userData, holdings, shorts, costBasis } = useSession();
+  const { predictions, prices } = useMarket();
   // History is fetched per selected chart range so we only read what the
   // chart shows (the full subcollection can be thousands of docs).
   const [chartTimeRange, setChartTimeRange] = useState('1m');

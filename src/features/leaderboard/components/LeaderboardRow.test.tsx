@@ -12,7 +12,8 @@ import type { RankedLeader } from '../hooks/useLeaderboard';
 expect.extend(matchers);
 
 vi.mock('../../../context/AppContext', () => ({
-  useAppContext: () => ({ darkMode: false, userData: null }),
+  useTheme: () => ({ darkMode: false }),
+  useSession: () => ({ userData: null }),
 }));
 
 const DAY = 24 * 60 * 60 * 1000;

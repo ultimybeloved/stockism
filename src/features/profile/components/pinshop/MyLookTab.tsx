@@ -4,7 +4,7 @@ import { SHOP_PINS, CREW_MAP } from '../../../../crews';
 import { ACHIEVEMENT_MAP } from '../../../../constants/achievements';
 import { getMaxAchievementSlots, getMaxShopSlots, toggleDisplayedPin } from '../../../../utils/pinSlots';
 import { getThemeClasses } from '../../../../utils/theme';
-import { useAppContext } from '../../../../context/AppContext';
+import { useTheme, useSession } from '../../../../context/AppContext';
 import type { PinAction } from '../../hooks/usePinShop';
 
 interface MyLookTabProps {
@@ -20,7 +20,8 @@ const asList = (value: unknown): string[] => (Array.isArray(value) ? value : [])
 // (tap a swatch to equip, tap again to take off), achievement pins, shop pins,
 // and the crew pin. Buying lives in the Shop tab.
 const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) => {
-  const { darkMode, userData } = useAppContext();
+  const { darkMode } = useTheme();
+  const { userData } = useSession();
   const { textClass, mutedClass, borderClass } = getThemeClasses(darkMode);
 
   const ownedCosmetics = userData?.ownedCosmetics || [];
