@@ -2,8 +2,8 @@
 // everything here is a pure function.
 //
 // INTERNAL MODULE — required by season.js and users.js, never listed in
-// servicePaths.js. Mirror of src/constants/seasons.ts and
-// src/utils/seasonWeeks.ts — keep them in sync.
+// servicePaths.js. The thresholds and money maths are shared rule modules
+// (src/rules/seasons.ts, src/rules/seasonMoney.ts) the season card runs too.
 //
 // The rule, agreed 2026-09-13 after a calibration run over live accounts:
 //
@@ -48,7 +48,6 @@ import type { SeasonBaseline, SeasonDoc, SeasonRules, UserData, WeekRecord } fro
 import {
   SEASON_TIER_ORDER,
   SEASON_MIN_BASELINE,
-  SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
   WEEKLY_HALT_WEEKDAY,
   WEEKLY_HALT_START_MINUTE,
   ONE_WEEK_MS,
@@ -60,6 +59,10 @@ import {
   moneyIn,
   grantedDaysSince,
   seasonCapital,
+  seasonAccountSize,
+  weekMargin,
+  weekGranted,
+  weekConcentration,
 } from './seasonMoney';
 import { DEFAULT_SEASON_RULES, rulesFor, divisionOf, standingTier } from '../shared/rules/seasons';
 // The defaults, the rules lookup and Silver/Gold are shared with the season card.
@@ -137,10 +140,6 @@ export const buildSeasonBaseline = ({
 /** The index reading a player's season is measured from. */
 export const baselineIndexFor = (baseline: SeasonBaseline | null | undefined, season: SeasonDoc | null | undefined) =>
   baseline?.index !== undefined && baseline.index > 0 ? baseline.index : season?.indexAtStart || 0;
-
-/** Account size at pinning: value plus ladder cash. Sets the floor and division. */
-export const seasonAccountSize = (baseline: SeasonBaseline | null | undefined) =>
-  (baseline?.value || 0) + (baseline?.ladder || 0);
 
 /**
  * Where a player stands, or null if they can't be scored.
@@ -239,29 +238,13 @@ export const finalTier = (
   return higherTier(standing, ranked?.get(entry.uid)) || null;
 };
 
-/**
- * Average owed on margin between two week records, from their dollar-day
- * counters. Records from before the counter existed count as nothing owed.
- */
-export const weekMargin = (r: WeekRecord, prev: Partial<WeekRecord> | null | undefined) =>
-  r.d === undefined || !prev || prev.t === undefined || !(prev.t > 0)
-    ? 0
-    : averageOwed((r.d || 0) - (prev.d || 0), prev.t, r.t);
-
-/** Money in between two week records: grants averaged over the week, flows in full. */
-export const weekGranted = (r: WeekRecord, prev: Partial<WeekRecord>) => {
-  const g = (r.g || 0) - (prev.g || 0);
-  if (r.a === undefined || prev.a === undefined || prev.t === undefined || !(prev.t > 0)) return g;
-  return moneyIn(g, r.a - prev.a, (r.f || 0) - (prev.f || 0), prev.t, r.t);
-};
-
 /** Average owed from pinning up to a week record. */
 export const recordMargin = (r: WeekRecord | null | undefined, pinnedAt: number) =>
   r?.d === undefined ? undefined : averageOwed(r.d, pinnedAt, r.t);
 
 /**
- * What Diamond is judged on, from the raw week record. Mirror of
- * deriveSeasonWeeks + summariseSeasonWeeks in src/utils/seasonWeeks.ts.
+ * What Diamond is judged on, from the raw week record. The site's
+ * deriveSeasonWeeks + summariseSeasonWeeks (src/utils/seasonWeeks.ts) show the same.
  *
  * `checkpointsRun` is how many weekly checkpoints the season has had. A week
  * with no record for this player counts as not beaten, so someone who joins for
@@ -313,21 +296,6 @@ export const weeklyRecordSummary = (
 
   const weeks = Math.max(checkpointsRun, rows.length);
   return { weeks, beatWeeks, beatShare: weeks ? beatWeeks / weeks : 0, peakConcentration };
-};
-
-/**
- * A week's share of invested money in one character, or 0 when too little of
- * the player's money was invested for it to count (see
- * SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED). Mirror of the concentration in
- * deriveSeasonWeeks (src/utils/seasonWeeks.ts).
- */
-export const weekConcentration = (
-  r: Pick<WeekRecord, 'h' | 'v' | 'c'> | null | undefined,
-  minInvested: number = SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
-) => {
-  if (!r || !(r.h > 0)) return 0;
-  if (r.v > 0 && r.h < r.v * minInvested) return 0;
-  return r.c / r.h;
 };
 
 /** How many Platinum and Diamond places a board of `n` players has. */

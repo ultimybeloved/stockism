@@ -93,14 +93,11 @@ their public profile and the leaderboard.
    backend deploy. New backend code logs through `logger`, never `console`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored
-   copies with "keep in sync" comments. **In progress:** the mechanism is
+   copies with "keep in sync" comments. **Done 2026-10-09:** the mechanism is
    `src/rules/` -> `functions/src/shared/rules/` via sync:chars, guarded by
-   check:sync. Done: `rules/ladder`, `rules/lmsr`, `rules/activity`, `rules/impact`,
-   `rules/money`, `rules/equity`, `rules/seasons` (thresholds, divisions,
-   default rules, Silver/Gold), `rules/economy` (every constant that was
-   marked "keep in sync"). Left: the season money maths
-   (src/utils/seasonWeeks.ts vs season/seasonMoney.ts, drift-tested by
-   seasonTiers.test.js).
+   check:sync. Modules: ladder, lmsr, activity, impact, money, equity, seasons,
+   seasonMoney (margin averaging, money in, week maths), economy (every
+   constant that was marked "keep in sync"). Not yet deployed to the backend.
 6. Move emulator suites from `scripts/test-*` to `tests/emulator/` on vitest,
    one `npm run test:emulator` command.
 7. ~~Deploy every function once~~ **Done 2026-10-09**: all 153 deployed with
