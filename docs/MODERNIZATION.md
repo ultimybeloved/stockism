@@ -85,8 +85,9 @@ their public profile and the leaderboard.
    `serviceLoader`/`check-function-exports.cjs` to read `.ts` service lists;
    after that `allowJs` and the `.js` branches in `check-function-exports.cjs`
    can go.
-   **Over the 600-line limit, to split:** `season/season.ts`,
-   `market/marketWeekly.ts`, `market/tickerRename.ts`, `users/users.ts`.
+   Files over the 600-line limit were split along the way (seasonCheckpoint,
+   seasonMoney, crewRankings, tickerRenameChecks, stockSplitMath,
+   signupHelpers), each an internal module re-exported where callers expect it.
 4. Replace `console.log` with `firebase-functions/logger`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored
