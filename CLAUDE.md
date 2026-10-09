@@ -310,6 +310,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/market/botTrader.ts` | Bot trading scheduler |
 | `functions/src/trading/trading.ts` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.js` / `tradeActions.js` / `tradePricing.js` / `tradeState.js` / `tradeEffects.js` (internal modules, not in index.js) |
 | `functions/src/users/users.ts` | Account lifecycle: createUser, deleteAccount (anti-abuse gates live here) |
+| `functions/src/users/signupHelpers.ts` | **Internal module.** createUser's blocked-signup auth cleanup and the parked Discord-link apply |
 | `functions/src/users/userProfile.ts` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
 | `functions/src/market/market.ts` | Daily Discord summary, pre-halt price snapshot, chapter recap + review rebuild, market open/close alerts, manual halt (setMarketHalt). 595 lines, near the 600 limit |
 | `functions/src/users/leaderboard.ts` | Rankings, leaderboard computation |
@@ -338,15 +339,19 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/orders/preMarket.ts` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
 | `functions/src/orders/orderNetwork.ts` | **Internal module, not in services.js.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |
 | `functions/src/market/marketWeekly.ts` | Weekly market summary, leaderboard, crew rankings (scheduled) |
+| `functions/src/market/crewRankings.ts` | **Internal module.** runWeeklyCrewRankings: active counts, underdog multipliers, crew head rotation + role sync, the Discord post |
 | `functions/src/market/tickerRename.ts` | **Internal module, not in services.js.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.js |
+| `functions/src/market/tickerRenameChecks.ts` | **Internal module.** The rename's preflight, dry-run counts and verification scan; re-exported by tickerRename.ts |
 | `functions/src/market/tickerRemap.ts` | **Internal module, not in services.js.** The rename engine's pure helpers: which user/market maps a rename moves (`USER_TICKER_MAPS`, `MARKET_TICKER_MAPS`). Any new ticker-keyed field on a player or market/current must be added here |
 | `functions/src/market/tickerStats.ts` | recordPriceExtremes — hourly all-time high/low sweep |
 | `functions/src/season/season.ts` | Seasons: start/end, the Thursday checkpoint, the standings board. Scores live net equity at frozen prices, never the stored portfolioValue |
+| `functions/src/season/seasonCheckpoint.ts` | **Internal module.** runSeasonCheckpoint (the Thursday week record) plus the season doc ref and ladder-cash read season.ts shares |
 | `functions/src/season/seasonRecords.ts` | **Internal module, not in services.js.** The weekly record, board membership, and one player's board entry (incl. size division) |
 | `functions/src/season/seasonExclusions.ts` | Admin: players flagged for coordination this season, and keeping one out of Platinum/Diamond (`seasonTopTierExclusion` on the user doc, private) |
 | `functions/src/moderation/coordDetection.ts` | Hourly coordination scan (`35 * * * *`). Alerts + admin DM, then `coordEnforcement.js` (internal): 48h buy-back + short block for everyone in a TIGHT downward cluster, and the "all in on borrowed money" flag on upward ones. `npm run test:coord` |
 | `functions/src/moderation/coordReview.ts` | Admin: what a flagged push made a player (math in `coordProfitMath.js`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
 | `functions/src/season/seasonTiers.ts` | **Internal module, not in services.js.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Mirrored in `src/constants/seasons.ts` + `src/utils/seasonWeeks.ts`; `functions/src/season/seasonTiers.test.js` fails if the rules drift |
+| `functions/src/season/seasonMoney.ts` | **Internal module.** Season margin averaging and money-in maths; re-exported by seasonTiers.ts |
 
 ---
 
@@ -421,7 +426,7 @@ pre-rename backup resurrecting a retired ticker.
 `splitStock` (Admin -> Recovery -> Split Stock) splits one stock N-for-1: price
 / N, every holder's shares x N, nobody's money changes. The engine is
 `functions/src/market/stockSplit.ts`, an internal module (not in
-`services.js`). It rescales prices, chart history, daily closes, ATH/ATL,
+`services.js`; the per-document maths is in `stockSplitMath.ts`). It rescales prices, chart history, daily closes, ATH/ATL,
 the pre-halt snapshot, review data, the index constituent's base, holdings,
 dividend lots, shorts, lockups, open limit orders, price alerts, trade records,
 and player and IP trade-history share counts. Feed entries stay as history.

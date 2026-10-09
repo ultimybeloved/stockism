@@ -94,7 +94,8 @@ their public profile and the leaderboard.
    copies with "keep in sync" comments.
 6. Move emulator suites from `scripts/test-*` to `tests/emulator/` on vitest,
    one `npm run test:emulator` command.
-7. Deploy every function once (all code moved). Batch to avoid the rate limit.
+7. ~~Deploy every function once~~ **Done 2026-10-09**: all 153 deployed with
+   `npm run deploy:functions`, the TypeScript build and the split files included.
 
 ## Phase 4: Frontend restructure
 
