@@ -76,24 +76,9 @@ export interface LimitOrder {
 }
 
 /** One size division of a season board. max null = no ceiling. */
-export interface SeasonDivision {
-  id: string;
-  label: string;
-  min: number;
-  max: number | null;
-}
-
-/** The rules a season is scored by, pinned on the season doc at its start. */
-export interface SeasonRules {
-  bronzeActiveWeeks: number;
-  platinumTopShare: number;
-  diamondTopShare: number;
-  diamondBeatShare: number;
-  diamondMaxConcentration: number;
-  diamondConcentrationMinInvested: number;
-  titledTiers: readonly string[];
-  divisions: readonly SeasonDivision[];
-}
+// Season rules and divisions: defined in the shared rule module rules/seasons.
+export type { SeasonDivision, SeasonRules } from './rules/seasons';
+import type { SeasonRules } from './rules/seasons';
 
 /** market/season. */
 export interface SeasonDoc {

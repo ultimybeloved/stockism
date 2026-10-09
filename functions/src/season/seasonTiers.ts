@@ -47,15 +47,8 @@ import { round2 } from '../shared/money';
 import type { SeasonBaseline, SeasonDoc, SeasonRules, UserData, WeekRecord } from '../shared/types';
 import {
   SEASON_TIER_ORDER,
-  SEASON_BRONZE_ACTIVE_WEEKS,
   SEASON_MIN_BASELINE,
-  SEASON_PLATINUM_TOP_SHARE,
-  SEASON_DIAMOND_TOP_SHARE,
-  SEASON_DIAMOND_BEAT_SHARE,
-  SEASON_DIAMOND_MAX_CONCENTRATION,
   SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
-  SEASON_TITLED_TIERS,
-  SEASON_DIVISIONS,
   WEEKLY_HALT_WEEKDAY,
   WEEKLY_HALT_START_MINUTE,
   ONE_WEEK_MS,
@@ -68,6 +61,9 @@ import {
   grantedDaysSince,
   seasonCapital,
 } from './seasonMoney';
+import { DEFAULT_SEASON_RULES, rulesFor, divisionOf, standingTier } from '../shared/rules/seasons';
+// The defaults, the rules lookup and Silver/Gold are shared with the season card.
+export { DEFAULT_SEASON_RULES, rulesFor, standingTier };
 // Callers import these from seasonTiers, as before.
 export * from './seasonMoney';
 
@@ -85,23 +81,6 @@ export interface RankedPlayer {
   tier?: string | null;
   topTierExcluded?: boolean;
 }
-
-/** The rules a season is scored by. Pinned onto the season doc when it starts. */
-export const DEFAULT_SEASON_RULES: Readonly<SeasonRules> = Object.freeze({
-  bronzeActiveWeeks: SEASON_BRONZE_ACTIVE_WEEKS,
-  platinumTopShare: SEASON_PLATINUM_TOP_SHARE,
-  diamondTopShare: SEASON_DIAMOND_TOP_SHARE,
-  diamondBeatShare: SEASON_DIAMOND_BEAT_SHARE,
-  diamondMaxConcentration: SEASON_DIAMOND_MAX_CONCENTRATION,
-  diamondConcentrationMinInvested: SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED,
-  titledTiers: SEASON_TITLED_TIERS,
-  divisions: SEASON_DIVISIONS,
-});
-
-export const rulesFor = (season: SeasonDoc | null | undefined): SeasonRules => ({
-  ...DEFAULT_SEASON_RULES,
-  ...(season?.rules || {}),
-});
 
 export const tierRank = (tierId: string | null | undefined) =>
   tierId ? (SEASON_TIER_ORDER as readonly string[]).indexOf(tierId) + 1 : 0;
@@ -237,10 +216,6 @@ export const checkpointTier = ({ activeWeeks }: { activeWeeks?: number }, rules:
  * Silver or Gold from where the player stands on the whole season. Gold needs
  * Silver too: beating a falling market while down is not Gold.
  */
-export const standingTier = ({ returnPercent, marketPercent }: { returnPercent: number; marketPercent: number }) => {
-  if (!(returnPercent > 0)) return null;
-  return returnPercent > marketPercent ? 'gold' : 'silver';
-};
 
 /** Whether this board entry has earned Bronze, the first rung everything needs. */
 export const hasBronze = (
@@ -365,12 +340,8 @@ export const topTierSlots = (n: number, rules: SeasonRules = DEFAULT_SEASON_RULE
     : { platinum: 0, diamond: 0 };
 
 /** The size division a baseline value falls in. Below every minimum = the first. */
-export const divisionFor = (baselineValue: number | null | undefined, rules: SeasonRules = DEFAULT_SEASON_RULES) => {
-  const divisions = rules.divisions || [];
-  const v = baselineValue || 0;
-  const hit = divisions.find((d) => v >= d.min && (d.max === null || d.max === undefined || v < d.max));
-  return (hit || divisions[0])?.id || null;
-};
+export const divisionFor = (baselineValue: number | null | undefined, rules: SeasonRules = DEFAULT_SEASON_RULES) =>
+  divisionOf(baselineValue, rules)?.id || null;
 
 /** Players and Platinum/Diamond places per division, for the board and admin. */
 export const divisionSlots = (field: unknown, rules: SeasonRules = DEFAULT_SEASON_RULES) => {
