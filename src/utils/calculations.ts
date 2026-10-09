@@ -29,6 +29,7 @@ import {
   liquidityFor,
   maxTradeSharesFor,
 } from '../rules/impact';
+import { exitEquityAt, getTotalInvested as sharedTotalInvested } from '../rules/equity';
 
 /**
  * Get current price from priceHistory (source of truth) or fall back to prices/basePrice
@@ -278,28 +279,7 @@ export const calculatePortfolioValue = (
 export const calculateExitValue = (
   userData: UserData | null | undefined,
   prices: PriceMap | null | undefined,
-): number => {
-  if (!userData || !prices) return 0;
-  const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
-    const price = prices[ticker] || 0;
-    if (!(shares > 0) || !(price > 0)) return sum;
-    return sum + Math.max(MIN_PRICE, price - calculatePriceImpactDollars(price, shares, liquidityFor(ticker))) * shares;
-  }, 0);
-  // Covering buys the shares back, so it's measured at the price that pushes to.
-  // Same v2 default as the server's shortsEquity.
-  const shortsValue = Object.entries(userData.shorts || {}).reduce((sum, [ticker, pos]) => {
-    if (!pos || !(pos.shares > 0)) return sum;
-    const price = prices[ticker] || 0;
-    const cover = price + calculatePriceImpactDollars(price, pos.shares, liquidityFor(ticker));
-    return (
-      sum +
-      ((pos.system || 'v2') === 'v2'
-        ? (pos.margin || 0) + ((pos.costBasis || 0) - cover) * pos.shares
-        : (pos.margin || 0) - cover * pos.shares)
-    );
-  }, 0);
-  return (userData.cash || 0) + holdingsValue + shortsValue - (userData.marginUsed || 0);
-};
+): number => (!userData || !prices ? 0 : exitEquityAt(userData, prices));
 
 /**
  * Calculate margin status for a user
@@ -498,14 +478,7 @@ export const getTotalInvested = (
   holdings: ShareMap | null | undefined = {},
   costBasis: Record<Ticker, number> | null | undefined = {},
   shorts: ShortMap | null | undefined = {},
-): number => {
-  const holdingsValue = Object.entries(holdings || {}).reduce(
-    (sum, [ticker, shares]) => sum + (costBasis?.[ticker] || 0) * (shares || 0),
-    0,
-  );
-  const shortMargin = Object.values(shorts || {}).reduce((sum, s) => sum + (s && s.shares > 0 ? s.margin || 0 : 0), 0);
-  return holdingsValue + shortMargin;
-};
+): number => sharedTotalInvested({ holdings: holdings || {}, costBasis: costBasis || {}, shorts: shorts || {} });
 
 // LMSR event-market pricing: the shared rule module, also run by the server.
 export { lmsrCost, lmsrPrices, lmsrBuyCost, lmsrSellRefund, lmsrSeedQ, maxAffordableShares } from '../rules/lmsr';

@@ -3,10 +3,14 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { CHARACTER_MAP } from './characters';
-import { TWENTY_FOUR_HOURS_MS, MIN_PRICE } from './constants';
+import { TWENTY_FOUR_HOURS_MS } from './constants';
 import { round2 } from './money';
-import { calculateMarginalImpact, liquidityFor } from './impact';
-import type { GrantedSample, ShortPosition, UserData } from './types';
+import { shortsEquity, exitEquityAt, getTotalInvested } from './rules/equity';
+
+// Account value at a set of prices: the shared rule module, so the season page
+// and the betting caps the site shows match what the server scores and enforces.
+export { shortsEquity, exitEquityAt, getTotalInvested };
+import type { GrantedSample, UserData } from './types';
 
 /** Current price per ticker. */
 type Prices = Record<string, number | undefined> | null | undefined;
@@ -148,36 +152,6 @@ export const netEquityAt = (userData: UserData | null | undefined, prices: Price
 };
 
 /**
- * What an account would actually walk away with at `prices`: every holding sold
- * and every short covered, one order each, at the price that order pushes the
- * stock to. The same impact math a real sell or cover uses.
- *
- * Seasons score on this, not netEquityAt. Marked at the last trade, a player
- * (or a friend) buying a thin stock just before a checkpoint shows a paper gain
- * they could never cash out, because selling would push the price straight back
- * down. Here that gain and the exit cost cancel. Spread is left out: it's the
- * same share at the baseline and at every checkpoint, so it can't move a return.
- */
-export const exitEquityAt = (userData: UserData | null | undefined, prices: Prices) => {
-  if (!userData) return 0;
-  const holdingsValue = Object.entries(userData.holdings || {}).reduce((sum, [ticker, shares]) => {
-    const price = prices?.[ticker] || 0;
-    if (!(shares > 0) || !(price > 0)) return sum;
-    return sum + Math.max(MIN_PRICE, price - calculateMarginalImpact(price, shares, 0, liquidityFor(ticker))) * shares;
-  }, 0);
-  // Covering buys the shares back, so the price it's measured at is pushed up.
-  const coverPrices: Record<string, number> = {};
-  for (const [ticker, pos] of Object.entries(userData.shorts || {})) {
-    const price = prices?.[ticker] || 0;
-    if (pos && pos.shares > 0)
-      coverPrices[ticker] = price + calculateMarginalImpact(price, pos.shares, 0, liquidityFor(ticker));
-  }
-  return round2(
-    (userData.cash || 0) + holdingsValue + shortsEquity(userData.shorts, coverPrices) - (userData.marginUsed || 0),
-  );
-};
-
-/**
  * Percent return over a window, net of granted value. The single definition —
  * leaderboard, season standings and the admin readout all go through it so they
  * can't drift.
@@ -194,35 +168,6 @@ export const netReturnPercent = (
   if (!baseline || baseline <= 0) return 0;
   return ((current - (granted || 0) - baseline) / baseline) * 100;
 };
-
-/**
- * What a user's open shorts are worth to their net worth right now: the
- * collateral they posted, plus the unrealised gain or loss on the position.
- *
- * v2 shorts post 100% collateral and the proceeds stay with the house, so the
- * position is worth margin + (entry - current) x shares. Legacy shorts were paid
- * their proceeds up front, so the current value of the borrowed shares is a
- * liability against the collateral instead.
- *
- * Shared by the short-sizing cap in tradeActions and the margin-lending scanner:
- * the scanner used to count only cash and holdings, so collateral locked in a
- * short was invisible and a player holding both margin debt and shorts looked
- * poorer than they were and could be liquidated early.
- */
-export const shortsEquity = (
-  shorts: Record<string, ShortPosition | null | undefined> | null | undefined,
-  prices: Prices,
-) =>
-  Object.entries(shorts || {}).reduce((sum, [ticker, pos]) => {
-    if (!pos || !(pos.shares > 0)) return sum;
-    const price = prices?.[ticker] || 0;
-    return (
-      sum +
-      ((pos.system || 'v2') === 'v2'
-        ? (pos.margin || 0) + ((pos.costBasis || 0) - price) * pos.shares
-        : (pos.margin || 0) - price * pos.shares)
-    );
-  }, 0);
 
 /**
  * How much of an account rides on each character, for the season Diamond
@@ -258,23 +203,6 @@ export const characterExposure = (userData: UserData | null | undefined, prices:
     largest: values.length ? Math.max(...values) : 0,
     total: values.reduce((s, v) => s + v, 0),
   };
-};
-
-// Total a user has "invested" in stocks: cost basis of holdings + collateral posted on
-// open short positions. Used to cap prediction bets and ladder-game deposits.
-export const getTotalInvested = (userData: UserData | null | undefined) => {
-  if (!userData) return 0;
-  const holdings = userData.holdings || {};
-  const costBasis = userData.costBasis || {};
-  const holdingsValue = Object.entries(holdings).reduce(
-    (sum, [ticker, shares]) => sum + (costBasis[ticker] || 0) * (shares || 0),
-    0,
-  );
-  const shortMargin = Object.values(userData.shorts || {}).reduce(
-    (sum, s) => sum + (s && s.shares > 0 ? s.margin || 0 : 0),
-    0,
-  );
-  return holdingsValue + shortMargin;
 };
 
 // A user's rank via count aggregations (~1 read per 1000 counted) instead of

@@ -164,12 +164,8 @@ export const formatUTCDateTime = (ms: number): string => {
   return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 };
 
-/**
- * Round a number to 2 decimal places
- * @param {number} value - The value to round
- * @returns {number} Rounded value
- */
-export const round2 = (value: number): number => Math.round(value * 100) / 100;
+// Round to cents: the shared rule module, so client and server round alike.
+export { round2 } from '../rules/money';
 
 /**
  * Round a number to 3 decimal places

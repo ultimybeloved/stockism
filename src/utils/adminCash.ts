@@ -9,12 +9,12 @@
 // authority — this exists so the admin sees the outcome first, not to be trusted.
 // Mirror of the math in adminSetCash (functions/src/admin/adminOps.js).
 
+import { round2 } from '../rules/money';
+
 export type CashMode = 'add' | 'subtract' | 'set';
 
 export type CashParseResult =
   { ok: true; mode: CashMode; amount: number; before: number; after: number } | { ok: false; error: string };
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** `input` is the raw text from the prompt; `currentCash` the balance now. */
 export function parseCashInput(input: unknown, currentCash: unknown): CashParseResult {
