@@ -155,6 +155,11 @@ Vite, Firebase JS SDK 12, firebase-admin (one version), firebase-functions
 (stay 1st gen via `firebase-functions/v1`), React 19, Tailwind 4 last.
 Not doing: 2nd-gen Cloud Functions (changes the bill and the Discord webhook URL).
 
+- **Vite: Done 2026-10-09.** 5 -> 8 (+ `@vitejs/plugin-react` 6), the same Vite
+  vitest already ran on. Vendor chunks moved from `manualChunks` to Rolldown's
+  `codeSplitting.groups` (same split). Every route and modal identical old vs new
+  in both themes. Needs Node 20.19+ (`.nvmrc` is 22).
+
 ## Phase 6: Docs
 
 README = setup, commands, architecture. Game rules → `docs/game-rules.md`.
