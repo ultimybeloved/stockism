@@ -1,0 +1,417 @@
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../../firebase';
+import { ADMIN_UIDS } from '../../../constants';
+import { formatCurrency } from '../../../utils/formatters';
+import { calculatePortfolioValue } from '../../../utils/calculations';
+import { useAppContext } from '../../../context/AppContext';
+import { isPreMarketWindow } from '../../../utils/marketHours';
+import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
+import { useAdminAlerts } from '../../../features/admin/hooks/useAdminAlerts';
+import MyPreMarketOrdersModal from '../../../features/trading/components/MyPreMarketOrdersModal';
+import { getThemeClasses } from '../../../utils/theme';
+import type { Character } from '../../../characters';
+
+/** A character added this week, with its live price and change since the week opened. */
+export interface NewCharacter extends Character {
+  currentPrice: number;
+  weeklyChange: number;
+}
+
+export interface HeaderProps {
+  setDarkMode: (dark: boolean) => void;
+  onShowAdminPanel: () => void;
+  isGuest: boolean;
+  onShowLogin: () => void;
+  notificationCount: number;
+  onToggleNotifications: () => void;
+  newCharacters?: NewCharacter[];
+}
+
+// Ladder icon component - tan circle with X
+const LadderIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 20 20" className="inline-block">
+    <circle cx="10" cy="10" r="9" fill="#b4ac99" />
+    <text x="10" y="10" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="bold" fill="#333">
+      X
+    </text>
+  </svg>
+);
+
+const Header = ({
+  setDarkMode,
+  onShowAdminPanel,
+  isGuest,
+  onShowLogin,
+  notificationCount,
+  onToggleNotifications,
+  newCharacters = [],
+}: HeaderProps) => {
+  const { darkMode, user, userData, prices } = useAppContext();
+  const { textClass } = getThemeClasses(darkMode);
+  // Live value from current prices — the stored userData.portfolioValue only
+  // updates on the backend sync, so it can visibly disagree with the rest of
+  // the page while prices move.
+  const liveValue = useMemo(() => (userData ? calculatePortfolioValue(userData, prices || {}) : 0), [userData, prices]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [showNewCharsPopout, setShowNewCharsPopout] = useState(false);
+  // Badge clears once the popout has been opened for the current batch of new
+  // characters; a new batch (different tickers) brings it back.
+  const newCharsId = newCharacters
+    .map((c) => c.ticker)
+    .sort()
+    .join(',');
+  const [seenNewCharsId, setSeenNewCharsId] = useState(() => {
+    try {
+      return localStorage.getItem('seenNewCharsId') || '';
+    } catch {
+      return '';
+    }
+  });
+  const hasUnseenNewChars = newCharsId !== '' && newCharsId !== seenNewCharsId;
+  const openNewCharsPopout = () => {
+    setShowNewCharsPopout((prev) => !prev);
+    setSeenNewCharsId(newCharsId);
+    try {
+      localStorage.setItem('seenNewCharsId', newCharsId);
+    } catch {
+      /* ignore */
+    }
+  };
+  const [showPreMarketOrders, setShowPreMarketOrders] = useState(false);
+  const [inPreMarket, setInPreMarket] = useState(isPreMarketWindow());
+
+  useEffect(() => {
+    const interval = setInterval(() => setInPreMarket(isPreMarketWindow()), 10000);
+    return () => clearInterval(interval);
+  }, []);
+  const newCharsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (newCharsRef.current && !newCharsRef.current.contains(e.target as Node)) {
+        setShowNewCharsPopout(false);
+      }
+    };
+    if (showNewCharsPopout) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNewCharsPopout]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const isAdmin = user && ADMIN_UIDS.includes(user.uid);
+  const { unreviewedCount, highSeverityCount } = useAdminAlerts(user);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const isActivePage = (path: string) => {
+    return location.pathname === path;
+  };
+
+  const { newCount: newPredictions } = useNewPredictions();
+
+  const navLinks = [
+    { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
+    { path: '/predictions', label: 'Predictions', icon: '🔮', badge: newPredictions },
+    { path: '/ladder', label: 'Ladder', icon: <LadderIcon /> },
+    { path: '/achievements', label: 'Achievements', icon: '🏅' },
+  ];
+
+  return (
+    <>
+      {showPreMarketOrders && <MyPreMarketOrdersModal onClose={() => setShowPreMarketOrders(false)} />}
+      <header
+        className={`sticky top-0 z-40 border-b shadow-sm ${
+          darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-amber-200'
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative flex items-center justify-between h-16">
+            {/* Mobile: Logo on left */}
+            <Link to="/" className="flex-shrink-0 md:hidden">
+              <img
+                src={darkMode ? '/stockism grey splatter.png' : '/stockism logo.png'}
+                alt="Stockism"
+                className="h-10 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
+                draggable="false"
+                onContextMenu={(e) => e.preventDefault()}
+                style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+              />
+            </Link>
+
+            {/* Desktop: Nav links on left */}
+            <nav className="hidden md:flex items-center space-x-1">
+              {navLinks.map((link) => (
+                <button
+                  key={link.path}
+                  onClick={() => navigate(isActivePage(link.path) ? '/' : link.path)}
+                  className={`relative px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActivePage(link.path)
+                      ? 'bg-orange-600 text-white'
+                      : darkMode
+                        ? 'text-zinc-300 hover:bg-zinc-800'
+                        : 'text-zinc-600 hover:bg-amber-50'
+                  }`}
+                >
+                  <span className="mr-1">{link.icon}</span>
+                  {link.label}
+                  {!!link.badge && link.badge > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+                      {link.badge > 9 ? '9+' : link.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+
+            {/* Desktop: Centered logo - appears in header on scroll */}
+            <Link
+              to="/"
+              className={`hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 transition-opacity duration-200 ease-in-out ${
+                scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <img
+                src={darkMode ? '/stockism grey splatter.png' : '/stockism logo.png'}
+                alt="Stockism"
+                className="h-10 w-auto select-none cursor-pointer hover:opacity-90"
+                draggable="false"
+                onContextMenu={(e) => e.preventDefault()}
+                style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+              />
+            </Link>
+
+            {/* User Info & Controls */}
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-md transition-colors ${darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'}`}
+                aria-label="Toggle dark mode"
+              >
+                {darkMode ? '☀️' : '🌙'}
+              </button>
+
+              {/* Pre-Market Orders Button */}
+              {user && !isGuest && inPreMarket && (
+                <button
+                  onClick={() => setShowPreMarketOrders(true)}
+                  className={`px-2 py-1 text-xs font-semibold rounded-sm border transition-colors ${
+                    darkMode
+                      ? 'border-orange-500 text-orange-400 hover:bg-orange-500/20'
+                      : 'border-orange-500 text-orange-500 hover:bg-orange-50'
+                  }`}
+                  title="My pre-market orders"
+                >
+                  📋 My Orders
+                </button>
+              )}
+
+              {/* Notification Bell */}
+              {user && !isGuest && (
+                <button
+                  onClick={onToggleNotifications}
+                  className={`p-2 rounded-md transition-colors relative ${
+                    darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'
+                  }`}
+                  aria-label="Notifications"
+                >
+                  🔔
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
+                      {notificationCount > 99 ? '99+' : notificationCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* New Characters Notification */}
+              {newCharacters.length > 0 && (
+                <div className="relative" ref={newCharsRef}>
+                  <button
+                    onClick={openNewCharsPopout}
+                    className={`p-2 rounded-md transition-colors relative ${
+                      darkMode ? 'hover:bg-zinc-800' : 'hover:bg-amber-50'
+                    }`}
+                    aria-label="New characters this week"
+                    title="New characters this week"
+                  >
+                    ✨
+                    {hasUnseenNewChars && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
+                        {newCharacters.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {showNewCharsPopout && (
+                    <div
+                      className={`absolute right-0 top-full mt-2 w-72 rounded-sm border shadow-lg z-50 ${
+                        darkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-amber-200'
+                      }`}
+                    >
+                      <div
+                        className={`px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide ${
+                          darkMode ? 'border-zinc-700 text-zinc-400' : 'border-amber-200 text-zinc-500'
+                        }`}
+                      >
+                        ✨ New This Week
+                      </div>
+                      <div className="max-h-60 overflow-y-auto">
+                        {newCharacters.map((char) => (
+                          <div
+                            key={char.ticker}
+                            className={`flex items-center justify-between px-3 py-2 border-b last:border-0 ${
+                              darkMode ? 'border-zinc-800' : 'border-amber-100'
+                            }`}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <span className={`text-sm font-semibold ${textClass}`}>{char.name}</span>
+                              <span className={`text-xs ml-1 ${darkMode ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                                ${char.ticker}
+                              </span>
+                            </div>
+                            <div className="text-right ml-2 shrink-0">
+                              <span className={`text-sm font-bold ${textClass}`}>
+                                ${(char.currentPrice || 0).toFixed(2)}
+                              </span>
+                              <span
+                                className={`text-xs ml-1 ${
+                                  userData?.colorBlindMode
+                                    ? char.weeklyChange >= 0
+                                      ? 'text-teal-500'
+                                      : 'text-purple-500'
+                                    : char.weeklyChange >= 0
+                                      ? 'text-green-500'
+                                      : 'text-red-500'
+                                }`}
+                              >
+                                {char.weeklyChange >= 0 ? '▲' : '▼'}
+                                {Math.abs(char.weeklyChange || 0).toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Admin Panel (Admin Only) */}
+              {isAdmin && (
+                <button
+                  onClick={onShowAdminPanel}
+                  className={`relative p-2 rounded-md transition-colors ${
+                    darkMode ? 'hover:bg-zinc-800 text-red-400' : 'hover:bg-amber-50 text-red-600'
+                  }`}
+                  aria-label={
+                    unreviewedCount
+                      ? `Admin Panel, ${unreviewedCount} unreviewed alert${unreviewedCount === 1 ? '' : 's'}`
+                      : 'Admin Panel'
+                  }
+                  title={
+                    unreviewedCount
+                      ? `${unreviewedCount} unreviewed watchlist alert${unreviewedCount === 1 ? '' : 's'}`
+                      : 'Admin Panel'
+                  }
+                >
+                  ⚙️
+                  {unreviewedCount > 0 && (
+                    <span
+                      className={`absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full text-[10px] font-bold text-white ${
+                        highSeverityCount > 0 ? 'bg-red-500' : 'bg-amber-500'
+                      }`}
+                    >
+                      {unreviewedCount > 9 ? '9+' : unreviewedCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* User Info */}
+              {user ? (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => navigate(isActivePage('/profile') ? '/' : '/profile')}
+                    className={`flex items-center space-x-2 px-2 py-1 sm:px-3 sm:py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActivePage('/profile')
+                        ? 'bg-orange-600 text-white'
+                        : darkMode
+                          ? 'text-zinc-300 hover:bg-zinc-800'
+                          : 'text-zinc-600 hover:bg-amber-50'
+                    }`}
+                  >
+                    <span className="text-base sm:text-lg">👤</span>
+                    <div className="text-right">
+                      <div
+                        className={`text-[10px] sm:text-xs ${
+                          isActivePage('/profile') ? 'text-white/70' : darkMode ? 'text-zinc-400' : 'text-zinc-600'
+                        }`}
+                      >
+                        {userData?.displayName || user.email?.split('@')[0] || 'Anonymous'}
+                      </div>
+                      <div
+                        className={`text-xs sm:text-sm font-semibold ${
+                          isActivePage('/profile')
+                            ? 'text-white'
+                            : userData?.colorBlindMode
+                              ? 'text-teal-600'
+                              : 'text-green-600'
+                        }`}
+                      >
+                        {formatCurrency(liveValue)}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={handleSignOut}
+                    className={`px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
+                      userData?.colorBlindMode
+                        ? darkMode
+                          ? 'text-zinc-400 hover:bg-zinc-800'
+                          : 'text-zinc-600 hover:bg-amber-50'
+                        : darkMode
+                          ? 'text-red-400 hover:bg-zinc-800'
+                          : 'text-red-600 hover:bg-amber-50'
+                    }`}
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={onShowLogin}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    darkMode ? 'text-green-400 hover:bg-zinc-800' : 'text-green-600 hover:bg-amber-50'
+                  }`}
+                >
+                  Sign In
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+    </>
+  );
+};
+
+export default Header;

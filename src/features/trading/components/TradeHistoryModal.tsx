@@ -1,0 +1,379 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs,
+  startAfter,
+  type QueryConstraint,
+  type QueryDocumentSnapshot,
+} from 'firebase/firestore';
+import { db } from '../../../firebase';
+import { formatCurrency } from '../../../utils/formatters';
+import { CHARACTER_MAP } from '../../../characters';
+import { getThemeClasses } from '../../../utils/theme';
+import { useAppContext } from '../../../context/AppContext';
+import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import {
+  SOURCE_LABELS,
+  formatTimestamp,
+  getTimestampDate,
+  getTradeProfit,
+  exportTradesToCSV,
+  type TradeRecord,
+} from '../../../utils/tradeHistory';
+
+/** A trades/{id} doc as this list reads it. Dividend payouts carry a breakdown instead of a price. */
+interface TradeRow extends TradeRecord {
+  id: string;
+  source?: string;
+  totalAmount?: number;
+  /** Dividends: ticker -> cash paid. */
+  breakdown?: Record<string, number>;
+  /** Dividends: ticker -> shares bought back in (DRIP). */
+  reinvested?: Record<string, { shares: number; value: number }>;
+}
+
+const PAGE_SIZE = 30;
+
+const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
+  useEscapeKey(onClose);
+  const { darkMode, user, userData } = useAppContext();
+  const colorBlindMode = userData?.colorBlindMode || false;
+  const [trades, setTrades] = useState<TradeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [filterAction, setFilterAction] = useState('all');
+  const [searchTicker, setSearchTicker] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  const { textClass, mutedClass, borderClass, overlayClass, modalShellClass, cardEdgeClass, ghostBtnClass } =
+    getThemeClasses(darkMode);
+  const inputClass = darkMode
+    ? 'bg-zinc-950 border-zinc-700 text-zinc-100'
+    : 'bg-white border-amber-300 text-slate-900';
+
+  const fetchTrades = useCallback(
+    async (afterDoc: QueryDocumentSnapshot | null = null): Promise<TradeRow[]> => {
+      if (!user) return [];
+      try {
+        const constraints: QueryConstraint[] = [where('uid', '==', user.uid), orderBy('timestamp', 'desc')];
+        if (afterDoc) constraints.push(startAfter(afterDoc));
+        constraints.push(limit(PAGE_SIZE));
+
+        const snap = await getDocs(query(collection(db, 'trades'), ...constraints));
+        const newTrades = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as TradeRow);
+        setHasMore(newTrades.length === PAGE_SIZE);
+        setLastDoc(snap.docs[snap.docs.length - 1] || null);
+        return newTrades;
+      } catch (err) {
+        console.error('Failed to fetch trades:', err);
+        return [];
+      }
+    },
+    [user],
+  );
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const initial = await fetchTrades();
+      setTrades(initial || []);
+      setLoading(false);
+    })();
+  }, [user, fetchTrades]);
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore) return;
+    setLoadingMore(true);
+    const more = await fetchTrades(lastDoc);
+    setTrades((prev) => [...prev, ...(more || [])]);
+    setLoadingMore(false);
+  };
+
+  const getActionColor = (action: string) => {
+    if (action === 'buy' || action === 'cover' || action === 'dividend') {
+      return colorBlindMode ? 'text-teal-500' : 'text-green-500';
+    }
+    return colorBlindMode ? 'text-purple-500' : 'text-red-500';
+  };
+
+  const getActionBg = (action: string) => {
+    if (action === 'buy') return colorBlindMode ? 'bg-teal-900/20' : 'bg-green-900/20';
+    if (action === 'sell') return colorBlindMode ? 'bg-purple-900/20' : 'bg-red-900/20';
+    if (action === 'short') return 'bg-orange-900/20';
+    if (action === 'cover' || action === 'margin_call_cover') return 'bg-blue-900/20';
+    if (action === 'dividend') return 'bg-emerald-900/20';
+    return '';
+  };
+
+  // Apply client-side filters
+  const filtered = useMemo(() => {
+    let result = trades;
+
+    if (filterAction !== 'all') {
+      result = result.filter((t) => t.action === filterAction);
+    }
+
+    if (searchTicker.trim()) {
+      const search = searchTicker.trim().toUpperCase();
+      result = result.filter((t) => t.ticker && t.ticker.toUpperCase().includes(search));
+    }
+
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      result = result.filter((t) => {
+        const d = getTimestampDate(t.timestamp);
+        return d && d >= fromDate;
+      });
+    }
+
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      result = result.filter((t) => {
+        const d = getTimestampDate(t.timestamp);
+        return d && d <= toDate;
+      });
+    }
+
+    return result;
+  }, [trades, filterAction, searchTicker, dateFrom, dateTo]);
+
+  // Running P&L total for filtered sell/cover trades
+  const totalPL = useMemo(() => {
+    let total = 0;
+    for (const trade of filtered) {
+      const pl = getTradeProfit(trade);
+      if (pl && pl.amount) total += pl.amount;
+    }
+    return total;
+  }, [filtered]);
+
+  // CSV export
+  const handleExport = () => exportTradesToCSV(filtered);
+
+  return (
+    <div className={`${overlayClass} z-50`} onClick={onClose}>
+      <div
+        className={`${modalShellClass} max-w-lg overflow-hidden max-h-[85vh] flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`p-4 border-b ${cardEdgeClass}`}>
+          <div className="flex justify-between items-center">
+            <h2 className={`text-lg font-semibold ${textClass}`}>Trade History</h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExport}
+                title="Export CSV"
+                className={`px-2 py-1 text-xs font-semibold rounded-sm ${darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-zinc-600 hover:bg-slate-200'}`}
+              >
+                CSV
+              </button>
+              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+                &times;
+              </button>
+            </div>
+          </div>
+
+          {/* Search + Date filters */}
+          <div className="flex gap-2 mt-2">
+            <input
+              type="text"
+              placeholder="Search ticker..."
+              value={searchTicker}
+              onChange={(e) => setSearchTicker(e.target.value)}
+              className={`flex-1 px-2 py-1 text-xs rounded-sm border ${inputClass}`}
+            />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className={`w-28 px-1 py-1 text-xs rounded-sm border ${inputClass}`}
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className={`w-28 px-1 py-1 text-xs rounded-sm border ${inputClass}`}
+            />
+          </div>
+
+          {/* Action filter buttons */}
+          <div className="flex gap-1 mt-2">
+            {['all', 'buy', 'sell', 'short', 'cover', 'dividend'].map((action) => (
+              <button
+                key={action}
+                onClick={() => setFilterAction(action)}
+                className={`px-2 py-1 text-xs font-semibold rounded-sm ${
+                  filterAction === action
+                    ? 'bg-orange-600 text-white'
+                    : darkMode
+                      ? 'text-zinc-400 hover:bg-zinc-800'
+                      : 'text-zinc-600 hover:bg-slate-200'
+                }`}
+              >
+                {action.charAt(0).toUpperCase() + action.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Running P&L */}
+          {filtered.length > 0 && totalPL !== 0 && (
+            <div
+              className={`mt-2 text-sm font-semibold ${
+                totalPL >= 0
+                  ? colorBlindMode
+                    ? 'text-teal-500'
+                    : 'text-green-500'
+                  : colorBlindMode
+                    ? 'text-purple-500'
+                    : 'text-red-500'
+              }`}
+            >
+              Total P&L: {totalPL >= 0 ? '+' : ''}
+              {formatCurrency(totalPL)}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading ? (
+            <p className={`text-center py-8 ${mutedClass}`}>Loading trades...</p>
+          ) : filtered.length === 0 ? (
+            <p className={`text-center py-8 ${mutedClass}`}>No trades found</p>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((trade) => {
+                // Dividend payouts are a different shape — render separately
+                if (trade.action === 'dividend') {
+                  const breakdown = trade.breakdown || {};
+                  const reinvested = trade.reinvested || {};
+                  const cashEntries = Object.entries(breakdown).sort((a, b) => b[1] - a[1]);
+                  const dripEntries = Object.entries(reinvested).sort((a, b) => b[1].value - a[1].value);
+                  const totalCount = cashEntries.length + dripEntries.length;
+                  return (
+                    <div
+                      key={trade.id}
+                      className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg('dividend') : ''}`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 text-sm font-semibold">💵 Dividend</span>
+                            <span className={`text-xs font-bold uppercase ${getActionColor('dividend')}`}>PAID</span>
+                          </div>
+                          <p className={`text-xs ${mutedClass}`}>
+                            {totalCount} holding{totalCount === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          {(trade.totalAmount || 0) > 0 && (
+                            <p
+                              className={`font-semibold text-sm ${colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}
+                            >
+                              +{formatCurrency(trade.totalAmount || 0)} cash
+                            </p>
+                          )}
+                          {dripEntries.length > 0 && (
+                            <p className="font-semibold text-sm text-sky-500">{dripEntries.length} DRIP reinvested</p>
+                          )}
+                        </div>
+                      </div>
+                      {cashEntries.length > 0 && (
+                        <p className={`text-xs ${mutedClass} mt-1`}>
+                          {cashEntries
+                            .slice(0, 4)
+                            .map(([t, amt]) => `$${t} ${formatCurrency(amt)}`)
+                            .join(' • ')}
+                          {cashEntries.length > 4 ? ` • +${cashEntries.length - 4} more` : ''}
+                        </p>
+                      )}
+                      {dripEntries.length > 0 && (
+                        <p className="text-xs text-sky-500 mt-1">
+                          ↻{' '}
+                          {dripEntries
+                            .slice(0, 4)
+                            .map(([t, d]) => `$${t} +${d.shares}sh`)
+                            .join(' • ')}
+                          {dripEntries.length > 4 ? ` • +${dripEntries.length - 4} more` : ''}
+                        </p>
+                      )}
+                      <p className={`text-xs ${mutedClass} mt-1`}>{formatTimestamp(trade.timestamp)}</p>
+                    </div>
+                  );
+                }
+
+                const char = CHARACTER_MAP[trade.ticker];
+                const pl = getTradeProfit(trade);
+                return (
+                  <div
+                    key={trade.id}
+                    className={`p-3 rounded-sm border ${borderClass} ${darkMode ? getActionBg(trade.action) : ''}`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-orange-500 font-mono text-sm font-semibold">${trade.ticker}</span>
+                          <span className={`text-xs font-bold uppercase ${getActionColor(trade.action)}`}>
+                            {trade.action}
+                          </span>
+                          {trade.source && SOURCE_LABELS[trade.source] && (
+                            <span className={`text-xs ${mutedClass}`}>{SOURCE_LABELS[trade.source]}</span>
+                          )}
+                        </div>
+                        {char && <p className={`text-xs ${mutedClass}`}>{char.name}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-semibold text-sm ${textClass}`}>
+                          {formatCurrency(Math.abs(trade.totalValue || trade.price * trade.amount))}
+                        </p>
+                        <p className={`text-xs ${mutedClass}`}>
+                          {trade.amount} @ {formatCurrency(trade.price)}
+                        </p>
+                        {pl && (
+                          <p
+                            className={`text-xs font-semibold ${
+                              pl.amount >= 0
+                                ? colorBlindMode
+                                  ? 'text-teal-500'
+                                  : 'text-green-500'
+                                : colorBlindMode
+                                  ? 'text-purple-500'
+                                  : 'text-red-500'
+                            }`}
+                          >
+                            {pl.amount >= 0 ? '+' : ''}
+                            {formatCurrency(pl.amount)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <p className={`text-xs ${mutedClass} mt-1`}>{formatTimestamp(trade.timestamp)}</p>
+                  </div>
+                );
+              })}
+              {hasMore && (
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className={`w-full py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
+                >
+                  {loadingMore ? 'Loading...' : 'Load More'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TradeHistoryModal;

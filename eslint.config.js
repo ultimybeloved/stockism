@@ -62,9 +62,13 @@ export default tseslint.config(
   { files: ['src/**/*.test.{ts,tsx}'], languageOptions: { globals: globals.node } },
 
   // File-size limits (CLAUDE.md). Split the file rather than raise these.
-  { files: ['src/components/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(400) },
-  { files: ['src/pages/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(300) },
-  { files: ['src/hooks/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(200) },
+  {
+    files: ['src/{features/*,shared}/components/**/*.{ts,tsx}', 'src/app/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.*'],
+    rules: maxLines(400),
+  },
+  { files: ['src/features/*/pages/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(300) },
+  { files: ['src/{features/*,shared}/hooks/**/*.{ts,tsx}'], ignores: ['**/*.test.*'], rules: maxLines(200) },
   { files: ['src/App.tsx'], rules: maxLines(500) },
 
   // ---- Emulator suites (vitest; backend code comes in through createRequire) ----

@@ -139,9 +139,9 @@ These rules exist because we spent significant effort cleaning up a codebase tha
 
 | Location | Limit | Action if exceeded |
 |---|---|---|
-| Any frontend component (`src/components/`) | 400 lines | Split into sub-components |
-| Any page component (`src/pages/`) | 300 lines | Extract logic into a hook |
-| Any hook (`src/hooks/`) | 200 lines | Split by concern |
+| Any frontend component (`src/features/*/components/`, `src/shared/components/`, `src/app/`) | 400 lines | Split into sub-components |
+| Any page component (`src/features/*/pages/`) | 300 lines | Extract logic into a hook |
+| Any hook (`src/features/*/hooks/`, `src/shared/hooks/`) | 200 lines | Split by concern |
 | `src/App.tsx` | 500 lines | Stop and refactor before adding more |
 | Any backend file (`functions/src/<domain>/`, not `shared/`) | 600 lines | Split by sub-domain |
 | `functions/src/index.js` | 15 lines | Entry point only. Deployable files are listed per domain in `functions/src/<domain>/services.js` — never add logic here |
@@ -150,12 +150,14 @@ If a new feature would push a file past its limit, **split the file first, then 
 
 ### Frontend: Where Code Lives
 
-**Components** (`src/components/`)
+**Feature folders** (`src/features/<feature>/{components,hooks,pages,utils}`): admin, ladder, trading, margin, market (home + stock pages), portfolio, predictions, ipo, leaderboard, missions, crews, season, profile, account, notifications, about. Code used by several features lives in `src/shared/{components,hooks}`; the app shell (modal stack, status screens, install prompt) in `src/app/`. `src/utils`, `src/constants`, `src/context`, `src/types`, `src/api`, `src/rules` stay at the top level. A new file goes in the feature that owns it; it moves to `src/shared/` only once a second feature needs it.
+
+**Components** (`src/features/<feature>/components/`)
 - One component per file, named to match the file
-- Sub-components used only by one parent live in a subfolder: `src/components/portfolio/HoldingRow.tsx`
+- Sub-components used only by one parent live in a subfolder: `src/features/portfolio/components/HoldingRow.tsx`
 - Never put business logic in a component — extract to a hook
 
-**Hooks** (`src/hooks/`)
+**Hooks** (`src/features/<feature>/hooks/`)
 - All stateful logic that doesn't belong in a component goes here
 - One concern per hook: `useTradeLogic.js`, `useModalManager.js`, not `useEverything.js`
 
@@ -272,18 +274,18 @@ Quick reference so you know where to look and where to add things.
 
 | Path | What lives here |
 |---|---|
-| `src/App.tsx` | Router, top-level subscriptions, state/handler assembly — the modal stack itself is in `src/components/AppModals.tsx` |
-| `src/components/AppModals.tsx` | Every modal's render condition. App.tsx still owns the state and handlers; values already in context are read from context, not drilled |
+| `src/App.tsx` | Router, top-level subscriptions, state/handler assembly — the modal stack itself is in `src/app/AppModals.tsx` |
+| `src/app/AppModals.tsx` | Every modal's render condition. App.tsx still owns the state and handlers; values already in context are read from context, not drilled |
 | `src/context/AppContext.tsx` | Global state: darkMode, user, userData, prices, priceHistory, holdings, shorts, costBasis, marketData, activeIPOs, showNotification |
-| `src/hooks/useModalManager.ts` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
-| `src/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.js`) |
-| `src/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
-| `src/hooks/useMarginManagement.ts` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
-| `src/hooks/useCrewManagement.ts` | handleCrewSelect, handleCrewLeave |
-| `src/hooks/usePredictionManagement.ts` | handleBet |
-| `src/hooks/useIPOManagement.ts` | handleBuyIPO |
-| `src/hooks/useDailyOperations.ts` | handleDailyCheckin, handleBailout |
-| `src/hooks/usePinShop.ts` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
+| `src/shared/hooks/useModalManager.ts` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
+| `src/features/trading/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.js`) |
+| `src/features/missions/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
+| `src/features/margin/hooks/useMarginManagement.ts` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
+| `src/features/crews/hooks/useCrewManagement.ts` | handleCrewSelect, handleCrewLeave |
+| `src/features/predictions/hooks/usePredictionManagement.ts` | handleBet |
+| `src/features/ipo/hooks/useIPOManagement.ts` | handleBuyIPO |
+| `src/features/missions/hooks/useDailyOperations.ts` | handleDailyCheckin, handleBailout |
+| `src/features/profile/hooks/usePinShop.ts` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
 | `src/utils/calculations.ts` | All price/portfolio math — canonical, do not duplicate. Includes `getShortRisk`/`getShortMargin` (mirror the backend force-cover check) and `getAccountAgeImpactFactor` |
 | `src/utils/theme.ts` | Dark mode class strings via `getThemeClasses(darkMode)` — canonical, do not duplicate |
 | `src/utils/formatters.ts` | Currency, number, percentage formatting |
@@ -292,12 +294,9 @@ Quick reference so you know where to look and where to add things.
 | `src/constants/achievements.ts` | Achievement definitions |
 | `src/constants/cosmetics.ts` | Cosmetic item definitions |
 | `src/characters.ts` | **Source of truth** for all character/ETF data — edit here only |
-| `src/components/admin/` | Admin panel split into focused components |
-| `src/components/ladder/` | Ladder game UI: board, side panel, modals, shared style constants |
-| `src/hooks/ladder/` | Ladder game logic: data listeners, game flow, banners, DOM animation |
-| `src/hooks/admin/` | Admin panel state + handlers, one hook per domain — spread into tab components as props |
-| `src/components/modals/` | All modal components |
-| `src/components/layout/` | Header, Footer, MobileBottomNav, Layout wrapper |
+| `src/features/admin/` | Admin panel: `components/` (AdminPanel.tsx orchestrator + tabs), `hooks/` (state + handlers, one hook per domain, spread into tabs as props), `utils/` (pure helpers) |
+| `src/features/ladder/` | Ladder game: `components/` (board, side panel, modals, shared style constants), `hooks/` (data listeners, game flow, banners, DOM animation) |
+| `src/shared/components/layout/` | Header, Footer, MobileBottomNav, Layout wrapper |
 
 ### Backend (`functions/`)
 
@@ -483,8 +482,8 @@ Frontend deploys automatically via Vercel on every push to `main`. Backend requi
 These are known gaps that were evaluated and deliberately left alone. Don't reopen them without a good reason.
 
 - ~~**`executeTrade` refactor**~~ **DONE 2026-07-19**: `functions/src/trading/trading.ts` is now a ~315-line orchestrator; the logic lives in sibling modules `tradeGuards.js` (validation + anti-abuse gates), `tradeActions.js` (buy/sell/short/cover math), `tradePricing.js` (trailing/ETF propagation), `tradeState.js` (IP tracking + user-doc update assembly), `tradeEffects.js` (post-commit achievements/notifications/feed). Still ONE atomic transaction — all reads before writes, write order market → price history → trade record → ipTracking → user doc. `npm run test:trading` (155 checks) is the characterization suite — run before and after ANY change to these files. The internal modules are NOT exported through `functions/src/index.js`.
-- ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/AdminPanel.tsx` is now a ~300-line orchestrator. All state/handlers live in `src/hooks/admin/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/AdminPanel.test.tsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
-- ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/components/LadderGame.tsx` is now a ~135-line orchestrator. Logic lives in `src/hooks/ladder/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/components/ladder/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/hooks/ladder/animatePath.ts` — its timing values are load-bearing, don't tweak them casually. `src/components/LadderGame.test.tsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
+- ~~**`AdminPanel.jsx` split**~~ **DONE 2026-07-07**: `src/features/admin/components/AdminPanel.tsx` is now a ~300-line orchestrator. All state/handlers live in `src/features/admin/hooks/` (one hook per domain, each ≤200 lines); tab components receive hook returns as spread props. `src/features/admin/components/AdminPanel.test.tsx` is the characterization test — run `npm test` before and after touching anything in the admin panel.
+- ~~**`LadderGame.jsx` split**~~ **DONE 2026-07-07**: `src/features/ladder/components/LadderGame.tsx` is now a ~135-line orchestrator. Logic lives in `src/features/ladder/hooks/` (data listeners, game flow, banners, DOM animation, modals); UI lives in `src/features/ladder/components/` (board, side panel, three modals, shared style constants). The DOM path animation was moved verbatim into `src/features/ladder/hooks/animatePath.ts` — its timing values are load-bearing, don't tweak them casually. `src/features/ladder/components/LadderGame.test.tsx` is the characterization test — run `npm test` before and after touching anything in the ladder game.
 - ~~**End-to-end trade tests**~~ **DONE**: the emulator suites in `tests/emulator/` run the real function code against a local Firestore. `npm run test:emulator` runs all of them; `npm run test:trading`, `test:limitorders`, `test:premarket`, `test:season` and the rest (see package.json) run one each. CI runs them all on every push to main (`.github/workflows/ci.yml`).
 - **TypeScript migration**: APPROVED 2026-10-07 as a full conversion. The frontend (`src/`) is all TypeScript since 2026-10-08; the backend is converting file by file (new backend files are `.ts`). Follow the order in `docs/MODERNIZATION.md`; don't convert files outside the current phase.
 

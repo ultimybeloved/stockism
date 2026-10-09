@@ -1,0 +1,230 @@
+import { useState, useEffect, useRef } from 'react';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../../firebase';
+import { CHARACTERS } from '../../../characters';
+import { useActiveIPOs } from '../../ipo/hooks/useActiveIPOs';
+import type { AppContextValue, MarketData } from '../../../context/AppContext';
+import type { EventMarketDoc, PriceHistory, PricePoint, PriceMap } from '../../../types';
+
+export type MarketStatus = 'loading' | 'ready' | 'unavailable';
+
+// All global market subscriptions: prices/market doc, chart history,
+// dividend tier overrides, IPOs, and predictions.
+export function useMarketData() {
+  // 'loading' until the market doc answers, then 'ready'. 'unavailable' only if
+  // the very first read fails: an archive crawler has no App Check token and is
+  // refused, and so is a player whose connection stalls. Without this the app
+  // falls back to basePrice everywhere and presents invented numbers as live
+  // prices, which is what the Wayback captures of the site were showing.
+  //
+  // A failure AFTER a successful load leaves the status alone. Last-known real
+  // prices beat a blank page for a transient blip.
+  const [marketStatus, setMarketStatus] = useState<MarketStatus>('loading');
+  const [prices, setPrices] = useState<PriceMap>({});
+  const [priceHistory, setPriceHistory] = useState<PriceHistory>({});
+  const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [dividendTierOverrides, setDividendTierOverrides] = useState<Record<string, string>>({});
+  const [siteMessages, setSiteMessages] = useState<AppContextValue['siteMessages']>([]);
+  const [launchedTickers, setLaunchedTickers] = useState<string[]>([]);
+  // IPOs in their hype or buying phase. Own hook: the phase windows turn over
+  // on a clock rather than on a write to the doc, so it needs a ticker of its
+  // own and that is a separate concern from these subscriptions.
+  const activeIPOs = useActiveIPOs();
+  // predictions/current.list holds both weekly predictions and event markets.
+  const [predictions, setPredictions] = useState<EventMarketDoc[]>([]);
+  const [crewStats, setCrewStats] = useState<AppContextValue['crewStats']>(null); // weekly underdog multipliers + active counts
+  // What the admin changed during the last chapter review, computed server-side
+  // while the price history still covered the window. See reviewChanges.js.
+  const [storedReviewChanges, setStoredReviewChanges] = useState<AppContextValue['storedReviewChanges']>(null);
+
+  // Listen to global market data. Chart history lives in its own doc
+  // (market/priceHistory) and is fetched ONCE below — the live subscription
+  // only carries the small prices doc, so every price tick no longer pushes
+  // the full chart history for every stock to every player.
+  const prevPricesRef = useRef<PriceMap | null>(null);
+  useEffect(() => {
+    const marketRef = doc(db, 'market', 'current');
+
+    const unsubscribe = onSnapshot(
+      marketRef,
+      (snap) => {
+        setMarketStatus('ready');
+        if (snap.exists()) {
+          const data = snap.data() as MarketData & { prices?: PriceMap; launchedTickers?: string[] };
+          // Merge stored prices with basePrices for any new characters
+          const storedPrices = data.prices || {};
+          const launched = data.launchedTickers || [];
+          const mergedPrices: PriceMap = {};
+          CHARACTERS.forEach((c) => {
+            const gated = c.ipoRequired && !launched.includes(c.ticker);
+            // A gated character is left out so an unlaunched IPO stock can't be
+            // priced or shown before it exists. But the moment its IPO opens the
+            // market doc carries a real price and players hold shares they bought
+            // in it, and leaving it out then values those shares at $0 —
+            // calculations.js reads `prices[ticker] || 0` — so the portfolio
+            // shows a loss equal to what they paid. Keep it out only while the
+            // market doc has no price for it. Trading stays gated by the
+            // ipoRequired checks in the browser and trade paths, not by this map.
+            if (gated && storedPrices[c.ticker] === undefined) return;
+            mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
+          });
+          setPrices(mergedPrices);
+          setMarketData(data);
+          setLaunchedTickers(launched);
+
+          // Extend local chart history from live ticks (the server appends the
+          // same points to market/priceHistory; these local ones just keep the
+          // charts moving without re-downloading history).
+          const prev = prevPricesRef.current;
+          if (prev) {
+            const ts = Date.now();
+            const changed = Object.entries(mergedPrices).filter(([t, p]) => prev[t] !== undefined && prev[t] !== p);
+            if (changed.length > 0) {
+              setPriceHistory((prevHist) => {
+                const next = { ...prevHist };
+                changed.forEach(([t, p]) => {
+                  next[t] = [...(next[t] || []), { timestamp: ts, price: p }].slice(-2000);
+                });
+                return next;
+              });
+            }
+          }
+          prevPricesRef.current = mergedPrices;
+        } else {
+          // Market doc missing (fresh environment) — show base prices; the
+          // backend owns market initialization.
+          const initialPrices: PriceMap = {};
+          CHARACTERS.forEach((c) => {
+            if (!c.ipoRequired) initialPrices[c.ticker] = c.basePrice;
+          });
+          setPrices(initialPrices);
+          setLaunchedTickers([]);
+        }
+      },
+      (err) => {
+        // Refused or unreachable. Only meaningful before the first successful
+        // read; after that the data on screen is real and worth keeping.
+        console.warn('market/current subscription:', err?.message);
+        setMarketStatus((prev) => (prev === 'ready' ? 'ready' : 'unavailable'));
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // Listen to dividend tier overrides (admin-editable config doc)
+  useEffect(() => {
+    const ref = doc(db, 'dividendConfig', 'tierOverrides');
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        if (snap.exists()) {
+          setDividendTierOverrides(snap.data().tiers || {});
+        } else {
+          setDividendTierOverrides({});
+        }
+      },
+      (err) => {
+        // Missing doc is fine — fall back to hardcoded defaults.
+        console.warn('dividendConfig/tierOverrides subscription:', err?.message);
+      },
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Admin-written site announcements. Same shape as the dividend config above:
+  // a world-readable doc the admin edits straight from the panel, so there is no
+  // Cloud Function in the loop and guests get it without signing in.
+  useEffect(() => {
+    const ref = doc(db, 'config', 'siteMessages');
+    const unsubscribe = onSnapshot(
+      ref,
+      (snap) => {
+        setSiteMessages(snap.exists() ? snap.data().messages || [] : []);
+      },
+      (err) => {
+        // No doc yet is the normal state. The bar renders nothing.
+        console.warn('config/siteMessages subscription:', err?.message);
+        setSiteMessages([]);
+      },
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch chart history once per session from its own doc. Live ticks keep it
+  // current locally (see the market subscription above); merging preserves any
+  // points that arrived before this fetch resolved.
+  useEffect(() => {
+    let cancelled = false;
+    getDoc(doc(db, 'market', 'priceHistory'))
+      .then((snap) => {
+        if (cancelled || !snap.exists()) return;
+        const fetched: Record<string, unknown> = snap.data() || {};
+        setPriceHistory((prevLocal) => {
+          const merged: PriceHistory = {};
+          const tickers = new Set([...Object.keys(fetched), ...Object.keys(prevLocal)]);
+          tickers.forEach((t) => {
+            const base: PricePoint[] = Array.isArray(fetched[t]) ? (fetched[t] as PricePoint[]) : [];
+            const seen = new Set(base.map((p) => p.timestamp));
+            const extra = (prevLocal[t] || []).filter((p) => !seen.has(p.timestamp));
+            merged[t] = [...base, ...extra].sort((a, b) => a.timestamp - b.timestamp);
+          });
+          return merged;
+        });
+      })
+      .catch((err) => console.error('Failed to load price history:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Two small docs read once per session, not subscribed: reviewChanges only
+  // changes at the weekly review (the tab derives it locally if missing or
+  // stale) and crewStats only on Monday's recompute, so live listeners on
+  // either would be wasted reads.
+  useEffect(() => {
+    let cancelled = false;
+    const once = <T>(id: string, set: (value: T) => void) =>
+      getDoc(doc(db, 'market', id))
+        .then((snap) => {
+          if (!cancelled && snap.exists()) set(snap.data() as T);
+        })
+        .catch((err) => console.warn(`Failed to load ${id}:`, err?.message));
+    once('reviewChanges', setStoredReviewChanges);
+    once('crewStats', setCrewStats);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Listen to predictions
+  useEffect(() => {
+    const predictionsRef = doc(db, 'predictions', 'current');
+
+    const unsubscribe = onSnapshot(predictionsRef, (snap) => {
+      if (snap.exists()) {
+        setPredictions(snap.data().list || []);
+      } else {
+        // No predictions document - just show empty state
+        // Only admins can create predictions via Admin Panel
+        setPredictions([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return {
+    prices,
+    priceHistory,
+    marketData,
+    dividendTierOverrides,
+    launchedTickers,
+    activeIPOs,
+    predictions,
+    crewStats,
+    storedReviewChanges,
+    siteMessages,
+    marketStatus,
+  };
+}

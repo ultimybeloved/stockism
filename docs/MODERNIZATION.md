@@ -111,8 +111,12 @@ their public profile and the leaderboard.
 
 ## Phase 4: Frontend restructure
 
-1. Feature folders `src/features/<feature>/{components,hooks,api}` +
-   `src/shared/`.
+1. ~~Feature folders~~ **Done 2026-10-09.** `src/features/<feature>/{components,hooks,pages,utils}`
+   (16 features), `src/shared/{components,hooks}` for code several features
+   use, `src/app/` for the shell. 277 files moved, every import rewritten; utils,
+   constants, context, types, api and rules stay at the top of `src/`. The
+   callables stay in `src/firebase.ts` until step 2. File-size limits in
+   `eslint.config.js` follow the new folders.
 2. `src/api/` wrappers for the 109 `httpsCallable` call sites, typed, one error
    path.
 3. Split AppContext into theme / auth+user / market contexts (price ticks stop

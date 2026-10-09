@@ -33,7 +33,7 @@ CHARACTERS.filter((c) => c.isETF && c.trailingFactors).forEach((etf) => {
  * indirect one can claim the stock.
  *
  * Same fix and same reasoning as buildTrailingCascade in
- * src/hooks/admin/trailingCascade.js — keep the two in step.
+ * src/features/admin/utils/trailingCascade.ts — keep the two in step.
  *
  * A stock moves at most once per trade, at the shortest distance from the traded
  * ticker. That is what stops mutual links (GAP, JIN and SHNG all point at each

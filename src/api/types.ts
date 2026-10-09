@@ -665,13 +665,13 @@ export interface DiscordMessagePayload {
   channelName: string;
   label: string;
   content: string;
-  embed: import('../hooks/admin/discordDraft').DraftEmbed | null;
-  buttons: import('../hooks/admin/discordDraft').DraftButton[];
+  embed: import('../features/admin/utils/discordDraft').DraftEmbed | null;
+  buttons: import('../features/admin/utils/discordDraft').DraftButton[];
   allowMentions: boolean;
 }
 
 /** A tracked bot message as the server returns it. */
-export type TrackedDiscordMessage = import('../hooks/admin/discordDraft').StoredDiscordMessage & {
+export type TrackedDiscordMessage = import('../features/admin/utils/discordDraft').StoredDiscordMessage & {
   messageId?: string;
   imported?: boolean;
   channelName?: string;
@@ -701,7 +701,7 @@ export interface PublicProfile {
   totalShortValue: number;
   portfolioHistory: { timestamp: number; value: number }[];
   /** Only filled in when an admin is looking. */
-  adminData: import('../components/profile/ProfileAdminPanel').ProfileAdminData | null;
+  adminData: import('../features/profile/components/ProfileAdminPanel').ProfileAdminData | null;
   achievements: string[];
   stats: {
     totalTrades: number;

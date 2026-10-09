@@ -1,0 +1,108 @@
+import { useCallback } from 'react';
+import { switchCrewFunction, leaveCrewFunction } from '../../../firebase';
+import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY } from '../../../crews';
+import { formatCurrency } from '../../../utils/formatters';
+import { reportUnexpected } from '../../../monitoring';
+import { errorMessage } from '../../../utils/errors';
+import type { ActionHookDeps } from '../../../shared/hooks/types';
+
+export function useCrewManagement({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
+  // Returns true on success so the modal can wait for the round-trip before
+  // closing (and stay open on failure). Without this the modal closed the instant
+  // you confirmed, with no sign anything happened until a toast popped a beat later.
+  const handleCrewSelect = useCallback(
+    async (crewId: string, isSwitch?: boolean): Promise<boolean> => {
+      if (!user || !userData) return false;
+      setLoadingKey('selectCrew', true);
+      try {
+        if (isSwitch && userData.crew) {
+          const oldCrewId = userData.crew;
+          const result = await switchCrewFunction({ crewId, isSwitch: true });
+          // The server decides whether this was a free switch — mirror whatever
+          // it actually did rather than assuming a penalty was taken.
+          const { totalTaken, freeSwitch } = result.data;
+          setUserData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  crew: crewId,
+                  cash: (prev.cash || 0) - totalTaken,
+                  crewSwitchCooldown: Date.now(),
+                  crewLockouts: freeSwitch
+                    ? prev.crewLockouts || {}
+                    : {
+                        ...(prev.crewLockouts || {}),
+                        [oldCrewId]: Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000,
+                      },
+                }
+              : prev,
+          );
+          // The server just accepted crewId, so it is a real crew.
+          const crew = CREW_MAP[crewId]!;
+          showNotification(
+            'success',
+            freeSwitch
+              ? `Switched to ${crew.name} for free! No penalty taken. ${crew.emblem}`
+              : `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)`,
+          );
+        } else {
+          await switchCrewFunction({ crewId, isSwitch: false });
+          setUserData((prev) => (prev ? { ...prev, crew: crewId } : prev));
+          const crew = CREW_MAP[crewId]!;
+          showNotification('success', `Welcome to ${crew.name}! ${crew.emblem}`);
+        }
+        return true;
+      } catch (err) {
+        reportUnexpected(err, { where: 'handleCrewSelect', crewId, isSwitch });
+        const details = (err as { details?: string } | null)?.details;
+        showNotification('error', errorMessage(err) || details || 'Failed to join crew');
+        return false;
+      } finally {
+        setLoadingKey('selectCrew', false);
+      }
+    },
+    [user, userData, showNotification, setUserData, setLoadingKey],
+  );
+
+  const handleCrewLeave = useCallback(async () => {
+    if (!user || !userData || !userData.crew) return;
+    if ((userData.cash || 0) < 0) {
+      showNotification('error', 'You cannot leave your crew while in debt.');
+      return;
+    }
+    setLoadingKey('leaveCrew', true);
+    try {
+      const oldCrew = CREW_MAP[userData.crew];
+      const oldCrewId = userData.crew;
+      const result = await leaveCrewFunction({});
+      const totalTaken = result.data.totalTaken;
+      setUserData((prev) =>
+        prev
+          ? {
+              ...prev,
+              crew: null,
+              cash: (prev.cash || 0) - totalTaken,
+              crewSwitchCooldown: Date.now(),
+              crewLockouts: {
+                ...(prev.crewLockouts || {}),
+                [oldCrewId]: Date.now() + CREW_REJOIN_LOCKOUT_DAYS * 24 * 60 * 60 * 1000,
+              },
+            }
+          : prev,
+      );
+      showNotification(
+        'warning',
+        `Left ${oldCrew?.name || 'crew'}. Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty). You cannot join a new crew for 24 hours, or rejoin ${oldCrew?.name || 'this crew'} for ${CREW_REJOIN_LOCKOUT_DAYS} days.`,
+      );
+    } catch (err) {
+      // Charges the switch penalty, so a partial failure can take cash without
+      // moving the player out of the crew.
+      reportUnexpected(err, { where: 'handleCrewLeave', crew: userData.crew });
+      showNotification('error', 'Failed to leave crew');
+    } finally {
+      setLoadingKey('leaveCrew', false);
+    }
+  }, [user, userData, showNotification, setUserData, setLoadingKey]);
+
+  return { handleCrewSelect, handleCrewLeave };
+}

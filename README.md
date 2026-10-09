@@ -331,9 +331,9 @@ Hard limits that exist because this codebase was untangled from a set of god fil
 
 | Location | Limit |
 |---|---|
-| `src/components/` | 400 lines |
-| `src/pages/` | 300 lines |
-| `src/hooks/` | 200 lines |
+| Components (`src/features/*/components/`, `src/shared/components/`, `src/app/`) | 400 lines |
+| Pages (`src/features/*/pages/`) | 300 lines |
+| Hooks (`src/features/*/hooks/`, `src/shared/hooks/`) | 200 lines |
 | `src/App.tsx` | 500 lines |
 | `functions/src/<domain>/` | 600 lines |
 | `functions/src/index.js` | 15 lines, entry point only |
