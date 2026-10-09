@@ -122,21 +122,16 @@ export const OVERSIZED_IMPACT_MULTIPLE = 2;
 // functions/src/shared/constants/.
 export const MAX_DAILY_IMPACT_PER_USER = 0.1;
 export const MAX_TRADES_PER_TICKER_24H = 10; // Max trades per action per ticker per rolling 24h
-export const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
-export const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h window (deposit cap + rush fee) — keep in sync with functions/src/shared/constants/
-// New accounts ramp up to the full ladder caps over their first week — keep in sync with functions/src/shared/constants/
-export const LADDER_RAMP_DAYS = 7;
-export const LADDER_RAMP_MIN_FACTOR = 0.05; // 5% of the caps at day 0 → 100% at day 7
-
-// Ladder withdrawal tax — keep in sync with functions/src/shared/constants/
-export const LADDER_WITHDRAW_PRINCIPAL_FEE_RATE = 0.05; // flat 5% on the portion that is deposited principal coming back
-export const LADDER_WITHDRAW_RUSH_RATE = 0.15; // +15% of the whole withdrawal if any deposit landed within LADDER_DEPOSIT_WINDOW_MS
-// Lifetime-progressive brackets over cumulative profit withdrawn (not per-withdrawal).
-export const LADDER_WITHDRAW_PROFIT_BRACKETS = [
-  { upTo: 1000, rate: 0.15 },
-  { upTo: 5000, rate: 0.3 },
-  { upTo: Infinity, rate: 0.45 },
-];
+// Ladder money rules live in the shared rule module (also run by the server).
+export {
+  LADDER_GAME_MAX_BALANCE,
+  LADDER_DEPOSIT_WINDOW_MS,
+  LADDER_RAMP_DAYS,
+  LADDER_RAMP_MIN_FACTOR,
+  LADDER_WITHDRAW_PRINCIPAL_FEE_RATE,
+  LADDER_WITHDRAW_RUSH_RATE,
+  LADDER_WITHDRAW_PROFIT_BRACKETS,
+} from '../rules/ladder';
 
 // Anti-manipulation: New Account Impact Reduction
 export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3; // Reduced impact for first 3 days

@@ -215,6 +215,11 @@ A closed position leaves nothing behind: delete `holdings`, `costBasis`,
 `lowestWhileHolding`, `holdingCohorts` and any lockups together. `drip` is a
 preference and survives on purpose.
 
+**Shared game rules** (`src/rules/*.ts` and their `functions/src/shared/rules/` copies)
+- Any rule the website previews and the server enforces (taxes, caps, ramps, price maths) lives ONCE in `src/rules/`. `npm run sync:chars` copies every file there to `functions/src/shared/rules/`; `npm run check:sync` (CI) fails if a copy is stale or orphaned. Never edit the copies.
+- A rule module stays pure: no Firebase, no React, and imports only from inside `src/rules/` (or `../characters` / `../crews`, which sit at the same relative path on both sides). Constants files on both sides re-export from it so existing imports keep working.
+- Done so far: `rules/ladder` (caps, ramp, house chips, withdrawal tax). The rest of the mirrored rules are moving here one module at a time (see docs/MODERNIZATION.md Phase 3 step 5).
+
 **Characters & crews** (`src/characters.ts` + `src/crews.ts` and their `functions/` copies)
 - `src/characters.ts` and `src/crews.ts` are the **only files you ever edit**. Never touch `functions/src/shared/characters.ts` or `functions/src/shared/crews.ts` directly — both are generated copies.
 - After editing either source file, run `npm run check:data` (validates ETF weights, crew rosters, and ticker references — silent success = clean) then `npm run sync:chars`, which overwrites both `functions/` copies automatically.

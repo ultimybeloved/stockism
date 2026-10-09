@@ -93,7 +93,11 @@ their public profile and the leaderboard.
    backend deploy. New backend code logs through `logger`, never `console`.
 5. One shared source for game rules used by both sides (characters, crews,
    economy rules, impact math, season tiers, ladder tax) instead of mirrored
-   copies with "keep in sync" comments.
+   copies with "keep in sync" comments. **In progress:** the mechanism is
+   `src/rules/` -> `functions/src/shared/rules/` via sync:chars, guarded by
+   check:sync. Done: `rules/ladder`. Next: impact/liquidity maths, equity
+   (exitEquityAt, getTotalInvested), LMSR prices, season tiers/divisions,
+   last-active time, then the remaining mirrored constants.
 6. Move emulator suites from `scripts/test-*` to `tests/emulator/` on vitest,
    one `npm run test:emulator` command.
 7. ~~Deploy every function once~~ **Done 2026-10-09**: all 153 deployed with

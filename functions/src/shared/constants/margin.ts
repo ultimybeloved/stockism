@@ -25,17 +25,20 @@ export const MARGIN_MIN_PEAK_PORTFOLIO = 7500;
 export const CREW_REJOIN_LOCKOUT_MS = CREW_REJOIN_LOCKOUT_DAYS * TWENTY_FOUR_HOURS_MS; // rejoin lockout after leaving a crew (from crews.ts)
 export const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 export const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
-export const LADDER_GAME_MAX_BALANCE = 10000; // max cash held in ladder minigame at once
-export const LADDER_GAME_MAX_DEPOSIT_PER_WINDOW = 10000; // max cash deposited into ladder within the rolling window
-export const LADDER_DEPOSIT_WINDOW_MS = 12 * 60 * 60 * 1000; // rolling 12h window for the deposit cap
 // New accounts ramp up to the full ladder caps over their first week, mirroring
 // the NEW_ACCOUNT_* price-impact ramp above. The invested-in-stocks cap doesn't
 // stop a fresh alt — it buys stock with the cash it was handed at signup and
 // clears that gate honestly — so the free stake can be gambled on day one. This
 // makes an alt worth a few hundred dollars of play instead of thousands, while
 // a real new player still gets to try the game immediately.
-export const LADDER_RAMP_DAYS = 7;
-export const LADDER_RAMP_MIN_FACTOR = 0.05; // 5% of the caps at day 0 → 100% at day 7
+// The ladder caps and ramp are defined in the shared rule module rules/ladder.
+export {
+  LADDER_GAME_MAX_BALANCE,
+  LADDER_GAME_MAX_DEPOSIT_PER_WINDOW,
+  LADDER_DEPOSIT_WINDOW_MS,
+  LADDER_RAMP_DAYS,
+  LADDER_RAMP_MIN_FACTOR,
+} from '../rules/ladder';
 // Crew buy/sell/volume goals scale with roster size (see getCrew*Target in crews.ts)
 
 // ============================================

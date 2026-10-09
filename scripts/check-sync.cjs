@@ -15,9 +15,14 @@
 
 const fs = require('fs');
 
-const { SHARED, generatedPath, generate } = require('./lib/sharedSource.cjs');
+const { SHARED, generatedPath, generate, staleCopies } = require('./lib/sharedSource.cjs');
 
 const problems = [];
+
+// A rule copy whose source was deleted would keep running on the backend only.
+for (const name of staleCopies()) {
+  problems.push(`functions/src/shared/${name}.ts has no source in src/ (deleted?)`);
+}
 
 for (const name of SHARED) {
   const from = `src/${name}.ts`;
