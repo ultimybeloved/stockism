@@ -2,7 +2,7 @@
 // its 600-line limit; auditing a player's drop claims has nothing to do with
 // the ticker-rollback recovery tooling it used to sit beside.
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();

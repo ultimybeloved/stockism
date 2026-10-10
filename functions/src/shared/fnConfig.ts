@@ -4,7 +4,7 @@
 // directly, so it inherits a maxInstances cap (limits how fast cost can accrue if
 // the function is flooded). Callable functions also call requireAppCheck() so only
 // our real app can reach them. Both knobs live in constants.js.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { MAX_FN_INSTANCES, APP_CHECK_ENFORCED, ADMIN_UID } from './constants';
 
 // 1st-gen function builder, pre-capped to MAX_FN_INSTANCES. Pass extra runWith

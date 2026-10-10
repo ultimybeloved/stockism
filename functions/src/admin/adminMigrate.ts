@@ -5,7 +5,7 @@
 // ticker across every collection, and seeding prices for newly added characters.
 // Both are run once, by hand, after src/characters.ts changes and npm run
 // sync:chars — see the "adding characters" playbook.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';

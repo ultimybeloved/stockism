@@ -4,7 +4,7 @@
 // moved to missions.js — this file is only about an account coming into or
 // going out of existence, which is where the anti-abuse gates matter.
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';

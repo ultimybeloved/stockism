@@ -2,7 +2,7 @@
 //
 // The scheduled liquidation scanners that used to live here are in
 // marginScanners.js, and syncPortfolio moved to portfolio.js.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();

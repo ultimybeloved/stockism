@@ -1,4 +1,4 @@
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';

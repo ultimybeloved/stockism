@@ -24,7 +24,7 @@ import { sumDirectionalImpact, impactDirectionOf } from '../shared/impact';
 import type { ImpactEntry } from '../shared/impact';
 import type { HistoryMap } from '../trading/tradeState';
 import type { TrailingEntries } from '../trading/tradePricing';
-import type { https } from 'firebase-functions';
+import type { https } from 'firebase-functions/v1';
 
 type CallableContext = https.CallableContext;
 

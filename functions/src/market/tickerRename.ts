@@ -22,7 +22,7 @@
 //
 // 3. STAY HALTED on anything but success. The market reopens only after a
 //    verification scan finds zero occurrences of the old ticker.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 
 const db = admin.firestore();

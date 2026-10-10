@@ -1,7 +1,7 @@
 // Account gates: bans, the Discord wall, Discord account binding, network keys.
 
 import * as admin from 'firebase-admin';
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { DISCORD_RELINK_COOLDOWN_MS, ALT_IPV6_PREFIX_GROUPS, DISCORD_BINDING_TTL_MS } from './constants';
 import type { UserData } from './types';
 const db = admin.firestore();

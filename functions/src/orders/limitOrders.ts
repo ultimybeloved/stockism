@@ -1,7 +1,7 @@
 // Limit orders: the player-facing callable that creates one, plus the schedule
 // that sweeps the book. The matching engine itself is in limitOrderMatching.js.
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';

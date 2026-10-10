@@ -12,7 +12,7 @@
 //   2. Point a Billing budget's notifications at that topic.
 //   3. Grant this project's App Engine service account permission to disable
 //      billing (Project Billing Manager on the project + billing account).
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { CloudBillingClient } from '@google-cloud/billing';
 import * as logger from 'firebase-functions/logger';
 

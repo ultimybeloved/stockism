@@ -40,7 +40,7 @@
 //
 // Left as history: feed messages (7-day TTL) and old notifications.
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 
 const db = admin.firestore();

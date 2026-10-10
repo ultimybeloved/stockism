@@ -2,7 +2,7 @@
 // availability, display-name changes, the one-off username migration, and
 // cosmetic purchases. Split out of users.js when it passed the 600-line limit.
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();

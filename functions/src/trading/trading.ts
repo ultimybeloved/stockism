@@ -13,7 +13,7 @@
 // query non-transactionally (assertNoLiveSellOrders, assertVelocityLimits) run
 // BEFORE it opens, which is what makes the body safe to re-run on contention.
 // Do not move a plain db query into the transaction body.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';

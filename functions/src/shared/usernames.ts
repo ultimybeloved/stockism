@@ -1,6 +1,6 @@
 // Username rules: profanity, banned and protected names, targeted harassment.
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 
 // Banned usernames (impersonation prevention)
 export const BANNED_NAMES = [

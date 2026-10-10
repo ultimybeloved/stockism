@@ -3,7 +3,7 @@
 // working copies in place, and returns the resulting price/cash numbers.
 // Rule violations throw HttpsError so the surrounding transaction aborts.
 // Internal module — required by trading.js, not exported through index.js.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import {
   MIN_PRICE,

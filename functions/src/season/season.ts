@@ -10,7 +10,7 @@
 // Season length is never known ahead of time — an arc ends when "Finale" shows
 // up in a chapter title — so the season is ended by an admin button rather than
 // a schedule. Who earns which tier is decided in seasonTiers.js.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';

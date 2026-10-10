@@ -1,7 +1,7 @@
 // Direct admin actions on players and the market: bans, price-cliff repair,
 // and bot creation. The backup/restore tooling is in adminBackups.js.
 
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';

@@ -1,7 +1,7 @@
 // Pre-trade validation and anti-abuse gates for executeTrade. Every function
 // here either passes silently or throws an HttpsError that aborts the trade.
 // Internal module — required by trading.js, not exported through index.js.
-import * as functions from 'firebase-functions';
+import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();
 import { CHARACTER_MAP } from '../shared/characters';
