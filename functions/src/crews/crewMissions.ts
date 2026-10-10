@@ -44,6 +44,7 @@ const meetsContribution = (value: number | boolean | undefined, threshold: numbe
 // trade-executing paths can import them without this file having to export a
 // plain helper (which index.js would then re-export as a "Cloud Function").
 import { getWeekId } from './crewMissionProgress';
+import { recordLedger } from '../shared/ledger';
 
 /**
  * Checks if the crew goal is met and whether the user contributed.
@@ -146,6 +147,14 @@ export const claimCrewMission = cf().https.onCall(async (data: { missionId?: unk
     tx.update(userRef, {
       cash: FieldValue.increment(reward),
       ...grantedValueUpdate(reward),
+    });
+    recordLedger(tx, {
+      uid,
+      type: 'crew_mission_reward',
+      amount: reward,
+      cashAfter: (freshUser.data()!.cash || 0) + reward,
+      ref: missionId,
+      detail: { crew, weekId },
     });
     if (freshMission.exists) {
       tx.update(missionRef, { [`claimed.${uid}.${missionId}`]: true });

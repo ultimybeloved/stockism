@@ -16,6 +16,7 @@ import { getLadderChips } from '../shared/ladderMath';
 // Mission completion rules live in ./missionChecks so the Discord bot's
 // /missions command reads the exact same logic instead of a second copy.
 import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from './missionChecks';
+import { recordLedger } from '../shared/ledger';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -133,6 +134,14 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     }
 
     transaction.update(userRef, updates);
+    recordLedger(transaction, {
+      uid,
+      type: 'mission_reward',
+      amount: reward,
+      cashAfter: (userData.cash || 0) + reward,
+      ref: missionId,
+      detail: { missionType: type },
+    });
 
     // Fire-and-forget feed entry for mission completion (outside transaction)
     writeFeedEntry({
@@ -214,6 +223,7 @@ export const rerollMissions = cf().https.onCall(async (data, context) => {
     };
 
     transaction.update(userRef, updates);
+    recordLedger(transaction, { uid, type: 'mission_reroll', amount: -50, cashAfter: cash - 50, ref: weekId });
     return { success: true, rerollSeed };
   });
 });
@@ -268,6 +278,13 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
         ownedShopPins: FieldValue.arrayUnion(pinId),
         cash: (userData.cash || 0) - validCost,
       });
+      recordLedger(transaction, {
+        uid,
+        type: 'pin_purchase',
+        amount: -validCost,
+        cashAfter: (userData.cash || 0) - validCost,
+        ref: pinId,
+      });
       return { success: true, cost: validCost };
     } else if (action === 'buySlot') {
       // Slot costs: achievement = $5000, shop = $7500
@@ -284,6 +301,13 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
       transaction.update(userRef, {
         [field]: true,
         cash: (userData.cash || 0) - validCost,
+      });
+      recordLedger(transaction, {
+        uid,
+        type: 'pin_slot_purchase',
+        amount: -validCost,
+        cashAfter: (userData.cash || 0) - validCost,
+        ref: slotType,
       });
       return { success: true, cost: validCost };
     } else {
@@ -430,11 +454,19 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
         timestamp: Date.now(),
         bonus: checkinReward,
         cashBefore: userData.cash || 0,
-        cashAfter: (userData.cash || 0) + checkinReward,
+        cashAfter: (userData.cash || 0) + (checkinReward ?? 0),
       };
       updates.transactionLog = [...existingLog, checkinEntry].slice(-100);
 
       transaction.update(userRef, updates);
+      recordLedger(transaction, {
+        uid,
+        type: 'checkin_reward',
+        amount: checkinReward ?? 0,
+        cashAfter: (userData.cash || 0) + (checkinReward ?? 0),
+        detail: { streak: newStreak },
+      });
+      recordLedger(transaction, { uid, type: 'checkin_ladder_topup', account: 'ladder', amount: ladderTopUpAmount });
 
       return {
         success: true,

@@ -13,6 +13,7 @@ import { isBannedUsername, isTargetedHarassment, containsProfanity, validateUser
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import type { UserData } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 /** One account in a name group, for the username backfill. */
 interface NameEntry {
@@ -305,6 +306,13 @@ export const changeDisplayName = cf().https.onCall(async (data: { displayName?: 
       nameChangedAt: FieldValue.serverTimestamp(),
       cash: FieldValue.increment(-NAME_CHANGE_COST),
     });
+    recordLedger(transaction, {
+      uid,
+      type: 'name_change',
+      amount: -NAME_CHANGE_COST,
+      cashAfter: (userData.cash || 0) - NAME_CHANGE_COST,
+      detail: { from: oldDisplayName, to: trimmed },
+    });
 
     return { success: true };
   });
@@ -339,6 +347,13 @@ export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: st
     transaction.update(userRef, {
       ownedCosmetics: FieldValue.arrayUnion(cosmeticId),
       cash: FieldValue.increment(-cosmetic.price),
+    });
+    recordLedger(transaction, {
+      uid,
+      type: 'cosmetic_purchase',
+      amount: -cosmetic.price,
+      cashAfter: (userData.cash || 0) - cosmetic.price,
+      ref: cosmeticId as string,
     });
 
     return { success: true };

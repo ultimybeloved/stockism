@@ -17,6 +17,7 @@ import {
 // The withdrawal tax is the shared rule module, so the withdraw tab's preview
 // is exactly what gets charged.
 import { calculateLadderWithdrawTax } from '../shared/rules/ladder';
+import { recordLedger } from '../shared/ledger';
 
 /**
  * Deposit from Stockism cash to ladder game balance (one-way)
@@ -150,6 +151,14 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
         cash: cash - amount,
         ...grantedFlowUpdate(-amount),
       });
+      recordLedger(transaction, { uid, type: 'ladder_deposit', amount: -amount, cashAfter: cash - amount });
+      recordLedger(transaction, {
+        uid,
+        type: 'ladder_deposit',
+        account: 'ladder',
+        amount,
+        cashAfter: (ladderData.balance ?? 0) + amount,
+      });
 
       transaction.set(ladderUserRef, {
         ...ladderData,
@@ -264,6 +273,20 @@ export const withdrawFromLadderGame = cf().https.onCall(async (data, context) =>
         cash: Math.round(((mainUser.cash || 0) + tax.netReceived) * 100) / 100,
         ...grantedFlowUpdate(tax.netReceived),
       });
+      recordLedger(transaction, {
+        uid,
+        type: 'ladder_withdraw',
+        amount: tax.netReceived,
+        cashAfter: (mainUser.cash || 0) + tax.netReceived,
+        detail: { gross: tax.grossAmount, tax: tax.totalTax },
+      });
+      recordLedger(transaction, {
+        uid,
+        type: 'ladder_withdraw',
+        account: 'ladder',
+        amount: newLadderBalance - balance,
+        cashAfter: newLadderBalance,
+      });
 
       return {
         success: true,
@@ -359,6 +382,21 @@ export const adminTransferToLadder = cf().https.onCall(async (data, context) => 
       transaction.update(mainUserRef, {
         cash: newCash,
         ...grantedFlowUpdate(-amount),
+      });
+      recordLedger(transaction, {
+        uid: userId,
+        type: 'admin_ladder_transfer',
+        amount: -amount,
+        cashAfter: newCash,
+        detail: { by: context.auth?.uid ?? null },
+      });
+      recordLedger(transaction, {
+        uid: userId,
+        type: 'admin_ladder_transfer',
+        account: 'ladder',
+        amount,
+        cashAfter: newLadderBalance,
+        detail: { by: context.auth?.uid ?? null },
       });
       transaction.set(
         ladderUserRef,

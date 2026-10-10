@@ -10,6 +10,7 @@ const db = admin.firestore();
 
 import { sendDiscordMessage } from '../shared/discordApi';
 import { priceHistoryRef } from '../shared/marketData';
+import { recordLedger } from '../shared/ledger';
 
 /**
  * Cancel every open order a banned user left on the books.
@@ -91,7 +92,17 @@ export const banUser = cf().https.onCall(async (data, context) => {
     });
 
     // Reset user to starting state
-    await userRef.update({
+    const banBatch = db.batch();
+    // Positions are wiped too (the ban record keeps the originals); the ledger
+    // records the cash reset.
+    recordLedger(banBatch, {
+      uid: userId,
+      type: 'admin_ban_reset',
+      amount: rollbackCash - (userData.cash || 0),
+      cashAfter: rollbackCash,
+      detail: { by: context.auth!.uid },
+    });
+    banBatch.update(userRef, {
       cash: rollbackCash,
       holdings: {},
       shorts: {},
@@ -114,6 +125,7 @@ export const banUser = cf().https.onCall(async (data, context) => {
       bannedAt: FieldValue.serverTimestamp(),
       banReason: reason,
     });
+    await banBatch.commit();
 
     // Record the rollback in the permanent history subcollection
     await userRef.collection('portfolioHistory').add({ timestamp: Date.now(), value: rollbackCash });

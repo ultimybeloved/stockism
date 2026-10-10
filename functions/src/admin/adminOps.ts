@@ -13,6 +13,7 @@ const db = admin.firestore();
 import { ADMIN_UID, ADMIN_MEMO_MAX_LENGTH, REINSTATE_CASH_DEFAULT, COSMETIC_CATALOG } from '../shared/constants';
 import { grantedValueUpdate } from '../shared/equity';
 import { notifyCashGrant } from './adminCashNotify';
+import { recordLedger } from '../shared/ledger';
 
 export const removeAchievement = cf().https.onCall(async (data, context) => {
   requireAdmin(context);
@@ -57,7 +58,8 @@ export const reinstateUser = cf().https.onCall(async (data, context) => {
   const userData = userSnap.data()!;
   const cashBoost = Math.max(0, REINSTATE_CASH_DEFAULT - (userData.cash || 0));
 
-  await userRef.update({
+  const batch = db.batch();
+  batch.update(userRef, {
     isBankrupt: false,
     cash: FieldValue.increment(cashBoost),
     reinstatedAt: Date.now(),
@@ -65,6 +67,14 @@ export const reinstateUser = cf().https.onCall(async (data, context) => {
     // Booked as granted so a reinstate can't read as a spectacular recovery.
     ...grantedValueUpdate(cashBoost),
   });
+  recordLedger(batch, {
+    uid: userId,
+    type: 'admin_reinstate',
+    amount: cashBoost,
+    cashAfter: (userData.cash || 0) + cashBoost,
+    detail: { by: context.auth!.uid },
+  });
+  await batch.commit();
 
   // After the write, so we never announce money that failed to land.
   await notifyCashGrant(userId, userData, cashBoost);
@@ -133,10 +143,20 @@ export const adminSetCash = cf().https.onCall(async (data, context) => {
   // Giveaways are the most visible source of fake leaderboard returns — the top
   // of the percent board on 2026-08-13 was one. Only a raise counts as granted;
   // taking cash away is a correction, not a gift, and must not go negative.
-  await userRef.update({
+  const batch = db.batch();
+  batch.update(userRef, {
     cash: newCash,
     ...grantedValueUpdate(newCash - prevCash),
   });
+  // The memo stays in adminCashLog only; the ledger notes who and how.
+  recordLedger(batch, {
+    uid: userId,
+    type: 'admin_set_cash',
+    amount: newCash - prevCash,
+    cashAfter: newCash,
+    detail: { by: context.auth!.uid, mode },
+  });
+  await batch.commit();
 
   // Written after the balance lands, so the log never claims a change that
   // failed. Best-effort: a logging failure must not fail the adjustment itself.

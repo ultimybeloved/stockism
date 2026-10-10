@@ -6,6 +6,7 @@ import { STARTING_CASH, UNVERIFIED_STARTING_CASH } from '../shared/constants';
 import { isDiscordBindingLocked } from '../shared/accountGuards';
 import { grantedValueUpdate } from '../shared/equity';
 import * as logger from 'firebase-functions/logger';
+import { recordLedger } from '../shared/ledger';
 const db = admin.firestore();
 
 // Deletes the orphaned Firebase Auth account left behind when a signup is hard-
@@ -48,17 +49,17 @@ export const applyPendingDiscordLink = async (uid: string) => {
   if (!taken.empty && taken.docs[0]!.id !== uid) return false;
   if (await isDiscordBindingLocked(discordId, uid)) return false;
 
-  await db
-    .collection('users')
-    .doc(uid)
-    .update({
-      discordId,
-      discordUsername: discordUsername || null,
-      cash: FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH),
-      startingCashUnlocked: true,
-      achievements: FieldValue.arrayUnion('DISCORD_LINKED'),
-      'achievementDates.DISCORD_LINKED': Date.now(),
-      ...grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH),
-    });
+  const batch = db.batch();
+  batch.update(db.collection('users').doc(uid), {
+    discordId,
+    discordUsername: discordUsername || null,
+    cash: FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH),
+    startingCashUnlocked: true,
+    achievements: FieldValue.arrayUnion('DISCORD_LINKED'),
+    'achievementDates.DISCORD_LINKED': Date.now(),
+    ...grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH),
+  });
+  recordLedger(batch, { uid, type: 'starting_cash_unlock', amount: STARTING_CASH - UNVERIFIED_STARTING_CASH });
+  await batch.commit();
   return true;
 };

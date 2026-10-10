@@ -43,6 +43,7 @@ import { seasonMarginUpdate } from '../season/seasonTiers';
 // Pure math, apart so it can be unit-tested. Internal module.
 import { pushWindows, windowProfit, planRemoval, WEEK_MS } from './coordProfitMath';
 import { clusterTrades } from './coordClustering';
+import { recordLedger } from '../shared/ledger';
 
 const LOOKBACK_MS = THIRTY_DAYS_MS;
 
@@ -203,6 +204,13 @@ export const adminRemoveCoordProfit = cf().https.onCall(
         Object.assign(update, seasonMarginUpdate(u, plan.owedAfter, now));
       }
       tx.update(userRef, update);
+      recordLedger(tx, {
+        uid,
+        type: 'admin_remove_coord_profit',
+        amount: -plan.fromCash,
+        cashAfter: round2((u.cash || 0) - plan.fromCash),
+        detail: { by: context.auth!.uid, fromShares: plan.fromShares, toDebt: plan.toDebt },
+      });
       tx.set(db.collection('adminCashLog').doc(), {
         userId: uid,
         displayName: u.displayName || null,

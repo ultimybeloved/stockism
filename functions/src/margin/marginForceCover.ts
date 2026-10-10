@@ -28,6 +28,7 @@ import {
 import { appendPriceHistory, isPriceProtected } from '../shared/marketData';
 import { liquidityFor } from '../shared/impact';
 import type { PricePoint, ShortPosition, UserData } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 // Collateral a short position was opened with. Current (v2) shorts are 100%
 // collateral; pre-v2 shorts were half. Only used when the stored `margin` field
@@ -167,6 +168,14 @@ export const forceCoverShort = async ({
       cashAfter: newCash,
       timestamp: FieldValue.serverTimestamp(),
       automated: true,
+    });
+    recordLedger(transaction, {
+      uid,
+      type: 'margin_call_cover',
+      amount: newCash - (freshUserData.cash || 0),
+      cashAfter: newCash,
+      ref: `trades/${tradeRef.id}`,
+      detail: { ticker, shares: freshPosition.shares },
     });
 
     logger.info(

@@ -22,6 +22,7 @@ import {
 } from '../shared/accountGuards';
 import { grantedValueUpdate } from '../shared/equity';
 import { recordHeartbeat } from '../shared/activity';
+import { recordLedger } from '../shared/ledger';
 
 /**
  * Park a new signup's Discord details until they have picked a name.
@@ -163,7 +164,16 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
             authLinkUpdate.startingCashUnlocked = true;
             Object.assign(authLinkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
           }
-          await existingRef.update(authLinkUpdate);
+          const batch = db.batch();
+          batch.update(existingRef, authLinkUpdate);
+          if (authLinkUpdate.startingCashUnlocked) {
+            recordLedger(batch, {
+              uid: firebaseUid,
+              type: 'starting_cash_unlock',
+              amount: STARTING_CASH - UNVERIFIED_STARTING_CASH,
+            });
+          }
+          await batch.commit();
         }
       } else {
         // Brand new player: create only the AUTH user and stash the Discord
@@ -363,7 +373,12 @@ export const discordLink = cf().https.onRequest(async (req, res) => {
       linkUpdate['achievementDates.DISCORD_LINKED'] = Date.now();
     }
 
-    await db.collection('users').doc(uid).update(linkUpdate);
+    const batch = db.batch();
+    batch.update(db.collection('users').doc(uid), linkUpdate);
+    if (linkUpdate.startingCashUnlocked) {
+      recordLedger(batch, { uid, type: 'starting_cash_unlock', amount: STARTING_CASH - UNVERIFIED_STARTING_CASH });
+    }
+    await batch.commit();
 
     return void res.redirect('https://stockism.app/profile?discord_link=success');
   } catch (error) {

@@ -27,6 +27,7 @@ import { reportError } from '../shared/sentry';
 import { checkDiscordWall, checkBanned } from '../shared/accountGuards';
 import { round2 } from '../shared/money';
 import type { Cohort, ShortPosition } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 type Holdings = Record<string, number>;
 
@@ -137,6 +138,13 @@ export const sweepDustPositions = cf().https.onCall(async (data, context) => {
       updates.cash = FieldValue.increment(proceeds);
       updates.lastTradeTime = FieldValue.serverTimestamp();
       transaction.update(userRef, updates);
+      recordLedger(transaction, {
+        uid,
+        type: 'dust_sweep',
+        amount: proceeds,
+        cashAfter: (userData.cash || 0) + proceeds,
+        detail: { positions: swept },
+      });
 
       result = { swept, proceeds };
     });

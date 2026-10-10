@@ -14,6 +14,7 @@ import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import type { UserData } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 /**
  * The crew-change penalty: CREW_SWITCH_PENALTY of cash (floored to whole
@@ -151,6 +152,14 @@ export const switchCrew = cf().https.onCall(async (data: { crewId?: unknown }, c
         updateData.cash = newCash;
         updateData.holdings = newHoldings;
         updateData.portfolioValue = newPortfolioValue;
+        // Shares taken are noted in detail; the ledger tracks the cash part.
+        recordLedger(transaction, {
+          uid,
+          type: 'crew_switch_penalty',
+          amount: newCash - (userData.cash || 0),
+          cashAfter: newCash,
+          detail: { totalTaken },
+        });
       }
 
       transaction.update(userRef, updateData);
@@ -216,6 +225,14 @@ export const leaveCrew = cf().https.onCall(async (_data: unknown, context) => {
       lastCrewChange: Date.now(),
       // Lock the crew being left for 30 days.
       [`crewLockouts.${userData.crew}`]: Date.now() + CREW_REJOIN_LOCKOUT_MS,
+    });
+    recordLedger(transaction, {
+      uid,
+      type: 'crew_leave_penalty',
+      amount: newCash - (userData.cash || 0),
+      cashAfter: newCash,
+      ref: userData.crew,
+      detail: { totalTaken },
     });
 
     return { success: true, totalTaken, crewLeft: userData.crew };

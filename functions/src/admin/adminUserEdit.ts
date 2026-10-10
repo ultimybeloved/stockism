@@ -16,6 +16,7 @@ import { CHARACTERS } from '../shared/characters';
 import { validateUsernameFormat } from '../shared/usernames';
 import { cohortRemoveUpdate } from '../shared/cohorts';
 import type { UserData } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 const getUserRef = async (userId: unknown) => {
   if (!userId || typeof userId !== 'string') {
@@ -259,7 +260,19 @@ export const adminSetHolding = cf().https.onCall(
       Object.assign(update, cohortRemoveUpdate(userData, ticker, previousShares - rounded));
     }
 
-    await ref.update(update);
+    // Valued at the current price so a share edit shows up in the money trail.
+    const price = ((await db.collection('market').doc('current').get()).data()?.prices || {})[ticker] || 0;
+    const batch = db.batch();
+    batch.update(ref, update);
+    recordLedger(batch, {
+      uid: userId as string,
+      type: 'admin_set_holding',
+      account: 'shares',
+      amount: (rounded - previousShares) * price,
+      ref: ticker,
+      detail: { by: context.auth!.uid, previousShares, shares: rounded, price },
+    });
+    await batch.commit();
     return { success: true, ticker, previousShares, shares: rounded, cleared: rounded <= 0 };
   },
 );

@@ -155,9 +155,15 @@ If a new feature would push a file past its limit, **split the file first, then 
 - If you are writing a number like `0.005`, `10000`, `86400000`, or `7 * 24 * 60 * 60 * 1000` inline in a service file, stop — add a named constant to the right topic file in `functions/src/shared/constants/` first
 
 **Shared helpers** (`functions/src/shared/`)
-- Utility functions used by multiple service files live in topic modules: `impact.ts` (price impact, wash rule, circuit breaker), `cohorts.ts` (dividend lot ledger), `tradeRecords.ts`, `eventTradeRecords.ts` (long-term market history), `accountArchive.ts` (copy kept on account deletion), `marketData.ts`, `equity.ts`, `usernames.ts`, `accountGuards.ts`, `discordApi.ts`, `notifications.ts`, `activity.ts`, ...
+- Utility functions used by multiple service files live in topic modules: `impact.ts` (price impact, wash rule, circuit breaker), `cohorts.ts` (dividend lot ledger), `tradeRecords.ts`, `eventTradeRecords.ts` (long-term market history), `accountArchive.ts` (copy kept on account deletion), `ledger.ts` (money ledger), `marketData.ts`, `equity.ts`, `usernames.ts`, `accountGuards.ts`, `discordApi.ts`, `notifications.ts`, `activity.ts`, ...
 - `helpers.ts` re-exports all of them; new code imports the topic module directly (`../shared/impact`)
 - Never copy-paste a helper from one service file to another — move it to the right shared module
+
+**Every cash change books a ledger entry** (`shared/ledger.ts`, collection `ledger`)
+- Write it with `recordLedger(tx or batch, {...})` in the SAME transaction or batch as the cash write, so the two can never disagree. A plain `ref.update` that changes cash becomes a batch with both writes.
+- `recordTrade` and `recordEventTrade` book their own entry, so fill lanes and long-term market code get it for free.
+- `account` is `cash` by default; `ladder` tracks the ladder game balance, `shares` records shares handed out or taken without a trade (daily drop, admin edits).
+- `functions/src/shared/ledger.test.ts` fails if a backend file writes cash without booking an entry. `npm run test:ledger` checks a player's ledger adds up to their balances.
 
 **Every lane that fills an order** (executeTrade, `limitOrderFill`, the pre-market
 auction in `marketOrders`, `marketOpenStopLoss`, the liquidations in

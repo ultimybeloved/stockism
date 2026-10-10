@@ -13,6 +13,7 @@ import { writeNotification } from '../shared/notifications';
 import { reportError } from '../shared/sentry';
 import { applyDueIPOJumps, appendPriceHistory } from '../shared/marketData';
 import { touchLastActive, recordHeartbeat } from '../shared/activity';
+import { recordLedger } from '../shared/ledger';
 
 export const placeBet = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -130,6 +131,14 @@ export const placeBet = cf().https.onCall(async (data, context) => {
       },
       [`dailyMissions.${today}.placedBet`]: true,
     });
+    recordLedger(transaction, {
+      uid,
+      type: 'prediction_bet',
+      amount: -amount,
+      cashAfter: (userData.cash || 0) - amount,
+      ref: predictionId,
+      detail: { option },
+    });
 
     return { success: true, newBetAmount };
   });
@@ -228,6 +237,13 @@ export const claimPredictionPayout = cf().https.onCall(async (data, context) => 
       }
 
       transaction.update(userRef, updates);
+      recordLedger(transaction, {
+        uid,
+        type: 'prediction_payout',
+        amount: payout,
+        cashAfter: (userData.cash || 0) + payout,
+        ref: predictionId,
+      });
       return { success: true, won: true, payout, newPredictionWins };
     } else {
       // Loser - mark as processed
@@ -367,6 +383,14 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
       [`ipoLockup.${ticker}`]: { shares: lockedShares, until: lockUntil },
       [`lastBuyTime.${ticker}`]: now,
       totalTrades: (userData.totalTrades || 0) + 1,
+    });
+    recordLedger(transaction, {
+      uid,
+      type: 'ipo_buy',
+      amount: -totalCost,
+      cashAfter: (userData.cash || 0) - totalCost,
+      ref: ticker,
+      detail: { shares: quantity },
     });
 
     // Update IPO shares remaining

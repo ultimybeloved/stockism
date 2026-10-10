@@ -168,6 +168,13 @@ async function main() {
     setDoc(doc(clientDb, 'eventTrades', 'forged'), { uid, action: 'payout', cash: 1e6 }),
   );
   await checkAccess('read a deleted account copy', 'blocked', () => getDoc(doc(clientDb, 'deletedUsers', 'gone')));
+  await adminDb.collection('ledger').doc('mine').set({ uid, type: 'mission_reward', amount: 100 });
+  await adminDb.collection('ledger').doc('theirs').set({ uid: 'someone_else', type: 'mission_reward', amount: 100 });
+  await checkAccess('read own money ledger', 'allowed', () => getDoc(doc(clientDb, 'ledger', 'mine')));
+  await checkAccess("read another player's money ledger", 'blocked', () => getDoc(doc(clientDb, 'ledger', 'theirs')));
+  await checkAccess('forge a ledger entry', 'blocked', () =>
+    setDoc(doc(clientDb, 'ledger', 'forged'), { uid, type: 'admin_set_cash', amount: 1e6 }),
+  );
 }
 
 it('firestore.rules on the user doc', main);

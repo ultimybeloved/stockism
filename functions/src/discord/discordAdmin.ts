@@ -9,6 +9,7 @@ import type { DocumentData } from 'firebase-admin/firestore';
 type TradeRow = DocumentData & { _ts: number; id: string };
 
 import { priceHistoryRef } from '../shared/marketData';
+import { recordLedger } from '../shared/ledger';
 
 // ─── TICKER ROLLBACK DIAGNOSTIC ──────────────────────────────────────────────
 export const diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
@@ -478,6 +479,14 @@ export const recoverTicker = cf().https.onCall(async (data, context) => {
         newCash: cb.newCash,
         timestamp: new Date().toISOString(),
       }),
+    });
+    recordLedger(batch, {
+      uid: cb.uid,
+      type: 'admin_ticker_recovery_clawback',
+      amount: cb.newCash - cb.previousCash,
+      cashAfter: cb.newCash,
+      ref: ticker,
+      detail: { recoveryId },
     });
   }
 

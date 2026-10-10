@@ -34,6 +34,7 @@ import {
   LADDER_LEADERBOARD_SIZE,
   LADDER_LEADERBOARD_OVERFETCH,
 } from '../shared/constants';
+import { recordLedger } from '../shared/ledger';
 
 // Deposits, withdrawals (incl. the withdrawal tax), and admin transfers live in
 // ./ladderTransfers.js.
@@ -151,6 +152,7 @@ export const playLadderGame = cf().https.onCall(
         const chipsBefore = getLadderChips(userData);
         // Whole-dollar bets keep the balance an integer; floor here clears any stray
         // cents left over from before (those cents just disappear, by design).
+        const balanceBefore = userData.balance;
         userData.balance = Math.floor(userData.balance - amount + payout);
         // House chips (check-in grants, welcome stake) are staked before real
         // balance, so a losing bet burns them first and they leave the account
@@ -178,6 +180,22 @@ export const playLadderGame = cf().https.onCall(
         userData.lastPlayed = now;
 
         transaction.set(userRef, userData);
+        if (!userDoc.exists) {
+          recordLedger(transaction, {
+            uid,
+            type: 'ladder_starting_chips',
+            account: 'ladder',
+            amount: LADDER_GAME_INITIAL_BALANCE,
+          });
+        }
+        recordLedger(transaction, {
+          uid,
+          type: won ? 'ladder_win' : 'ladder_loss',
+          account: 'ladder',
+          amount: userData.balance - balanceBefore,
+          cashAfter: userData.balance,
+          detail: { bet: amount },
+        });
 
         // Update global history
         const gameRecord = {

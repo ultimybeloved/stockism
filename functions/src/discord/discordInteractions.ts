@@ -26,6 +26,7 @@ import { handleSlashCommand, isPrivate, EPHEMERAL } from './discordCommands';
 import { rollDailyStock } from './dailyDropRoll';
 import type { DropPick } from './dailyDropRoll';
 import type { PricePoint } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 // Edit a deferred interaction reply. Discord kills any interaction that has not
 // been acknowledged within 3 seconds — and a cold start on this project loads
@@ -340,6 +341,14 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
           Object.assign(updates, grantedValueUpdate(grantedMarketValue));
 
           tx.update(freshUser.ref, updates);
+          recordLedger(tx, {
+            uid,
+            type: 'daily_drop',
+            account: 'shares',
+            amount: grantedMarketValue,
+            ref: messageId || null,
+            detail: { picks: picks.map((p) => ({ ticker: p.ticker, shares: p.shares })) },
+          });
         });
 
         // Apply buy-side price impact (simulates buy pressure for free shares).

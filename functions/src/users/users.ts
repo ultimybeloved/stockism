@@ -26,6 +26,7 @@ import { isDisposableEmailLive } from './disposableEmail';
 import { countIpAccounts } from './ipCap';
 import { cleanupBlockedAuthUser, applyPendingDiscordLink } from './signupHelpers';
 import { archiveAccount } from '../shared/accountArchive';
+import { recordLedger } from '../shared/ledger';
 
 /** Why the per-network cap refused a signup, for the admin alert. */
 type CapBlockInfo = { effectiveAccounts: number; liveAccounts: number; recentlyDeleted: number };
@@ -274,6 +275,12 @@ export const createUser = cf().https.onCall(async (data, context) => {
         createdAt: now,
       });
 
+      recordLedger(transaction, {
+        uid,
+        type: 'starting_cash',
+        amount: UNVERIFIED_STARTING_CASH,
+        cashAfter: UNVERIFIED_STARTING_CASH,
+      });
       // Create the user document
       transaction.set(userRef, {
         displayName: trimmed,

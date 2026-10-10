@@ -31,6 +31,7 @@ type MarginUser = UserData & {
 };
 // Seasons average margin owed over time, so every change to marginUsed logs it.
 import { seasonMarginUpdate } from '../season/seasonTiers';
+import { recordLedger } from '../shared/ledger';
 
 export const repayMargin = cf().https.onCall(async (data: { amount?: unknown }, context) => {
   requireAppCheck(context);
@@ -73,6 +74,13 @@ export const repayMargin = cf().https.onCall(async (data: { amount?: unknown }, 
       marginUsed: storedMarginUsed,
       marginCallAt: null,
       ...seasonMarginUpdate(userData, storedMarginUsed),
+    });
+    recordLedger(transaction, {
+      uid,
+      type: 'margin_repay',
+      amount: -repayAmount,
+      cashAfter: (userData.cash || 0) - repayAmount,
+      detail: { marginAfter: storedMarginUsed },
     });
 
     return { success: true, repaid: repayAmount, remaining: newMarginUsed < 0.01 ? 0 : newMarginUsed };
@@ -154,6 +162,14 @@ export const bailout = cf().https.onCall(async (_data: unknown, context) => {
       bailoutUpdates[`crewLockouts.${currentCrew}`] = Date.now() + CREW_REJOIN_LOCKOUT_MS;
     }
     transaction.update(userRef, bailoutUpdates);
+    // Positions are wiped too; the ledger records the cash reset.
+    recordLedger(transaction, {
+      uid,
+      type: 'bailout',
+      amount: BAILOUT_CASH - (userData.cash || 0),
+      cashAfter: BAILOUT_CASH,
+      detail: { cashBefore: userData.cash || 0 },
+    });
 
     return { success: true, hadCrew: !!currentCrew };
   });

@@ -343,6 +343,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // The money ledger: one entry per change to a player's cash, ladder balance
+    // or granted shares. Players read their own; only Cloud Functions write.
+    match /ledger/{entryId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+
     // Full copies of deleted accounts. Admin only: they hold IPs and Discord IDs.
     match /deletedUsers/{uid} {
       allow read: if isAdmin();

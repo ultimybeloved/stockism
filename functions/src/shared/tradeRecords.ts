@@ -12,6 +12,7 @@ import {
 import { round2 } from './money';
 import { tickerStatsRef, buildTickerFlowUpdate } from './marketData';
 import type { UserData } from './types';
+import { recordLedger } from './ledger';
 const db = admin.firestore();
 
 // Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
@@ -168,7 +169,21 @@ export function recordTrade(
   // already have a record, so it can never duplicate a live fill.
   if (orderId) record.orderId = orderId;
 
-  transaction.set(db.collection('trades').doc(), record);
+  const tradeRef = db.collection('trades').doc();
+  transaction.set(tradeRef, record);
+
+  // Every fill lane passes cashBefore/cashAfter, so the money ledger is booked
+  // here once instead of in each lane.
+  if (cashBefore !== null && cashAfter !== null) {
+    recordLedger(transaction, {
+      uid,
+      type: `trade_${action}`,
+      amount: cashAfter - cashBefore,
+      cashAfter,
+      ref: `trades/${tradeRef.id}`,
+      detail: { ticker, shares: amount, ...(source ? { source } : {}) },
+    });
+  }
 
   // Per-ticker running totals, written in the same transaction as the record
   // itself so the two can never disagree. Dividends and forced margin closes

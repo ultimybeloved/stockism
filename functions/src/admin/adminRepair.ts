@@ -15,6 +15,7 @@ import { STARTING_CASH } from '../shared/constants';
 import { priceHistoryRef } from '../shared/marketData';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 /**
  * Repair accounts damaged by the Jiho/Doo price spike.
@@ -300,7 +301,16 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
       holdingsRestored: victim.holdingsToRestore ? Object.keys(victim.holdingsToRestore).length : 0,
     });
 
-    await userRef.update(updates);
+    const batch = db.batch();
+    batch.update(userRef, updates);
+    recordLedger(batch, {
+      uid: userId,
+      type: 'admin_repair',
+      amount: (updates.cash as number) - (userData.cash || 0),
+      cashAfter: updates.cash as number,
+      detail: { by: context.auth!.uid },
+    });
+    await batch.commit();
 
     return { success: true, userId, correctedCash: victim.correctedCash };
   }
@@ -348,7 +358,16 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
           holdingsRestored: victim.holdingsToRestore ? Object.keys(victim.holdingsToRestore).length : 0,
         });
 
-        await userRef.update(updates);
+        const batch = db.batch();
+        batch.update(userRef, updates);
+        recordLedger(batch, {
+          uid: victim.userId,
+          type: 'admin_repair',
+          amount: (updates.cash as number) - (userData.cash || 0),
+          cashAfter: updates.cash as number,
+          detail: { by: context.auth!.uid },
+        });
+        await batch.commit();
         results.push({ userId: victim.userId, success: true });
       } catch (err) {
         results.push({ userId: victim.userId, success: false, error: (err as Error).message });

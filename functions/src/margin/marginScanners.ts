@@ -42,6 +42,7 @@ import { seasonMarginUpdate } from '../season/seasonTiers';
 // The per-position cover mechanics. Internal module, not in servicePaths.js.
 import { forceCoverShort, depositedMargin } from './marginForceCover';
 import type { ShortPosition } from '../shared/types';
+import { recordLedger } from '../shared/ledger';
 
 // Formatting for the player-facing notifications below. The thresholds are
 // interpolated rather than typed out so the message can never drift from the
@@ -409,6 +410,14 @@ export const checkMarginLending = cf()
                 cashAfter: finalCash,
                 timestamp: FieldValue.serverTimestamp(),
                 automated: true,
+              });
+              recordLedger(transaction, {
+                uid: userDoc.id,
+                type: 'margin_liquidation',
+                amount: finalCash - freshCash,
+                cashAfter: finalCash,
+                ref: `trades/${tradeRef.id}`,
+                detail: { recovered: totalRecovered, marginDebt: freshMarginUsed },
               });
 
               logger.info(

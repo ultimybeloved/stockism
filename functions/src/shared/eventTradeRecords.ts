@@ -8,6 +8,7 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { lmsrPrices } from './lmsr';
+import { recordLedger } from './ledger';
 
 export type EventTradeAction = 'buy' | 'sell' | 'payout' | 'refund' | 'deleted';
 
@@ -59,5 +60,15 @@ export const buildEventTradeRecord = (input: EventTradeInput): Record<string, un
 // Writes one record inside the caller's transaction, so a trade and its
 // record can never disagree.
 export const recordEventTrade = (tx: admin.firestore.Transaction, input: EventTradeInput) => {
-  tx.set(eventTradesCol().doc(), buildEventTradeRecord(input));
+  const ref = eventTradesCol().doc();
+  tx.set(ref, buildEventTradeRecord(input));
+  // Money ledger: a buy spends cash, everything else but 'deleted' returns it.
+  recordLedger(tx, {
+    uid: input.uid,
+    type: `event_${input.action}`,
+    amount: input.action === 'buy' ? -input.cash : input.action === 'deleted' ? 0 : input.cash,
+    cashAfter: input.cashAfter ?? null,
+    ref: `eventTrades/${ref.id}`,
+    detail: { marketId: input.marketId, outcome: input.outcome, shares: input.shares },
+  });
 };

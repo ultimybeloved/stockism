@@ -17,6 +17,7 @@ import { writeNotification } from '../shared/notifications';
 import { reportError } from '../shared/sentry';
 import { recordHeartbeat } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
+import { recordLedger } from '../shared/ledger';
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
@@ -211,6 +212,16 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         source,
       });
       pendingWrites += 1;
+      if (hasCashPayout) {
+        recordLedger(batch, {
+          uid: userDoc.id,
+          type: 'dividend',
+          amount: totalPaid,
+          ref: `trades/${tradeRef.id}`,
+          detail: { source },
+        });
+        pendingWrites += 1;
+      }
 
       // Notification — fire-and-forget
       const dripCount = Object.keys(reinvestedBreakdown).length;
