@@ -186,9 +186,23 @@ Revisit if the browser target is ever raised.
   from `firebase-admin/firestore`. Sandbox trades work. Not deployed on its own
   (no production change); it rides along with later deploys.
 
-## Phase 6: Docs
+## Phase 6: Docs (done 2026-10-10)
 
-README = setup, commands, architecture. Game rules → `docs/game-rules.md`.
-`docs/architecture.md`, `docs/runbooks/` (deploy, rename ticker, split stock,
-add characters), `CONTRIBUTING.md`. CLAUDE.md shrinks to point at them, and its
-"no TypeScript" rule is replaced.
+README is setup, commands and the docs index. The game itself moved unchanged
+to `docs/game-rules.md`. `docs/architecture.md` holds what CLAUDE.md used to
+(where code lives, limits, fill-lane invariants, codebase map, gotchas) plus the
+TypeScript conventions from this file. `docs/runbooks/`: deploy, add characters,
+rename ticker, split stock. `CONTRIBUTING.md`: workflow, conventions, checklist.
+CLAUDE.md keeps only how to work with the user and the deploy safety rules, and
+points at the rest.
+
+## Left over
+
+Every phase is done. These were deliberately left and can be picked up any time;
+delete this file once they are done or dropped.
+
+- ProfileChart and PortfolioChart still duplicate their drawing code.
+- Backend plumbing (`index.js`, `serviceLoader.js`, `servicePaths.js`, each
+  `services.js`), the backend `*.test.js` files and the emulator suites are still
+  JavaScript.
+- The root `firebase-admin` (scripts, seeding) is still 11.
