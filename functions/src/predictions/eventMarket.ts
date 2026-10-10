@@ -19,6 +19,7 @@ import { getTotalInvested, predictionFlowUpdate } from '../shared/equity';
 import { touchLastActive, recordHeartbeat } from '../shared/activity';
 import { round2 } from '../shared/money';
 import { reportError } from '../shared/sentry';
+import { recordEventTrade } from '../shared/eventTradeRecords';
 
 /** One entry in predictions/current.list, the fields these lookups read. */
 type PredictionEntry = { id: string; type?: string; resolved?: boolean; settled?: boolean };
@@ -124,6 +125,7 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
       );
     }
 
+    const qBefore = q.slice();
     q[oi] = Math.round((q[oi] + qty) * 100) / 100;
     const updatedList = list.slice();
     updatedList[idx] = { ...market, q, volume: round2((market.volume || 0) + cost) };
@@ -132,9 +134,24 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
     const newShares = { ...(pos.shares || {}) };
     newShares[outcome] = Math.round(((newShares[outcome] || 0) + qty) * 100) / 100;
 
+    const cashAfter = round2((userData.cash || 0) - cost);
     tx.update(predictionsRef, { list: updatedList });
+    recordEventTrade(tx, {
+      uid,
+      displayName: userData.displayName,
+      marketId,
+      outcome,
+      action: 'buy',
+      shares: qty,
+      cash: cost,
+      qBefore,
+      qAfter: q,
+      b,
+      cashAfter,
+      ip: context.rawRequest?.ip || null,
+    });
     tx.update(userRef, {
-      cash: round2((userData.cash || 0) - cost),
+      cash: cashAfter,
       ...predictionFlowUpdate(-cost),
       [`eventPositions.${marketId}`]: {
         shares: newShares,
@@ -210,6 +227,7 @@ export const sellEventShares = cf().https.onCall(async (data, context) => {
     const q = Array.isArray(market.q) && market.q.length === outcomes.length ? market.q.slice() : outcomes.map(() => 0);
 
     const refund = floorCent(lmsrSellRefund(q, b, oi, qty));
+    const qBefore = q.slice();
     q[oi] = Math.max(0, Math.round((q[oi] - qty) * 100) / 100);
     const updatedList = list.slice();
     updatedList[idx] = { ...market, q, volume: round2((market.volume || 0) + refund) };
@@ -219,9 +237,24 @@ export const sellEventShares = cf().https.onCall(async (data, context) => {
     if (remaining > 0) newShares[outcome] = remaining;
     else delete newShares[outcome];
 
+    const cashAfter = round2((userData.cash || 0) + refund);
     tx.update(predictionsRef, { list: updatedList });
+    recordEventTrade(tx, {
+      uid,
+      displayName: userData.displayName,
+      marketId,
+      outcome,
+      action: 'sell',
+      shares: qty,
+      cash: refund,
+      qBefore,
+      qAfter: q,
+      b,
+      cashAfter,
+      ip: context.rawRequest?.ip || null,
+    });
     tx.update(userRef, {
-      cash: round2((userData.cash || 0) + refund),
+      cash: cashAfter,
       ...predictionFlowUpdate(refund),
       [`eventPositions.${marketId}`]: {
         shares: newShares,
@@ -289,6 +322,16 @@ async function settleResolvedEventMarkets() {
 
         if (payout > 0) {
           updates.cash = round2((ud.cash || 0) + payout);
+          recordEventTrade(tx, {
+            uid: userDoc.id,
+            displayName: ud.displayName,
+            marketId: market.id,
+            outcome: winning,
+            action: 'payout',
+            shares: winShares,
+            cash: payout,
+            cashAfter: updates.cash as number,
+          });
           Object.assign(updates, predictionFlowUpdate(payout));
           const newWins = (ud.predictionWins || 0) + 1;
           updates.predictionWins = newWins;
@@ -413,8 +456,19 @@ export const cancelEventMarket = cf().https.onCall(async (data, context) => {
       if (!pos || pos.settled) return 0;
 
       const amount = Math.max(0, round2(pos.costBasis || 0));
+      const cashAfter = round2((ud.cash || 0) + amount);
+      recordEventTrade(tx, {
+        uid: userDoc.id,
+        displayName: ud.displayName,
+        marketId,
+        outcome: 'all',
+        action: 'refund',
+        shares: round2(Object.values((pos.shares || {}) as Record<string, number>).reduce((n, x) => n + (x || 0), 0)),
+        cash: amount,
+        cashAfter,
+      });
       tx.update(userDoc.ref, {
-        cash: round2((ud.cash || 0) + amount),
+        cash: cashAfter,
         ...predictionFlowUpdate(amount),
         [`eventPositions.${marketId}`]: {
           shares: {},

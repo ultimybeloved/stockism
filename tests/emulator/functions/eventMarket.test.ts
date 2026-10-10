@@ -298,6 +298,59 @@ async function main() {
   finalUser.predictionWins === 1
     ? pass('predictionWins incremented (feeds Oracle/Prophet)')
     : fail(`predictionWins = ${finalUser.predictionWins}`);
+
+  // 5) Every buy, sell and payout leaves a history record, and the records add
+  //    up to the market's share counts. Rejected buys leave none.
+  const recs = (await adb.collection('eventTrades').where('marketId', '==', marketId).get()).docs.map((d: Loose) =>
+    d.data(),
+  );
+  const mine = recs.filter((r: Loose) => r.uid === 'tester1');
+  const kinds = mine.map((r: Loose) => `${r.action}:${r.outcome}:${r.shares}`).sort();
+  JSON.stringify(kinds) === JSON.stringify(['buy:Yes:100', 'payout:Yes:50', 'sell:Yes:50'])
+    ? pass('history has the buy, the sell and the payout')
+    : fail(`history wrong: ${JSON.stringify(kinds)}`);
+  const buyRec = mine.find((r: Loose) => r.action === 'buy');
+  buyRec &&
+  Math.abs(buyRec.cash - buyRes.cost) < 0.01 &&
+  buyRec.pricesBefore[0] === 0.5 &&
+  buyRec.pricesAfter[0] > 0.5 &&
+  JSON.stringify(buyRec.qAfter) === '[100,0]' &&
+  typeof buyRec.cashAfter === 'number'
+    ? pass('buy record has cost, odds before/after and share counts')
+    : fail(`buy record wrong: ${JSON.stringify(buyRec)}`);
+  const sellRec = mine.find((r: Loose) => r.action === 'sell');
+  sellRec && Math.abs(sellRec.cash - sellRes.refund) < 0.01
+    ? pass('sell record has the refund')
+    : fail(`sell record wrong: ${JSON.stringify(sellRec)}`);
+  const others = recs.filter((r: Loose) => r.uid !== 'tester1');
+  JSON.stringify(others.map((r: Loose) => `${r.uid}:${r.action}:${r.shares}`).sort()) ===
+  JSON.stringify(['tester_small:buy:10', 'tester_small:payout:10'])
+    ? pass('rejected buys left no record; the one allowed buy did')
+    : fail(`unexpected records: ${JSON.stringify(others)}`);
+  const settledMarket = await readMarket();
+  const net = [0, 0];
+  for (const r of recs) {
+    const i = ['Yes', 'No'].indexOf(r.outcome);
+    if (r.action === 'buy') net[i] += r.shares;
+    if (r.action === 'sell') net[i] -= r.shares;
+  }
+  JSON.stringify(net) === JSON.stringify(settledMarket.q)
+    ? pass(`history adds up to the market's share counts (${JSON.stringify(net)})`)
+    : fail(`history ${JSON.stringify(net)} != q ${JSON.stringify(settledMarket.q)}`);
+
+  // 6) Cancelling a market (admin still signed in) refunds at cost and records it.
+  //    tester1 bought 10 Yes in the announced-then-opened market back in 3b.
+  const basis = (await adb.collection('users').doc('tester1').get()).data().eventPositions[timerId].costBasis;
+  await httpsCallable(fns, 'cancelEventMarket')({ marketId: timerId });
+  const refunds = (await adb.collection('eventTrades').where('marketId', '==', timerId).get()).docs
+    .map((d: Loose) => d.data())
+    .filter((r: Loose) => r.action === 'refund');
+  refunds.length === 1 &&
+  refunds[0].uid === 'tester1' &&
+  refunds[0].shares === 10 &&
+  Math.abs(refunds[0].cash - basis) < 0.01
+    ? pass(`cancellation refund recorded ($${refunds[0].cash} for 10 shares)`)
+    : fail(`refund records wrong: ${JSON.stringify(refunds)}`);
 }
 
 it('event-share market end to end', main);

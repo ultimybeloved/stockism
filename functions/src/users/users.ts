@@ -25,6 +25,7 @@ import { buildSeasonBaseline } from '../season/seasonTiers';
 import { isDisposableEmailLive } from './disposableEmail';
 import { countIpAccounts } from './ipCap';
 import { cleanupBlockedAuthUser, applyPendingDiscordLink } from './signupHelpers';
+import { archiveAccount } from '../shared/accountArchive';
 
 /** Why the per-network cap refused a signup, for the admin alert. */
 type CapBlockInfo = { effectiveAccounts: number; liveAccounts: number; recentlyDeleted: number };
@@ -470,6 +471,9 @@ export const deleteAccount = cf().https.onCall(async (data, context) => {
     if (confirmUsername.toLowerCase() !== displayName.toLowerCase()) {
       throw new functions.https.HttpsError('invalid-argument', 'Username confirmation does not match.');
     }
+
+    // Keep a copy first: if it can't be saved, nothing is deleted.
+    await archiveAccount(uid, userData, 'self');
 
     // Mark username as deleted (but keep reserved) first, so the name stays
     // claimed even if a later step fails.

@@ -155,7 +155,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 - If you are writing a number like `0.005`, `10000`, `86400000`, or `7 * 24 * 60 * 60 * 1000` inline in a service file, stop — add a named constant to the right topic file in `functions/src/shared/constants/` first
 
 **Shared helpers** (`functions/src/shared/`)
-- Utility functions used by multiple service files live in topic modules: `impact.ts` (price impact, wash rule, circuit breaker), `cohorts.ts` (dividend lot ledger), `tradeRecords.ts`, `marketData.ts`, `equity.ts`, `usernames.ts`, `accountGuards.ts`, `discordApi.ts`, `notifications.ts`, `activity.ts`, ...
+- Utility functions used by multiple service files live in topic modules: `impact.ts` (price impact, wash rule, circuit breaker), `cohorts.ts` (dividend lot ledger), `tradeRecords.ts`, `eventTradeRecords.ts` (long-term market history), `accountArchive.ts` (copy kept on account deletion), `marketData.ts`, `equity.ts`, `usernames.ts`, `accountGuards.ts`, `discordApi.ts`, `notifications.ts`, `activity.ts`, ...
 - `helpers.ts` re-exports all of them; new code imports the topic module directly (`../shared/impact`)
 - Never copy-paste a helper from one service file to another — move it to the right shared module
 

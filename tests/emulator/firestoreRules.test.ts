@@ -15,7 +15,15 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator, doc, updateDoc, deleteField } from 'firebase/firestore';
+import {
+  getFirestore,
+  connectFirestoreEmulator,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteField,
+} from 'firebase/firestore';
 import { check as record, type Loose } from './harness';
 
 const PROJECT_ID = 'stockism-abb28';
@@ -59,6 +67,17 @@ async function check(label: string, mode: string, fields: Loose) {
 }
 
 let uid: string;
+
+// Same idea for reads and writes on other collections.
+async function checkAccess(label: string, mode: string, op: () => Promise<unknown>) {
+  try {
+    await op();
+    record(`${label} (${mode})`, mode === 'allowed', 'access was ALLOWED but should be blocked');
+  } catch (err) {
+    const denied = err.code === 'permission-denied' || /PERMISSION_DENIED/.test(err.message);
+    record(`${label} (${mode})`, mode === 'blocked' && denied, `got: ${err.code || err.message}`);
+  }
+}
 
 async function main() {
   // Create + sign in the test user.
@@ -133,6 +152,22 @@ async function main() {
   await check('equip a cosmetic', 'allowed', { 'activeCosmetics.banner': 'gold' });
   await check('equip a title actually earned', 'allowed', { activeTitle: 'season_1_gold' });
   await check('clear the equipped title', 'allowed', { activeTitle: null });
+
+  console.log('\n── History records ───────────────────────────────────────────');
+  await adminDb.collection('eventTrades').doc('mine').set({ uid, marketId: 'm', action: 'buy', shares: 1, cash: 1 });
+  await adminDb.collection('eventTrades').doc('theirs').set({ uid: 'someone_else', marketId: 'm', action: 'buy' });
+  await adminDb
+    .collection('deletedUsers')
+    .doc('gone')
+    .set({ uid: 'gone', data: { signupIp: '1.2.3.4' } });
+  await checkAccess('read own market history', 'allowed', () => getDoc(doc(clientDb, 'eventTrades', 'mine')));
+  await checkAccess("read another player's market history", 'blocked', () =>
+    getDoc(doc(clientDb, 'eventTrades', 'theirs')),
+  );
+  await checkAccess('forge a market history record', 'blocked', () =>
+    setDoc(doc(clientDb, 'eventTrades', 'forged'), { uid, action: 'payout', cash: 1e6 }),
+  );
+  await checkAccess('read a deleted account copy', 'blocked', () => getDoc(doc(clientDb, 'deletedUsers', 'gone')));
 }
 
 it('firestore.rules on the user doc', main);

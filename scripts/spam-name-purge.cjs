@@ -173,6 +173,37 @@ async function main() {
         wasBanned: !!u.isBanned,
       });
 
+    // 1b. Full copy plus any open long-term market shares, the same records
+    // deleteAccount writes (functions/src/shared/accountArchive.ts). Those
+    // shares stay counted in the market, so the history must say where they went.
+    {
+      const batch = db.batch();
+      batch.set(db.collection('deletedUsers').doc(p.uid), {
+        uid: p.uid,
+        displayName: u.displayName ?? null,
+        deletedAt: stamp,
+        deletedBy: 'admin-script (spam-name-purge)',
+        data: u,
+      });
+      for (const [marketId, pos] of Object.entries(u.eventPositions || {})) {
+        if (!pos || pos.settled) continue;
+        for (const [outcome, shares] of Object.entries(pos.shares || {})) {
+          if (!(shares > 0)) continue;
+          batch.set(db.collection('eventTrades').doc(), {
+            uid: p.uid,
+            displayName: u.displayName ?? null,
+            marketId,
+            outcome,
+            action: 'deleted',
+            shares,
+            cash: 0,
+            timestamp: stamp,
+          });
+        }
+      }
+      await batch.commit();
+    }
+
     // 2. Keep the name claimed forever.
     if (u.displayNameLower || u.displayName) {
       await db
