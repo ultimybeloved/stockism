@@ -152,8 +152,12 @@ their public profile and the leaderboard.
 ## Phase 5: Library upgrades (one per commit)
 
 Vite, Firebase JS SDK 12, firebase-admin (one version), firebase-functions
-(stay 1st gen via `firebase-functions/v1`), React 19, Tailwind 4 last.
+(stay 1st gen via `firebase-functions/v1`), React 19. **Phase done 2026-10-10.**
 Not doing: 2nd-gen Cloud Functions (changes the bill and the Discord webhook URL).
+Not doing: Tailwind 4. It needs Safari 16.4+ / Chrome 111+ (oklch colours,
+`@property`, `color-mix`), and the build still targets Safari 14 so iPhones stuck
+on iOS 15 keep working. Tailwind's own guidance for that case is to stay on 3.4.
+Revisit if the browser target is ever raised.
 
 - **Vite: Done 2026-10-09.** 5 -> 8 (+ `@vitejs/plugin-react` 6), the same Vite
   vitest already ran on. Vendor chunks moved from `manualChunks` to Rolldown's
@@ -177,6 +181,10 @@ Not doing: 2nd-gen Cloud Functions (changes the bill and the Discord webhook URL
   `functions/` (Firestore client unchanged at 7.11). Deploy settings identical;
   all suites pass. Shipped in the same full deploy as firebase-functions. The root
   `firebase-admin` (scripts, seeding) is still 11 and is a separate job.
+- **Sandbox fix: Done 2026-10-09.** The emulator drops the `admin.firestore`
+  statics, so every backend file imports `FieldValue`/`Timestamp`/`FieldPath`
+  from `firebase-admin/firestore`. Sandbox trades work. Not deployed on its own
+  (no production change); it rides along with later deploys.
 
 ## Phase 6: Docs
 
