@@ -1,9 +1,14 @@
 import { useState, useMemo } from 'react';
-import { formatCurrency, formatChange, formatAxisLabels } from '../../../utils/formatters';
+import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import type { PortfolioPoint } from '../../portfolio/hooks/usePortfolioHistory';
-import type { ChartHoverPoint } from '../../portfolio/utils/shared';
-import { useTheme } from '../../../context/AppContext';
+import ValueLineChart from '../../../shared/components/charts/ValueLineChart';
+import {
+  formatChartDate,
+  sampleSeries,
+  summarizeSeries,
+  type ChartHoverPoint,
+} from '../../../shared/components/charts/valueSeries';
 
 interface ProfileChartPoint {
   timestamp: number;
@@ -36,7 +41,6 @@ const ProfileChart = ({
   timeRange,
   onTimeRangeChange,
 }: ProfileChartProps) => {
-  const { darkMode } = useTheme();
   const chartTimeRange = timeRange;
   const [hoveredPoint, setHoveredPoint] = useState<ChartHoverPoint | null>(null);
   const { textClass } = themeClasses;
@@ -53,21 +57,9 @@ const ProfileChart = ({
     // by the parent), so no client-side cutoff filter is needed.
     let data: ProfileChartPoint[] = portfolioHistory.map((point) => ({
       ...point,
-      fullDate: new Date(point.timestamp).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      fullDate: formatChartDate(point.timestamp),
     }));
-    const maxPoints = 20;
-    if (data.length > maxPoints) {
-      const step = Math.floor(data.length / maxPoints);
-      const sampled: ProfileChartPoint[] = [];
-      for (let i = 0; i < data.length; i += step) sampled.push(data[i]!);
-      if (sampled[sampled.length - 1] !== data[data.length - 1]) sampled.push(data[data.length - 1]!);
-      data = sampled;
-    }
+    data = sampleSeries(data);
     if (data.length === 1) data = [...data, { timestamp: Date.now(), value: portfolioValue, fullDate: 'Now' }];
     if (data.length === 0) {
       const now = Date.now();
@@ -80,35 +72,7 @@ const ProfileChart = ({
     // chartTimeRange isn't read here — the parent refetches portfolioHistory per range.
   }, [portfolioHistory, portfolioValue]);
 
-  const chartValues = chartData.map((d) => d.value);
-  const minChartValue = Math.min(...chartValues);
-  const maxChartValue = Math.max(...chartValues);
-  const chartValueRange = maxChartValue - minChartValue || 1;
-  const firstChartValue = chartData[0]?.value || portfolioValue;
-  const lastChartValue = chartData[chartData.length - 1]?.value || portfolioValue;
-  const periodChange = firstChartValue > 0 ? ((lastChartValue - firstChartValue) / firstChartValue) * 100 : 0;
-  const chartIsUp = lastChartValue >= firstChartValue;
-
-  const svgWidth = 500;
-  const svgHeight = 150;
-  const padX = 40;
-  const padY = 20;
-  const cw = svgWidth - padX * 2;
-  const ch = svgHeight - padY * 2;
-  const getChartX = (i: number) => padX + (i / (chartData.length - 1 || 1)) * cw;
-  const getChartY = (v: number) => padY + ch - ((v - minChartValue) / chartValueRange) * ch;
-  const chartPathData = chartData
-    .map((d, i) => `${i === 0 ? 'M' : 'L'} ${getChartX(i)} ${getChartY(d.value)}`)
-    .join(' ');
-  const chartAreaPath = `${chartPathData} L ${getChartX(chartData.length - 1)} ${padY + ch} L ${padX} ${padY + ch} Z`;
-  const chartStroke = colorBlindMode ? (chartIsUp ? '#14b8a6' : '#a855f7') : chartIsUp ? '#22c55e' : '#ef4444';
-  const chartFill = colorBlindMode
-    ? chartIsUp
-      ? 'rgba(20, 184, 166, 0.1)'
-      : 'rgba(168, 85, 247, 0.1)'
-    : chartIsUp
-      ? 'rgba(34, 197, 94, 0.1)'
-      : 'rgba(239, 68, 68, 0.1)';
+  const { minValue, maxValue, valueRange, periodChange, isUp: chartIsUp } = summarizeSeries(chartData, portfolioValue);
 
   return (
     <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
@@ -142,131 +106,17 @@ const ProfileChart = ({
           ))}
         </div>
       </div>
-      <div className="relative">
-        <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full">
-          {(() => {
-            const ratios = [0, 0.5, 1];
-            const labels = formatAxisLabels(
-              ratios.map((r) => maxChartValue - r * chartValueRange),
-              { kilo: true },
-            );
-            return ratios.map((ratio, i) => {
-              const y = padY + ratio * ch;
-              return (
-                <g key={i}>
-                  <line
-                    x1={padX}
-                    y1={y}
-                    x2={svgWidth - padX}
-                    y2={y}
-                    stroke={darkMode ? '#334155' : '#e2e8f0'}
-                    strokeWidth="1"
-                  />
-                  {labels[i] && (
-                    <text x={padX - 5} y={y + 4} textAnchor="end" fill={darkMode ? '#64748b' : '#94a3b8'} fontSize="9">
-                      {labels[i]}
-                    </text>
-                  )}
-                </g>
-              );
-            });
-          })()}
-          <path d={chartAreaPath} fill={chartFill} />
-          <path d={chartPathData} fill="none" stroke={chartStroke} strokeWidth="2" />
-          {/* Start/end markers */}
-          <circle
-            cx={getChartX(0)}
-            cy={getChartY(chartData[0]!.value)}
-            r={4}
-            fill="none"
-            stroke={chartStroke}
-            strokeWidth={2}
-          />
-          <circle
-            cx={getChartX(chartData.length - 1)}
-            cy={getChartY(chartData[chartData.length - 1]!.value)}
-            r={4}
-            fill="none"
-            stroke={chartStroke}
-            strokeWidth={2}
-          />
-          {hoveredPoint !== null && (
-            <>
-              <line
-                x1={hoveredPoint.x}
-                y1={padY}
-                x2={hoveredPoint.x}
-                y2={padY + ch}
-                stroke={chartStroke}
-                strokeWidth="1"
-                strokeDasharray="4,4"
-                opacity="0.5"
-              />
-              <circle
-                cx={hoveredPoint.x}
-                cy={hoveredPoint.y}
-                r={6}
-                fill={chartStroke}
-                stroke={chartStroke}
-                strokeWidth={2}
-              />
-            </>
-          )}
-        </svg>
-        <div
-          className="absolute inset-0 cursor-crosshair"
-          onMouseMove={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            const mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
-            if (mouseX < padX || mouseX > svgWidth - padX) {
-              setHoveredPoint(null);
-              return;
-            }
-            // Find bracketing data points
-            let leftIdx = 0;
-            for (let i = 0; i < chartData.length - 1; i++) {
-              if (getChartX(i + 1) >= mouseX) {
-                leftIdx = i;
-                break;
-              }
-              leftIdx = i;
-            }
-            const rightIdx = Math.min(leftIdx + 1, chartData.length - 1);
-            const x1 = getChartX(leftIdx),
-              x2 = getChartX(rightIdx);
-            const t = x2 === x1 ? 0 : (mouseX - x1) / (x2 - x1);
-            // chartData always has at least two points, and both indexes are clamped into it.
-            const interpValue =
-              chartData[leftIdx]!.value + t * (chartData[rightIdx]!.value - chartData[leftIdx]!.value);
-            const interpY = getChartY(interpValue);
-            // Interpolate date
-            const ts1 = chartData[leftIdx]!.timestamp,
-              ts2 = chartData[rightIdx]!.timestamp;
-            const interpTs = ts1 + t * (ts2 - ts1);
-            const interpDate = new Date(interpTs).toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-            setHoveredPoint({ x: mouseX, y: interpY, value: interpValue, fullDate: interpDate });
-          }}
-          onMouseLeave={() => setHoveredPoint(null)}
-        />
-        {hoveredPoint !== null && (
-          <div
-            className="absolute pointer-events-none px-3 py-2 rounded-sm shadow-lg text-xs z-10 light:bg-zinc-900 light:text-white dark:bg-zinc-800 dark:text-zinc-100"
-            style={{
-              left: `${(hoveredPoint.x / svgWidth) * 100}%`,
-              top: `${(hoveredPoint.y / svgHeight) * 100}%`,
-              transform: 'translate(-50%, -130%)',
-            }}
-          >
-            <div className="font-bold text-orange-400">{formatCurrency(hoveredPoint.value)}</div>
-            <div className="text-zinc-400">{hoveredPoint.fullDate}</div>
-          </div>
-        )}
-      </div>
+      <ValueLineChart
+        data={chartData}
+        minValue={minValue}
+        maxValue={maxValue}
+        valueRange={valueRange}
+        isUp={chartIsUp}
+        colorBlindMode={colorBlindMode}
+        hoveredPoint={hoveredPoint}
+        setHoveredPoint={setHoveredPoint}
+        className="relative"
+      />
     </div>
   );
 };

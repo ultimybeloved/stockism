@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { formatChartDate, sampleSeries, summarizeSeries } from '../../../shared/components/charts/valueSeries';
 
 // Builds the portfolio chart series (sampled, anchored, and always ending at the
 // current value) plus the derived summary values the header needs. Extracted from
@@ -24,28 +25,11 @@ export function usePortfolioChartData(portfolioHistory: PortfolioPoint[] | null 
     let data: PortfolioChartPoint[] = portfolioHistory.map((point) => ({
       ...point,
       date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      fullDate: new Date(point.timestamp).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
+      fullDate: formatChartDate(point.timestamp),
     }));
 
     // Sample down to ~20 points for cleaner interaction
-    const maxPoints = 20;
-    if (data.length > maxPoints) {
-      const step = Math.floor(data.length / maxPoints);
-      const sampled: PortfolioChartPoint[] = [];
-      for (let i = 0; i < data.length; i += step) {
-        sampled.push(data[i]!);
-      }
-      // Always include the last point
-      if (sampled[sampled.length - 1] !== data[data.length - 1]) {
-        sampled.push(data[data.length - 1]!);
-      }
-      data = sampled;
-    }
+    data = sampleSeries(data);
 
     // Always append current value as the final point so the right edge of the
     // chart reflects where the portfolio is right now, not the last history write.
@@ -77,15 +61,10 @@ export function usePortfolioChartData(portfolioHistory: PortfolioPoint[] | null 
   }, [portfolioHistory, currentValue]);
 
   const hasChartData = chartData.length >= 2; // Will always be true now
-  const chartValues = hasChartData ? chartData.map((d) => d.value) : [currentValue];
-  const minValue = Math.min(...chartValues);
-  const maxValue = Math.max(...chartValues);
-  const valueRange = maxValue - minValue || 1;
-
-  const firstValue = chartData[0]?.value || currentValue;
-  const lastValue = chartData[chartData.length - 1]?.value || currentValue;
-  const periodChange = firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : 0;
-  const isUp = lastValue >= firstValue;
+  const { minValue, maxValue, valueRange, firstValue, lastValue, periodChange, isUp } = summarizeSeries(
+    chartData,
+    currentValue,
+  );
 
   return { chartData, hasChartData, minValue, maxValue, valueRange, firstValue, lastValue, periodChange, isUp };
 }

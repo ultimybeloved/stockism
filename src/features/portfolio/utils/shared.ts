@@ -73,9 +73,4 @@ export const TIME_RANGES: TimeRange[] = [
 export type ShareInputs = Record<string, number | ''>;
 
 /** Where the cursor sits on a portfolio chart, in SVG units, with the value there. */
-export interface ChartHoverPoint {
-  x: number;
-  y: number;
-  value: number;
-  fullDate: string;
-}
+export type { ChartHoverPoint } from '../../../shared/components/charts/valueSeries';
