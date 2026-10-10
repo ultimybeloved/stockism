@@ -26,6 +26,7 @@
 // known gap, not an oversight.
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -126,9 +127,9 @@ export const applyNeglectDecay = cf()
 
       const batch = db.batch();
       batch.update(marketRef, updates);
-      const histUpdates: Record<string, admin.firestore.FieldValue> = {};
+      const histUpdates: Record<string, FieldValue> = {};
       for (const [t, point] of Object.entries(historyPoints)) {
-        histUpdates[t] = admin.firestore.FieldValue.arrayUnion(point);
+        histUpdates[t] = FieldValue.arrayUnion(point);
       }
       batch.set(priceHistoryRef(), histUpdates, { merge: true });
       await batch.commit();

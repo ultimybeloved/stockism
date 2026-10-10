@@ -1,6 +1,7 @@
 // Price history, per-ticker stats, daily closes, neglect floors, IPO jumps, the index.
 
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { IPO_PRICE_JUMP, NEGLECT_FLOOR_MIN, NEGLECT_FLOOR_MAX, MIN_PRICE } from './constants';
 import { indexFromStored } from './indexMaintenance';
 import { round2 } from './money';
@@ -41,9 +42,9 @@ export const appendPriceHistory = (
   transaction: admin.firestore.Transaction | null,
   points: Record<string, PricePoint>,
 ) => {
-  const updates: Record<string, admin.firestore.FieldValue> = {};
+  const updates: Record<string, FieldValue> = {};
   for (const [ticker, point] of Object.entries(points)) {
-    updates[ticker] = admin.firestore.FieldValue.arrayUnion(point);
+    updates[ticker] = FieldValue.arrayUnion(point);
   }
   if (transaction) {
     transaction.set(priceHistoryRef(), updates, { merge: true });
@@ -99,9 +100,9 @@ export const buildTickerFlowUpdate = ({
   const direction = action === 'buy' || action === 'cover' ? 1 : -1;
   return {
     [ticker]: {
-      trades: admin.firestore.FieldValue.increment(1),
-      shares: admin.firestore.FieldValue.increment(amount || 0),
-      netFlow: admin.firestore.FieldValue.increment(direction * (totalValue || 0)),
+      trades: FieldValue.increment(1),
+      shares: FieldValue.increment(amount || 0),
+      netFlow: FieldValue.increment(direction * (totalValue || 0)),
       lastTradedAt: now,
     },
   };
@@ -241,7 +242,7 @@ export const applyDueIPOJumps = async () => {
     if (tickersToLaunch.length > 0) {
       transaction.update(marketRef, {
         ...marketUpdates,
-        launchedTickers: admin.firestore.FieldValue.arrayUnion(...tickersToLaunch),
+        launchedTickers: FieldValue.arrayUnion(...tickersToLaunch),
       });
       appendPriceHistory(transaction, historyPoints);
       transaction.update(ipoRef, { list: updatedList });

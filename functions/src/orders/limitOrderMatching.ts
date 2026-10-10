@@ -15,6 +15,7 @@
 // npm run test:limitorders covers this — run it before and after any change.
 
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -57,7 +58,7 @@ const closeOrder = (orderId: string, fields: Record<string, unknown>) =>
     .doc(orderId)
     .update({
       ...fields,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
 /**

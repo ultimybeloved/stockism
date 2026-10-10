@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
@@ -22,7 +23,7 @@ interface LadderPlayer {
   currentStreak: number;
   bestStreak: number;
   highBetGames: number;
-  lastPlayed: admin.firestore.Timestamp | number | null;
+  lastPlayed: Timestamp | number | null;
 }
 import {
   LADDER_GAME_INITIAL_BALANCE,
@@ -107,9 +108,9 @@ export const playLadderGame = cf().https.onCall(
         }
 
         // Enforce 3-second cooldown
-        const now = admin.firestore.Timestamp.now();
+        const now = Timestamp.now();
         if (userData.lastPlayed) {
-          const lastPlayed = userData.lastPlayed as admin.firestore.Timestamp | number;
+          const lastPlayed = userData.lastPlayed as Timestamp | number;
           const lastPlayedMs =
             typeof lastPlayed === 'number'
               ? lastPlayed
@@ -216,7 +217,7 @@ export const playLadderGame = cf().https.onCall(
 
         if (ladderNewAchievements.length > 0) {
           const achUpdate: Record<string, unknown> = {
-            achievements: admin.firestore.FieldValue.arrayUnion(...ladderNewAchievements),
+            achievements: FieldValue.arrayUnion(...ladderNewAchievements),
           };
           for (const achId of ladderNewAchievements) {
             achUpdate[`achievementDates.${achId}`] = Date.now();
@@ -245,7 +246,7 @@ export const playLadderGame = cf().https.onCall(
               .collection('users')
               .doc(uid)
               .update({
-                achievements: admin.firestore.FieldValue.arrayUnion('CASINO_CHAMPION'),
+                achievements: FieldValue.arrayUnion('CASINO_CHAMPION'),
                 'achievementDates.CASINO_CHAMPION': Date.now(),
               });
             gameResult.newAchievements.push('CASINO_CHAMPION');

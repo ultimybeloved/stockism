@@ -1,5 +1,6 @@
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -203,9 +204,9 @@ export const marketMakerCycle = cf()
         // Batch so the price change and its history point land atomically
         const batch = db.batch();
         batch.update(marketRef, updates);
-        const histUpdates: Record<string, admin.firestore.FieldValue> = {};
+        const histUpdates: Record<string, FieldValue> = {};
         for (const [t, p] of Object.entries(historyPoints)) {
-          histUpdates[t] = admin.firestore.FieldValue.arrayUnion(p);
+          histUpdates[t] = FieldValue.arrayUnion(p);
         }
         batch.set(priceHistoryRef(), histUpdates, { merge: true });
         await batch.commit();

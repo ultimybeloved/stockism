@@ -12,6 +12,7 @@
 // Covered by npm run test:trading section J.
 
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -121,7 +122,7 @@ export const forceCoverShort = async ({
           shares: pos.shares,
           costBasis: pos.costBasis || pos.entryPrice || 0,
           margin: pos.margin || 0,
-          openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
+          openedAt: pos.openedAt || Timestamp.now(),
           system: pos.system || 'v2',
         };
       }
@@ -164,7 +165,7 @@ export const forceCoverShort = async ({
       totalValue: coverPrice * freshPosition.shares,
       cashBefore: freshUserData.cash || 0,
       cashAfter: newCash,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       automated: true,
     });
 

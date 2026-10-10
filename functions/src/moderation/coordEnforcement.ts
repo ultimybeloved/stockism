@@ -20,13 +20,14 @@
 // admin's call, in seasonExclusions.js and coordReview.js.
 
 import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
 import { COORD_ALL_IN_SHARE, COORD_ALL_IN_BORROWED, WASH_RULE_COOLDOWN_MS } from '../shared/constants';
 import type { Cluster } from './coordClustering';
 import type { UserData } from '../shared/types';
 
-const toMs = (ts: admin.firestore.Timestamp | number | undefined) =>
+const toMs = (ts: Timestamp | number | undefined) =>
   !ts ? 0 : typeof ts === 'number' ? ts : ts.toMillis ? ts.toMillis() : 0;
 
 /**
@@ -57,8 +58,8 @@ export async function applyGroupBlocks(clusters: Cluster[], now = Date.now()) {
   for (const { uid, ticker, at } of wanted) {
     const u = byUid.get(uid);
     if (!u) continue;
-    const update: Record<string, admin.firestore.Timestamp> = {};
-    const stamp = admin.firestore.Timestamp.fromMillis(at);
+    const update: Record<string, Timestamp> = {};
+    const stamp = Timestamp.fromMillis(at);
     if (toMs(u.lastHeavySell?.[ticker]) < at) update[`lastHeavySell.${ticker}`] = stamp;
     if (toMs(u.lastHeavyExit?.[ticker]) < at) update[`lastHeavyExit.${ticker}`] = stamp;
     if (!Object.keys(update).length) continue;

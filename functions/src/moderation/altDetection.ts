@@ -20,6 +20,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -234,7 +235,7 @@ async function runAltScan({ dryRun = false } = {}) {
       networks: f.networks,
       sharedTickers: f.sharedTickers,
       combinedValue: f.combinedValue,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
   }
   if (fresh.length) await batch.commit();

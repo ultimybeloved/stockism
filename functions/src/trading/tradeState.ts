@@ -2,6 +2,7 @@
 // history pruning/appending, and the single user-doc update payload.
 // Internal module — required by trading.js, not exported through index.js.
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { SHORT_MARGIN_RATIO, SHORT_COOLDOWN_WINDOW_MS, WASH_RULE_IMPACT_TRIGGER } from '../shared/constants';
 import { pruneAndSumTradeHistory, sumDirectionalImpact } from '../shared/impact';
@@ -185,7 +186,7 @@ export function buildUserUpdates({
     marginUsed: newMarginUsed,
     ...(marginLockUpdate ? { [`marginLockup.${ticker}`]: marginLockUpdate } : {}),
     tickerTradeHistory: updatedTickerTradeHistory,
-    lastTradeTime: admin.firestore.Timestamp.now(),
+    lastTradeTime: Timestamp.now(),
     ...creditUpdates,
   };
 
@@ -197,7 +198,7 @@ export function buildUserUpdates({
 
   // ANTI-MANIPULATION: Track ticker trade times for buy/short cooldown
   if (action === 'buy' || action === 'short') {
-    updates[`lastTickerTradeTime.${ticker}`] = admin.firestore.Timestamp.now();
+    updates[`lastTickerTradeTime.${ticker}`] = Timestamp.now();
   }
 
   // Wash rule: arm the buy-back block once this player's own downward pressure
@@ -206,14 +207,14 @@ export function buildUserUpdates({
   // long grind would unlock itself while the grinder was still selling.
   // Enforced in tradeGuards.assertCooldowns.
   if ((action === 'sell' || action === 'short') && downImpactAfter >= WASH_RULE_IMPACT_TRIGGER) {
-    updates[`lastHeavySell.${ticker}`] = admin.firestore.Timestamp.now();
+    updates[`lastHeavySell.${ticker}`] = Timestamp.now();
     // A heavy SELL also blocks shorting the stock (shortAfterDumpRemainingMs).
     // A short doesn't, so an existing short can still be added to.
-    if (action === 'sell') updates[`lastHeavyExit.${ticker}`] = admin.firestore.Timestamp.now();
+    if (action === 'sell') updates[`lastHeavyExit.${ticker}`] = Timestamp.now();
   }
 
   if (action === 'buy') {
-    updates[`lastBuyTime.${ticker}`] = admin.firestore.Timestamp.now();
+    updates[`lastBuyTime.${ticker}`] = Timestamp.now();
 
     // Cost basis tracking
     const currentHoldings = holdings[ticker] || 0;
@@ -237,17 +238,17 @@ export function buildUserUpdates({
     const totalHoldings = newHoldings[ticker] || 0;
     if (totalHoldings <= 0) {
       updates[`costBasis.${ticker}`] = 0;
-      updates[`lowestWhileHolding.${ticker}`] = admin.firestore.FieldValue.delete();
+      updates[`lowestWhileHolding.${ticker}`] = FieldValue.delete();
     }
     // Drop an IPO lockup once it has expired or the position is fully closed.
     const sellLock = userData.ipoLockup?.[ticker];
     if (sellLock && (now >= (sellLock.until || 0) || totalHoldings <= 0)) {
-      updates[`ipoLockup.${ticker}`] = admin.firestore.FieldValue.delete();
+      updates[`ipoLockup.${ticker}`] = FieldValue.delete();
     }
     // Same for the margin lockup.
     const mLock = userData.marginLockup?.[ticker];
     if (mLock && (now >= (mLock.until || 0) || totalHoldings <= 0)) {
-      updates[`marginLockup.${ticker}`] = admin.firestore.FieldValue.delete();
+      updates[`marginLockup.${ticker}`] = FieldValue.delete();
     }
 
     // Dividend cohort: consume eligible first, then oldest pending. Deletes

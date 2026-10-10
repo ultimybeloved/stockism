@@ -24,6 +24,7 @@
 //    verification scan finds zero occurrences of the old ticker.
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const db = admin.firestore();
 
@@ -32,7 +33,7 @@ import { priceHistoryRef } from '../shared/marketData';
 import type { DocumentData, DocumentReference } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
 
-const DELETE = () => admin.firestore.FieldValue.delete();
+const DELETE = () => FieldValue.delete();
 
 // What a rename means for each document: pure helpers, in tickerRemap.js so
 // they test without an emulator.

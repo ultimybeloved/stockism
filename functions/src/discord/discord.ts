@@ -1,6 +1,7 @@
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import axios from 'axios';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
@@ -158,7 +159,7 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
           // Same one-time unlock discordLink grants, so verifying by logging in
           // with Discord is worth exactly what verifying from the profile page is.
           if (existingDoc.data()!.startingCashUnlocked === false) {
-            authLinkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
+            authLinkUpdate.cash = FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
             authLinkUpdate.startingCashUnlocked = true;
             Object.assign(authLinkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
           }
@@ -350,7 +351,7 @@ export const discordLink = cf().https.onRequest(async (req, res) => {
     // Accounts predating the gate (May 2026) have no flag at all and already started
     // with the full amount — `!== true` paid them another $2,000 on any relink.
     if (userDoc.data()!.startingCashUnlocked === false && !currentDiscordId) {
-      linkUpdate.cash = admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
+      linkUpdate.cash = FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
       linkUpdate.startingCashUnlocked = true;
       Object.assign(linkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
     }
@@ -358,7 +359,7 @@ export const discordLink = cf().https.onRequest(async (req, res) => {
     // Award DISCORD_LINKED achievement if not already earned
     const currentAchievements = userDoc.data()!.achievements || [];
     if (!currentAchievements.includes('DISCORD_LINKED')) {
-      linkUpdate.achievements = admin.firestore.FieldValue.arrayUnion('DISCORD_LINKED');
+      linkUpdate.achievements = FieldValue.arrayUnion('DISCORD_LINKED');
       linkUpdate['achievementDates.DISCORD_LINKED'] = Date.now();
     }
 
@@ -418,8 +419,8 @@ export const unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
   }
 
   await userRef.update({
-    discordId: admin.firestore.FieldValue.delete(),
-    discordUsername: admin.firestore.FieldValue.delete(),
+    discordId: FieldValue.delete(),
+    discordUsername: FieldValue.delete(),
   });
 
   return {

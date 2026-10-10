@@ -13,6 +13,7 @@
 // npm run test:premarket covers this path.
 
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -167,18 +168,18 @@ const executeSweepFill = async (
     now,
   });
   const updates: Record<string, unknown> = {
-    cash: admin.firestore.FieldValue.increment(executedPrice * fillShares),
+    cash: FieldValue.increment(executedPrice * fillShares),
     [`holdings.${order.ticker}`]: newHoldings,
-    lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+    lastTradeTime: FieldValue.serverTimestamp(),
     tickerTradeHistory: updatedHistory,
     // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
     ...cohortRemoveUpdate(userData, order.ticker, fillShares),
     ...creditUpdates,
   };
   if (!newHoldings) {
-    updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
-    updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
-    updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
+    updates[`holdings.${order.ticker}`] = FieldValue.delete();
+    updates[`costBasis.${order.ticker}`] = FieldValue.delete();
+    updates[`lowestWhileHolding.${order.ticker}`] = FieldValue.delete();
   }
   transaction.update(userRef, updates);
 
@@ -217,8 +218,8 @@ const executeSweepFill = async (
     status: isPartial ? 'PARTIALLY_FILLED' : 'FILLED',
     filledShares: newFilledTotal,
     executedPrice,
-    executedAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    executedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   return {

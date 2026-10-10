@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -39,7 +40,7 @@ export const addWatchedUser = cf().https.onCall(async (data, context) => {
       await db.collection('watchedIPs').doc(rawIp).set({
         watchedUserId: userId,
         maxAccountsPerIP: maxAccounts,
-        addedAt: admin.firestore.FieldValue.serverTimestamp(),
+        addedAt: FieldValue.serverTimestamp(),
       });
     }
   }
@@ -53,7 +54,7 @@ export const addWatchedUser = cf().https.onCall(async (data, context) => {
       maxAccountsPerIP: maxAccounts,
       linkedAccounts: [],
       knownIPs,
-      addedAt: admin.firestore.FieldValue.serverTimestamp(),
+      addedAt: FieldValue.serverTimestamp(),
       addedBy: context.auth!.uid,
       isActive: true,
     });
@@ -65,7 +66,7 @@ export const addWatchedUser = cf().https.onCall(async (data, context) => {
     ip: null,
     action: 'flagged',
     details: `Added "${displayName}" to watchlist. Reason: ${reason || 'None'}. Found ${Object.keys(knownIPs).length} known IPs.`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
   });
 
   return { success: true, displayName, knownIPCount: Object.keys(knownIPs).length };
@@ -103,7 +104,7 @@ export const removeWatchedUser = cf().https.onCall(async (data, context) => {
     ip: null,
     action: 'flagged',
     details: `Removed "${watchedDoc.data()!.displayName}" from watchlist`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
   });
 
   return { success: true };
@@ -146,7 +147,7 @@ export const linkAltAccount = cf().https.onCall(async (data, context) => {
     .collection('watchedUsers')
     .doc(watchedUserId)
     .update({
-      linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked),
+      linkedAccounts: FieldValue.arrayUnion(newLinked),
     });
 
   await db.collection('watchlist_alerts').add({
@@ -156,7 +157,7 @@ export const linkAltAccount = cf().https.onCall(async (data, context) => {
     ip: null,
     action: 'linked',
     details: `Manually linked "${altName}" as alt of "${watchedDoc.data()!.displayName}"`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
   });
 
   return { success: true, altName };
@@ -200,7 +201,7 @@ export const addWatchedIP = cf().https.onCall(async (data, context) => {
     .set({
       watchedUserId: userId,
       maxAccountsPerIP: watchedData.maxAccountsPerIP || 1,
-      addedAt: admin.firestore.FieldValue.serverTimestamp(),
+      addedAt: FieldValue.serverTimestamp(),
     });
 
   await db.collection('watchlist_alerts').add({
@@ -210,7 +211,7 @@ export const addWatchedIP = cf().https.onCall(async (data, context) => {
     ip,
     action: 'flagged',
     details: `Manually added IP ${ip} to "${watchedData.displayName}"`,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
   });
 
   return { success: true };
@@ -443,7 +444,7 @@ export const trackWatchedIpTrade = async (uid: string, displayName: string | und
         .collection('watchedUsers')
         .doc(watchedUserId)
         .update({
-          linkedAccounts: admin.firestore.FieldValue.arrayUnion({
+          linkedAccounts: FieldValue.arrayUnion({
             uid,
             displayName: displayName || uid,
             linkedVia: 'ip',
@@ -451,7 +452,7 @@ export const trackWatchedIpTrade = async (uid: string, displayName: string | und
             linkedAt: Date.now(),
           }),
           [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
-          [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid),
+          [`knownIPs.${sanitizedIp}.accounts`]: FieldValue.arrayUnion(uid),
         });
       await db.collection('watchlist_alerts').add({
         type: 'account_linked',
@@ -460,7 +461,7 @@ export const trackWatchedIpTrade = async (uid: string, displayName: string | und
         ip,
         action: 'linked',
         details: `Auto-linked "${displayName || uid}" — traded from watched IP`,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
       });
       return;
     }
@@ -481,7 +482,7 @@ export const trackWatchedIpTrade = async (uid: string, displayName: string | und
         ip,
         action: 'flagged',
         details: `Known watched account "${displayName || uid}" seen on new IP`,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
       });
     } else {
       await db
@@ -489,7 +490,7 @@ export const trackWatchedIpTrade = async (uid: string, displayName: string | und
         .doc(watchedUserId)
         .update({
           [`knownIPs.${sanitizedIp}.lastSeen`]: Date.now(),
-          [`knownIPs.${sanitizedIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid),
+          [`knownIPs.${sanitizedIp}.accounts`]: FieldValue.arrayUnion(uid),
         });
     }
   } catch (err) {

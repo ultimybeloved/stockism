@@ -1,6 +1,7 @@
 // Signup helpers for createUser in users.ts. INTERNAL MODULE, not listed in
 // services.js: it exports no Cloud Functions.
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { STARTING_CASH, UNVERIFIED_STARTING_CASH } from '../shared/constants';
 import { isDiscordBindingLocked } from '../shared/accountGuards';
 import { grantedValueUpdate } from '../shared/equity';
@@ -53,9 +54,9 @@ export const applyPendingDiscordLink = async (uid: string) => {
     .update({
       discordId,
       discordUsername: discordUsername || null,
-      cash: admin.firestore.FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH),
+      cash: FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH),
       startingCashUnlocked: true,
-      achievements: admin.firestore.FieldValue.arrayUnion('DISCORD_LINKED'),
+      achievements: FieldValue.arrayUnion('DISCORD_LINKED'),
       'achievementDates.DISCORD_LINKED': Date.now(),
       ...grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH),
     });

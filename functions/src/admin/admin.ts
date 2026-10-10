@@ -4,6 +4,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -24,7 +25,7 @@ import { priceHistoryRef } from '../shared/marketData';
  */
 const cancelOpenOrders = async (userId: string) => {
   const counts = { limit: 0, preMarket: 0 };
-  const stamp = admin.firestore.FieldValue.serverTimestamp();
+  const stamp = FieldValue.serverTimestamp();
 
   const [limitSnap, preMarketSnap] = await Promise.all([
     db
@@ -81,7 +82,7 @@ export const banUser = cf().https.onCall(async (data, context) => {
     await db.collection('banned_users').doc(userId).set({
       uid: userId,
       displayName,
-      bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+      bannedAt: FieldValue.serverTimestamp(),
       bannedBy: context.auth!.uid,
       reason,
       originalCash: userData.cash,
@@ -110,7 +111,7 @@ export const banUser = cf().https.onCall(async (data, context) => {
       lastPortfolioSnapshot: { timestamp: Date.now(), value: rollbackCash },
       marginUsed: 0,
       isBanned: true,
-      bannedAt: admin.firestore.FieldValue.serverTimestamp(),
+      bannedAt: FieldValue.serverTimestamp(),
       banReason: reason,
     });
 
@@ -305,7 +306,7 @@ export const createBots = cf().https.onCall(async (data, context) => {
         crew: null,
         dailyMissions: {},
         transactionLog: [],
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         lastActive: Date.now(),
       });
 

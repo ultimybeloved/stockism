@@ -5,6 +5,7 @@
 //
 // INTERNAL MODULE — never listed in servicePaths.js.
 import * as admin from 'firebase-admin';
+import { FieldPath } from 'firebase-admin/firestore';
 
 const db = admin.firestore();
 
@@ -86,7 +87,7 @@ export const walkQuery = async (
   let last: string | null = cursor || null;
   for (;;) {
     if (budget.expired()) return { done, cursor: last, complete: false };
-    let q = queryFn().orderBy(admin.firestore.FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
+    let q = queryFn().orderBy(FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
     if (last) q = q.startAfter(last);
     const snap = await q.get();
     if (snap.empty) return { done, cursor: last, complete: true };
@@ -115,7 +116,7 @@ export const walkCollection = async (
   let last: string | null = cursor || null;
   for (;;) {
     if (budget.expired()) return { done, cursor: last, complete: false };
-    let q = db.collection(collection).orderBy(admin.firestore.FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
+    let q = db.collection(collection).orderBy(FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
     if (last) q = q.startAfter(last);
     const snap = await q.get();
     if (snap.empty) return { done, cursor: last, complete: true };

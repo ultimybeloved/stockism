@@ -4,6 +4,7 @@
 // use outside) the trade transaction and must never throw into the caller.
 // Internal module — required by trading.js, not exported through index.js.
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { CHARACTERS } from '../shared/characters';
 import {
@@ -226,13 +227,13 @@ export async function processTradeAchievements(uid: string, ticker: string, acti
       // NPC Lover: track cumulative profit from non-crew characters
       const achievementUpdate: Record<string, unknown> = {};
       if (ctx.npcProfit !== undefined && ctx.npcProfit > 0) {
-        achievementUpdate.npcProfit = admin.firestore.FieldValue.increment(ctx.npcProfit);
+        achievementUpdate.npcProfit = FieldValue.increment(ctx.npcProfit);
         const currentNpcProfit = (userData.npcProfit || 0) + ctx.npcProfit;
         if (currentNpcProfit >= 1000 && !currentAchievements.includes('NPC_LOVER')) newAchievements.push('NPC_LOVER');
       }
 
       if (newAchievements.length > 0) {
-        achievementUpdate.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);
+        achievementUpdate.achievements = FieldValue.arrayUnion(...newAchievements);
         for (const achId of newAchievements) {
           achievementUpdate[`achievementDates.${achId}`] = Date.now();
         }
@@ -255,8 +256,8 @@ export async function processTradeAchievements(uid: string, ticker: string, acti
             .collection('users')
             .doc(uid)
             .update({
-              achievements: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
-              displayedAchievementPins: admin.firestore.FieldValue.arrayRemove('UNIFIER'),
+              achievements: FieldValue.arrayRemove('UNIFIER'),
+              displayedAchievementPins: FieldValue.arrayRemove('UNIFIER'),
             });
         }
       }

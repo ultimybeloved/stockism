@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
 import { CHECKIN_STREAK_REWARDS } from '../shared/constants';
@@ -125,11 +125,11 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     // Check mission achievements
     const achievements = userData.achievements || [];
     if (newTotal >= 100 && !achievements.includes('MISSION_100')) {
-      updates.achievements = admin.firestore.FieldValue.arrayUnion('MISSION_100');
+      updates.achievements = FieldValue.arrayUnion('MISSION_100');
     } else if (newTotal >= 50 && !achievements.includes('MISSION_50')) {
-      updates.achievements = admin.firestore.FieldValue.arrayUnion('MISSION_50');
+      updates.achievements = FieldValue.arrayUnion('MISSION_50');
     } else if (newTotal >= 10 && !achievements.includes('MISSION_10')) {
-      updates.achievements = admin.firestore.FieldValue.arrayUnion('MISSION_10');
+      updates.achievements = FieldValue.arrayUnion('MISSION_10');
     }
 
     transaction.update(userRef, updates);
@@ -265,7 +265,7 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('already-exists', 'Already owned.');
       }
       transaction.update(userRef, {
-        ownedShopPins: admin.firestore.FieldValue.arrayUnion(pinId),
+        ownedShopPins: FieldValue.arrayUnion(pinId),
         cash: (userData.cash || 0) - validCost,
       });
       return { success: true, cost: validCost };

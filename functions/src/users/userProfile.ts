@@ -5,6 +5,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
 import { NAME_CHANGE_COST, NAME_CHANGE_COOLDOWN_MS, COSMETIC_CATALOG, TWENTY_FOUR_HOURS_MS } from '../shared/constants';
@@ -26,7 +27,7 @@ interface NameEntry {
 /** Profile fields the name and cosmetics callables read. */
 type ProfileUser = UserData & {
   displayNameLower?: string;
-  nameChangedAt?: admin.firestore.Timestamp;
+  nameChangedAt?: Timestamp;
   ownedCosmetics?: string[];
 };
 
@@ -110,7 +111,7 @@ export const migrateUsernames = cf().https.onCall(async (data: { dryRun?: unknow
       // reservation a newer duplicate grabbed gets handed back to the rightful owner.
       batch.set(db.collection('usernames').doc(lower), {
         uid: keeper.uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         backfilled: true,
       });
       ops++;
@@ -155,7 +156,7 @@ export const migrateUsernames = cf().https.onCall(async (data: { dryRun?: unknow
           action: 'flagged',
           relatedUID: conf.keep.uid,
           details: `Duplicate name "${conf.username}": keep ${conf.keep.displayName} (${conf.keep.uid}, oldest). Rename: ${renameList}`,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          timestamp: FieldValue.serverTimestamp(),
         });
       }
     }
@@ -296,13 +297,13 @@ export const changeDisplayName = cf().https.onCall(async (data: { displayName?: 
     if (existingDoc.exists) throw new functions.https.HttpsError('already-exists', 'That username is already taken.');
 
     if (oldNameLower) transaction.delete(db.collection('usernames').doc(oldNameLower));
-    transaction.set(newUsernameRef, { uid, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    transaction.set(newUsernameRef, { uid, createdAt: FieldValue.serverTimestamp() });
     transaction.update(userRef, {
       displayName: trimmed,
       displayNameLower: newNameLower,
       previousDisplayName: oldDisplayName,
-      nameChangedAt: admin.firestore.FieldValue.serverTimestamp(),
-      cash: admin.firestore.FieldValue.increment(-NAME_CHANGE_COST),
+      nameChangedAt: FieldValue.serverTimestamp(),
+      cash: FieldValue.increment(-NAME_CHANGE_COST),
     });
 
     return { success: true };
@@ -336,8 +337,8 @@ export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: st
       throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
 
     transaction.update(userRef, {
-      ownedCosmetics: admin.firestore.FieldValue.arrayUnion(cosmeticId),
-      cash: admin.firestore.FieldValue.increment(-cosmetic.price),
+      ownedCosmetics: FieldValue.arrayUnion(cosmeticId),
+      cash: FieldValue.increment(-cosmetic.price),
     });
 
     return { success: true };

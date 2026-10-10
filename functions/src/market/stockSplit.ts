@@ -42,6 +42,7 @@
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const db = admin.firestore();
 
@@ -490,7 +491,7 @@ export const runSplit = async ({
       {
         [ctx.ticker]: {
           factor: j.factorAfter,
-          splits: admin.firestore.FieldValue.arrayUnion({ ratio: ctx.n, at: Date.now(), splitId: ctx.splitId }),
+          splits: FieldValue.arrayUnion({ ratio: ctx.n, at: Date.now(), splitId: ctx.splitId }),
         },
       },
       { merge: true },

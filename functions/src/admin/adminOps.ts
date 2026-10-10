@@ -8,7 +8,7 @@ import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 // Modular import — the emulator sandbox strips admin.firestore statics.
-import { Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { ADMIN_UID, ADMIN_MEMO_MAX_LENGTH, REINSTATE_CASH_DEFAULT, COSMETIC_CATALOG } from '../shared/constants';
 import { grantedValueUpdate } from '../shared/equity';
@@ -29,9 +29,9 @@ export const removeAchievement = cf().https.onCall(async (data, context) => {
   }
 
   await userRef.update({
-    achievements: admin.firestore.FieldValue.arrayRemove(achievementId),
-    displayedAchievementPins: admin.firestore.FieldValue.arrayRemove(achievementId),
-    [`achievementDates.${achievementId}`]: admin.firestore.FieldValue.delete(),
+    achievements: FieldValue.arrayRemove(achievementId),
+    displayedAchievementPins: FieldValue.arrayRemove(achievementId),
+    [`achievementDates.${achievementId}`]: FieldValue.delete(),
   });
 
   return { success: true, removed: achievementId, userId };
@@ -59,7 +59,7 @@ export const reinstateUser = cf().https.onCall(async (data, context) => {
 
   await userRef.update({
     isBankrupt: false,
-    cash: admin.firestore.FieldValue.increment(cashBoost),
+    cash: FieldValue.increment(cashBoost),
     reinstatedAt: Date.now(),
     reinstatedBy: 'admin',
     // Booked as granted so a reinstate can't read as a spectacular recovery.
@@ -150,7 +150,7 @@ export const adminSetCash = cf().https.onCall(async (data, context) => {
       newCash,
       delta: Math.round((newCash - prevCash) * 100) / 100,
       memo: cleanMemo || null,
-      at: admin.firestore.FieldValue.serverTimestamp(),
+      at: FieldValue.serverTimestamp(),
       by: context.auth!.uid,
     });
   } catch (err) {
@@ -205,10 +205,10 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
       if (!owned.includes(cosmeticId)) {
         throw new functions.https.HttpsError('failed-precondition', 'User does not own this cosmetic');
       }
-      const updates: Record<string, unknown> = { ownedCosmetics: admin.firestore.FieldValue.arrayRemove(cosmeticId) };
+      const updates: Record<string, unknown> = { ownedCosmetics: FieldValue.arrayRemove(cosmeticId) };
       const active = userSnap.data()!.activeCosmetics || {};
       if (active[cosmetic.type] === cosmeticId) {
-        updates[`activeCosmetics.${cosmetic.type}`] = admin.firestore.FieldValue.delete();
+        updates[`activeCosmetics.${cosmetic.type}`] = FieldValue.delete();
       }
       transaction.update(userRef, updates);
       return { success: true, userId, cosmeticId, revoked: true };
@@ -217,7 +217,7 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
     if (owned.includes(cosmeticId)) {
       throw new functions.https.HttpsError('already-exists', 'User already owns this cosmetic');
     }
-    transaction.update(userRef, { ownedCosmetics: admin.firestore.FieldValue.arrayUnion(cosmeticId) });
+    transaction.update(userRef, { ownedCosmetics: FieldValue.arrayUnion(cosmeticId) });
     return { success: true, userId, cosmeticId, granted: true };
   });
 });
@@ -318,8 +318,8 @@ export const adminUnlinkDiscord = cf().https.onCall(async (data, context) => {
   }
 
   await userRef.update({
-    discordId: admin.firestore.FieldValue.delete(),
-    discordUsername: admin.firestore.FieldValue.delete(),
+    discordId: FieldValue.delete(),
+    discordUsername: FieldValue.delete(),
   });
 
   // A self-serve unlink reserves the Discord to its account for a week. An

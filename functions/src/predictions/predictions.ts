@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { CHARACTERS } from '../shared/characters';
@@ -220,7 +221,7 @@ export const claimPredictionPayout = cf().https.onCall(async (data, context) => 
       }
 
       if (predictionAchievements.length > 0) {
-        updates.achievements = admin.firestore.FieldValue.arrayUnion(...predictionAchievements);
+        updates.achievements = FieldValue.arrayUnion(...predictionAchievements);
         for (const achId of predictionAchievements) {
           updates[`achievementDates.${achId}`] = Date.now();
         }
@@ -384,7 +385,7 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
       const newPrice = Math.round(ipo.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
       transaction.update(marketRef, {
         [`prices.${ticker}`]: newPrice,
-        launchedTickers: admin.firestore.FieldValue.arrayUnion(ticker),
+        launchedTickers: FieldValue.arrayUnion(ticker),
       });
       appendPriceHistory(transaction, {
         [ticker]: { timestamp: now, price: newPrice },

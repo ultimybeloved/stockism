@@ -179,7 +179,7 @@ async function doCleanupAlertedThresholds() {
 
   for (const [key, timestamp] of Object.entries(alertedThresholds)) {
     if (now - timestamp > MAX_AGE_MS) {
-      updates[`alertedThresholds.${key}`] = admin.firestore.FieldValue.delete();
+      updates[`alertedThresholds.${key}`] = FieldValue.delete();
       cleanedCount++;
     }
   }
@@ -335,7 +335,7 @@ export const syncAllPortfolios = cf()
             const userRef = db.collection('users').doc(userId);
             const updateFields: Record<string, unknown> = {
               portfolioValue: portfolioValue,
-              lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+              lastSyncedAt: FieldValue.serverTimestamp(),
             };
             if (marginInterest > 0) {
               updateFields.marginUsed = marginUsed + marginInterest;

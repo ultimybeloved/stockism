@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import type { DocumentData } from 'firebase-admin/firestore';
 
@@ -468,7 +469,7 @@ export const recoverTicker = cf().https.onCall(async (data, context) => {
     const userRef = db.collection('users').doc(cb.uid);
     batch.update(userRef, {
       cash: cb.newCash,
-      _repairLog: admin.firestore.FieldValue.arrayUnion({
+      _repairLog: FieldValue.arrayUnion({
         recoveryId,
         type: 'ticker_recovery',
         ticker,

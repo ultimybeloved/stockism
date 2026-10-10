@@ -4,9 +4,9 @@
 // servicePaths.js. Split out of tickerRename.js to keep it under the service
 // size limit; tickerRename.js re-exports all of this, so callers and tests are
 // unchanged.
-import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
-const DELETE = () => admin.firestore.FieldValue.delete();
+const DELETE = () => FieldValue.delete();
 
 /** A Firestore document as the rename reads it: any ticker-keyed maps and arrays. */
 type Doc = Record<string, unknown>;

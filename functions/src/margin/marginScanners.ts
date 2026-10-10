@@ -17,6 +17,7 @@
 
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import {
@@ -364,7 +365,7 @@ export const checkMarginLending = cf()
               // zeros and stop there, which left the dividend/exit-loyalty lot
               // ledger describing shares that no longer existed — a re-buy then
               // inherited the wiped position's loyalty standing.
-              const del = admin.firestore.FieldValue.delete();
+              const del = FieldValue.delete();
               Object.entries(freshHoldings).forEach(([ticker, shares]) => {
                 if (shares > 0) {
                   const sellValue = (freshPrices[ticker] || 0) * shares * (1 - MARGIN_LIQUIDATION_SLIPPAGE);
@@ -406,7 +407,7 @@ export const checkMarginLending = cf()
                 marginDebt: freshMarginUsed,
                 cashBefore: freshCash,
                 cashAfter: finalCash,
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                timestamp: FieldValue.serverTimestamp(),
                 automated: true,
               });
 

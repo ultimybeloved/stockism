@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
 import {
@@ -143,7 +144,7 @@ export const claimCrewMission = cf().https.onCall(async (data: { missionId?: unk
       throw new functions.https.HttpsError('failed-precondition', 'Already claimed.');
     }
     tx.update(userRef, {
-      cash: admin.firestore.FieldValue.increment(reward),
+      cash: FieldValue.increment(reward),
       ...grantedValueUpdate(reward),
     });
     if (freshMission.exists) {

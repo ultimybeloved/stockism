@@ -7,6 +7,7 @@
 // write rule stays the caller's to keep.
 
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 
 import { exitLoyaltyDiscount, CHARACTER_MAP } from '../shared/characters';
@@ -252,14 +253,14 @@ export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: Fill
   });
 
   transaction.update(userRef, {
-    cash: admin.firestore.FieldValue.increment(-totalCost),
+    cash: FieldValue.increment(-totalCost),
     [`holdings.${ticker}`]: newHoldings,
     [`costBasis.${ticker}`]: round2(newCostBasis),
     // The 45-second hold gate. executeTrade and the pre-market auction both
     // stamp this; without it here, shares bought through a limit order could be
     // sold again immediately, which is the one lane that skipped the gate.
-    [`lastBuyTime.${ticker}`]: admin.firestore.Timestamp.now(),
-    lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+    [`lastBuyTime.${ticker}`]: Timestamp.now(),
+    lastTradeTime: FieldValue.serverTimestamp(),
     tickerTradeHistory: updatedHistory,
     // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
     ...cohortAddUpdate(userData, ticker, fillShares, now, !!CHARACTER_MAP[ticker]?.isETF),
@@ -365,9 +366,9 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
   });
 
   const updates: Record<string, unknown> = {
-    cash: admin.firestore.FieldValue.increment(totalRevenue),
+    cash: FieldValue.increment(totalRevenue),
     [`holdings.${ticker}`]: newHoldings,
-    lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+    lastTradeTime: FieldValue.serverTimestamp(),
     tickerTradeHistory: updatedHistory,
     // Dividend/exit-loyalty lot ledger — same write executeTrade makes. Without
     // it the sold lots stayed on the books and discounted the NEXT sell.
@@ -375,9 +376,9 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
     ...creditUpdates,
   };
   if (!newHoldings) {
-    updates[`holdings.${ticker}`] = admin.firestore.FieldValue.delete();
-    updates[`costBasis.${ticker}`] = admin.firestore.FieldValue.delete();
-    updates[`lowestWhileHolding.${ticker}`] = admin.firestore.FieldValue.delete();
+    updates[`holdings.${ticker}`] = FieldValue.delete();
+    updates[`costBasis.${ticker}`] = FieldValue.delete();
+    updates[`lowestWhileHolding.${ticker}`] = FieldValue.delete();
   }
   transaction.update(userRef, updates);
 
@@ -435,7 +436,7 @@ export const markOrderFilled = (
     status: isPartialFill ? 'PARTIALLY_FILLED' : 'FILLED',
     filledShares: newFilledTotal,
     executedPrice,
-    executedAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    executedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 };

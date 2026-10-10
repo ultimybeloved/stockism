@@ -7,6 +7,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -97,7 +98,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
       ip: context.rawRequest?.ip || null,
       action: 'blocked',
       details: `Blocked signup "${trimmed}" — disposable email domain (${emailDomain})`,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
     await cleanupBlockedAuthUser(uid);
     throw new functions.https.HttpsError(
@@ -155,7 +156,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
               ip: signupIp,
               action: 'blocked',
               details: `Blocked signup "${trimmed}" — ${activeAccounts} active accounts already exist from watched IP`,
-              timestamp: admin.firestore.FieldValue.serverTimestamp(),
+              timestamp: FieldValue.serverTimestamp(),
             });
 
             await cleanupBlockedAuthUser(uid);
@@ -264,7 +265,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
       const seasonSnap = await transaction.get(db.collection('market').doc('season'));
       const activeSeason = seasonSnap.exists && seasonSnap.data()!.status === 'active' ? seasonSnap.data() : null;
 
-      const now = admin.firestore.FieldValue.serverTimestamp();
+      const now = FieldValue.serverTimestamp();
 
       // Reserve the username
       transaction.set(usernameRef, {
@@ -364,9 +365,9 @@ export const createUser = cf().https.onCall(async (data, context) => {
             .collection('watchedUsers')
             .doc(autoLinkData.watchedUserId)
             .update({
-              linkedAccounts: admin.firestore.FieldValue.arrayUnion(newLinked),
+              linkedAccounts: FieldValue.arrayUnion(newLinked),
               [`knownIPs.${autoLinkData.sanitizedSignupIp}.lastSeen`]: Date.now(),
-              [`knownIPs.${autoLinkData.sanitizedSignupIp}.accounts`]: admin.firestore.FieldValue.arrayUnion(uid),
+              [`knownIPs.${autoLinkData.sanitizedSignupIp}.accounts`]: FieldValue.arrayUnion(uid),
             });
 
           await db.collection('watchlist_alerts').add({
@@ -376,7 +377,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
             ip: autoLinkData.signupIp,
             action: 'linked',
             details: `Auto-linked new account "${trimmed}" from watched IP`,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: FieldValue.serverTimestamp(),
           });
         }
       } catch (linkError) {
@@ -404,7 +405,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
           ip: signupIp !== 'unknown' ? signupIp : null,
           action: 'blocked',
           details: `Blocked signup "${trimmed}" — network already has ${blockInfo.effectiveAccounts} account(s) (${blockInfo.liveAccounts} active, ${blockInfo.recentlyDeleted} recently deleted; cap ${MAX_ACCOUNTS_PER_IP})`,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+          timestamp: FieldValue.serverTimestamp(),
         });
       } catch (alertErr) {
         logger.error('Failed to write cap-block alert:', (alertErr as Error).message);
@@ -477,7 +478,7 @@ export const deleteAccount = cf().https.onCall(async (data, context) => {
       await usernameRef.set(
         {
           deleted: true,
-          deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+          deletedAt: FieldValue.serverTimestamp(),
           deletedUid: uid,
         },
         { merge: true },
@@ -511,7 +512,7 @@ export const deleteAccount = cf().https.onCall(async (data, context) => {
           .collection('ipTracking')
           .doc(userData.signupIp)
           .update({
-            [`accounts.${uid}`]: admin.firestore.FieldValue.delete(),
+            [`accounts.${uid}`]: FieldValue.delete(),
             [`deletedAccounts.${uid}`]: Date.now(),
           });
       } catch (e) {

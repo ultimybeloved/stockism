@@ -2,6 +2,7 @@
 // counts, and the verification scan before the market reopens. Split out of
 // tickerRename.ts. INTERNAL MODULE: exports no Cloud Functions.
 import * as admin from 'firebase-admin';
+import { FieldPath } from 'firebase-admin/firestore';
 import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
 import { CREWS } from '../shared/crews';
 import { RENAME_PAGE_SIZE, RENAME_JOURNAL_DOC, TICKER_PATTERN } from '../shared/constants';
@@ -204,7 +205,7 @@ export const countDryRun = async ({ old, nw }: { old: string; nw: string }) => {
   let users = 0;
   let cursor: string | null = null;
   for (;;) {
-    let q = db.collection('users').orderBy(admin.firestore.FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
+    let q = db.collection('users').orderBy(FieldPath.documentId()).limit(RENAME_PAGE_SIZE);
     if (cursor) q = q.startAfter(cursor);
     const snap = await q.get();
     if (snap.empty) break;

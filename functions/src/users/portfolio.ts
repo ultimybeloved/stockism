@@ -2,7 +2,7 @@ import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
-// Modular import (not admin.firestore.FieldValue): the emulator sandbox strips
+// Modular import (not FieldValue): the emulator sandbox strips
 // the namespaced statics, and this form works in both prod and sandbox.
 import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
@@ -341,7 +341,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   const pruneMissionMap = (map: Record<string, unknown> | undefined, field: string) => {
     const keys = Object.keys(map || {}).sort();
     keys.slice(0, Math.max(0, keys.length - 2)).forEach((k) => {
-      updateData[`${field}.${k}`] = admin.firestore.FieldValue.delete();
+      updateData[`${field}.${k}`] = FieldValue.delete();
     });
   };
   pruneMissionMap(userData.dailyMissions, 'dailyMissions');
@@ -475,7 +475,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
     newAchievements.push('ANIMAL_INSTINCT');
 
   if (newAchievements.length > 0) {
-    updateData.achievements = admin.firestore.FieldValue.arrayUnion(...newAchievements);
+    updateData.achievements = FieldValue.arrayUnion(...newAchievements);
     // Track when each achievement was earned
     for (const achId of newAchievements) {
       updateData[`achievementDates.${achId}`] = Date.now();
@@ -491,7 +491,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   if (userData.isBankrupt && portfolioValue > 500 && (userData.cash || 0) >= 0) {
     updateData.isBankrupt = false;
     if (userData.bankruptAt) {
-      updateData.bankruptAt = admin.firestore.FieldValue.delete();
+      updateData.bankruptAt = FieldValue.delete();
     }
   }
 
@@ -503,8 +503,8 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   // slot the user can no longer see to free up.
   if (revokedAchievements.length > 0) {
     await userRef.update({
-      achievements: admin.firestore.FieldValue.arrayRemove(...revokedAchievements),
-      displayedAchievementPins: admin.firestore.FieldValue.arrayRemove(...revokedAchievements),
+      achievements: FieldValue.arrayRemove(...revokedAchievements),
+      displayedAchievementPins: FieldValue.arrayRemove(...revokedAchievements),
     });
   }
 

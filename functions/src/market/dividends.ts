@@ -1,5 +1,6 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -165,7 +166,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
 
     // Apply DRIP holding increments
     for (const [ticker, sharesToAdd] of Object.entries(holdingIncrements)) {
-      updates[`holdings.${ticker}`] = admin.firestore.FieldValue.increment(sharesToAdd);
+      updates[`holdings.${ticker}`] = FieldValue.increment(sharesToAdd);
     }
 
     Object.assign(updates, grantedValueUpdate(grantedTotal));
@@ -175,7 +176,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
 
     if (hasCashPayout || hasDrip) {
       if (hasCashPayout) {
-        updates.cash = admin.firestore.FieldValue.increment(totalPaid);
+        updates.cash = FieldValue.increment(totalPaid);
       }
 
       const totalRounded = Math.round(totalPaid * 100) / 100;
@@ -206,7 +207,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         breakdown: payoutsByTicker,
         tickerCount: Object.keys(payoutsByTicker).length,
         ...(hasDrip && { reinvested: reinvestedBreakdown }),
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        timestamp: FieldValue.serverTimestamp(),
         source,
       });
       pendingWrites += 1;
@@ -240,7 +241,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
     .doc('runs')
     .collection('log')
     .add({
-      ranAt: admin.firestore.FieldValue.serverTimestamp(),
+      ranAt: FieldValue.serverTimestamp(),
       source,
       durationMs,
       usersConsidered: stats.usersConsidered,

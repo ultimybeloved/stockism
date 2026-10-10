@@ -4,7 +4,7 @@
 // Rule violations throw HttpsError so the surrounding transaction aborts.
 // Internal module — required by trading.js, not exported through index.js.
 import * as functions from 'firebase-functions/v1';
-import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import {
   MIN_PRICE,
   MAX_PRICE_CHANGE_PERCENT,
@@ -23,9 +23,8 @@ import { exitLoyaltyDiscount } from '../shared/characters';
 import type { Lockup, ShortPosition, UserData } from '../shared/types';
 
 /** A Timestamp or epoch ms, as the throttle stamps are stored. */
-type Stamp = admin.firestore.Timestamp | number;
-const stampMs = (s: Stamp) =>
-  (s as admin.firestore.Timestamp).toMillis ? (s as admin.firestore.Timestamp).toMillis() : (s as number);
+type Stamp = Timestamp | number;
+const stampMs = (s: Stamp) => ((s as Timestamp).toMillis ? (s as Timestamp).toMillis() : (s as number));
 
 /** Everything executeTrade hands an action. Each action reads the fields it needs. */
 export interface ComputeArgs {
@@ -377,7 +376,7 @@ export function computeShort({
       shares: totalShares,
       costBasis: totalShares > 0 ? totalValue / totalShares : executionPrice,
       margin: existingMargin + marginRequired,
-      openedAt: existingShort.openedAt || admin.firestore.Timestamp.now(),
+      openedAt: existingShort.openedAt || Timestamp.now(),
       system: 'v2',
     };
   } else {
@@ -385,7 +384,7 @@ export function computeShort({
       shares: amount,
       costBasis: executionPrice,
       margin: marginRequired,
-      openedAt: admin.firestore.Timestamp.now(),
+      openedAt: Timestamp.now(),
       system: 'v2',
     };
   }
@@ -481,7 +480,7 @@ export function computeCover({
     shares: remainingShares(shortPosition.shares, amount),
     costBasis: costBasis,
     margin: totalPositionMargin - marginToReturn,
-    openedAt: shortPosition.openedAt || admin.firestore.Timestamp.now(),
+    openedAt: shortPosition.openedAt || Timestamp.now(),
     system: shortPosition.system || 'v2',
   };
   if (!newShorts[ticker]!.shares) {

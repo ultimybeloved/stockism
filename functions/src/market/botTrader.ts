@@ -1,5 +1,6 @@
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import {
   MIN_PRICE,
   WEEKLY_HALT_START_MINUTE,
@@ -450,7 +451,7 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
             appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
             transaction.update(marketRef, {
               [`prices.${decision.ticker}`]: newPrice,
-              [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
+              [`botImpact.${decision.ticker}`]: FieldValue.increment(appliedFrac),
               botImpactDate: today,
             });
             appendPriceHistory(transaction, {
@@ -509,7 +510,7 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
             appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
             transaction.update(marketRef, {
               [`prices.${decision.ticker}`]: newPrice,
-              [`botImpact.${decision.ticker}`]: admin.firestore.FieldValue.increment(appliedFrac),
+              [`botImpact.${decision.ticker}`]: FieldValue.increment(appliedFrac),
               botImpactDate: today,
             });
             appendPriceHistory(transaction, {

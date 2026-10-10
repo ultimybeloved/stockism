@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -250,7 +251,7 @@ export const savePreHaltPrices = cf()
 
       await db.collection('market').doc('preHaltSnapshot').set({
         prices,
-        savedAt: admin.firestore.FieldValue.serverTimestamp(),
+        savedAt: FieldValue.serverTimestamp(),
       });
 
       logger.info(`Pre-halt snapshot saved with ${Object.keys(prices).length} tickers`);

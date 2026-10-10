@@ -13,8 +13,8 @@ interface FilledOrder {
   action?: string;
   filledShares?: number;
   executedPrice?: number;
-  executedAt?: admin.firestore.Timestamp;
-  updatedAt?: admin.firestore.Timestamp;
+  executedAt?: Timestamp;
+  updatedAt?: Timestamp;
 }
 
 type TradeRecordDoc = NonNullable<ReturnType<typeof buildRecord>>;

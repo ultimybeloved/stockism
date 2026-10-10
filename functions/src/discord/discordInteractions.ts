@@ -1,5 +1,6 @@
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import axios from 'axios';
 import { verifyKey, InteractionType, InteractionResponseType } from 'discord-interactions';
 import * as logger from 'firebase-functions/logger';
@@ -283,7 +284,7 @@ export const discordInteractions = cf().https.onRequest(async (req, res) => {
           const freshCostBasis = freshUser.data()!.costBasis || {};
 
           const updates: Record<string, unknown> = {
-            lastDailyStockClaim: admin.firestore.FieldValue.serverTimestamp(),
+            lastDailyStockClaim: FieldValue.serverTimestamp(),
             lastDailyStockResult: {
               picks: picks.map((p) => ({
                 ticker: p.ticker,

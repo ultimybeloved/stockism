@@ -13,6 +13,7 @@
 // — it would silently move crew week boundaries and orphan in-progress missions.
 
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -52,16 +53,16 @@ export const updateCrewMissionProgress = async (
     // Per-user counters (not booleans) so claims can require a real personal
     // contribution.
     const update: Record<string, unknown> = {
-      tradeVolume: admin.firestore.FieldValue.increment(totalCost),
-      [`contributorsVolume.${uid}`]: admin.firestore.FieldValue.increment(totalCost),
+      tradeVolume: FieldValue.increment(totalCost),
+      [`contributorsVolume.${uid}`]: FieldValue.increment(totalCost),
     };
 
     if (action === 'buy') {
-      update.buyCount = admin.firestore.FieldValue.increment(amount);
-      update[`contributorsBuy.${uid}`] = admin.firestore.FieldValue.increment(amount);
+      update.buyCount = FieldValue.increment(amount);
+      update[`contributorsBuy.${uid}`] = FieldValue.increment(amount);
     } else if (action === 'sell') {
-      update.sellCount = admin.firestore.FieldValue.increment(amount);
-      update[`contributorsSell.${uid}`] = admin.firestore.FieldValue.increment(amount);
+      update.sellCount = FieldValue.increment(amount);
+      update[`contributorsSell.${uid}`] = FieldValue.increment(amount);
     }
 
     await ref.set({ crew, weekId }, { merge: true });

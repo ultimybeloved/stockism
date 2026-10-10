@@ -38,7 +38,7 @@ import { remainingShares, cohortRemoveUpdate } from '../shared/cohorts';
 import type { UserData } from '../shared/types';
 import type { ProfitTrade } from './coordProfitMath';
 import type { CoordRow } from './coordClustering';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { seasonMarginUpdate } from '../season/seasonTiers';
 // Pure math, apart so it can be unit-tested. Internal module.
 import { pushWindows, windowProfit, planRemoval, WEEK_MS } from './coordProfitMath';
@@ -57,7 +57,7 @@ async function coordProfitFor(uid: string) {
   const [tradeSnap, marketSnap] = await Promise.all([
     db
       .collection('trades')
-      .where('timestamp', '>=', admin.firestore.Timestamp.fromMillis(since - WEEK_MS))
+      .where('timestamp', '>=', Timestamp.fromMillis(since - WEEK_MS))
       .select('uid', 'ticker', 'action', 'priceImpact', 'source', 'timestamp', 'amount', 'totalValue')
       .get(),
     db.collection('market').doc('current').get(),
@@ -219,7 +219,7 @@ export const adminRemoveCoordProfit = cf().https.onCall(
         addedDebt: plan.toDebt,
         delta: -amount,
         memo,
-        at: admin.firestore.FieldValue.serverTimestamp(),
+        at: FieldValue.serverTimestamp(),
         by: context.auth!.uid,
       });
       return { preview: false, ...plan, marginCallLine: LONG_MARGIN_CALL_THRESHOLD };

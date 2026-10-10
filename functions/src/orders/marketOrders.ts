@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -93,7 +94,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
   const preMarketSnap = await db
     .collection('preMarketOrders')
     .where('status', '==', 'PENDING')
-    .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(sessionStart))
+    .where('createdAt', '>=', Timestamp.fromDate(sessionStart))
     .get();
 
   logger.info(`runMarketOpenProcessing(${trigger}): ${preMarketSnap.size} pre-market orders in opening auction`);
@@ -116,7 +117,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
     await doc.ref.update({
       status: 'FAILED',
       failReason: reason,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     await writeNotification(order.userId, {
       type: 'trade',
@@ -134,7 +135,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
     // failed here and contribute nothing — no more phantom demand pumping
     // the open, and no free manipulation by queueing unaffordable buys.
     const orders = preMarketSnap.docs
-      .map((doc) => ({ doc, order: doc.data() as PreMarketOrder & { createdAt?: admin.firestore.Timestamp } }))
+      .map((doc) => ({ doc, order: doc.data() as PreMarketOrder & { createdAt?: Timestamp } }))
       .sort((a, b) => (a.order.createdAt?.toMillis?.() || 0) - (b.order.createdAt?.toMillis?.() || 0));
 
     const userCache = new Map<string, UserData | null>();
@@ -336,11 +337,11 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               marketPrice: prices.openingPrice,
             });
             transaction.update(userRef, {
-              cash: admin.firestore.FieldValue.increment(-executionPrice * localFillShares),
+              cash: FieldValue.increment(-executionPrice * localFillShares),
               [`holdings.${order.ticker}`]: newHoldings,
               [`costBasis.${order.ticker}`]: newCostBasis,
-              [`lastBuyTime.${order.ticker}`]: admin.firestore.Timestamp.now(),
-              lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+              [`lastBuyTime.${order.ticker}`]: Timestamp.now(),
+              lastTradeTime: FieldValue.serverTimestamp(),
               // Dividend/exit-loyalty lot ledger — same write executeTrade
               // makes. Without it these shares had no lot, and the next
               // dividend run restarted their 10-day clock from scratch.
@@ -385,16 +386,16 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               marketPrice: prices.openingPrice,
             });
             const updates: Record<string, unknown> = {
-              cash: admin.firestore.FieldValue.increment(executionPrice * localFillShares),
-              lastTradeTime: admin.firestore.FieldValue.serverTimestamp(),
+              cash: FieldValue.increment(executionPrice * localFillShares),
+              lastTradeTime: FieldValue.serverTimestamp(),
               // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
               ...cohortRemoveUpdate(ud, order.ticker, localFillShares),
               ...creditUpdates,
             };
             if (!newHoldings) {
-              updates[`holdings.${order.ticker}`] = admin.firestore.FieldValue.delete();
-              updates[`costBasis.${order.ticker}`] = admin.firestore.FieldValue.delete();
-              updates[`lowestWhileHolding.${order.ticker}`] = admin.firestore.FieldValue.delete();
+              updates[`holdings.${order.ticker}`] = FieldValue.delete();
+              updates[`costBasis.${order.ticker}`] = FieldValue.delete();
+              updates[`lowestWhileHolding.${order.ticker}`] = FieldValue.delete();
             } else {
               updates[`holdings.${order.ticker}`] = newHoldings;
             }
@@ -422,8 +423,8 @@ export const runMarketOpenProcessing = async (trigger: string) => {
             status: localFillShares < order.shares ? 'PARTIALLY_FILLED' : 'FILLED',
             filledShares: localFillShares,
             executedPrice: executionPrice,
-            executedAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            executedAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
 
           fillShares = localFillShares;
@@ -493,14 +494,14 @@ export const runMarketOpenProcessing = async (trigger: string) => {
   const staleSnap = await db
     .collection('preMarketOrders')
     .where('status', '==', 'PENDING')
-    .where('createdAt', '<', admin.firestore.Timestamp.fromDate(sessionStart))
+    .where('createdAt', '<', Timestamp.fromDate(sessionStart))
     .get();
   for (const doc of staleSnap.docs) {
     const order = doc.data() as PreMarketOrder;
     await doc.ref.update({
       status: 'EXPIRED',
       failReason: 'Order missed its opening auction',
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     await writeNotification(order.userId, {
       type: 'trade',

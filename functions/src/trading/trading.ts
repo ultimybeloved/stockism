@@ -16,6 +16,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { CHARACTERS } from '../shared/characters';
@@ -100,7 +101,7 @@ export const executeTrade = cf().https.onCall(
     try {
       const userRef = db.collection('users').doc(uid);
       const marketRef = db.collection('market').doc('current');
-      const now = admin.firestore.Timestamp.now().toMillis();
+      const now = Timestamp.now().toMillis();
 
       // Velocity limits run OUT here, not inside the transaction, because they
       // query the trades collection non-transactionally. Inside, a retry would
@@ -202,7 +203,7 @@ export const executeTrade = cf().https.onCall(
                 shares: pos.shares,
                 costBasis: pos.costBasis || pos.entryPrice || 0,
                 margin: pos.margin || 0,
-                openedAt: pos.openedAt || admin.firestore.Timestamp.now(),
+                openedAt: pos.openedAt || Timestamp.now(),
                 system: pos.system || 'v2',
               };
             }

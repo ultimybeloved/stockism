@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
 import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
@@ -46,7 +47,7 @@ const getThisWeeksPreMarketStart = () => {
   const now = new Date();
   const d = new Date(now);
   d.setUTCHours(20, 30, 0, 0);
-  return admin.firestore.Timestamp.fromDate(d);
+  return Timestamp.fromDate(d);
 };
 
 export const createPreMarketOrder = cf().https.onCall(
@@ -235,7 +236,7 @@ export const createPreMarketOrder = cf().https.onCall(
       shares,
       allowPartialFills,
       status: 'PENDING',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       executedAt: null,
       executedPrice: null,
       filledShares: null,
@@ -286,7 +287,7 @@ export const cancelPreMarketOrder = cf().https.onCall(async (data: { orderId?: u
 
   await db.collection('preMarketOrders').doc(orderId).update({
     status: 'CANCELED',
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   return { success: true };

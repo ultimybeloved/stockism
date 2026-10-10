@@ -8,6 +8,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldPath, FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import { STARTING_CASH } from '../shared/constants';
@@ -277,7 +278,7 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
     // Clear bankruptcy timestamp
     const userData = userSnap.data()!;
     if (userData.bankruptAt) {
-      updates.bankruptAt = admin.firestore.FieldValue.delete();
+      updates.bankruptAt = FieldValue.delete();
     }
 
     // Restore holdings for bailout users
@@ -289,7 +290,7 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
     }
 
     // Add repair log
-    updates._repairLog = admin.firestore.FieldValue.arrayUnion({
+    updates._repairLog = FieldValue.arrayUnion({
       type: 'spike_repair',
       repairedAt: Date.now(),
       repairedBy: context.auth!.uid,
@@ -327,7 +328,7 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
         };
 
         if (userData.bankruptAt) {
-          updates.bankruptAt = admin.firestore.FieldValue.delete();
+          updates.bankruptAt = FieldValue.delete();
         }
 
         if (victim.tookBailout && victim.holdingsToRestore) {
@@ -337,7 +338,7 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
           }
         }
 
-        updates._repairLog = admin.firestore.FieldValue.arrayUnion({
+        updates._repairLog = FieldValue.arrayUnion({
           type: 'spike_repair',
           repairedAt: Date.now(),
           repairedBy: context.auth!.uid,
@@ -392,7 +393,7 @@ export const reconstructPortfolioHistory = cf({ timeoutSeconds: 540, memory: '1G
       // accepts the ID value directly without needing a snapshot fetch).
       let q = db
         .collection('users')
-        .orderBy(admin.firestore.FieldPath.documentId())
+        .orderBy(FieldPath.documentId())
         .limit(batchLimit + 1); // fetch one extra to detect if more pages remain
       if (startAfterUid) {
         q = q.startAfter(startAfterUid);

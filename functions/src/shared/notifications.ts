@@ -1,6 +1,7 @@
 // Player notifications and the public feed.
 
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { FEED_TTL_MS } from './constants';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
@@ -20,7 +21,7 @@ export const writeNotification = async (
       title,
       message,
       read: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       data, // { ticker?, price?, orderId?, achievementId? }
     });
   } catch (err) {
@@ -66,7 +67,7 @@ export const writeFeedEntry = async ({
     // 2026-09-22, the oldest expired 190 days earlier.
     //
     // Nothing reads this field; it exists purely for the TTL policy to act on.
-    const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + FEED_TTL_MS);
+    const expiresAt = Timestamp.fromMillis(Date.now() + FEED_TTL_MS);
     await db.collection('feed').add({
       type, // 'trade', 'achievement', 'mission_complete'
       userId,
@@ -78,7 +79,7 @@ export const writeFeedEntry = async ({
       price: price || null,
       achievementId: achievementId || null,
       message,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       expiresAt,
       displayAfter: displayAfter || null,
     });

@@ -1,6 +1,7 @@
 // Trade records and the mission / stat credit every fill lane books.
 
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import {
   CREW_MEMBERS,
   ALL_CREW_TICKERS,
@@ -51,12 +52,12 @@ export const buildTradeCreditUpdates = ({
   const todayDate = new Date(now).toISOString().split('T')[0];
   const weekId = getWeekId(new Date(now));
   const updates: Record<string, unknown> = {
-    totalTrades: admin.firestore.FieldValue.increment(1),
-    [`dailyMissions.${todayDate}.tradesCount`]: admin.firestore.FieldValue.increment(1),
-    [`dailyMissions.${todayDate}.tradeVolume`]: admin.firestore.FieldValue.increment(shares),
-    [`weeklyMissions.${weekId}.tradeValue`]: admin.firestore.FieldValue.increment(totalValue),
-    [`weeklyMissions.${weekId}.tradeVolume`]: admin.firestore.FieldValue.increment(shares),
-    [`weeklyMissions.${weekId}.tradeCount`]: admin.firestore.FieldValue.increment(1),
+    totalTrades: FieldValue.increment(1),
+    [`dailyMissions.${todayDate}.tradesCount`]: FieldValue.increment(1),
+    [`dailyMissions.${todayDate}.tradeVolume`]: FieldValue.increment(shares),
+    [`weeklyMissions.${weekId}.tradeValue`]: FieldValue.increment(totalValue),
+    [`weeklyMissions.${weekId}.tradeVolume`]: FieldValue.increment(shares),
+    [`weeklyMissions.${weekId}.tradeCount`]: FieldValue.increment(1),
     [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true,
   };
   let animalProfitTotal: number | null = null;
@@ -69,7 +70,7 @@ export const buildTradeCreditUpdates = ({
       const crewMembers = CREW_MEMBERS[userCrew] || [];
       if (crewMembers.includes(ticker)) {
         updates[`dailyMissions.${todayDate}.boughtCrewMember`] = true;
-        updates[`dailyMissions.${todayDate}.crewSharesBought`] = admin.firestore.FieldValue.increment(shares);
+        updates[`dailyMissions.${todayDate}.crewSharesBought`] = FieldValue.increment(shares);
       }
       if (!crewMembers.includes(ticker) && ALL_CREW_TICKERS.has(ticker)) {
         updates[`dailyMissions.${todayDate}.boughtRival`] = true;
@@ -157,7 +158,7 @@ export function recordTrade(
     price,
     priceImpact,
     totalValue,
-    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    timestamp: FieldValue.serverTimestamp(),
     ip,
   };
   if (cashBefore !== null) record.cashBefore = cashBefore;

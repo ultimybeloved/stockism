@@ -4,6 +4,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -219,9 +220,9 @@ export const createLimitOrder = cf().https.onCall(
       allowPartialFills: !!allowPartialFills,
       status: 'PENDING',
       filledShares: 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       expiresAt,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
     // Kept off the order doc on purpose: see orderNetwork.js.
     await recordOrderOrigin(orderRef.id, { uid, key: networkKey });

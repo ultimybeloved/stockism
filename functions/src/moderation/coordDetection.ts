@@ -30,6 +30,7 @@
 
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -53,7 +54,7 @@ const STATE_REF = () => db.collection('coordDetection').doc('state');
 
 const DAY_MS = TWENTY_FOUR_HOURS_MS;
 // Also reads `_seconds`, the shape a Timestamp takes after a JSON round trip.
-const toMs = (ts: admin.firestore.Timestamp | number | { _seconds?: number; seconds?: number } | null | undefined) => {
+const toMs = (ts: Timestamp | number | { _seconds?: number; seconds?: number } | null | undefined) => {
   if (!ts) return 0;
   if (typeof ts === 'number') return ts;
   const stamp = ts as { toMillis?: () => number; _seconds?: number; seconds?: number };
@@ -189,7 +190,7 @@ async function runCoordScan({ dryRun = false } = {}) {
       // push made each of them from that moment.
       startedAt: c.startedAt,
       groupBlocked: c.direction === 'down' && c.tight,
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
     });
   }
   if (fresh.length) await batch.commit();

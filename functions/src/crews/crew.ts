@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import {
   CREW_MEMBERS,
@@ -116,7 +117,7 @@ export const switchCrew = cf().https.onCall(async (data: { crewId?: unknown }, c
       const updateData: Record<string, unknown> = {
         crew: crewId,
         crewJoinedAt: now,
-        crewHistory: admin.firestore.FieldValue.arrayUnion(crewId),
+        crewHistory: FieldValue.arrayUnion(crewId),
         // The crown never travels: it's earned per crew by the weekly
         // rotation, so any crew change strips it immediately.
         isCrewHead: false,
