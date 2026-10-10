@@ -57,10 +57,13 @@ const topUserBackups = async () => {
 
 /**
  * Automated Backup System
- * Runs every 24 hours to back up critical market data
+ * Runs daily at 01:20 UTC to back up critical market data
  */
 export const backupMarketData = cf()
-  .pubsub.schedule('every 24 hours')
+  // Fixed clock time, not 'every 24 hours': an interval schedule restarts its
+  // countdown on every deploy, so a few deploys in a row skipped whole days.
+  .pubsub.schedule('20 1 * * *')
+  .timeZone('UTC')
   .onRun(async (_context) => {
     try {
       const bucket = admin.storage().bucket();

@@ -207,13 +207,15 @@ export const archivePriceHistory = cf().https.onCall(async (data, context) => {
 });
 
 // Alert-cooldown cleanup has no callable form on purpose: scheduledArchiving
-// below runs doCleanupAlertedThresholds() every 24h, so a manual trigger would
+// below runs doCleanupAlertedThresholds() daily, so a manual trigger would
 // only be doing the same job a few hours early.
 
-// Scheduled function: Auto-archive every 24 hours
+// Scheduled function: Auto-archive daily at 01:20 UTC
 export const scheduledArchiving = cf()
-  .pubsub.schedule('every 24 hours')
-  .timeZone('America/New_York')
+  // Fixed clock time, not 'every 24 hours': an interval schedule restarts its
+  // countdown on every deploy, so a few deploys in a row skipped whole days.
+  .pubsub.schedule('20 1 * * *')
+  .timeZone('UTC')
   .onRun(async (_context) => {
     logger.info('Running scheduled archiving...');
 
@@ -240,11 +242,13 @@ export const scheduledArchiving = cf()
 
 /**
  * Sync All Portfolio Values
- * Runs every 24 hours to recalculate and update all users' portfolio values
+ * Runs daily at 01:20 UTC to recalculate and update all users' portfolio values
  * Ensures leaderboards and rankings reflect current market prices
  */
 export const syncAllPortfolios = cf()
-  .pubsub.schedule('every 24 hours')
+  // Fixed clock time, not 'every 24 hours': an interval schedule restarts its
+  // countdown on every deploy, so a few deploys in a row skipped whole days.
+  .pubsub.schedule('20 1 * * *')
   .timeZone('UTC')
   .onRun(async (_context) => {
     try {

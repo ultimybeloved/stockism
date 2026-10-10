@@ -14,7 +14,8 @@ import * as logger from 'firebase-functions/logger';
  * that belongs to the wrong bot passes the /users/@me check but 403s on every channel.
  */
 export const discordHealthCheck = cf()
-  .pubsub.schedule('every 24 hours')
+  // Fixed clock time on purpose: 'every 24 hours' restarts its countdown on every deploy.
+  .pubsub.schedule('0 2 * * *')
   .timeZone('UTC')
   .onRun(async () => {
     const token = process.env.DISCORD_BOT_TOKEN;
@@ -110,7 +111,10 @@ export const discordHealthCheck = cf()
  * install timestamp is what separates them.
  */
 export const scheduledJobWatchdog = cf()
-  .pubsub.schedule('every 24 hours')
+  // 02:00 UTC, after the 01:20 nightly jobs, so their heartbeats are fresh when checked.
+  // Fixed clock time on purpose: 'every 24 hours' restarts its countdown on every deploy,
+  // so back-to-back deploys could stop the watchdog itself from ever running.
+  .pubsub.schedule('0 2 * * *')
   .timeZone('UTC')
   .onRun(async () => {
     const snap = await HEARTBEAT_DOC().get();
