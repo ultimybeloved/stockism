@@ -69,7 +69,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'backend',
-          include: ['functions/src/**/*.test.{js,ts}', 'scripts/**/*.test.js'],
+          include: ['functions/src/**/*.test.ts', 'scripts/**/*.test.js'],
           setupFiles: ['functions/test/setup.ts'],
         },
       },

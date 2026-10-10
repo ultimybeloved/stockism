@@ -2,20 +2,20 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { clusterTrades, foldTrades } = require('./coordClustering');
+const { clusterTrades, foldTrades } = require('./coordClustering') as typeof import('./coordClustering');
 const {
   COORD_MIN_ACCOUNTS,
   COORD_MIN_COMBINED_IMPACT,
   COORD_MIN_EACH_IMPACT,
   COORD_TIGHT_WINDOW_MS,
   COORD_HIGH_COMBINED_IMPACT,
-} = require('../shared/constants');
+} = require('../shared/constants') as typeof import('../shared/constants');
 
 // A fixed midday timestamp so nothing here straddles a UTC date boundary.
 const T0 = Date.parse('2026-09-17T12:00:00Z');
-const at = (mins) => T0 + mins * 60 * 1000;
+const at = (mins: number) => T0 + mins * 60 * 1000;
 
-const sell = (uid, impact, mins = 0, extra = {}) => ({
+const sell = (uid: string, impact: number, mins = 0, extra = {}) => ({
   uid,
   ticker: 'SHNG',
   action: 'sell',
@@ -23,7 +23,13 @@ const sell = (uid, impact, mins = 0, extra = {}) => ({
   ts: at(mins),
   ...extra,
 });
-const buy = (uid, impact, mins = 0) => ({ uid, ticker: 'SHNG', action: 'buy', priceImpact: impact, ts: at(mins) });
+const buy = (uid: string, impact: number, mins = 0) => ({
+  uid,
+  ticker: 'SHNG',
+  action: 'buy',
+  priceImpact: impact,
+  ts: at(mins),
+});
 
 describe('clusterTrades', () => {
   it('flags several accounts pushing the same way past the combined threshold', () => {

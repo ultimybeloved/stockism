@@ -16,7 +16,7 @@ const {
   rulesFor,
   higherTier,
   buildSeasonBaseline,
-  seasonScore,
+  seasonScore: seasonScoreOrNull,
   seasonCapital,
   seasonAccountSize,
   marginDollarDays,
@@ -35,7 +35,12 @@ const {
   rankTopTiers,
   isTopTierExcluded,
   averageGranted,
-} = require('./seasonTiers');
+} = require('./seasonTiers') as typeof import('./seasonTiers');
+
+// Most cases score a valid player; the ones that expect null still get it back.
+const seasonScore = (...args: Parameters<typeof seasonScoreOrNull>) => seasonScoreOrNull(...args)!;
+type CheckpointInput = Parameters<typeof checkpointTier>[0];
+type ScoreUser = Parameters<typeof seasonScore>[0];
 const {
   grantedTotalAt,
   grantedSince,
@@ -44,7 +49,7 @@ const {
   predictionFlowUpdate,
   grantedFlowUpdate,
   grantedValueUpdate,
-} = require('../shared/helpers');
+} = require('../shared/helpers') as typeof import('../shared/helpers');
 
 const season = { id: 'S1', indexAtStart: 1000 };
 const DAY = 24 * 60 * 60 * 1000;
@@ -193,12 +198,13 @@ describe('money in mid-season', () => {
     pinnedAt: T0,
   });
   // What the server's grantedValueUpdate / grantedFlowUpdate add to the counters.
-  const book = (u, amount, t) => ({
+  const book = (u: NonNullable<ScoreUser>, amount: number, t: number) => ({
     ...u,
     grantedValue: (u.grantedValue || 0) + amount,
     grantedDays: (u.grantedDays || 0) + frontendSeasonWeeks.grantedDaysFor(amount, t),
   });
-  const at = (u, value, t) => seasonScore(u, season, { value, indexNow: 1000, granted: undefined, at: t });
+  const at = (u: ScoreUser, value: number, t: number) =>
+    seasonScore(u, season, { value, indexNow: 1000, granted: undefined, at: t });
 
   it('collecting a mission never lowers the return', () => {
     // Reported bug: +$1k trading was 10%, a $500 mission dropped it to 9.5%.
@@ -224,7 +230,7 @@ describe('money in mid-season', () => {
   });
 
   it('counts it in full for a baseline pinned before the counter existed', () => {
-    const { grantedDays, ...old } = pinned;
+    const { grantedDays: _, ...old } = pinned;
     const u = { seasonBaseline: old, grantedValue: 1000, grantedDays: 123 };
     expect(at(u, 12100, T0 + 20 * DAY).returnPercent).toBeCloseTo((1100 / 11000) * 100, 9);
   });
@@ -237,7 +243,7 @@ describe('money in mid-season', () => {
     const a = frontendSeasonWeeks.grantedDaysFor(700, wk - 1000);
     const rows = [{ s: 'S1', w: 1, t: wk, v: 11000, g: 700, a, x: 1029, c: 0, h: 0, d: 0 }];
     expect(weeklyRecordSummary(rows, ctx, 1).beatWeeks).toBe(1);
-    const { a: _drop, ...oldRow } = rows[0];
+    const { a: _, ...oldRow } = rows[0];
     expect(weeklyRecordSummary([oldRow], ctx, 1).beatWeeks).toBe(0);
 
     const site = frontendSeasonWeeks.deriveSeasonWeeks(rows, {
@@ -262,7 +268,10 @@ describe('money in mid-season', () => {
       [500, undefined, T0, wk],
       [100, 5, wk, wk],
     ]) {
-      expect(frontendSeasonWeeks.averageGranted(g, d, from, to)).toBe(averageGranted(g, d, from, to));
+      // d is deliberately missing in one case.
+      expect(frontendSeasonWeeks.averageGranted(g!, d as number, from!, to!)).toBe(
+        averageGranted(g!, d as number, from!, to!),
+      );
     }
   });
 });
@@ -338,8 +347,8 @@ describe('checkpointTier', () => {
   });
 
   it('never banks anything above Bronze, however well the week went', () => {
-    expect(checkpointTier({ returnPercent: 900, marketPercent: 0, activeWeeks: 20 })).toBe('bronze');
-    expect(checkpointTier({ returnPercent: 900, marketPercent: 0, activeWeeks: 0 })).toBeNull();
+    expect(checkpointTier({ returnPercent: 900, marketPercent: 0, activeWeeks: 20 } as CheckpointInput)).toBe('bronze');
+    expect(checkpointTier({ returnPercent: 900, marketPercent: 0, activeWeeks: 0 } as CheckpointInput)).toBeNull();
   });
 });
 
@@ -381,35 +390,34 @@ describe('standingTier', () => {
 
 describe('finalTier', () => {
   const ranked = new Map([['p', 'platinum']]);
+  // Fixtures carry only the fields finalTier reads.
+  const finalOf = (p: Partial<Parameters<typeof finalTier>[0]>) =>
+    finalTier(p as Parameters<typeof finalTier>[0], ranked);
 
   it('judges Silver and Gold on where the player finishes, not a week they touched it', () => {
     // Ahead of the market once mid-season, behind at the end: Bronze only.
-    expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: -3, marketPercent: 4 }, ranked)).toBe('bronze');
-    expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: 2, marketPercent: 4 }, ranked)).toBe('silver');
-    expect(finalTier({ uid: 'a', tier: 'bronze', returnPercent: 9, marketPercent: 4 }, ranked)).toBe('gold');
+    expect(finalOf({ uid: 'a', tier: 'bronze', returnPercent: -3, marketPercent: 4 })).toBe('bronze');
+    expect(finalOf({ uid: 'a', tier: 'bronze', returnPercent: 2, marketPercent: 4 })).toBe('silver');
+    expect(finalOf({ uid: 'a', tier: 'bronze', returnPercent: 9, marketPercent: 4 })).toBe('gold');
   });
 
   it('gives nothing above Bronze to a player who never earned Bronze', () => {
     // The abandoned account whose stocks rose: up and ahead, but never turned up.
-    expect(finalTier({ uid: 'a', tier: null, activeWeeks: 1, returnPercent: 40, marketPercent: 4 }, ranked)).toBeNull();
-    expect(finalTier({ uid: 'p', tier: null, activeWeeks: 0, returnPercent: 50, marketPercent: 4 }, ranked)).toBeNull();
+    expect(finalOf({ uid: 'a', tier: null, activeWeeks: 1, returnPercent: 40, marketPercent: 4 })).toBeNull();
+    expect(finalOf({ uid: 'p', tier: null, activeWeeks: 0, returnPercent: 50, marketPercent: 4 })).toBeNull();
   });
 
   it('counts Bronze turnout that has not been banked yet', () => {
-    expect(finalTier({ uid: 'a', tier: null, activeWeeks: 2, returnPercent: 9, marketPercent: 4 }, ranked)).toBe(
-      'gold',
-    );
-    expect(finalTier({ uid: 'a', tier: null, activeWeeks: 2, returnPercent: -9, marketPercent: 4 }, ranked)).toBe(
-      'bronze',
-    );
+    expect(finalOf({ uid: 'a', tier: null, activeWeeks: 2, returnPercent: 9, marketPercent: 4 })).toBe('gold');
+    expect(finalOf({ uid: 'a', tier: null, activeWeeks: 2, returnPercent: -9, marketPercent: 4 })).toBe('bronze');
   });
 
   it('takes a ranked place over the standing tier', () => {
-    expect(finalTier({ uid: 'p', tier: 'bronze', returnPercent: 50, marketPercent: 4 }, ranked)).toBe('platinum');
+    expect(finalOf({ uid: 'p', tier: 'bronze', returnPercent: 50, marketPercent: 4 })).toBe('platinum');
   });
 
   it('gives nothing to a player with nothing', () => {
-    expect(finalTier({ uid: 'z', tier: null, returnPercent: -1, marketPercent: 4 }, ranked)).toBeNull();
+    expect(finalOf({ uid: 'z', tier: null, returnPercent: -1, marketPercent: 4 })).toBeNull();
   });
 });
 
@@ -423,8 +431,10 @@ describe('higherTier', () => {
 });
 
 describe('weeklyRecordSummary', () => {
-  const ctx = { seasonId: 'S1', baselineValue: 10000, baselineIndex: 1000 };
-  const row = (w, v, x, c = 0, h = 0, g = 0) => ({ s: 'S1', w, t: w, v, g, x, c, h });
+  const ctx = { seasonId: 'S1', baselineValue: 10000, baselineIndex: 1000 } as Parameters<
+    typeof weeklyRecordSummary
+  >[1];
+  const row = (w: number, v: number, x: number, c = 0, h = 0, g = 0) => ({ s: 'S1', w, t: w, v, g, x, c, h });
 
   it('counts the weeks that beat the market', () => {
     const out = weeklyRecordSummary(
@@ -497,7 +507,7 @@ describe('topTierSlots', () => {
 });
 
 describe('rankTopTiers', () => {
-  const player = (uid, excess, extra = {}) => ({
+  const player = (uid: string, excess: number, extra = {}) => ({
     uid,
     excess,
     returnPercent: excess,
@@ -686,12 +696,12 @@ describe('size divisions', () => {
 
   it('matches the site', () => {
     for (const v of [0, 500, 10000, 49999, 50000, 200000, 1e7]) {
-      expect(frontendSeasons.seasonDivisionFor(v).id).toBe(divisionFor(v));
+      expect(frontendSeasons.seasonDivisionFor(v)!.id).toBe(divisionFor(v));
     }
   });
 
   it('ranks Platinum and Diamond within each division, not across the board', () => {
-    const p = (uid, excess, division) => ({
+    const p = (uid: string, excess: number, division: string) => ({
       uid,
       excess,
       returnPercent: excess,
@@ -740,7 +750,7 @@ describe('exitEquityAt', () => {
   });
 
   it("costs a bigger position more, capped at one order's 5% move", () => {
-    const haircut = (shares) => 1 - exitEquityAt({ holdings: { SOPH: shares } }, prices) / (100 * shares);
+    const haircut = (shares: number) => 1 - exitEquityAt({ holdings: { SOPH: shares } }, prices) / (100 * shares);
     expect(haircut(1000)).toBeGreaterThan(haircut(100));
     expect(haircut(100000)).toBeCloseTo(0.05, 5);
   });
@@ -798,7 +808,7 @@ describe('seasonTitles', () => {
 });
 
 describe('lastHaltStart', () => {
-  const at = (iso) => Date.parse(iso);
+  const at = (iso: string) => Date.parse(iso);
   it('is this Thursday 13:00 UTC from later in the week', () => {
     expect(lastHaltStart(at('2026-09-18T01:33:00Z'))).toBe(at('2026-09-17T13:00:00Z'));
     expect(lastHaltStart(at('2026-09-23T23:00:00Z'))).toBe(at('2026-09-17T13:00:00Z'));

@@ -31,4 +31,4 @@ and player and IP trade-history share counts. Feed entries stay as history.
 
 **Tests:** `npm run test:split` (emulator, end to end: value and index
 unchanged, same percent move for the same dollar trade, pause/resume, never
-twice) and `functions/src/market/stockSplit.test.js`.
+twice) and `functions/src/market/stockSplit.test.ts`.

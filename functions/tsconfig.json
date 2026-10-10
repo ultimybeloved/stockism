@@ -1,6 +1,6 @@
 {
-  // Builds functions/src (TypeScript and not-yet-converted JavaScript) into
-  // functions/lib, which is what Firebase deploys and the emulator loads.
+  // Builds functions/src into functions/lib, which is what Firebase deploys and
+  // the emulator loads.
   // Run with `npm run build:functions` from the repo root.
   "compilerOptions": {
     "target": "ES2022",
@@ -9,7 +9,6 @@
     "moduleResolution": "node",
     "rootDir": "src",
     "outDir": "lib",
-    "allowJs": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
@@ -21,5 +20,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.js", "src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts"]
 }

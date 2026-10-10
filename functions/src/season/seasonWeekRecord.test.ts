@@ -8,7 +8,8 @@ const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
-const { buildWeekRecord, appendWeekRecord, isSeasonParticipant } = require('./seasonRecords');
+const { buildWeekRecord, appendWeekRecord, isSeasonParticipant } =
+  require('./seasonRecords') as typeof import('./seasonRecords');
 
 const season = { id: 'S1' };
 const prices = { GAP: 100, SHNG: 50, JAY: 20 };
@@ -86,8 +87,8 @@ describe('buildWeekRecord', () => {
 
   it('counts a crew fund toward the members it tracks', () => {
     // 55% in GOO and 45% in its crew fund SCRT, split five ways: 55% + 9% = 64% on GOO.
-    const { CHARACTER_MAP } = require('../shared/characters');
-    const members = CHARACTER_MAP.SCRT.trailingFactors.map((f) => f.ticker);
+    const { CHARACTER_MAP } = require('../shared/characters') as typeof import('../shared/characters');
+    const members = CHARACTER_MAP.SCRT.trailingFactors!.map((f) => f.ticker);
     const userData = { ...base, holdings: { [members[0]]: 55, SCRT: 45 } };
     const r = buildWeekRecord({
       season,
@@ -102,7 +103,8 @@ describe('buildWeekRecord', () => {
 });
 
 describe('appendWeekRecord', () => {
-  const rec = (w, s = 'S1') => ({ s, w, t: w, v: 1, g: 0, x: 1000, c: 0, h: 0 });
+  type WeekRecord = Parameters<typeof appendWeekRecord>[1];
+  const rec = (w: number, s = 'S1'): WeekRecord => ({ s, w, t: w, v: 1, g: 0, x: 1000, c: 0, h: 0 });
 
   it('appends in order', () => {
     const out = appendWeekRecord([rec(1), rec(2)], rec(3));
@@ -129,7 +131,7 @@ describe('appendWeekRecord', () => {
   });
 
   it('caps the series so one long season cannot grow the doc without bound', () => {
-    let series = [];
+    let series: WeekRecord[] = [];
     for (let w = 1; w <= 200; w++) series = appendWeekRecord(series, rec(w));
     expect(series.length).toBeLessThanOrEqual(80);
     expect(series[series.length - 1].w).toBe(200);
@@ -139,11 +141,12 @@ describe('appendWeekRecord', () => {
 describe('what the record makes computable', () => {
   // Nothing below is stored. All of it falls out of consecutive raw rows, which
   // is the reason the rule can still be changed after a season has started.
-  const weekly = (prev, curr) => {
+  type Row = { v: number; g: number; x: number };
+  const weekly = (prev: Row, curr: Row) => {
     const grantsThisWeek = curr.g - prev.g;
     return (curr.v - grantsThisWeek - prev.v) / prev.v;
   };
-  const indexWeekly = (prev, curr) => (curr.x - prev.x) / prev.x;
+  const indexWeekly = (prev: Row, curr: Row) => (curr.x - prev.x) / prev.x;
 
   const w1 = { s: 'S1', w: 1, t: 1, v: 10000, g: 0, x: 1000, c: 5000, h: 9000 };
   const w2 = { s: 'S1', w: 2, t: 2, v: 11500, g: 500, x: 1020, c: 6000, h: 10000 };
@@ -168,7 +171,7 @@ describe('isSeasonParticipant', () => {
   // adminStartSeason pins a baseline for EVERY non-bot account, so without this
   // the standings board fills with people who signed up once and never returned.
   const now = Date.parse('2026-09-20T12:00:00Z');
-  const daysAgo = (n) => now - n * 24 * 60 * 60 * 1000;
+  const daysAgo = (n: number) => now - n * 24 * 60 * 60 * 1000;
 
   it('keeps a player who has banked an active week', () => {
     const u = { seasonActiveWeeks: { seasonId: 'S1', weeks: 3 }, lastActive: daysAgo(400) };

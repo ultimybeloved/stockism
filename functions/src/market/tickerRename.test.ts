@@ -5,12 +5,12 @@ const require = createRequire(import.meta.url);
 
 // The engine grabs a Firestore handle at load. Constructing one opens no
 // connection, and everything tested here is pure.
-let R;
+let R: typeof import('./tickerRename');
 
 beforeAll(() => {
   const admin = require('firebase-admin');
   if (!admin.apps.length) admin.initializeApp({ projectId: 'rename-test' });
-  R = require('./tickerRename');
+  R = require('./tickerRename') as typeof import('./tickerRename');
 });
 
 const OLD = 'GUN';
@@ -20,7 +20,8 @@ const NEW = 'GUNX';
 // one that fails.
 const OTHER = 'JIN';
 
-const isDelete = (v) => v && typeof v === 'object' && String(v.constructor?.name || '').includes('DeleteTransform');
+const isDelete = (v: unknown) =>
+  v && typeof v === 'object' && String(v.constructor?.name || '').includes('DeleteTransform');
 
 describe('mapMoveUpdates', () => {
   it('writes nothing when the old key is absent', () => {
@@ -89,7 +90,7 @@ describe('remapObjectArray', () => {
       { ticker: OTHER, n: 1 },
       { ticker: NEW, n: 2 },
     ]);
-    expect(out[0]).toBe(input[0]); // untouched entries are not cloned
+    expect(out![0]).toBe(input[0]); // untouched entries are not cloned
   });
 
   it('works on the index constituent shape, which keys on t not ticker', () => {
@@ -156,7 +157,7 @@ describe('buildUserUpdates', () => {
   });
 
   it('covers every ticker-keyed map on the user document', () => {
-    const userData = {};
+    const userData: Record<string, unknown> = {};
     for (const map of R.USER_TICKER_MAPS) userData[map] = { [OLD]: 1, [OTHER]: 2 };
     const out = R.buildUserUpdates(userData, OLD, NEW);
     for (const map of R.USER_TICKER_MAPS) {

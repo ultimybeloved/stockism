@@ -3,23 +3,26 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
-let decayTarget;
-let neglectFloorFraction;
-let neglectFloorPrice;
-let C;
+type Helpers = typeof import('../shared/helpers');
+let decayTarget: typeof import('./neglectDecayRules').decayTarget;
+let neglectFloorFraction: Helpers['neglectFloorFraction'];
+let neglectFloorPrice: Helpers['neglectFloorPrice'];
+let C: typeof import('../shared/constants');
+type DecayArgs = Parameters<typeof decayTarget>[0];
+type Character = DecayArgs['character'];
 
 beforeAll(() => {
   const admin = require('firebase-admin');
   if (!admin.apps.length) admin.initializeApp({ projectId: 'decay-test' });
-  ({ decayTarget } = require('./neglectDecayRules'));
-  ({ neglectFloorFraction, neglectFloorPrice } = require('../shared/helpers'));
-  C = require('../shared/constants');
+  ({ decayTarget } = require('./neglectDecayRules') as typeof import('./neglectDecayRules'));
+  ({ neglectFloorFraction, neglectFloorPrice } = require('../shared/helpers') as typeof import('../shared/helpers'));
+  C = require('../shared/constants') as typeof import('../shared/constants');
 });
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1_800_000_000_000;
 
-const char = (over = {}) => ({
+const char = (over: Partial<Character> = {}): Character => ({
   ticker: 'TSTA',
   name: 'Test',
   basePrice: 100,
@@ -29,7 +32,7 @@ const char = (over = {}) => ({
 
 // Neglected by default: last traded well outside the window, nobody short,
 // price comfortably above any floor in the band.
-const args = (over = {}) => ({
+const args = (over: Partial<DecayArgs> = {}): DecayArgs => ({
   character: char(),
   price: 100,
   stats: { lastTradedAt: NOW - 30 * DAY, trades: 12 },
@@ -37,6 +40,7 @@ const args = (over = {}) => ({
   priceHistory: {},
   now: NOW,
   trackingStartedAt: NOW - 200 * DAY,
+  haltedTickers: undefined,
   ...over,
 });
 
@@ -199,7 +203,7 @@ describe('the tracking-start floor', () => {
 });
 
 describe('the floor', () => {
-  const floorOf = (ticker, trades) => neglectFloorPrice(char({ ticker }), trades);
+  const floorOf = (ticker: string, trades: number) => neglectFloorPrice(char({ ticker }), trades);
 
   it('stops the decay once reached', () => {
     const floor = floorOf('TSTA', 12);

@@ -79,14 +79,7 @@ export default tseslint.config(
     rules: { 'no-unused-vars': ['warn', unusedVars] },
   },
 
-  // ---- Backend (Cloud Functions, CommonJS) ----
-  {
-    files: ['functions/**/*.js'],
-    languageOptions: { ecmaVersion: 2022, sourceType: 'commonjs', globals: globals.node },
-    rules: { 'no-undef': 'error' },
-  },
-  { files: ['functions/**/*.test.js'], languageOptions: { sourceType: 'module' } },
-  // Converted backend files (TypeScript, compiled to CommonJS by tsc).
+  // ---- Backend (Cloud Functions; TypeScript compiled to CommonJS by tsc) ----
   {
     files: ['functions/{src,test}/**/*.ts'],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
@@ -97,9 +90,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['functions/src/**/*.{js,ts}'],
+    files: ['functions/src/**/*.ts'],
     ignores: ['**/*.test.*', 'functions/src/shared/**'],
     rules: maxLines(600),
   },
-  { files: ['functions/src/index.{js,ts}'], rules: maxLines(15) },
+  { files: ['functions/src/index.ts'], rules: maxLines(15) },
 );

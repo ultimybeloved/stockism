@@ -146,7 +146,8 @@ If a new feature would push a file past its limit, **split the file first, then 
 - Each domain's `services.ts` lists its files that declare Cloud Functions; `functions/src/servicePaths.ts` joins them. The Codebase Map below covers the service files and the internal modules
 - Adding a new Cloud Function: find the right service file and append to it. A new file goes in its domain folder and that folder's `services.ts`. A new domain folder also goes in `DOMAINS` in `servicePaths.ts`
 - Internal modules (tradeGuards, limitOrderMatching, missionChecks, crewMissionProgress, ...) are required directly by their owning service and must NOT be listed in a `services.ts`
-- Backend vitest files sit beside the module they test (`functions/src/season/seasonTiers.test.js`)
+- Backend vitest files sit beside the module they test (`functions/src/season/seasonTiers.test.ts`)
+- They load backend code with `require('./x') as typeof import('./x')` (through `createRequire`), not `import`, so they share the module instance the code under test uses, and still get its types. They typecheck under `functions/tsconfig.test.json`
 - Never add Cloud Function logic directly to `functions/src/index.ts`
 
 **Shared constants** (`functions/src/shared/constants/`)
@@ -320,7 +321,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/season/seasonExclusions.ts` | Admin: players flagged for coordination this season, and keeping one out of Platinum/Diamond (`seasonTopTierExclusion` on the user doc, private) |
 | `functions/src/moderation/coordDetection.ts` | Hourly coordination scan (`35 * * * *`). Alerts + admin DM, then `coordEnforcement.ts` (internal): 48h buy-back + short block for everyone in a TIGHT downward cluster, and the "all in on borrowed money" flag on upward ones. `npm run test:coord` |
 | `functions/src/moderation/coordReview.ts` | Admin: what a flagged push made a player (math in `coordProfitMath.ts`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
-| `functions/src/season/seasonTiers.ts` | **Internal module, not in services.ts.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Thresholds and money maths come from the shared `rules/seasons` + `rules/seasonMoney`; `functions/src/season/seasonTiers.test.js` checks the site's week derivation matches |
+| `functions/src/season/seasonTiers.ts` | **Internal module, not in services.ts.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Thresholds and money maths come from the shared `rules/seasons` + `rules/seasonMoney`; `functions/src/season/seasonTiers.test.ts` checks the site's week derivation matches |
 | `functions/src/season/seasonMoney.ts` | **Internal module.** Writes the season margin tally and reads server-only counters; re-exports the shared `rules/seasonMoney` maths. Re-exported by seasonTiers.ts |
 
 ---
@@ -336,8 +337,8 @@ matching test before and after touching any of these areas.
 | Limit orders (`functions/src/orders/limitOrders.ts`, `limitOrderMatching.ts`) | `npm run test:limitorders` |
 | Admin panel (`src/features/admin/`) | `src/features/admin/components/AdminPanel.test.tsx` (`npm test`) |
 | Ladder game (`src/features/ladder/`) | `src/features/ladder/components/LadderGame.test.tsx` (`npm test`). The timing values in `hooks/animatePath.ts` are load-bearing |
-| Ticker rename engine | `npm run test:rename` and `functions/src/market/tickerRename.test.js` |
-| Stock split engine | `npm run test:split` and `functions/src/market/stockSplit.test.js` |
+| Ticker rename engine | `npm run test:rename` and `functions/src/market/tickerRename.test.ts` |
+| Stock split engine | `npm run test:split` and `functions/src/market/stockSplit.test.ts` |
 | Firestore rules | `npm run test:rules` |
 
 ## Where the weekly halt is enforced

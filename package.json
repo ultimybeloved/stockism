@@ -54,7 +54,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p functions --noEmit"
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p functions --noEmit && tsc -p functions/tsconfig.test.json"
   },
   "dependencies": {
     "@sentry/react": "^10.52.0",
@@ -96,7 +96,7 @@
       "eslint --no-warn-ignored",
       "prettier --write"
     ],
-    "functions/src/**/*.{js,ts}": [
+    "functions/src/**/*.ts": [
       "eslint --no-warn-ignored",
       "prettier --write"
     ],

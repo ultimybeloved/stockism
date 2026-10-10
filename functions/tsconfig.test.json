@@ -1,0 +1,15 @@
+{
+  // Typechecks the backend vitest files (functions/src/**/*.test.ts), which the
+  // build leaves out. Never emits. Run through `npm run typecheck`.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "..",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    // Tests index fixtures freely; an out-of-range read fails the assertion anyway.
+    "noUncheckedIndexedAccess": false
+  },
+  "include": ["src/**/*.test.ts", "test"],
+  "exclude": []
+}

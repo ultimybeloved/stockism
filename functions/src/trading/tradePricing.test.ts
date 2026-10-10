@@ -4,20 +4,17 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 // tradePricing is pure roster maths — no Firestore handle, no network.
-// Lives at the functions root, not next to the module it tests: the backend
-// lint predeploy hook runs over services/ with a CommonJS parser and chokes on
-// the ESM imports every vitest file needs. Same placement as
-// functions/usernameFilter.test.js, for the same reason.
-const { computePriceUpdates } = require('./tradePricing');
-const { CHARACTERS, CHARACTER_MAP } = require('../shared/characters');
+const { computePriceUpdates } = require('./tradePricing') as typeof import('./tradePricing');
+const { CHARACTERS, CHARACTER_MAP } = require('../shared/characters') as typeof import('../shared/characters');
 
 // $JIN, $SHNG and $GAP are mutually linked, which is what made the old
 // depth-first walk order-dependent. Coefficients are read from the roster rather
 // than hardcoded so re-weighting them does not break these tests.
-const linkTo = (from, to) => CHARACTER_MAP[from].trailingFactors.find((t) => t.ticker === to).coefficient;
+const linkTo = (from: string, to: string) =>
+  CHARACTER_MAP[from]!.trailingFactors!.find((t) => t.ticker === to)!.coefficient;
 
 const flatPrices = () => {
-  const prices = {};
+  const prices: Record<string, number> = {};
   CHARACTERS.forEach((c) => {
     prices[c.ticker] = 100;
   });
@@ -57,7 +54,7 @@ describe('computePriceUpdates trailing effects', () => {
     const before = computePriceUpdates({ ticker: 'JIN', currentPrice: 100, newPrice: 105, prices });
 
     const original = CHARACTER_MAP.JIN.trailingFactors;
-    CHARACTER_MAP.JIN.trailingFactors = [...original].reverse();
+    CHARACTER_MAP.JIN.trailingFactors = [...original!].reverse();
     try {
       const after = computePriceUpdates({ ticker: 'JIN', currentPrice: 100, newPrice: 105, prices });
       expect(after).toEqual(before);
@@ -119,11 +116,12 @@ describe('computePriceUpdates trailing effects', () => {
 });
 
 describe('computePriceUpdates ETF propagation', () => {
-  const etfOf = (stock) => CHARACTERS.find((c) => c.isETF && c.trailingFactors?.some((t) => t.ticker === stock));
+  const etfOf = (stock: string) =>
+    CHARACTERS.find((c) => c.isETF && c.trailingFactors?.some((t) => t.ticker === stock));
 
   it('drags a parent ETF when a constituent moves', () => {
     // $GAP sits inside $FIST. Trading the stock has to move the fund.
-    const etf = etfOf('GAP');
+    const etf = etfOf('GAP')!;
     expect(etf).toBeDefined();
     const updates = computePriceUpdates({
       ticker: 'GAP',
@@ -145,7 +143,7 @@ describe('computePriceUpdates ETF propagation', () => {
   });
 
   it('leaves a traded ETF at the price the trade set', () => {
-    const etf = CHARACTERS.find((c) => c.isETF && c.trailingFactors?.length);
+    const etf = CHARACTERS.find((c) => c.isETF && c.trailingFactors?.length)!;
     const updates = computePriceUpdates({
       ticker: etf.ticker,
       currentPrice: 100,
@@ -158,12 +156,12 @@ describe('computePriceUpdates ETF propagation', () => {
   it('totals every constituent instead of compounding them in roster order', () => {
     // Several constituents of one fund move on the same trade. The fund has to
     // land in the same place whichever of them the walk reaches first.
-    const etf = etfOf('GAP');
+    const etf = etfOf('GAP')!;
     const prices = flatPrices();
     const forward = computePriceUpdates({ ticker: 'GAP', currentPrice: 100, newPrice: 105, prices });
 
     const original = etf.trailingFactors;
-    etf.trailingFactors = [...original].reverse();
+    etf.trailingFactors = [...original!].reverse();
     try {
       const reversed = computePriceUpdates({ ticker: 'GAP', currentPrice: 100, newPrice: 105, prices });
       expect(reversed[etf.ticker]).toBe(forward[etf.ticker]);

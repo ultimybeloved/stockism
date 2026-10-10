@@ -6,10 +6,15 @@ const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
-const { buildRow, scoreDryRuns } = require('./seasonDryRun');
+const { buildRow, scoreDryRuns } = require('./seasonDryRun') as typeof import('./seasonDryRun');
 
-const week = (weekId, ranAt, index, rows) => ({ weekId, ranAt, index, rows });
-const row = (uid, v, { g = 0, c = 0, h = 0, n = uid } = {}) => ({ uid, n, v, g, c, h });
+const week = (weekId: string, ranAt: number, index: number, rows: ReturnType<typeof row>[]) => ({
+  weekId,
+  ranAt,
+  index,
+  rows,
+});
+const row = (uid: string, v: number, { g = 0, c = 0, h = 0, n = uid } = {}) => ({ uid, n, v, g, c, h });
 
 describe('buildRow', () => {
   const prices = { GAP: 100, SHNG: 50 };
@@ -51,8 +56,8 @@ describe('scoreDryRuns', () => {
       week('2026-09-24', 2, 1100, [row('a', 12000), row('b', 5000)]),
       week('2026-10-01', 3, 1100, [row('a', 13000), row('b', 6000)]),
     ]);
-    const a = out.scored.find((p) => p.uid === 'a');
-    const b = out.scored.find((p) => p.uid === 'b');
+    const a = out.scored.find((p) => p.uid === 'a')!;
+    const b = out.scored.find((p) => p.uid === 'b')!;
     expect(a.returnPercent).toBe(30);
     expect(a.marketPercent).toBe(10);
     expect(a.excess).toBe(20);
@@ -77,7 +82,7 @@ describe('scoreDryRuns', () => {
       week('w2', 2, 1000, [row('a', 11000)]),
       week('w3', 3, 1000, [row('a', 12000), row('b', 30000)]),
     ]);
-    const b = out.scored.find((p) => p.uid === 'b');
+    const b = out.scored.find((p) => p.uid === 'b')!;
     expect(b.weeks).toBe(2);
     expect(b.beatWeeks).toBe(1);
     expect(b.beatShare).toBe(0.5);
@@ -112,10 +117,10 @@ describe('scoreDryRuns', () => {
       ...fillers,
     ];
     const out = scoreDryRuns([week('w1', 1, 1000, rows1), week('w2', 2, 1000, rows2), week('w3', 3, 1000, rows3)]);
-    const tier = (uid) => out.scored.find((p) => p.uid === uid).tier;
+    const tier = (uid: string) => out.scored.find((p) => p.uid === uid)!.tier;
     expect(tier('sitter')).toBe('platinum');
     expect(tier('spread')).toBe('diamond');
-    expect(out.tierCounts.diamond).toBe(1);
+    expect((out.tierCounts as Record<string, number>).diamond).toBe(1);
   });
 
   it('drops players under the season floor and counts them', () => {

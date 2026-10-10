@@ -14,7 +14,7 @@ const {
   buildMarketSplitUpdates,
   buildOrderSplitUpdates,
   buildTradeSplitUpdates,
-} = require('./stockSplit');
+} = require('./stockSplit') as typeof import('./stockSplit');
 
 describe('stock split arithmetic', () => {
   it('divides prices and multiplies shares, value unchanged', () => {
@@ -65,8 +65,9 @@ describe('buildUserSplitUpdates', () => {
 
   it('keeps what the position is worth and what it cost', () => {
     const up = buildUserSplitUpdates(player, 'SHNG', 10, 's1');
-    expect(up['holdings.SHNG'] * splitPrice(2190.92, 10)).toBeCloseTo(30 * 2190.92, 6);
-    expect(up['holdings.SHNG'] * up['costBasis.SHNG']).toBeCloseTo(30 * 1800, 6);
+    const shares = up['holdings.SHNG'] as number;
+    expect(shares * splitPrice(2190.92, 10)).toBeCloseTo(30 * 2190.92, 6);
+    expect(shares * (up['costBasis.SHNG'] as number)).toBeCloseTo(30 * 1800, 6);
   });
 
   it('never applies the same split twice', () => {

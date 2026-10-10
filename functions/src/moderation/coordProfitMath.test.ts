@@ -5,11 +5,16 @@ const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
-const { pushWindows, windowProfit, planRemoval } = require('./coordProfitMath');
+const { pushWindows, windowProfit, planRemoval } = require('./coordProfitMath') as typeof import('./coordProfitMath');
 
 const H = 3600000;
 const T0 = Date.UTC(2026, 8, 17, 4, 0);
-const tr = (action, shares, price, ts) => ({ action, shares, value: shares * price, ts });
+const tr = (action: string, shares: number, price: number, ts: number) => ({
+  action,
+  shares,
+  value: shares * price,
+  ts,
+});
 
 describe('windowProfit', () => {
   it('matches the $SHNG raid as worked out by hand (Stitch)', () => {
@@ -79,8 +84,8 @@ describe('pushWindows', () => {
     ]);
     expect(w).toHaveLength(2);
     const dg = w.find((x) => x.ticker === 'DG');
-    expect(dg.days).toEqual(['2026-09-20', '2026-09-21']);
-    expect(dg.end).toBe(Date.UTC(2026, 8, 21, 3) + 48 * H);
+    expect(dg!.days).toEqual(['2026-09-20', '2026-09-21']);
+    expect(dg!.end).toBe(Date.UTC(2026, 8, 21, 3) + 48 * H);
   });
 
   it('falls back to the start of the day for alerts written before startedAt existed', () => {
@@ -97,7 +102,7 @@ describe('planRemoval', () => {
     // SHNG comes first but there is only a speck of it; the rest is JYNG.
     expect(out.shares.map((s) => s.ticker)).toEqual(['SHNG', 'JYNG']);
     const jyng = out.shares.find((s) => s.ticker === 'JYNG');
-    expect(jyng.shares).toBeCloseTo((559988 - 0.2 * 2190.92) / 329.01, 1);
+    expect(jyng!.shares).toBeCloseTo((559988 - 0.2 * 2190.92) / 329.01, 1);
     expect(out.fromShares).toBeCloseTo(559988, 0);
     expect(out.fromCash).toBe(0);
     expect(out.toDebt).toBe(0);

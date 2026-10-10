@@ -6,11 +6,12 @@ import { getWeeklyMissionProgress } from '../../../src/utils/missionProgress';
 import { WEEKLY_MISSIONS } from '../../../src/crews';
 
 const require = createRequire(import.meta.url);
-const { WEEKLY_MISSION_CHECKS } = require('./missionChecks');
+const { WEEKLY_MISSION_CHECKS } = require('./missionChecks') as typeof import('./missionChecks');
 
 const builder = WEEKLY_MISSION_CHECKS.PORTFOLIO_BUILDER;
 const moonshot = WEEKLY_MISSION_CHECKS.PORTFOLIO_MOONSHOT;
-const frontend = (wp, userData) =>
+type WeeklyProgress = Parameters<typeof builder>[0];
+const frontend = (wp: WeeklyProgress, userData: { portfolioValue: number; grantedValue: number }) =>
   getWeeklyMissionProgress(WEEKLY_MISSIONS.PORTFOLIO_BUILDER, {
     holdings: {},
     weeklyProgress: wp,

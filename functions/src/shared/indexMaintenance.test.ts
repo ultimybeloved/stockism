@@ -5,18 +5,15 @@ const require = createRequire(import.meta.url);
 
 // Pure maths, no Firestore handle. Lives at the functions root because the
 // backend lint predeploy hook parses services/ as CommonJS.
-const {
-  indexConstituents,
-  sumRatios,
-  sameConstituents,
-  reconcileDivisor,
-  computeIndexValue,
-} = require('./indexMaintenance');
-const { INDEX_BASE_VALUE } = require('./constants');
+const { indexConstituents, sumRatios, sameConstituents, reconcileDivisor, computeIndexValue } =
+  require('./indexMaintenance') as typeof import('./indexMaintenance');
+const { INDEX_BASE_VALUE } = require('./constants') as typeof import('./constants');
 
 // A small synthetic roster keeps the arithmetic checkable by hand.
-const roster = (n, base = 10) => Array.from({ length: n }, (_, i) => ({ t: `T${i}`, b: base }));
-const flat = (constituents, multiplier = 1) => Object.fromEntries(constituents.map((c) => [c.t, c.b * multiplier]));
+type Constituent = { t: string; b: number };
+const roster = (n: number, base = 10): Constituent[] => Array.from({ length: n }, (_, i) => ({ t: `T${i}`, b: base }));
+const flat = (constituents: Constituent[], multiplier = 1) =>
+  Object.fromEntries(constituents.map((c) => [c.t, c.b * multiplier]));
 
 describe('index value', () => {
   it('reads the base value when every character sits at its base price', () => {
@@ -157,7 +154,7 @@ describe('the real roster', () => {
     const c = indexConstituents();
     expect(c.length).toBeGreaterThan(100);
     expect(c.every((x) => x.b > 0)).toBe(true);
-    const { CHARACTERS } = require('./characters');
+    const { CHARACTERS } = require('./characters') as typeof import('./characters');
     const etfTickers = new Set(CHARACTERS.filter((x) => x.isETF).map((x) => x.ticker));
     expect(c.some((x) => etfTickers.has(x.t))).toBe(false);
   });

@@ -6,13 +6,14 @@ const require = createRequire(import.meta.url);
 // helpers.js grabs a Firestore handle at module load, so the app has to exist
 // before it is required. Constructing the handle does not open a connection,
 // and nothing under test touches the network.
-let buildExtremeUpdates;
-let buildTickerFlowUpdate;
+type Helpers = typeof import('../shared/helpers');
+let buildExtremeUpdates: Helpers['buildExtremeUpdates'];
+let buildTickerFlowUpdate: Helpers['buildTickerFlowUpdate'];
 
 beforeAll(() => {
   const admin = require('firebase-admin');
   if (!admin.apps.length) admin.initializeApp({ projectId: 'tickerstats-test' });
-  ({ buildExtremeUpdates, buildTickerFlowUpdate } = require('../shared/helpers'));
+  ({ buildExtremeUpdates, buildTickerFlowUpdate } = require('../shared/helpers') as typeof import('../shared/helpers'));
 });
 
 // Real roster tickers, because the extremes sweep filters through
@@ -69,11 +70,11 @@ describe('all-time high/low marks', () => {
 });
 
 describe('per-ticker money flow', () => {
-  const flow = (action, totalValue) =>
+  const flow = (action: string, totalValue: number) =>
     buildTickerFlowUpdate({ ticker: A, action, amount: 3, totalValue, now: 1000 })[A];
 
   // The increment sentinel carries its operand, which is what needs asserting.
-  const operandOf = (sentinel) => JSON.parse(JSON.stringify(sentinel)).operand;
+  const operandOf = (sentinel: unknown) => JSON.parse(JSON.stringify(sentinel)).operand;
 
   it('counts buying as money going into the stock', () => {
     expect(operandOf(flow('buy', 250).netFlow)).toBe(250);
@@ -102,7 +103,9 @@ describe('per-ticker money flow', () => {
   });
 
   it('treats a missing value as zero rather than writing NaN', () => {
-    const out = buildTickerFlowUpdate({ ticker: A, action: 'buy', now: 1 })[A];
+    const out = buildTickerFlowUpdate({ ticker: A, action: 'buy', amount: undefined, totalValue: undefined, now: 1 })[
+      A
+    ];
     expect(operandOf(out.netFlow)).toBe(0);
     expect(operandOf(out.shares)).toBe(0);
   });

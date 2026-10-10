@@ -62,4 +62,4 @@ Storage. `restoreBackup` remaps keys through that alias, which is what stops a
 pre-rename backup resurrecting a retired ticker.
 
 **Tests:** `npm run test:rename` (emulator, end to end) and the unit tests in
-`functions/src/market/tickerRename.test.js`. Run both before and after touching the engine.
+`functions/src/market/tickerRename.test.ts`. Run both before and after touching the engine.

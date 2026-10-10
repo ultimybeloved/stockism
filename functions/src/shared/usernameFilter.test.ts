@@ -9,7 +9,7 @@ const require = createRequire(import.meta.url);
 const admin = require('firebase-admin');
 if (!admin.apps.length) admin.initializeApp({ projectId: 'offline-test' });
 
-const { isTargetedHarassment, containsProfanity } = require('./helpers');
+const { isTargetedHarassment, containsProfanity } = require('./helpers') as typeof import('./helpers');
 
 // The 17 accounts removed on 2026-08-21. Every one of them was accepted by the
 // signup filter at the time. None of them may ever be accepted again.
@@ -33,7 +33,7 @@ const PURGED = [
   'StitchsGaySon',
 ];
 
-const blocked = (name) => isTargetedHarassment(name) || containsProfanity(name);
+const blocked = (name: string) => isTargetedHarassment(name) || containsProfanity(name);
 
 describe('username harassment filter', () => {
   it.each(PURGED)('blocks the purged name %s', (name) => {
