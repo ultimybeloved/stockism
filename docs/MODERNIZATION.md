@@ -170,6 +170,10 @@ Not doing: 2nd-gen Cloud Functions (changes the bill and the Discord webhook URL
   `firebase-functions/v1` (6+ made the bare import 2nd gen). All 153 functions'
   deploy settings (`__endpoint`) identical old vs new; emulator suites pass.
   Changes the runtime of every function, so it ships as one full deploy.
+- **firebase-admin: Done 2026-10-09 (not deployed yet).** 12.7 -> 13.10 in
+  `functions/` (Firestore client unchanged at 7.11). Deploy settings identical;
+  all suites pass. Ships in the same full deploy as firebase-functions. The root
+  `firebase-admin` (scripts, seeding) is still 11 and is a separate job.
 
 ## Phase 6: Docs
 
