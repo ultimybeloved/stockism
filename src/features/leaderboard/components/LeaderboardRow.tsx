@@ -15,7 +15,7 @@ interface LeaderboardRowProps {
   displayRank: number;
   isCurrentUser: boolean;
   userCrewColor: string | undefined;
-  userRowRef: RefObject<HTMLDivElement>;
+  userRowRef: RefObject<HTMLDivElement | null>;
   sortBy: string;
 }
 

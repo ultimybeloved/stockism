@@ -165,6 +165,9 @@ Not doing: 2nd-gen Cloud Functions (changes the bill and the Discord webhook URL
   12.15+ bundles `re2js` (Firestore pipeline regex) whether used or not: +57 KB
   gzip for every player. 13.0 was two days old. Revisit when Firebase makes it
   tree-shakeable; check `vendor-firebase` gzip size before bumping.
+- **React: Done 2026-10-09.** 18.3 -> 19.3 (+ types). One type fix (`useRef`
+  refs are `RefObject<T | null>`). Every route and modal identical old vs new in
+  both themes. Costs +22 KB gzip in `vendor-react` (react-dom 19 is bigger).
 - **firebase-functions: Done 2026-10-09, deployed 2026-10-10.** 4.9 -> 7.4. Done
   before firebase-admin because admin 13 needs functions 6+. Every import is now
   `firebase-functions/v1` (6+ made the bare import 2nd gen). All 153 functions'
