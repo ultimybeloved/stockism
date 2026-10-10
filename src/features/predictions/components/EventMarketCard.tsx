@@ -148,7 +148,7 @@ const EventMarketCard = ({
             return (
               <div key={o} className="flex items-center gap-2">
                 <div
-                  className={`w-28 sm:w-36 text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`}
+                  className={`w-28 sm:w-36 shrink-0 break-words leading-tight text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`}
                   title={o}
                 >
                   {o} {isWinner && '✓'}
@@ -244,7 +244,7 @@ const EventMarketCard = ({
                 <button
                   key={o}
                   onClick={() => setSelected(i)}
-                  className={`py-2 px-2 text-sm font-semibold rounded-sm border-2 transition-all truncate ${
+                  className={`py-2 px-2 text-sm font-semibold rounded-sm border-2 transition-all break-words leading-snug ${
                     selected === i
                       ? `${colors.bg} border-transparent text-white`
                       : `${colors.border} ${colors.text} hover:opacity-80`

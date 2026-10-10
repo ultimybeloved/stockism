@@ -145,7 +145,7 @@ const PredictionCard = ({
             return (
               <div key={option} className="flex items-center gap-2">
                 <div
-                  className={`w-28 sm:w-40 shrink-0 truncate text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`}
+                  className={`w-28 sm:w-40 shrink-0 break-words leading-tight text-xs font-semibold ${colors.text} ${isWinner ? 'underline' : ''}`}
                   title={option}
                 >
                   {option} {isWinner && '✓'}
@@ -249,7 +249,7 @@ const PredictionCard = ({
                       key={option}
                       onClick={() => !isLocked && setSelectedOption(option)}
                       disabled={isLocked}
-                      className={`py-2 px-2 text-sm font-semibold rounded-sm border-2 transition-all truncate ${
+                      className={`py-2 px-2 text-sm font-semibold rounded-sm border-2 transition-all break-words leading-snug ${
                         isLocked
                           ? 'opacity-30 cursor-not-allowed border-zinc-700 text-zinc-500'
                           : selectedOption === option

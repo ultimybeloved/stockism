@@ -64,7 +64,11 @@ function formatDropPicks(picks: DropPick[], priceFor: (p: DropPick) => number) {
     .join('\n\n');
 }
 
-export const discordInteractions = cf().https.onRequest(async (req, res) => {
+// 1GB buys a faster CPU tier, not memory. Discord's 3s acknowledge deadline
+// includes the cold start, and on the 256MB tier loading this module took
+// long enough that some claims were rejected with "Unknown Webhook" (10015).
+// Billed only while running, and this runs a few dozen times a day.
+export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (req, res) => {
   // Only accept POST
   if (req.method !== 'POST') {
     return void res.status(405).send('Method not allowed');
