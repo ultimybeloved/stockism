@@ -23,7 +23,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -36,19 +36,17 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { writeReviewChanges, collapseReviewWindow } = require('../../functions/src/market/reviewChanges');
-const {
-  WEEKLY_HALT_START_MINUTE,
-  WEEKLY_HALT_END_MINUTE,
-  REVIEW_COLLAPSE_MINUTE,
-} = require('../../functions/src/shared/constants');
+const { writeReviewChanges, collapseReviewWindow } =
+  require('../../functions/src/market/reviewChanges') as typeof import('../../functions/src/market/reviewChanges');
+const { WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE, REVIEW_COLLAPSE_MINUTE } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 // A Thursday in the past, so the window is fixed and the test is deterministic.
 const DAY = Date.UTC(2026, 7, 20);
 const haltStart = DAY + WEEKLY_HALT_START_MINUTE * 60 * 1000;
 const haltEnd = DAY + WEEKLY_HALT_END_MINUTE * 60 * 1000;
 const STAMP = DAY + REVIEW_COLLAPSE_MINUTE * 60 * 1000;
-const at = (h, m) => Date.UTC(2026, 7, 20, h, m);
+const at = (h: number, m: number) => Date.UTC(2026, 7, 20, h, m);
 
 // GAP's real tape from 2026-08-20, plus a daily drop and the opening auction.
 const FIXTURE = {
@@ -130,9 +128,9 @@ async function main() {
   check('five intermediate points folded away', first.folded === 5, JSON.stringify(first));
 
   const after = await history();
-  const gap = after.GAP.slice().sort((a, b) => a.timestamp - b.timestamp);
-  const inWindow = gap.filter((p) => p.timestamp >= haltStart && p.timestamp <= haltEnd);
-  const collapsed = gap.filter((p) => p.collapsed);
+  const gap = after.GAP.slice().sort((a: Loose, b: Loose) => a.timestamp - b.timestamp);
+  const inWindow = gap.filter((p: Loose) => p.timestamp >= haltStart && p.timestamp <= haltEnd);
+  const collapsed = gap.filter((p: Loose) => p.collapsed);
 
   check('GAP has exactly one collapsed point', collapsed.length === 1, JSON.stringify(collapsed));
   check(
@@ -153,7 +151,7 @@ async function main() {
   check('pre-halt point untouched', gap[0].timestamp === at(11, 40) && gap[0].price === 1615.32);
   check(
     'the 20:56 auction fill survived',
-    inWindow.some((p) => p.source === 'pre_market_auction' && p.price === 1667.33),
+    inWindow.some((p: Loose) => p.source === 'pre_market_auction' && p.price === 1667.33),
   );
   check(
     'GAP last price unchanged by the fold',
@@ -162,17 +160,17 @@ async function main() {
   );
   check('collapsed point sits before the auction', collapsed[0] && collapsed[0].timestamp < at(20, 56));
 
-  const kwon = after.KWON.slice().sort((a, b) => a.timestamp - b.timestamp);
+  const kwon = after.KWON.slice().sort((a: Loose, b: Loose) => a.timestamp - b.timestamp);
   check(
     'the daily drop survived the fold',
-    kwon.some((p) => p.source === 'daily_drop' && p.price === 113.5),
+    kwon.some((p: Loose) => p.source === 'daily_drop' && p.price === 113.5),
     JSON.stringify(kwon),
   );
   check('KWON last price unchanged', kwon[kwon.length - 1].price === 114.94);
 
   check(
     'MONO was left alone (single adjustment)',
-    after.MONO.length === 2 && !after.MONO.some((p) => p.collapsed),
+    after.MONO.length === 2 && !after.MONO.some((p: Loose) => p.collapsed),
     JSON.stringify(after.MONO),
   );
 

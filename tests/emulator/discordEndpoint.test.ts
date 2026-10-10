@@ -11,7 +11,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -28,33 +28,44 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
 const rawPublic = publicKey.export({ type: 'spki', format: 'der' }).slice(-32);
 process.env.DISCORD_PUBLIC_KEY = rawPublic.toString('hex');
 
-const { CHARACTERS } = require('../../functions/src/shared/characters');
-const { discordInteractions } = require('../../functions/src/discord/discordInteractions');
+const { CHARACTERS } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
+const { discordInteractions } =
+  require('../../functions/src/discord/discordInteractions') as typeof import('../../functions/src/discord/discordInteractions');
 
 const TICKER = CHARACTERS[0].ticker;
 
+interface EndpointResponse {
+  kind: string;
+  code?: number;
+  payload: { type?: number; data?: { flags?: number; embeds?: unknown[] } };
+  error?: unknown;
+}
+type Handler = (req: unknown, res: unknown) => unknown;
+
 // Drives the exported onRequest handler the way Cloud Functions would.
-const callEndpoint = (body, { sign = true } = {}) =>
-  new Promise((resolve) => {
+const callEndpoint = (body: unknown, { sign = true } = {}) =>
+  new Promise<EndpointResponse[]>((resolve) => {
     const rawBody = Buffer.from(JSON.stringify(body));
     const timestamp = String(Math.floor(Date.now() / 1000));
     const signature = sign
       ? crypto.sign(null, Buffer.concat([Buffer.from(timestamp), rawBody]), privateKey).toString('hex')
       : 'deadbeef';
 
-    const responses = [];
+    const responses: EndpointResponse[] = [];
     const res = {
       statusCode: 200,
-      status(code) {
+      _settled: false,
+      status(code: number) {
         this.statusCode = code;
         return this;
       },
-      send(payload) {
+      send(payload: EndpointResponse['payload']) {
         responses.push({ kind: 'send', code: this.statusCode, payload });
         this._done();
         return this;
       },
-      json(payload) {
+      json(payload: EndpointResponse['payload']) {
         responses.push({ kind: 'json', code: this.statusCode, payload });
         this._done();
         return this;
@@ -78,14 +89,15 @@ const callEndpoint = (body, { sign = true } = {}) =>
     };
 
     // .run() is the undecorated handler on a firebase-functions onRequest export.
-    const result = discordInteractions.run ? discordInteractions.run(req, res) : discordInteractions(req, res);
+    const handler = discordInteractions as unknown as Handler & { run?: Handler };
+    const result = handler.run ? handler.run(req, res) : handler(req, res);
     Promise.resolve(result).catch((err) => {
-      responses.push({ kind: 'threw', error: err });
+      responses.push({ kind: 'threw', error: err } as EndpointResponse);
       resolve(responses);
     });
   });
 
-const commandBody = (name, options = [], discordId = 'endpoint-user') => ({
+const commandBody = (name: string, options: { name: string; value: string }[] = [], discordId = 'endpoint-user') => ({
   type: 2,
   application_id: 'app-id',
   token: `tok-${Math.random()}`,

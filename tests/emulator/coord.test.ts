@@ -11,7 +11,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -24,16 +24,20 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { triggerCoordScan } = require('../../functions/src/moderation/coordDetection');
-const { getCoordProfit, adminRemoveCoordProfit } = require('../../functions/src/moderation/coordReview');
-const { washRuleRemainingMs, shortAfterDumpRemainingMs } = require('../../functions/src/shared/helpers');
-const { ADMIN_UID } = require('../../functions/src/shared/constants');
+const { triggerCoordScan } =
+  require('../../functions/src/moderation/coordDetection') as typeof import('../../functions/src/moderation/coordDetection');
+const { getCoordProfit, adminRemoveCoordProfit } =
+  require('../../functions/src/moderation/coordReview') as typeof import('../../functions/src/moderation/coordReview');
+const { washRuleRemainingMs, shortAfterDumpRemainingMs } =
+  require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
+const { ADMIN_UID } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 const adminCtx = { auth: { uid: ADMIN_UID } };
 const MIN = 60000;
 const H = 60 * MIN;
 
-const user = async (uid) => (await db.collection('users').doc(uid).get()).data();
+const user = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
 
 // Clusters are grouped by UTC day, so the trades (base to base + 60 min) must
 // all land on one day and in the past. Early in today when there is room;
@@ -46,7 +50,15 @@ const base =
     ? Math.min(Date.now() - 2 * H, dayStart.getTime() + 60 * MIN)
     : dayStart.getTime() - 2 * H;
 
-const trade = (uid, ticker, action, amount, price, impact, at) =>
+const trade = (
+  uid: string,
+  ticker: string,
+  action: string,
+  amount: number,
+  price: number,
+  impact: number,
+  at: number,
+) =>
   db.collection('trades').add({
     uid,
     ticker,
@@ -117,9 +129,9 @@ const run = async () => {
   const scan = await triggerCoordScan.run({}, adminCtx);
   check('scan found the clusters', scan.candidates >= 3, scan);
   const alerts = (await db.collection('watchlist_alerts').where('type', '==', 'coordinated_pressure').get()).docs.map(
-    (d) => d.data(),
+    (d: Loose) => d.data(),
   );
-  const shng = alerts.find((a) => a.ticker === 'SHNG');
+  const shng = alerts.find((a: Loose) => a.ticker === 'SHNG');
   check(
     'SHNG alert written, tight, with its start time',
     shng?.tightCluster === true && typeof shng.startedAt === 'number' && shng.groupBlocked === true,
@@ -147,7 +159,7 @@ const run = async () => {
   check('re-running changes nothing already stamped', rescan.blocked === 0 && rescan.reported === 0, rescan);
 
   console.log('\nC. All in on borrowed money');
-  const jyng = alerts.find((a) => a.ticker === 'JYNG');
+  const jyng = alerts.find((a: Loose) => a.ticker === 'JYNG');
   check(
     'the all-in player is named on the pump alert',
     jyng?.allIn?.length === 1 && jyng.allIn[0].uid === 'allinE',
@@ -212,13 +224,17 @@ const run = async () => {
     'the price does not move',
     (await db.collection('market').doc('current').get()).data().prices.SHNG === priceBefore,
   );
-  const logs = (await db.collection('adminCashLog').where('userId', '==', 'raidA').get()).docs.map((d) => d.data());
+  const logs = (await db.collection('adminCashLog').where('userId', '==', 'raidA').get()).docs.map((d: Loose) =>
+    d.data(),
+  );
   check(
     'logged with the memo',
     logs.length === 1 && logs[0].mode === 'remove_coord_profit' && logs[0].memo === 'test raid',
     logs,
   );
-  const notes = (await db.collection('users').doc('raidA').collection('notifications').get()).docs.map((d) => d.data());
+  const notes = (await db.collection('users').doc('raidA').collection('notifications').get()).docs.map((d: Loose) =>
+    d.data(),
+  );
   check(
     'the player is told the amount and the shares, not the memo',
     notes.length === 1 &&

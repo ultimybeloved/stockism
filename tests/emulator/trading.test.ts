@@ -24,7 +24,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -37,9 +37,11 @@ const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
-const { executeTrade } = require('../../functions/src/trading/trading');
-const { checkShortMarginCalls, checkMarginLending } = require('../../functions/src/margin/marginScanners');
-const { bailout } = require('../../functions/src/margin/margin');
+const { executeTrade } =
+  require('../../functions/src/trading/trading') as typeof import('../../functions/src/trading/trading');
+const { checkShortMarginCalls, checkMarginLending } =
+  require('../../functions/src/margin/marginScanners') as typeof import('../../functions/src/margin/marginScanners');
+const { bailout } = require('../../functions/src/margin/margin') as typeof import('../../functions/src/margin/margin');
 const {
   BASE_IMPACT,
   BASE_LIQUIDITY,
@@ -65,8 +67,9 @@ const {
   MARGIN_LIQUIDATION_SLIPPAGE,
   BAILOUT_CASH,
   ADMIN_UID,
-} = require('../../functions/src/shared/constants');
-const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } = require('../../functions/src/shared/characters');
+} = require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
+const { exitLoyaltyDiscount, DIVIDEND_HOLD_MS, CHARACTER_MAP } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
 // ── Test tickers (chosen for isolation) ──────────────────────────────────────
 // SOPH / CROC / XIAO: no trailingFactors, not a constituent of any ETF.
@@ -91,12 +94,16 @@ const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
-const near = (a, b, eps = 1e-6) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= eps;
+const near = (a: unknown, b: unknown, eps = 1e-6) =>
+  typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) <= eps;
 
 let ipSeed = 0;
-const ctx = (uid, ip) => ({ auth: { uid }, rawRequest: { ip: ip || `198.51.100.${++ipSeed}` } });
-const ok = (data, uid, ip) => executeTrade.run(data, ctx(uid, ip));
-const err = async (data, uid, ip) => {
+type TradeData = Parameters<typeof executeTrade.run>[0];
+type CallContext = Parameters<typeof executeTrade.run>[1];
+const ctx = (uid: string, ip?: string) =>
+  ({ auth: { uid }, rawRequest: { ip: ip || `198.51.100.${++ipSeed}` } }) as unknown as CallContext;
+const ok = (data: TradeData, uid: string, ip?: string) => executeTrade.run(data, ctx(uid, ip));
+const err = async (data: TradeData, uid: string, ip?: string) => {
   try {
     await executeTrade.run(data, ctx(uid, ip));
     return null;
@@ -105,12 +112,12 @@ const err = async (data, uid, ip) => {
   }
 };
 
-const setUser = (uid, data) =>
+const setUser = (uid: string, data: Record<string, unknown>) =>
   db
     .collection('users')
     .doc(uid)
     .set({ displayName: uid, ...data });
-const getUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
+const getUser = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
 const getMarket = async () => (await db.collection('market').doc('current').get()).data();
 const getHistoryDoc = async () => {
   const s = await db.collection('market').doc('priceHistory').get();
@@ -119,7 +126,7 @@ const getHistoryDoc = async () => {
 
 // Reset the market docs to a known state. `prices` maps ticker → price; only
 // seeded tickers participate in trailing effects (unseeded ones are skipped).
-const seedMarket = async (prices, extra = {}) => {
+const seedMarket = async (prices: Record<string, number>, extra = {}) => {
   await db
     .collection('market')
     .doc('current')
@@ -134,12 +141,12 @@ const seedMarket = async (prices, extra = {}) => {
 };
 
 // ── Independent reimplementation of the engine's price math ─────────────────
-const round2 = (x) => Math.round(x * 100) / 100;
-const impactOf = (price, amount, cum = 0, factor = 1) => {
+const round2 = (x: number) => Math.round(x * 100) / 100;
+const impactOf = (price: number, amount: number, cum = 0, factor = 1) => {
   const raw = price * BASE_IMPACT * (Math.sqrt((cum + amount) / BASE_LIQUIDITY) - Math.sqrt(cum / BASE_LIQUIDITY));
   return Math.min(raw, price * MAX_PRICE_CHANGE_PERCENT) * factor;
 };
-const buyMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD } = {}) => {
+const buyMath = (price: number, amount: number, { cum = 0, factor = 1, spread = BID_ASK_SPREAD } = {}) => {
   const impact = impactOf(price, amount, cum, factor);
   const newPrice = round2(price + impact);
   const exec = newPrice * (1 + spread / 2);
@@ -148,8 +155,8 @@ const buyMath = (price, amount, { cum = 0, factor = 1, spread = BID_ASK_SPREAD }
 // `discount` is the exit-loyalty fraction: the market still moves by the full
 // impact (newPrice), but the seller is priced against a reduced one (sellerMid).
 const sellMath = (
-  price,
-  amount,
+  price: number,
+  amount: number,
   { cum = 0, factor = 1, spread = BID_ASK_SPREAD, capRemaining = Infinity, discount = 0 } = {},
 ) => {
   let impact = impactOf(price, amount, cum, factor);
@@ -838,7 +845,7 @@ async function testEtfTrailing() {
   const m = await getMarket();
   check('etf: uses the tighter ETF spread', near(r.executionPrice, exp.exec), `${r.executionPrice} vs ${exp.exec}`);
   const pct = (exp.newPrice - 50) / 50;
-  const expCon = (p0) => Math.max(0.01, round2(p0 * (1 + pct * 0.16)));
+  const expCon = (p0: number) => Math.max(0.01, round2(p0 * (1 + pct * 0.16)));
   check(
     'etf: constituents trail at their coefficient',
     near(m.prices.GOO, expCon(85)) && near(m.prices.LOGN, expCon(30)) && near(m.prices.SAM, expCon(60)),
@@ -1431,7 +1438,10 @@ async function testExitLoyalty() {
 
   const DAY = 24 * HOUR;
   // A pending lot `ageDays` old right now
-  const agedLot = (shares, ageDays) => ({ shares, availableAt: Date.now() - ageDays * DAY + DIVIDEND_HOLD_MS });
+  const agedLot = (shares: number, ageDays: number) => ({
+    shares,
+    availableAt: Date.now() - ageDays * DAY + DIVIDEND_HOLD_MS,
+  });
   const base = { cash: 1000, holdings: { [T]: 20 }, costBasis: { [T]: 80 } };
 
   // ── Fresh holder: no discount, original math exactly ──────────────────────
@@ -1559,7 +1569,7 @@ async function testExitLoyalty() {
 // pin the split so that hole cannot reopen.
 async function testDirectionalImpact() {
   console.log('\nN. Directional daily impact allowance');
-  const spent = (action) => ({
+  const spent = (action: string) => ({
     [T]: { [action]: [{ ts: Date.now() - 1000, shares: 0.01, impact: MAX_DAILY_IMPACT }] },
   });
 
@@ -1687,7 +1697,7 @@ async function testDirectionalImpact() {
 async function testCircuitBreaker() {
   console.log('\nO. Circuit breaker');
   const BEFORE = Date.now() - CIRCUIT_BREAKER_WINDOW_MS - 60000;
-  const seedHistory = async (points) =>
+  const seedHistory = async (points: unknown[]) =>
     db
       .collection('market')
       .doc('priceHistory')
@@ -1945,7 +1955,7 @@ async function testWashRule() {
 // was the cheap option. These checks pin that it no longer is.
 async function testOversizedImpact() {
   console.log('\nQ. Oversized order impact');
-  const rawImpact = (price, n, cum = 0) =>
+  const rawImpact = (price: number, n: number, cum = 0) =>
     price * BASE_IMPACT * (Math.sqrt((cum + n) / BASE_LIQUIDITY) - Math.sqrt(cum / BASE_LIQUIDITY));
 
   // 2000 shares at $100 is ~5.37% raw, just over the 5% cap.
@@ -2077,7 +2087,9 @@ async function testAdminActAs() {
     target.holdings,
   );
   check('admin: the admin account is untouched', adminAfter.cash === 1000 && !adminAfter.holdings?.[T], adminAfter);
-  const recs = (await db.collection('trades').where('uid', '==', 'actas_target').get()).docs.map((d) => d.data());
+  const recs = (await db.collection('trades').where('uid', '==', 'actas_target').get()).docs.map(
+    (d: { data: () => unknown }) => d.data(),
+  );
   check(
     'admin: recorded on the player, tagged admin, no IP',
     recs.length === 1 && recs[0].source === 'admin' && (recs[0].ip === 'unknown' || !recs[0].ip),

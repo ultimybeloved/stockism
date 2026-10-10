@@ -10,10 +10,11 @@
 import { it } from 'vitest';
 import admin from 'firebase-admin';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check } from './harness';
 
 const require = createRequire(import.meta.url);
-const { countIpAccounts } = require('../../functions/src/users/ipCap');
+const { countIpAccounts } =
+  require('../../functions/src/users/ipCap') as typeof import('../../functions/src/users/ipCap');
 
 const PROJECT_ID = 'stockism-abb28';
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
@@ -27,7 +28,7 @@ const SLOT_RELEASE_MS = 30 * 24 * 60 * 60 * 1000;
 
 // Mirrors the createUser transaction: count this IP atomically, reject if at cap,
 // otherwise reserve the slot. Returns true if the signup committed.
-async function attemptSignup(ip, uid) {
+async function attemptSignup(ip: string, uid: string) {
   const ipRef = db.collection('ipTracking').doc(ip);
   const userRef = db.collection('users').doc(uid);
   try {
@@ -56,7 +57,7 @@ async function main() {
   check(`burst of 6 → exactly ${MAX_ACCOUNTS_PER_IP} committed (got ${committed})`, committed === MAX_ACCOUNTS_PER_IP);
 
   const ipDoc = await db.collection('ipTracking').doc(ip1).get();
-  const stored = Object.keys(ipDoc.data().accounts || {}).length;
+  const stored = Object.keys(ipDoc.data()!.accounts || {}).length;
   check(`ipTracking records exactly ${MAX_ACCOUNTS_PER_IP} accounts (got ${stored})`, stored === MAX_ACCOUNTS_PER_IP);
 
   // Case 2: a 3rd sequential signup on a now-full IP is rejected.

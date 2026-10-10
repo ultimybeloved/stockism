@@ -5,9 +5,8 @@ this codebase was untangled from god files (a 3,900-line `App.jsx`, a
 7,400-line `AdminPanel.jsx`, an 11,000-line `functions/index.js`) and duplicated
 logic. Do not undo that work.
 
-Everything is TypeScript (strict, `noUncheckedIndexedAccess`). The backend
-plumbing (`functions/src/index.ts`, `serviceLoader.ts`, `servicePaths.ts`, each
-domain's `services.ts`) and the backend `*.test.js` files are still JavaScript.
+Everything is TypeScript (strict, `noUncheckedIndexedAccess`), tests and emulator
+suites included. Only the one-off scripts in `scripts/` are JavaScript.
 
 ## Layout
 
@@ -79,7 +78,7 @@ Functions; the rest are internal modules.
   (`npx tsx scripts/<name>.cjs`).
 - Exports are `export const name = ...`; tsc emits `exports.name = ...`, which
   serviceLoader's scan finds. A test that reassigns a module export must swap the
-  cached module instead (see `tests/emulator/dropHalt.test.js`): TS exports are
+  cached module instead (see `tests/emulator/dropHalt.test.ts`): TS exports are
   read-only.
 - Admin callables use `requireAdmin(context)` from `fnConfig`.
 - Imports go to the topic module (`../shared/impact`), not the `helpers` barrel.
@@ -148,6 +147,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 - Internal modules (tradeGuards, limitOrderMatching, missionChecks, crewMissionProgress, ...) are required directly by their owning service and must NOT be listed in a `services.ts`
 - Backend vitest files sit beside the module they test (`functions/src/season/seasonTiers.test.ts`)
 - They load backend code with `require('./x') as typeof import('./x')` (through `createRequire`), not `import`, so they share the module instance the code under test uses, and still get its types. They typecheck under `functions/tsconfig.test.json`
+- Emulator suites (`tests/emulator/`) load backend code the same way and typecheck under `tests/tsconfig.json`. Firestore data the code under test wrote is read as `Loose` (from `harness.ts`); helpers and backend imports are typed
 - Never add Cloud Function logic directly to `functions/src/index.ts`
 
 **Shared constants** (`functions/src/shared/constants/`)

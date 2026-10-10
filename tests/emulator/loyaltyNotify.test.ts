@@ -17,7 +17,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -28,34 +28,36 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { syncAllPortfolios } = require('../../functions/src/admin/archiving');
-const {
-  DIVIDEND_HOLD_MS,
-  DIVIDEND_HOLD_DAYS,
-  LOYALTY_NOTIFY_MIN_SHARES,
-} = require('../../functions/src/shared/characters');
+const { syncAllPortfolios } =
+  require('../../functions/src/admin/archiving') as typeof import('../../functions/src/admin/archiving');
+const { DIVIDEND_HOLD_MS, DIVIDEND_HOLD_DAYS, LOYALTY_NOTIFY_MIN_SHARES } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
 const DAY = 24 * 60 * 60 * 1000;
 const T1 = 'SOPH';
 const T2 = 'CROC';
 
 // A pending lot that is `ageDays` old right now
-const agedLot = (shares, ageDays) => ({ shares, availableAt: Date.now() - ageDays * DAY + DIVIDEND_HOLD_MS });
+const agedLot = (shares: number, ageDays: number) => ({
+  shares,
+  availableAt: Date.now() - ageDays * DAY + DIVIDEND_HOLD_MS,
+});
 
-const setUser = (uid, data) =>
+const setUser = (uid: string, data: Loose) =>
   db
     .collection('users')
     .doc(uid)
     .set({ displayName: uid, cash: 0, ...data });
-const getUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
-const notes = async (uid) =>
-  (await db.collection('users').doc(uid).collection('notifications').get()).docs.map((d) => d.data());
-const clearNotes = async (uid) => {
+const getUser = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
+const notes = async (uid: string) =>
+  (await db.collection('users').doc(uid).collection('notifications').get()).docs.map((d: Loose) => d.data());
+const clearNotes = async (uid: string) => {
   const snap = await db.collection('users').doc(uid).collection('notifications').get();
-  await Promise.all(snap.docs.map((d) => d.ref.delete()));
+  await Promise.all(snap.docs.map((d: Loose) => d.ref.delete()));
 };
 
-const runSync = () => syncAllPortfolios.run({});
+// Called the way the JavaScript suite did, with no context.
+const runSync = () => (syncAllPortfolios.run as Loose)({});
 
 async function main() {
   // Prices so portfolio value is computable; the sync bails without a market doc.
@@ -165,7 +167,7 @@ async function main() {
   check(
     'two crossings produce ONE notification, not two',
     doubleNotes.length === 1,
-    JSON.stringify(doubleNotes.map((n) => n.title)),
+    JSON.stringify(doubleNotes.map((n: Loose) => n.title)),
   );
   const dn = doubleNotes[0] || {};
   check('digest title counts the holdings', /2 holdings/.test(dn.title || ''), dn.title);

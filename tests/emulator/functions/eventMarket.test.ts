@@ -6,7 +6,7 @@
 
 import { beforeAll, it } from 'vitest';
 import { createRequire } from 'module';
-import { check, seedEmulator } from '../harness.js';
+import { check, seedEmulator, type Loose } from '../harness';
 
 const require = createRequire(import.meta.url);
 
@@ -24,23 +24,24 @@ const admin = require('firebase-admin');
 const { initializeApp } = require('firebase/app');
 const { getAuth, connectAuthEmulator, signInWithEmailAndPassword } = require('firebase/auth');
 const { getFunctions, connectFunctionsEmulator, httpsCallable } = require('firebase/functions');
-const { EVENT_AMM_LIQUIDITY } = require('../../../functions/src/shared/constants');
+const { EVENT_AMM_LIQUIDITY } =
+  require('../../../functions/src/shared/constants') as typeof import('../../../functions/src/shared/constants');
 
 // LMSR price formula, inlined (identical to functions/src/shared/lmsr.js + frontend).
 // Inlined here only to avoid helpers.js's load-time admin.firestore() call.
-const lmsrPrices = (q, b) => {
-  const xs = q.map((x) => x / b);
+const lmsrPrices = (q: number[], b: number) => {
+  const xs = q.map((x: Loose) => x / b);
   const m = Math.max(...xs);
-  const ex = xs.map((x) => Math.exp(x - m));
-  const sum = ex.reduce((a, c) => a + c, 0);
-  return ex.map((e) => e / sum);
+  const ex = xs.map((x: Loose) => Math.exp(x - m));
+  const sum = ex.reduce((a: Loose, c: Loose) => a + c, 0);
+  return ex.map((e: Loose) => e / sum);
 };
 
 const ADMIN_UID = '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
 const PROJECT = 'stockism-abb28';
-const pass = (m) => check(m, true);
-const fail = (m) => check(m, false);
-const r2 = (n) => Math.round(n * 100) / 100;
+const pass = (m: string) => check(m, true);
+const fail = (m: string) => check(m, false);
+const r2 = (n: number) => Math.round(n * 100) / 100;
 
 admin.initializeApp({ projectId: PROJECT });
 const adb = admin.firestore();
@@ -58,7 +59,7 @@ connectFunctionsEmulator(fns, '127.0.0.1', FUNCTIONS_PORT);
 
 const marketId = `evt_test_${Date.now()}`;
 
-async function ensureUser(uid, email) {
+async function ensureUser(uid: string, email: string) {
   try {
     await aauth.getUser(uid);
   } catch {
@@ -68,7 +69,7 @@ async function ensureUser(uid, email) {
 
 async function readMarket() {
   const snap = await adb.collection('predictions').doc('current').get();
-  return (snap.data().list || []).find((m) => m.id === marketId);
+  return (snap.data().list || []).find((m: Loose) => m.id === marketId);
 }
 
 async function main() {
@@ -222,7 +223,7 @@ async function main() {
 
   const openedList = (await predRef.get())
     .data()
-    .list.map((m) => (m.id === timerId ? { ...m, opensAt: Date.now() - 1000 } : m));
+    .list.map((m: Loose) => (m.id === timerId ? { ...m, opensAt: Date.now() - 1000 } : m));
   await predRef.set({ list: openedList }, { merge: true });
   let openedOk = false;
   try {
@@ -270,7 +271,7 @@ async function main() {
   // 4) Admin resolves Yes, then settles. Winners redeem at $1/share.
   const list = (await predRef.get())
     .data()
-    .list.map((m) => (m.id === marketId ? { ...m, resolved: true, outcomes: ['Yes'], outcome: 'Yes' } : m));
+    .list.map((m: Loose) => (m.id === marketId ? { ...m, resolved: true, outcomes: ['Yes'], outcome: 'Yes' } : m));
   await predRef.set({ list }, { merge: true });
   await auth.signOut();
   await signInWithEmailAndPassword(auth, 'admin@test.local', 'test123456');

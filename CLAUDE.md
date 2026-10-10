@@ -1,8 +1,5 @@
 # Claude Code Instructions
 
-> **Modernization (since 2026-10-07).** `docs/MODERNIZATION.md` has the current
-> phase and next step. Delete that pointer when the file is deleted.
-
 ## Read first
 
 | Before you... | Read |

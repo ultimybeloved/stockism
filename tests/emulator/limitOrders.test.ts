@@ -28,7 +28,7 @@
 
 import { beforeAll, it } from 'vitest';
 import { createRequire } from 'module';
-import { check, seedEmulator } from './harness.js';
+import { check, seedEmulator, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -43,11 +43,16 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { runLimitOrderCheck } = require('../../functions/src/orders/limitOrders');
-const { runFillBackfill } = require('../../functions/src/trading/tradeBackfill');
-const { calculateMarginalImpact } = require('../../functions/src/shared/helpers');
-const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } = require('../../functions/src/shared/constants');
-const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../../functions/src/shared/characters');
+const { runLimitOrderCheck } =
+  require('../../functions/src/orders/limitOrders') as typeof import('../../functions/src/orders/limitOrders');
+const { runFillBackfill } =
+  require('../../functions/src/trading/tradeBackfill') as typeof import('../../functions/src/trading/tradeBackfill');
+const { calculateMarginalImpact } =
+  require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
+const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
 // Fixture for the IPO-phase check. The flag is set HERE rather than borrowed
 // from characters.ts: `ipoRequired` gets dropped once a stock actually launches
@@ -59,7 +64,7 @@ const IPO_TICKER = 'EUNH';
 if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.ts`);
 CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
-const round2 = (n) => Math.round(n * 100) / 100;
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 async function main() {
   const marketRef = db.collection('market').doc('current');
@@ -74,7 +79,7 @@ async function main() {
   });
   if (usable.length < 7) throw new Error(`Only ${usable.length} usable tickers — re-seed the emulator`);
   const [T_BUY, T_SELL, T_STOP, T_DEFER, T_LIMITCAP, T_THROTTLE, T_LOYAL] = usable;
-  const P = (t) => prices[t];
+  const P = (t: string) => prices[t];
   console.log(
     `Tickers: buy=${T_BUY}($${P(T_BUY)}) sell=${T_SELL}($${P(T_SELL)}) stop=${T_STOP} defer=${T_DEFER} cap=${T_LIMITCAP} throttle=${T_THROTTLE}`,
   );
@@ -288,7 +293,7 @@ async function main() {
 
   // ── 1. Emergency halt skips everything ─────────────────────────────────
   await marketRef.update({ marketHalted: true });
-  const haltRun = await runLimitOrderCheck();
+  const haltRun: Loose = await runLimitOrderCheck();
   check(
     'emergency halt skips the run',
     haltRun.skipped === true && haltRun.reason === 'emergency_halt',
@@ -307,8 +312,8 @@ async function main() {
   const summary = await runLimitOrderCheck();
   console.log('Summary:', JSON.stringify(summary), '\n');
 
-  const get = async (id) => (await db.collection('limitOrders').doc(id).get()).data();
-  const getUser = async (id) => (await db.collection('users').doc(id).get()).data();
+  const get = async (id: string) => (await db.collection('limitOrders').doc(id).get()).data();
+  const getUser = async (id: string) => (await db.collection('users').doc(id).get()).data();
 
   // ── 2. BUY fill math ───────────────────────────────────────────────────
   const impactBuy = calculateMarginalImpact(P(T_BUY), 10, 0);
@@ -333,7 +338,7 @@ async function main() {
   const buyerLot = buyer.holdingCohorts?.[T_BUY];
   check(
     'BUY opened a dividend lot for the filled shares',
-    !!buyerLot && (buyerLot.pending || []).reduce((s, p) => s + p.shares, 0) === 10,
+    !!buyerLot && (buyerLot.pending || []).reduce((s: Loose, p: Loose) => s + p.shares, 0) === 10,
     JSON.stringify(buyerLot),
   );
   // The 45-second hold gate. executeTrade and the pre-market auction both stamp
@@ -505,8 +510,8 @@ async function main() {
   // These fills used to move money without leaving anything in the trades
   // collection, so they were invisible in the player's own trade history and in
   // the daily/weekly market reports.
-  const tradesFor = async (uid) =>
-    (await db.collection('trades').where('uid', '==', uid).get()).docs.map((x) => x.data());
+  const tradesFor = async (uid: string) =>
+    (await db.collection('trades').where('uid', '==', uid).get()).docs.map((x: Loose) => x.data());
 
   const buyTrades = await tradesFor('lo_buyer');
   const buyTrade = buyTrades[0] || {};
@@ -579,7 +584,7 @@ async function main() {
 
   // ── 16. Only the intentional deferrals remain PENDING ──────────────────
   const leftover = await db.collection('limitOrders').where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']).get();
-  const leftoverIds = leftover.docs.map((x) => x.id).sort();
+  const leftoverIds = leftover.docs.map((x: Loose) => x.id).sort();
   // Expected: lo_d_defer, lo_k_lockH, one throttled order. lo_l_lockS stays
   // PARTIALLY_FILLED (6 locked shares outstanding) by design.
   check('exactly the intentional deferrals remain live', leftover.size === 4, leftoverIds.join(','));
@@ -592,7 +597,7 @@ async function main() {
     for (const etf of CHARACTERS.filter((c) => c.isETF && c.trailingFactors?.length && prices[c.ticker] > 0)) {
       // A member with no trailingFactors of its own keeps the expected move
       // exact — nothing else can reach the fund in the same pass.
-      const member = etf.trailingFactors.find((tf) => {
+      const member = etf.trailingFactors!.find((tf) => {
         const c = CHARACTER_MAP[tf.ticker];
         return c && !c.isETF && !c.ipoRequired && !c.trailingFactors && prices[tf.ticker] > 1;
       });
@@ -653,7 +658,7 @@ async function main() {
   const [T_NETFULL, T_NETCAP, T_NETOK] = usable.slice(7, 10);
   if (!T_NETOK) throw new Error('Not enough usable tickers for the network scenarios — re-seed the emulator');
   const netNow = Date.now();
-  const netOrder = async (id, uid, ticker, net) => {
+  const netOrder = async (id: string, uid: string, ticker: string, net: string) => {
     await db.collection('users').doc(uid).set({ displayName: uid, cash: 100000, holdings: {} });
     await db
       .collection('limitOrders')
@@ -690,7 +695,7 @@ async function main() {
   const netBefore = (await marketRef.get()).data().prices;
   await runLimitOrderCheck();
   const netAfter = (await marketRef.get()).data().prices;
-  const orderStatus = async (id) => (await db.collection('limitOrders').doc(id).get()).data().status;
+  const orderStatus = async (id: string) => (await db.collection('limitOrders').doc(id).get()).data().status;
 
   check(
     'third account on a full connection is deferred, not filled',
@@ -721,8 +726,10 @@ async function main() {
   );
 
   // Placement: a BUY takes one of the connection's slots, a third account is refused.
-  const { claimNetworkForOrder } = require('../../functions/src/orders/orderNetwork');
-  const ctxFor = (ip) => ({ rawRequest: { ip } });
+  const { claimNetworkForOrder } =
+    require('../../functions/src/orders/orderNetwork') as typeof import('../../functions/src/orders/orderNetwork');
+  type NetworkContext = Parameters<typeof claimNetworkForOrder>[0]['context'];
+  const ctxFor = (ip: string) => ({ rawRequest: { ip } }) as unknown as NetworkContext;
   await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_a', isBuy: true });
   await claimNetworkForOrder({ context: ctxFor('10.9.9.9'), uid: 'place_b', isBuy: true });
   let placementRefused = null;

@@ -15,7 +15,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -27,26 +27,32 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { splitStock } = require('../../functions/src/admin/adminMigrate');
-const { runSplit, PHASES } = require('../../functions/src/market/stockSplit');
-const { executeTrade } = require('../../functions/src/trading/trading');
-const { exitEquityAt } = require('../../functions/src/shared/helpers');
-const { CHARACTER_MAP } = require('../../functions/src/shared/characters');
-const { ADMIN_UID, isWeeklyTradingHalt } = require('../../functions/src/shared/constants');
+const { splitStock } =
+  require('../../functions/src/admin/adminMigrate') as typeof import('../../functions/src/admin/adminMigrate');
+const { runSplit, PHASES } =
+  require('../../functions/src/market/stockSplit') as typeof import('../../functions/src/market/stockSplit');
+const { executeTrade } =
+  require('../../functions/src/trading/trading') as typeof import('../../functions/src/trading/trading');
+const { exitEquityAt } =
+  require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
+const { CHARACTER_MAP } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
+const { ADMIN_UID, isWeeklyTradingHalt } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 const T = 'SOPH';
 const N = 10;
 const adminCtx = { auth: { uid: ADMIN_UID } };
 const DAY = 86400000;
 
-const close = (a, b, eps = 0.01) => typeof a === 'number' && Math.abs(a - b) <= eps;
-const user = async (uid) => (await db.collection('users').doc(uid).get()).data();
+const close = (a: number, b: number, eps = 0.01) => typeof a === 'number' && Math.abs(a - b) <= eps;
+const user = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
 const market = async () => (await db.collection('market').doc('current').get()).data();
-const ts = (ms) => admin.firestore.Timestamp.fromMillis(ms);
-const ctx = (uid) => ({ auth: { uid }, rawRequest: { ip: `198.51.100.${Math.floor(Math.random() * 200)}` } });
+const ts = (ms: number) => admin.firestore.Timestamp.fromMillis(ms);
+const ctx = (uid: string) => ({ auth: { uid }, rawRequest: { ip: `198.51.100.${Math.floor(Math.random() * 200)}` } });
 const indexSum = async () => {
   const [m, idx] = await Promise.all([market(), db.collection('market').doc('indexHistory').get()]);
-  return idx.data().constituents.reduce((s, c) => s + (m.prices[c.t] ?? c.b) / c.b, 0);
+  return idx.data().constituents.reduce((s: Loose, c: Loose) => s + (m.prices[c.t] ?? c.b) / c.b, 0);
 };
 
 const seed = async () => {
@@ -202,7 +208,7 @@ const run = async () => {
 
   console.log('\nB. Preflight');
   let dry = await splitStock.run({ ticker: T, ratio: N, mode: 'dryRun' }, adminCtx);
-  const failing = (d) => d.checks.filter((c) => !c.pass).map((c) => c.id);
+  const failing = (d: Loose) => d.checks.filter((c: Loose) => !c.pass).map((c: Loose) => c.id);
   check('refused before the new splitFactor is deployed', failing(dry).includes('deployed'), failing(dry));
   check('refused while the market is open', failing(dry).includes('halted'), failing(dry));
 
@@ -328,18 +334,23 @@ const run = async () => {
     (await db.collection('ipTracking').doc('ip1').get()).data().tickerTradeHistory[T].buy[0].shares === 300,
   );
   const idx = (await db.collection('market').doc('indexHistory').get()).data();
-  check('index base divided', close(idx.constituents.find((c) => c.t === T).b, unsplitBase / N, 1e-9));
+  check('index base divided', close(idx.constituents.find((c: Loose) => c.t === T).b, unsplitBase / N, 1e-9));
 
   console.log('\nG. Never twice');
   const journal = (await db.collection('market').doc('splitJournal').get()).data();
-  const again = await PHASES.find((p) => p.name === 'users').run({
+  const again = await PHASES.find((p) => p.name === 'users')!.run({
     ticker: T,
     n: N,
     splitId: journal.splitId,
     cursor: null,
     budget: { expired: () => false },
   });
-  const market2 = await PHASES.find((p) => p.name === 'market').run({ ticker: T, n: N, splitId: journal.splitId });
+  // The market phase ignores cursor and budget; the call passes only what it reads.
+  const market2 = await PHASES.find((p) => p.name === 'market')!.run({
+    ticker: T,
+    n: N,
+    splitId: journal.splitId,
+  } as Loose);
   check(
     're-running phases changes nothing',
     again.done === 0 &&
@@ -368,7 +379,7 @@ const run = async () => {
   });
 
   // The order cap scales with the split: 12,000 shares is over 10,000 but under 100,000.
-  const capErr = async (ticker) => {
+  const capErr = async (ticker: string) => {
     try {
       await executeTrade.run({ ticker, action: 'sell', amount: 12000 }, ctx('buyerAfter'));
       return null;

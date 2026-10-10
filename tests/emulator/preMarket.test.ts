@@ -15,7 +15,7 @@
 
 import { beforeAll, it } from 'vitest';
 import { createRequire } from 'module';
-import { check, seedEmulator } from './harness.js';
+import { check, seedEmulator, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -30,11 +30,15 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { runMarketOpenProcessing } = require('../../functions/src/orders/marketOrders');
-const { calculateMarginalImpact } = require('../../functions/src/shared/helpers');
-const { BID_ASK_SPREAD } = require('../../functions/src/shared/constants');
+const { runMarketOpenProcessing } =
+  require('../../functions/src/orders/marketOrders') as typeof import('../../functions/src/orders/marketOrders');
+const { calculateMarginalImpact } =
+  require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
+const { BID_ASK_SPREAD } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
-const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } = require('../../functions/src/shared/characters');
+const { CHARACTERS, CHARACTER_MAP, DIVIDEND_HOLD_MS } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
 const TICKER = 'GUN'; // auction ticker (in the YAMA fund)
 const STOP_TICKER = 'VSCO'; // stop-loss ticker (in the ALLY fund, untouched by the auction)
@@ -47,7 +51,7 @@ const IPO_TICKER = 'EUNH';
 if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.ts`);
 CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
-const round2 = (n) => Math.round(n * 100) / 100;
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 async function main() {
   const marketSnap = await db.collection('market').doc('current').get();
@@ -141,14 +145,14 @@ async function main() {
     });
   const stopEtf = CHARACTERS.find((c) => c.isETF && c.trailingFactors?.some((tf) => tf.ticker === STOP_TICKER));
   if (!stopEtf) throw new Error(`${STOP_TICKER} is not in any ETF — pick a constituent`);
-  const stopEtfCoefficient = stopEtf.trailingFactors.find((tf) => tf.ticker === STOP_TICKER).coefficient;
+  const stopEtfCoefficient = stopEtf.trailingFactors!.find((tf) => tf.ticker === STOP_TICKER)!.coefficient;
   const stopEtfBefore = marketSnap.data().prices[stopEtf.ticker];
 
   // Parent fund of TICKER, captured before the auction so the trailing check
   // below has a baseline.
   const parentEtf = CHARACTERS.find((c) => c.isETF && c.trailingFactors?.some((tf) => tf.ticker === TICKER));
   if (!parentEtf) throw new Error(`${TICKER} is not in any ETF — pick a constituent`);
-  const etfCoefficient = parentEtf.trailingFactors.find((tf) => tf.ticker === TICKER).coefficient;
+  const etfCoefficient = parentEtf.trailingFactors!.find((tf) => tf.ticker === TICKER)!.coefficient;
   const etfPriceBefore = (await db.collection('market').doc('current').get()).data().prices[parentEtf.ticker];
 
   // ── Run the auction ────────────────────────────────────────────────────
@@ -211,7 +215,7 @@ async function main() {
   const stopLot = stopUser.holdingCohorts?.[STOP_TICKER];
   check(
     'stop-loss sweep decremented the dividend lot to the remaining shares',
-    !!stopLot && (stopLot.pending || []).reduce((s, p) => s + p.shares, 0) === 10,
+    !!stopLot && (stopLot.pending || []).reduce((s: Loose, p: Loose) => s + p.shares, 0) === 10,
     JSON.stringify(stopLot),
   );
 
@@ -228,7 +232,7 @@ async function main() {
     `${stopEtfBefore} -> ${stopEtfAfter}, expected ~${expectedStopEtf}`,
   );
 
-  const get = async (id) => (await db.collection('preMarketOrders').doc(id).get()).data();
+  const get = async (id: string) => (await db.collection('preMarketOrders').doc(id).get()).data();
 
   const t1 = await get('pm_t1');
   const askPrice = round2(openPrice * (1 + BID_ASK_SPREAD / 2));
@@ -253,7 +257,7 @@ async function main() {
   const richLot = richUser.holdingCohorts?.[TICKER];
   check(
     'auction buy opened a dividend lot for the filled shares',
-    !!richLot && (richLot.pending || []).reduce((s, p) => s + p.shares, 0) === 50,
+    !!richLot && (richLot.pending || []).reduce((s: Loose, p: Loose) => s + p.shares, 0) === 50,
     JSON.stringify(richLot),
   );
 

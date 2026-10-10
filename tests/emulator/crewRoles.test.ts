@@ -10,7 +10,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -30,9 +30,19 @@ const db = admin.firestore();
 // identical object. Stubbing at this layer keeps the real discordApi under
 // test (header assembly, validateStatus, audit reason).
 const axios = require('../../functions/node_modules/axios');
-let calls = [];
-let scripted = [];
-axios.request = async (cfg) => {
+interface AxiosCall {
+  method: string;
+  url: string;
+  reason?: string;
+}
+interface AxiosConfig {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+}
+let calls: AxiosCall[] = [];
+let scripted: ({ throw?: string; status?: number; data?: unknown } | null)[] = [];
+axios.request = async (cfg: AxiosConfig) => {
   calls.push({
     method: cfg.method,
     url: cfg.url,
@@ -46,23 +56,25 @@ axios.request = async (cfg) => {
   return { status: 204, data: '' };
 };
 
-const constants = require('../../functions/src/shared/constants');
+const constants =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 const { CREW_HEAD_ROLE_IDS } = constants;
 
 // Give every crew a usable role ID for the test run.
-const ROLE = {};
+const ROLE: Record<string, string> = {};
 Object.keys(constants.CREWS).forEach((crewId, i) => {
   ROLE[crewId] = String(200000000000000000 + i);
-  CREW_HEAD_ROLE_IDS[crewId] = ROLE[crewId];
+  (CREW_HEAD_ROLE_IDS as Record<string, string>)[crewId] = ROLE[crewId];
 });
 
-const { syncCrewHeadRoles } = require('../../functions/src/discord/discordRoles');
+const { syncCrewHeadRoles } =
+  require('../../functions/src/discord/discordRoles') as typeof import('../../functions/src/discord/discordRoles');
 
 const STATE = db.collection('admin').doc('discordCrewRoles');
 const CREWS = Object.keys(constants.CREWS);
 const [C1, C2, C3] = CREWS;
 
-const reset = async (holders = null) => {
+const reset = async (holders: Record<string, unknown> | null = null) => {
   calls = [];
   scripted = [];
   if (holders) {
@@ -72,7 +84,7 @@ const reset = async (holders = null) => {
   }
 };
 
-const head = (uid, name) => ({ uid, displayName: name });
+const head = (uid: string, name: string) => ({ uid, displayName: name });
 const puts = () => calls.filter((c) => c.method === 'put');
 const dels = () => calls.filter((c) => c.method === 'delete');
 const state = async () => (await STATE.get()).data() || {};
@@ -82,7 +94,8 @@ it('crew head roles', async () => {
 
   // A — first ever run
   await reset();
-  let r = await syncCrewHeadRoles({
+  // Every case here is configured, so the result carries the counts.
+  let r: Loose = await syncCrewHeadRoles({
     heads: { [C1]: head('u1', 'One'), [C2]: head('u2', 'Two') },
     discordIds: { [C1]: '900000000000000001', [C2]: '900000000000000002' },
     weekId: '2026-08-03',
@@ -123,13 +136,14 @@ it('crew head roles', async () => {
   check('E: recorded as pending', (await state()).pending[C1].reason === 'no-discord-link');
 
   // F — unconfigured crew is left completely alone
-  const savedRole = CREW_HEAD_ROLE_IDS[C1];
-  CREW_HEAD_ROLE_IDS[C1] = '';
+  const roleIds = CREW_HEAD_ROLE_IDS as Record<string, string>;
+  const savedRole = roleIds[C1];
+  roleIds[C1] = '';
   await reset({ [C1]: { discordId: '900000000000000001', uid: 'u1', roleId: savedRole } });
   r = await syncCrewHeadRoles({ heads: { [C1]: head('u9', 'Nine') }, discordIds: { [C1]: '900000000000000009' } });
   check('F: blank role ID makes zero calls', calls.length === 0, JSON.stringify(calls));
   check('F: existing holder preserved', (await state()).holders[C1].discordId === '900000000000000001');
-  CREW_HEAD_ROLE_IDS[C1] = savedRole;
+  roleIds[C1] = savedRole;
 
   // G — head is not in the Discord server
   await reset();
@@ -160,7 +174,7 @@ it('crew head roles', async () => {
   check('I: first success persisted', (await state()).holders[C1] !== null);
   check(
     'I: problem is actionable',
-    (r.problems || []).some((p) => /Manage Roles/i.test(p)),
+    (r.problems || []).some((p: string) => /Manage Roles/i.test(p)),
   );
 
   // J — 429 retries once and then succeeds
@@ -215,7 +229,8 @@ it('crew head roles', async () => {
   // Discord ID never lands in market/crewStats, which anyone can read.
   await reset();
 
-  const { getWeekId } = require('../../functions/src/shared/helpers');
+  const { getWeekId } =
+    require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
   // Must match how the job itself resolves "last week" (marketWeekly.js:220),
   // otherwise the seeded activity lands in the wrong bucket and nobody
   // qualifies as active.
@@ -247,7 +262,8 @@ it('crew head roles', async () => {
       ...activeLastWeek,
     });
 
-  const { runWeeklyCrewRankings } = require('../../functions/src/market/marketWeekly');
+  const { runWeeklyCrewRankings } =
+    require('../../functions/src/market/marketWeekly') as typeof import('../../functions/src/market/marketWeekly');
   await runWeeklyCrewRankings({ postToDiscord: true });
 
   const stats = (await db.collection('market').doc('crewStats').get()).data() || {};
@@ -261,7 +277,7 @@ it('crew head roles', async () => {
 
   // The regression guard. A leak here exposes linked Discord IDs to every
   // visitor, since market/* is world-readable.
-  const leaked = Object.values(stats.heads || {}).filter((h) => h && h.discordId !== undefined);
+  const leaked = Object.values(stats.heads || {}).filter((h: Loose) => h && h.discordId !== undefined);
   check('E2E: no discordId anywhere in crewStats.heads', leaked.length === 0, JSON.stringify(leaked));
   check('E2E: whale got the Discord role', (await state()).holders[C1]?.discordId === '900000000000000042');
 

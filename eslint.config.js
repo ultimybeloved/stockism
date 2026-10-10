@@ -73,10 +73,15 @@ export default tseslint.config(
 
   // ---- Emulator suites (vitest; backend code comes in through createRequire) ----
   {
-    files: ['tests/**/*.js'],
-    extends: [js.configs.recommended],
+    files: ['tests/**/*.ts'],
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
-    rules: { 'no-unused-vars': ['warn', unusedVars] },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', unusedVars],
+      // `cond ? pass(a) : fail(b)` is how eventMarket reports a check.
+      '@typescript-eslint/no-unused-expressions': ['error', { allowTernary: true }],
+    },
   },
 
   // ---- Backend (Cloud Functions; TypeScript compiled to CommonJS by tsc) ----

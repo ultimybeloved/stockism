@@ -530,7 +530,7 @@ export const processMarketOpenOrders = cf()
   });
 
 // runMarketOpenProcessing is exported for the emulator end-to-end test
-// (tests/emulator/preMarket.test.js).
+// (tests/emulator/preMarket.test.ts).
 
 // Admin-only recovery: re-runs the same processing (idempotent — filled orders
 // are skipped) if the scheduled run failed or was missed.

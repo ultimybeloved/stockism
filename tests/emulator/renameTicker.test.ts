@@ -24,7 +24,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -41,8 +41,9 @@ const NEW = 'GUNX';
 // than one that fails outright, so every assertion checks this survived.
 const OTHER = 'JIN';
 
-const { CHARACTERS, CHARACTER_MAP } = require('../../functions/src/shared/characters');
-const { CREWS } = require('../../functions/src/shared/crews');
+const { CHARACTERS, CHARACTER_MAP } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
+const { CREWS } = require('../../functions/src/shared/crews') as typeof import('../../functions/src/shared/crews');
 
 if (!CHARACTER_MAP[OLD]) throw new Error(`${OLD} is not in characters.ts`);
 if (CHARACTER_MAP[NEW]) throw new Error(`${NEW} already exists; pick another fixture`);
@@ -56,8 +57,8 @@ if (CHARACTER_MAP[NEW]) throw new Error(`${NEW} already exists; pick another fix
  * going through helpers.isRosterTicker would not work, because that freezes its
  * ticker set at module load.
  */
-const renameInRoster = (from, to) => {
-  const entry = CHARACTERS.find((c) => c.ticker === from);
+const renameInRoster = (from: string, to: string) => {
+  const entry = CHARACTERS.find((c) => c.ticker === from)!;
   entry.ticker = to;
   CHARACTER_MAP[to] = entry;
   delete CHARACTER_MAP[from];
@@ -76,29 +77,31 @@ const renameInRoster = (from, to) => {
 
 // Loaded AFTER admin.initializeApp so their top-level admin.firestore() binds
 // to the emulator.
-const R = require('../../functions/src/market/tickerRename');
-const { remapAliasedKeys } = require('../../functions/src/shared/helpers');
+const R =
+  require('../../functions/src/market/tickerRename') as typeof import('../../functions/src/market/tickerRename');
+const { remapAliasedKeys } =
+  require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
 
-const section = (t) => console.log(`\n${t}`);
+const section = (t: string) => console.log(`\n${t}`);
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = Date.now();
 
 const marketRef = () => db.collection('market').doc('current');
 const getMarket = async () => (await marketRef().get()).data() || {};
-const getDoc = async (col, id) => (await db.collection(col).doc(id).get()).data() || {};
+const getDoc = async (col: string, id: string) => (await db.collection(col).doc(id).get()).data() || {};
 const getJournal = () => getDoc('market', 'tickerRename');
 
-const wipe = async (path) => {
+const wipe = async (path: string) => {
   const snap = await db.collection(path).get();
   for (let i = 0; i < snap.docs.length; i += 400) {
     const batch = db.batch();
-    snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+    snap.docs.slice(i, i + 400).forEach((d: Loose) => batch.delete(d.ref));
     await batch.commit();
   }
 };
 
-const both = (v, o = v) => ({ [OLD]: v, [OTHER]: o });
+const both = (v: Loose, o = v) => ({ [OLD]: v, [OTHER]: o });
 
 /** Rebuild every fixture from scratch so each section starts clean. */
 const seed = async (ticker = OLD) => {
@@ -127,7 +130,8 @@ const seed = async (ticker = OLD) => {
     haltReason: '',
   });
 
-  const { priceHistoryRef } = require('../../functions/src/shared/helpers');
+  const { priceHistoryRef } =
+    require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
   await priceHistoryRef().set({
     [t]: [
       { timestamp: now - DAY, price: 88 },
@@ -194,7 +198,7 @@ const seed = async (ticker = OLD) => {
     .set({ tiers: both('rare', 'common') });
 
   // u1 carries every ticker-keyed map, each with a neighbour alongside.
-  const u1 = {};
+  const u1: Record<string, unknown> = {};
   for (const map of R.USER_TICKER_MAPS) u1[map] = both(1, 2);
   u1.watchlist = [t, OTHER];
   u1.transactionLog = [
@@ -254,7 +258,7 @@ const seed = async (ticker = OLD) => {
     .set({ ticker: `${t}NER`, message: `bought 5 $${t}NER`, createdAt: now });
 };
 
-const run = (mode, opts = {}) =>
+const run = (mode: string, opts = {}) =>
   R.runRename({
     old: OLD,
     nw: NEW,
@@ -270,7 +274,7 @@ it('renameTicker', async () => {
   section('A. Preflight refuses every unsafe start');
   await seed();
 
-  const pf = async (o, n) => {
+  const pf = async (o: Loose, n: string) => {
     const md = await getMarket();
     const { checks } = await R.runPreflight({ old: o, nw: n, marketData: md });
     return Object.fromEntries(checks.map((c) => [c.id, c.pass]));
@@ -340,8 +344,9 @@ it('renameTicker', async () => {
   check('alias recorded', m.tickerAliases[OLD] === NEW);
   check('market reopened', m.marketHalted === false);
 
-  const { priceHistoryRef } = require('../../functions/src/shared/helpers');
-  const hist = (await priceHistoryRef().get()).data();
+  const { priceHistoryRef } =
+    require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
+  const hist = (await priceHistoryRef().get()).data()!;
   check('live history moved with both points', (hist[NEW] || []).length === 2 && hist[OLD] === undefined);
   check('neighbour history untouched', (hist[OTHER] || []).length === 1);
 
@@ -359,13 +364,13 @@ it('renameTicker', async () => {
   const idx = await getDoc('market', 'indexHistory');
   check(
     'index constituents moved',
-    idx.constituents.some((c) => c.t === NEW) && !idx.constituents.some((c) => c.t === OLD),
+    idx.constituents.some((c: Loose) => c.t === NEW) && !idx.constituents.some((c: Loose) => c.t === OLD),
   );
   check('index divisor untouched', idx.divisor === 0.152);
   const ipos = await getDoc('market', 'ipos');
   check(
     'IPO list moved',
-    ipos.list.some((i) => i.ticker === NEW),
+    ipos.list.some((i: Loose) => i.ticker === NEW),
   );
   const stats = await getDoc('market', 'tickerStats');
   check('ticker stats moved', stats[NEW]?.trades === 9 && stats[OLD] === undefined);
@@ -400,7 +405,7 @@ it('renameTicker', async () => {
   const u2 = await getDoc('users', 'u2');
   check('sparse player doc handled', u2.shorts[NEW]?.shares === 4);
   const u3Snap = await db.collection('users').doc('u3').get();
-  check('uninvolved player was not written', u3Snap.updateTime.toMillis() < res.journal.startedAt);
+  check('uninvolved player was not written', u3Snap.updateTime.toMillis() < (res.journal as Loose).startedAt);
 
   const alert = await db.collection('users').doc('u1').collection('priceAlerts').doc('a1').get();
   check('price alert rewritten', alert.data().ticker === NEW);
@@ -477,7 +482,7 @@ it('renameTicker', async () => {
   // ── G. Failure keeps the market halted ─────────────────────────────────
   section('G. A failure keeps the market halted');
   await seed();
-  const tradesPhase = R.PHASES.find((ph) => ph.name === 'trades');
+  const tradesPhase = R.PHASES.find((ph) => ph.name === 'trades')!;
   const realRun = tradesPhase.run;
   tradesPhase.run = async () => {
     throw new Error('injected failure');
@@ -520,7 +525,7 @@ it('renameTicker', async () => {
   section('H. Restoring a pre-rename backup does not resurrect the old ticker');
   const aliases = (await getMarket()).tickerAliases || {};
   const backup = { [OLD]: [{ timestamp: now, price: 90 }], [OTHER]: [{ timestamp: now, price: 40 }] };
-  const restored = remapAliasedKeys(backup, aliases);
+  const restored = remapAliasedKeys(backup, aliases)!;
   check('old key remapped to the current name', restored[NEW] !== undefined && restored[OLD] === undefined);
   check('unrelated ticker passes through', restored[OTHER] !== undefined);
 

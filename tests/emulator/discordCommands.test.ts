@@ -11,7 +11,7 @@
 // app (same trap the trading suite documents).
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -22,11 +22,17 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { handleSlashCommand, isPrivate } = require('../../functions/src/discord/discordCommands');
-const { CHARACTERS } = require('../../functions/src/shared/characters');
+const { handleSlashCommand, isPrivate } =
+  require('../../functions/src/discord/discordCommands') as typeof import('../../functions/src/discord/discordCommands');
+const { CHARACTERS } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
 // A slash-command interaction as Discord actually sends it.
-const interaction = (name, options = [], discordId = 'discord-linked-1') => ({
+const interaction = (
+  name: string,
+  options: { name: string; value: string }[] = [],
+  discordId = 'discord-linked-1',
+) => ({
   type: 2,
   application_id: 'app',
   token: 'tok',
@@ -36,7 +42,7 @@ const interaction = (name, options = [], discordId = 'discord-linked-1') => ({
 
 // Discord rejects embeds with empty field values or missing descriptions, so a
 // payload that "works" in JS can still fail at the API. Validate shape here.
-const validPayload = (p) => {
+const validPayload = (p: Loose) => {
   if (!p || typeof p !== 'object') return 'not an object';
   if (p.content && typeof p.content !== 'string') return 'content not a string';
   if (p.embeds) {
@@ -92,7 +98,10 @@ async function seed() {
         { userId: 'u3', displayName: 'Gamma', portfolioValue: 31000 },
       ],
     });
-  const crew = Object.keys(require('../../functions/src/shared/constants').CREW_MEMBERS)[0];
+  const crew = Object.keys(
+    (require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants'))
+      .CREW_MEMBERS,
+  )[0];
   await db
     .collection('users')
     .doc('u1')
@@ -182,7 +191,7 @@ async function run() {
   );
 
   console.log('\n--- Price change is computed from the chapter snapshot ---');
-  const priced = await handleSlashCommand(interaction('price', [{ name: 'stock', value: TICKER_A }], 'u-price'));
+  const priced: Loose = await handleSlashCommand(interaction('price', [{ name: 'stock', value: TICKER_A }], 'u-price'));
   // Seeded 100 -> 120.50 = +20.50%
   check(
     '/price shows the correct move since chapter open',
@@ -193,7 +202,7 @@ async function run() {
   console.log('\n--- /profile privacy ---');
   // Seeded cash is 5000. Everything /profile shows is already public on the
   // site; cash is not, and /profile can be aimed at anyone.
-  const prof = await handleSlashCommand(interaction('profile', [], 'discord-linked-2'));
+  const prof: Loose = await handleSlashCommand(interaction('profile', [], 'discord-linked-2'));
   const profText = JSON.stringify(prof);
   check('/profile does not show cash', !/Cash/i.test(profText), profText);
   check('/profile does not leak the cash figure', !/777\.00/.test(profText), profText);
@@ -207,13 +216,13 @@ async function run() {
   );
 
   // Viewing someone else must not expose their cash either.
-  const otherProf = await handleSlashCommand({
+  const otherProf: Loose = await handleSlashCommand({
     type: 2,
     application_id: 'a',
     token: 't',
     data: { name: 'profile', options: [{ name: 'user', value: 'discord-linked-1' }] },
     member: { user: { id: 'someone-else' } },
-  });
+  } as Parameters<typeof handleSlashCommand>[0]);
   check('/profile @other does not show cash', !/Cash/i.test(JSON.stringify(otherProf)));
 
   // The caller's own private portfolio still shows cash - different context.
@@ -241,7 +250,7 @@ async function run() {
   check('/profile does not show a raw crew id', !/[A-Z]{2,}_[A-Z]{2,}/.test(profText), profText);
 
   console.log('\n--- Markdown injection via echoed input ---');
-  const inject = await handleSlashCommand(
+  const inject: Loose = await handleSlashCommand(
     interaction('price', [{ name: 'stock', value: '[click me](https://evil.example)' }], 'u-inject'),
   );
   // Check the real description string, not its JSON encoding — JSON doubles

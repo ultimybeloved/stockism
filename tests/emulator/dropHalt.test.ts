@@ -18,7 +18,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -49,10 +49,12 @@ for (const method of ['get', 'post', 'patch', 'put', 'delete', 'request']) {
 const constantsPath = require.resolve('../../functions/src/shared/constants');
 const constants = require(constantsPath);
 let weeklyHalt = false;
-require.cache[constantsPath].exports = { ...constants, isWeeklyTradingHalt: () => weeklyHalt };
+require.cache[constantsPath]!.exports = { ...constants, isWeeklyTradingHalt: () => weeklyHalt };
 
-const { discordInteractions } = require('../../functions/src/discord/discordInteractions');
-const { CHARACTERS } = require('../../functions/src/shared/characters');
+const { discordInteractions } =
+  require('../../functions/src/discord/discordInteractions') as typeof import('../../functions/src/discord/discordInteractions');
+const { CHARACTERS } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
 const DISCORD_ID = 'drop-halt-tester';
 const UID = 'drop_halt_uid';
@@ -60,8 +62,11 @@ const UID = 'drop_halt_uid';
 // Discord snowflake for "now", so the 72-hour expiry check passes.
 const freshMessageId = () => String(BigInt(Date.now() - 1420070400000) << 22n);
 
-const callClaim = (messageId) =>
-  new Promise((resolve) => {
+type Handler = (req: unknown, res: unknown) => unknown;
+const handler = discordInteractions as unknown as Handler & { run?: Handler };
+
+const callClaim = (messageId: string) =>
+  new Promise<void>((resolve) => {
     const body = {
       type: 3,
       application_id: 'app-id',
@@ -77,7 +82,7 @@ const callClaim = (messageId) =>
     let settled = false;
     const res = {
       statusCode: 200,
-      status(code) {
+      status(code: number) {
         this.statusCode = code;
         return this;
       },
@@ -103,7 +108,7 @@ const callClaim = (messageId) =>
         resolve();
       }
     };
-    Promise.resolve(discordInteractions.run ? discordInteractions.run(req, res) : discordInteractions(req, res))
+    Promise.resolve(handler.run ? handler.run(req, res) : handler(req, res))
       .then(done)
       .catch((err) => {
         console.log('    (handler finished with:', err.message + ')');
@@ -117,16 +122,17 @@ const histRef = db.collection('market').doc('priceHistory');
 const readState = async () => {
   const prices = (await marketRef.get()).data().prices || {};
   const hist = (await histRef.get()).data() || {};
-  const user = (await db.collection('users').doc(UID).get()).data() || {};
+  const user: Loose = (await db.collection('users').doc(UID).get()).data() || {};
   const dropPoints = Object.values(hist)
     .filter(Array.isArray)
     .flat()
     .filter((p) => p && p.source === 'daily_drop');
-  const shares = Object.values(user.holdings || {}).reduce((a, b) => a + b, 0);
+  const shares = Object.values(user.holdings || {}).reduce((a: number, b: Loose) => a + b, 0);
   // Dividend/exit-loyalty lots across every ticker, and the claim ledger that
   // is pruned to the 72-hour window.
   const lotShares = Object.values(user.holdingCohorts || {}).reduce(
-    (a, c) => a + (c.eligible || 0) + (c.pending || []).reduce((s, p) => s + (p.shares || 0), 0),
+    (a: number, c: Loose) =>
+      a + (c.eligible || 0) + (c.pending || []).reduce((s: Loose, p: Loose) => s + (p.shares || 0), 0),
     0,
   );
   const claimed = (user.claimedDailyStockMessages || []).length;
@@ -135,7 +141,7 @@ const readState = async () => {
 
 async function seed() {
   // Whole roster priced, so the drop's rarity tiers behave like production.
-  const prices = {};
+  const prices: Record<string, number> = {};
   for (const c of CHARACTERS) if (!c.ipoRequired) prices[c.ticker] = c.basePrice;
   await marketRef.set({ prices, launchedTickers: [], marketHalted: false });
   await histRef.set({});
@@ -152,7 +158,7 @@ async function seed() {
     });
 }
 
-async function claimUnder(label, { weekly = false, manual = false }) {
+async function claimUnder(label: string, { weekly = false, manual = false }) {
   weeklyHalt = weekly;
   await marketRef.update({ marketHalted: manual });
   const before = await readState();

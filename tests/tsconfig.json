@@ -1,0 +1,17 @@
+{
+  // Typechecks the emulator suites. Never emits; vitest runs them directly.
+  // Run through `npm run typecheck`.
+  "extends": "../functions/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "..",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    // Suites index fixtures freely; an out-of-range read fails the check anyway.
+    "noUncheckedIndexedAccess": false,
+    // Suites read e.message off whatever a callable threw.
+    "useUnknownInCatchVariables": false
+  },
+  "include": ["."],
+  "exclude": []
+}

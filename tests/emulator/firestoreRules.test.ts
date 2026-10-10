@@ -16,7 +16,7 @@ import {
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, doc, updateDoc, deleteField } from 'firebase/firestore';
-import { check as record } from './harness.js';
+import { check as record, type Loose } from './harness';
 
 const PROJECT_ID = 'stockism-abb28';
 
@@ -43,7 +43,7 @@ const EMAIL = 'rulestest@example.com';
 const PASSWORD = 'password123';
 
 // expectAllowed: the write must succeed. expectBlocked: it must be rejected.
-async function check(label, mode, fields) {
+async function check(label: string, mode: string, fields: Loose) {
   const ref = doc(clientDb, 'users', uid);
   try {
     await updateDoc(ref, fields);
@@ -58,7 +58,7 @@ async function check(label, mode, fields) {
   }
 }
 
-let uid;
+let uid: string;
 
 async function main() {
   // Create + sign in the test user.

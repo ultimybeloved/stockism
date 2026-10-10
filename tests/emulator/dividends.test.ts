@@ -16,7 +16,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -28,8 +28,10 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const { runDividendPayoutNow } = require('../../functions/src/market/dividends');
-const { ADMIN_UID } = require('../../functions/src/shared/constants');
+const { runDividendPayoutNow } =
+  require('../../functions/src/market/dividends') as typeof import('../../functions/src/market/dividends');
+const { ADMIN_UID } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 const {
   CHARACTERS,
   computeRarityTiers,
@@ -40,9 +42,9 @@ const {
   DIVIDEND_LOYALTY_LADDER,
   DIVIDEND_MATURE_MS,
   DIVIDEND_LADDER_EPOCH,
-} = require('../../functions/src/shared/characters');
+} = require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
-const near = (a, b, tol = 0.011) => Math.abs(a - b) < tol;
+const near = (a: number, b: number, tol = 0.011) => Math.abs(a - b) < tol;
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.now();
 
@@ -51,12 +53,18 @@ const T = 'SOPH';
 const PRICE = 100;
 
 /** A pending lot acquired `ageDays` ago. availableAt is acquisition + the hold. */
-const lot = (shares, ageDays) => ({
+const lot = (shares: number, ageDays: number) => ({
   shares,
   availableAt: NOW - ageDays * DAY + DIVIDEND_HOLD_MS,
 });
 
-async function seed(uid, { holdings, cohorts, drip, extra = {} } = {}) {
+interface SeedOptions {
+  holdings?: Record<string, number>;
+  cohorts?: Record<string, unknown>;
+  drip?: unknown;
+  extra?: Record<string, unknown>;
+}
+async function seed(uid: string, { holdings, cohorts, drip, extra = {} }: SeedOptions = {}) {
   await db
     .collection('users')
     .doc(uid)
@@ -71,8 +79,8 @@ async function seed(uid, { holdings, cohorts, drip, extra = {} } = {}) {
       ...extra,
     });
 }
-const getUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
-const cashOf = async (uid) => (await getUser(uid)).cash;
+const getUser = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
+const cashOf = async (uid: string) => (await getUser(uid)).cash;
 
 async function main() {
   console.log('\n=== Dividend money-path suite (emulator) ===');
@@ -92,7 +100,7 @@ async function main() {
   const RATE = getDividendRate(T, rarityTiers, {});
   console.log(`  (${T} at $${PRICE}, weekly rate ${(RATE * 100).toFixed(2)}%)`);
 
-  const expected = (weighted) => Math.round(weighted * PRICE * RATE * 100) / 100;
+  const expected = (weighted: number) => Math.round(weighted * PRICE * RATE * 100) / 100;
 
   // ── A. Who gets paid ──────────────────────────────────────────────────────
   console.log('\nA. Who gets paid');
@@ -254,7 +262,8 @@ async function main() {
 
   const extraUser = await getUser('div_extra');
   const extraCohort = extraUser.holdingCohorts[T];
-  const extraSum = (extraCohort.eligible || 0) + (extraCohort.pending || []).reduce((s, p) => s + p.shares, 0);
+  const extraSum =
+    (extraCohort.eligible || 0) + (extraCohort.pending || []).reduce((s: Loose, p: Loose) => s + p.shares, 0);
   check('unexplained shares are added to the cohort', near(extraSum, 300), `sum=${extraSum}`);
   check(
     'and they earn nothing this run — no retroactive dividends',
@@ -264,7 +273,8 @@ async function main() {
 
   const shortUser = await getUser('div_short');
   const shortCohort = shortUser.holdingCohorts[T];
-  const shortSum = (shortCohort.eligible || 0) + (shortCohort.pending || []).reduce((s, p) => s + p.shares, 0);
+  const shortSum =
+    (shortCohort.eligible || 0) + (shortCohort.pending || []).reduce((s: Loose, p: Loose) => s + p.shares, 0);
   check('a cohort larger than the holding is trimmed down to it', near(shortSum, 50), `sum=${shortSum}`);
   check(
     'and pays only on the shares actually held',
@@ -298,12 +308,12 @@ async function main() {
   const dripPending = dripUser.holdingCohorts[T].pending || [];
   check(
     'reinvested shares enter pending, so they cannot earn again immediately',
-    dripPending.some((p) => near(p.shares, sharesAdded)),
+    dripPending.some((p: Loose) => near(p.shares, sharesAdded)),
     JSON.stringify(dripPending),
   );
   check(
     'the reinvestment is recorded on the trade row',
-    (await db.collection('trades').where('uid', '==', 'div_drip').get()).docs.some((d) => d.data().reinvested),
+    (await db.collection('trades').where('uid', '==', 'div_drip').get()).docs.some((d: Loose) => d.data().reinvested),
     'no reinvested breakdown found',
   );
 
@@ -313,23 +323,23 @@ async function main() {
   const holderTrades = await db.collection('trades').where('uid', '==', 'div_holder').get();
   check(
     'a payout writes a trade row so it shows in trade history',
-    holderTrades.docs.some((d) => d.data().action === 'dividend'),
+    holderTrades.docs.some((d: Loose) => d.data().action === 'dividend'),
   );
   const holderDoc = await getUser('div_holder');
   check(
     'and a DIVIDEND entry on the transaction log',
-    (holderDoc.transactionLog || []).some((e) => e.type === 'DIVIDEND'),
+    (holderDoc.transactionLog || []).some((e: Loose) => e.type === 'DIVIDEND'),
   );
   check(
     'the log entry breaks the payout down by ticker',
-    (holderDoc.transactionLog || []).some((e) => e.breakdown && e.breakdown[T] > 0),
+    (holderDoc.transactionLog || []).some((e: Loose) => e.breakdown && e.breakdown[T] > 0),
   );
 
   const runs = await db.collection('dividendConfig').doc('runs').collection('log').get();
   check('every run is logged for the admin readout', runs.size >= 1, `runs=${runs.size}`);
   check(
     'the run log records who triggered it',
-    runs.docs.every((d) => d.data().source === 'manual-admin'),
+    runs.docs.every((d: Loose) => d.data().source === 'manual-admin'),
   );
 
   // market/current is seeded at 5x the snapshot, so a payout that read the wrong

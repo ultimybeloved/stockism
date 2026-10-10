@@ -9,7 +9,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -20,14 +20,16 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { getLeaderboard } = require('../../functions/src/users/leaderboard');
+const { getLeaderboard } =
+  require('../../functions/src/users/leaderboard') as typeof import('../../functions/src/users/leaderboard');
 
 // Distinct values so every rank is unambiguous: p001 is the richest.
 const PLAYERS = 60;
-const valueOf = (i) => 100000 - i * 100;
-const uidOf = (i) => `p${String(i).padStart(3, '0')}`;
+const valueOf = (i: number) => 100000 - i * 100;
+const uidOf = (i: number) => `p${String(i).padStart(3, '0')}`;
 
-const call = (data, uid) => getLeaderboard.run(data, { auth: uid ? { uid } : undefined, rawRequest: {} });
+const call = (data: Loose, uid: string | null) =>
+  getLeaderboard.run(data, { auth: uid ? { uid } : undefined, rawRequest: {} });
 
 async function main() {
   const batch = db.batch();

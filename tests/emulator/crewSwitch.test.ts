@@ -10,7 +10,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -21,18 +21,20 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
-const { switchCrew } = require('../../functions/src/crews/crew');
-const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } = require('../../functions/src/shared/constants');
-const { CREW_SWITCH_EVENT, isFreeSwitchTarget } = require('../../functions/src/shared/crews');
+const { switchCrew } = require('../../functions/src/crews/crew') as typeof import('../../functions/src/crews/crew');
+const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
+const { CREW_SWITCH_EVENT, isFreeSwitchTarget } =
+  require('../../functions/src/shared/crews') as typeof import('../../functions/src/shared/crews');
 
 const EVENT_CREW = CREW_SWITCH_EVENT?.crewId;
 const PAID_CREW = 'YAMAZAKI'; // no event running on this one
 const FROM_CREW = 'WORKERS';
 const TICKER = 'GUN';
 
-const ctx = (uid) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });
-const call = (data, uid) => switchCrew.run(data, ctx(uid));
-const err = async (data, uid) => {
+const ctx = (uid: string) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });
+const call = (data: Loose, uid: string) => switchCrew.run(data, ctx(uid));
+const err = async (data: Loose, uid: string) => {
   try {
     await call(data, uid);
     return null;
@@ -41,7 +43,7 @@ const err = async (data, uid) => {
   }
 };
 
-const seedUser = async (uid, extra = {}) => {
+const seedUser = async (uid: string, extra = {}) => {
   await db
     .collection('users')
     .doc(uid)
@@ -54,7 +56,7 @@ const seedUser = async (uid, extra = {}) => {
       ...extra,
     });
 };
-const readUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
+const readUser = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
 
 async function main() {
   if (!EVENT_CREW) throw new Error('No CREW_SWITCH_EVENT configured — nothing to test');

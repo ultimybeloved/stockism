@@ -6,7 +6,7 @@
 //
 // Plays one whole season: start, two Thursday checkpoints, the standings board,
 // and the end. The tier rules themselves are unit-tested in
-// functions/seasonTiers.test.js; this covers the part those can't: what
+// functions/src/season/seasonTiers.test.ts; this covers the part those can't: what
 // season.js actually reads from and writes to player documents.
 //
 // Checks the holes closed on 2026-09-13 as well as the rules:
@@ -21,7 +21,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -33,26 +33,24 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const {
-  adminStartSeason,
-  runSeasonCheckpoint,
-  getSeasonStandings,
-  adminEndSeason,
-  triggerSeasonCheckpoint,
-} = require('../../functions/src/season/season');
-const { getSeasonCoordFlags, setSeasonTopTierExclusion } = require('../../functions/src/season/seasonExclusions');
-const { ADMIN_UID } = require('../../functions/src/shared/constants');
+const { adminStartSeason, runSeasonCheckpoint, getSeasonStandings, adminEndSeason, triggerSeasonCheckpoint } =
+  require('../../functions/src/season/season') as typeof import('../../functions/src/season/season');
+const { getSeasonCoordFlags, setSeasonTopTierExclusion } =
+  require('../../functions/src/season/seasonExclusions') as typeof import('../../functions/src/season/seasonExclusions');
+const { ADMIN_UID } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 const DAY = 24 * 60 * 60 * 1000;
 const adminCtx = { auth: { uid: ADMIN_UID } };
 
-const close = (a, b, eps = 0.01) => typeof a === 'number' && Math.abs(a - b) <= eps;
+const close = (a: number, b: number, eps = 0.01) => typeof a === 'number' && Math.abs(a - b) <= eps;
 
-const user = async (uid) => (await db.collection('users').doc(uid).get()).data();
+const user = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
 
 // The index is SOPH alone with a divisor of 1/1000, so it reads SOPH x 12.5:
 // 80 -> 1000, 84 -> 1050, 88 -> 1100.
-const setPrices = (prices) => db.collection('market').doc('current').set({ prices }, { merge: true });
+const setPrices = (prices: Record<string, number>) =>
+  db.collection('market').doc('current').set({ prices }, { merge: true });
 
 const seed = async () => {
   const now = Date.now();
@@ -87,13 +85,13 @@ const seed = async () => {
   // Cash-only players who turn up and do nothing. Under $10,000, so they sit in
   // the Rookie division with the contenders and give it two Platinum places and
   // one Diamond place (12 Rookies). stale and granted, at $10,000, are Traders.
-  for (let i = 0; i < 7; i++) players[`filler${i}`] = { cash: 9000, holdings: {} };
+  for (let i = 0; i < 7; i++) (players as Record<string, Loose>)[`filler${i}`] = { cash: 9000, holdings: {} };
 
   const batch = db.batch();
   for (const [uid, p] of Object.entries(players)) {
     batch.set(db.collection('users').doc(uid), {
       displayName: uid,
-      portfolioValue: p.portfolioValue ?? p.cash,
+      portfolioValue: (p as Loose).portfolioValue ?? p.cash,
       grantedValue: 0,
       lastActive: now,
       ...p,
@@ -232,11 +230,11 @@ const run = async () => {
 
   console.log('\nD. Standings board');
   const board = await getSeasonStandings.run({}, {});
-  const row = (uid) => board.entries.find((e) => e.userId === uid);
+  const row = (uid: string) => board.entries.find((e: Loose) => e.userId === uid);
   check(
     'board has every active player and no one else',
     board.totalScored === 14 && !row('dormant') && !row('bot'),
-    board.entries.map((e) => e.userId),
+    board.entries.map((e: Loose) => e.userId),
   );
   check('ranked by lead over the market', board.entries[0].userId === 'sitter', board.entries.slice(0, 3));
   check(
@@ -245,7 +243,7 @@ const run = async () => {
     row('sitter'),
   );
   check('market figure for the season', close(board.marketPercent, 10, 0.1), board.marketPercent);
-  const div = Object.fromEntries(board.divisions.map((d) => [d.id, d]));
+  const div = Object.fromEntries(board.divisions.map((d: Loose) => [d.id, d]));
   check(
     'Rookies: 12 players, two Platinum places, one Diamond',
     div.rookie.players === 12 && div.rookie.platinum === 2 && div.rookie.diamond === 1,
@@ -268,11 +266,11 @@ const run = async () => {
   check('margin projected Gold from the finish', row('margin').projectedTier === 'gold', row('margin'));
 
   console.log('\nD2. Keeping a repeat coordinator out of Platinum and Diamond');
-  const alert = (uids, ticker, timestamp) =>
+  const alert = (uids: string[], ticker: string, timestamp: number) =>
     db.collection('watchlist_alerts').add({
       type: 'coordinated_pressure',
       participantUIDs: uids,
-      participants: uids.map((u) => u.toUpperCase()),
+      participants: uids.map((u: Loose) => u.toUpperCase()),
       ticker,
       timestamp,
     });
@@ -282,7 +280,7 @@ const run = async () => {
   await alert(['diverse', 'sitter'], 'DG', admin.firestore.Timestamp.fromMillis(countFrom + 120000));
   await alert(['diverse', 'margin'], 'OLD', admin.firestore.Timestamp.fromMillis(countFrom - 60000));
   const flags = await getSeasonCoordFlags.run({}, adminCtx);
-  const flagged = Object.fromEntries(flags.players.map((p) => [p.uid, p]));
+  const flagged = Object.fromEntries(flags.players.map((p: Loose) => [p.uid, p]));
   check(
     'flags from before the season do not count',
     flagged.diverse?.flags === 2 && !flagged.margin && JSON.stringify(flagged.diverse.tickers) === '["DG","GUN"]',
@@ -309,10 +307,10 @@ const run = async () => {
   );
   check(
     'flags list shows them excluded',
-    (await getSeasonCoordFlags.run({}, adminCtx)).players.find((p) => p.uid === 'diverse')?.excluded === true,
+    (await getSeasonCoordFlags.run({}, adminCtx)).players.find((p: Loose) => p.uid === 'diverse')?.excluded === true,
   );
   const exBoard = await getSeasonStandings.run({}, {});
-  const exRow = (uid) => exBoard.entries.find((e) => e.userId === uid);
+  const exRow = (uid: string) => exBoard.entries.find((e: Loose) => e.userId === uid);
   check(
     'excluded player still on the board, but projects no top tier',
     exRow('diverse') && !['platinum', 'diamond'].includes(exRow('diverse').projectedTier),
@@ -320,7 +318,7 @@ const run = async () => {
   );
   check(
     'their place goes to someone else in the division',
-    exBoard.entries.filter((e) => e.division === 'rookie' && ['platinum', 'diamond'].includes(e.projectedTier))
+    exBoard.entries.filter((e: Loose) => e.division === 'rookie' && ['platinum', 'diamond'].includes(e.projectedTier))
       .length === 2,
     exBoard.entries,
   );
@@ -330,7 +328,7 @@ const run = async () => {
   const backBoard = await getSeasonStandings.run({}, {});
   check(
     'undo restores their projected place',
-    backBoard.entries.find((e) => e.userId === 'diverse')?.projectedTier === 'diamond',
+    backBoard.entries.find((e: Loose) => e.userId === 'diverse')?.projectedTier === 'diamond',
   );
   check('undo clears the mark', !(await user('diverse')).seasonTopTierExclusion);
 
@@ -443,7 +441,7 @@ const run = async () => {
     preTier === 'diamond' &&
       preDiverse.ownedTitles.includes(`preseason_1_${preTier}`) &&
       preDiverse.titleMeta[`preseason_1_${preTier}`] === `Preseason ${preLabel}` &&
-      !preDiverse.ownedTitles.some((t) => t.startsWith('arc_p1_')),
+      !preDiverse.ownedTitles.some((t: Loose) => t.startsWith('arc_p1_')),
     preDiverse.ownedTitles,
   );
   check('preseason results filed under P1', (await db.collection('seasonResults').doc('P1').get()).exists);

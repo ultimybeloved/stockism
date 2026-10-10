@@ -9,7 +9,7 @@ import { defineConfig } from 'vitest/config';
 
 const shared = {
   environment: 'node',
-  setupFiles: ['functions/test/setup.ts', 'tests/emulator/setup.js'],
+  setupFiles: ['functions/test/setup.ts', 'tests/emulator/setup.ts'],
   // One emulator, so one file at a time, each in a fresh process.
   pool: 'forks',
   fileParallelism: false,
@@ -23,8 +23,8 @@ const shared = {
 export default defineConfig({
   test: {
     projects: [
-      { test: { ...shared, name: 'core', include: ['tests/emulator/*.test.js'] } },
-      { test: { ...shared, name: 'functions', include: ['tests/emulator/functions/*.test.js'] } },
+      { test: { ...shared, name: 'core', include: ['tests/emulator/*.test.ts'] } },
+      { test: { ...shared, name: 'functions', include: ['tests/emulator/functions/*.test.ts'] } },
     ],
   },
 });

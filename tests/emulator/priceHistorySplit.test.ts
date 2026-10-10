@@ -17,7 +17,7 @@
 
 import { beforeAll, it } from 'vitest';
 import { createRequire } from 'module';
-import { check, seedEmulator } from './harness.js';
+import { check, seedEmulator, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -31,18 +31,23 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore() binds to the emulator.
-const { executeTrade } = require('../../functions/src/trading/trading');
+const { executeTrade } =
+  require('../../functions/src/trading/trading') as typeof import('../../functions/src/trading/trading');
 // No migratePriceHistoryDoc import: that was a one-time migration off the
 // legacy priceHistory field on market/current. It ran, the callable was
 // deleted from adminOps.js, and the section testing it was removed here.
-const { archivePriceHistory } = require('../../functions/src/admin/archiving');
-const { applyDueIPOJumps } = require('../../functions/src/shared/helpers');
-const { ADMIN_UID, PRICE_HISTORY_LIVE_MAX } = require('../../functions/src/shared/constants');
+const { archivePriceHistory } =
+  require('../../functions/src/admin/archiving') as typeof import('../../functions/src/admin/archiving');
+const { applyDueIPOJumps } =
+  require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
+const { ADMIN_UID, PRICE_HISTORY_LIVE_MAX } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 // Comfortably more points than the live cap, so archiving has real overflow to move.
 const SEEDED_POINTS = PRICE_HISTORY_LIVE_MAX + 945;
 
-const { CHARACTER_MAP } = require('../../functions/src/shared/characters');
+const { CHARACTER_MAP } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 
 const DAY = 24 * 60 * 60 * 1000;
 const NORMAL = 'GUN';
@@ -53,8 +58,8 @@ const IPO = 'EUNH';
 if (!CHARACTER_MAP[IPO]) throw new Error(`${IPO} is not in characters.ts`);
 CHARACTER_MAP[IPO].ipoRequired = true;
 
-const ctx = (uid) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });
-const ok = (fn, data, uid) => fn.run(data, ctx(uid));
+const ctx = (uid: string) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });
+const ok = (fn: Loose, data: Loose, uid: string) => fn.run(data, ctx(uid));
 
 const getMarket = async () => (await db.collection('market').doc('current').get()).data();
 const getHist = async () => (await db.collection('market').doc('priceHistory').get()).data() || {};
@@ -145,7 +150,7 @@ async function testTradeAppends() {
   );
   check(
     'points are the permanent record (monotonic growth)',
-    hist[NORMAL].every((p, i, a) => i === 0 || a[i - 1].timestamp <= p.timestamp),
+    hist[NORMAL].every((p: Loose, i: Loose, a: Loose) => i === 0 || a[i - 1].timestamp <= p.timestamp),
     'out of order',
   );
   check('old field still absent after sell', market.priceHistory === undefined);
@@ -228,11 +233,11 @@ async function testArchiveKeepsConcurrentAppends() {
   await archiving;
 
   const live = (await getHist()).RACET || [];
-  const survived = live.some((p) => p.timestamp === midRunPoint.timestamp && p.price === midRunPoint.price);
+  const survived = live.some((p: Loose) => p.timestamp === midRunPoint.timestamp && p.price === midRunPoint.price);
   check(
     'point appended mid-archive is still in the live doc',
     survived,
-    `live has ${live.length} points, newest ts ${Math.max(...live.map((p) => p.timestamp))}`,
+    `live has ${live.length} points, newest ts ${Math.max(...live.map((p: Loose) => p.timestamp))}`,
   );
 }
 

@@ -17,7 +17,7 @@
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
-import { check } from './harness.js';
+import { check, type Loose } from './harness';
 
 const require = createRequire(import.meta.url);
 
@@ -29,13 +29,12 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const {
-  depositToLadderGame,
-  withdrawFromLadderGame,
-  adminTransferToLadder,
-} = require('../../functions/src/ladder/ladderTransfers');
-const { playLadderGame } = require('../../functions/src/ladder/ladderGame');
-const { getLadderChips, getLadderWithdrawable } = require('../../functions/src/shared/helpers');
+const { depositToLadderGame, withdrawFromLadderGame, adminTransferToLadder } =
+  require('../../functions/src/ladder/ladderTransfers') as typeof import('../../functions/src/ladder/ladderTransfers');
+const { playLadderGame } =
+  require('../../functions/src/ladder/ladderGame') as typeof import('../../functions/src/ladder/ladderGame');
+const { getLadderChips, getLadderWithdrawable } =
+  require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
 const {
   ADMIN_UID,
   LADDER_GAME_MAX_BALANCE,
@@ -44,10 +43,10 @@ const {
   LADDER_WITHDRAW_PRINCIPAL_FEE_RATE,
   LADDER_WITHDRAW_RUSH_RATE,
   LADDER_RAMP_MIN_FACTOR,
-} = require('../../functions/src/shared/constants');
+} = require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
-const near = (a, b, tol = 0.011) => Math.abs(a - b) < tol;
-const ctx = (uid) => ({ auth: { uid } });
+const near = (a: number, b: number, tol = 0.011) => Math.abs(a - b) < tol;
+const ctx = (uid: string) => ({ auth: { uid } });
 const DAY = 24 * 60 * 60 * 1000;
 
 // Deterministic ladder outcomes. playLadderGame derives the result from
@@ -64,10 +63,10 @@ const restoreRandom = () => {
   Math.random = realRandom;
 };
 
-const play = (uid, amount) => playLadderGame.run({ startSide: 'left', bet: 'odd', amount }, ctx(uid));
+const play = (uid: string, amount: number) => playLadderGame.run({ startSide: 'left', bet: 'odd', amount }, ctx(uid));
 
 /** Seed a main user with enough invested value to clear the side-game cap. */
-async function seedUser(uid, { cash = 50000, invested = 20000, ageDays = 30, extra = {} } = {}) {
+async function seedUser(uid: string, { cash = 50000, invested = 20000, ageDays = 30, extra = {} } = {}) {
   await db
     .collection('users')
     .doc(uid)
@@ -81,11 +80,11 @@ async function seedUser(uid, { cash = 50000, invested = 20000, ageDays = 30, ext
       ...extra,
     });
 }
-const seedLadder = (uid, data) => db.collection('ladderGameUsers').doc(uid).set(data);
-const getUser = async (uid) => (await db.collection('users').doc(uid).get()).data();
-const getLadder = async (uid) => (await db.collection('ladderGameUsers').doc(uid).get()).data();
+const seedLadder = (uid: string, data: Loose) => db.collection('ladderGameUsers').doc(uid).set(data);
+const getUser = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
+const getLadder = async (uid: string) => (await db.collection('ladderGameUsers').doc(uid).get()).data();
 /** Clear the 3-second play cooldown without waiting for it. */
-const clearCooldown = (uid) =>
+const clearCooldown = (uid: string) =>
   db
     .collection('ladderGameUsers')
     .doc(uid)
@@ -93,7 +92,7 @@ const clearCooldown = (uid) =>
       lastPlayed: admin.firestore.Timestamp.fromMillis(Date.now() - 60000),
     });
 
-const rejects = async (fn, pattern) => {
+const rejects = async (fn: Loose, pattern: RegExp) => {
   try {
     await fn();
     return null;
