@@ -50,7 +50,7 @@ Never commit `.env.local`, `functions/.env` or `service-account-key.json`.
 - [ ] No function defined twice across the codebase
 - [ ] No inline economy numbers
 - [ ] No file past its line limit
-- [ ] `functions/src/index.js` still only re-exports (15 lines max)
+- [ ] `functions/src/index.ts` still only re-exports (15 lines max)
 - [ ] Characters or crews changed: `npm run check:data` and `npm run sync:chars`,
       source and generated copies committed together
 - [ ] Every order-filling path keeps the invariants in the architecture doc's

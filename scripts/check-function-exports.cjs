@@ -7,9 +7,9 @@
 //     Sentry DSN from production while reporting success. Lives in check-env.cjs
 //     so `npm run check:env` and the firebase.json predeploy hook share it.
 //
-//  1. EXPORT PURITY — functions/src/index.js loads every file listed in
-//     servicePaths.js. Those files sometimes export a plain helper for a sibling
-//     or a test; serviceLoader.js copies across only real Cloud Functions, and
+//  1. EXPORT PURITY — functions/src/index.ts loads every file listed in
+//     servicePaths.ts. Those files sometimes export a plain helper for a sibling
+//     or a test; serviceLoader.ts copies across only real Cloud Functions, and
 //     this check proves nothing else reached the deployed surface.
 //
 //  2. CONSTANTS IMPORTS — a file that uses a constant without importing it
@@ -59,14 +59,14 @@ if (leaked.length > 0) {
   problems += leaked.length;
   console.log('Entry point exports that are NOT Cloud Functions:');
   leaked.forEach((k) => console.log(`  ${k}  (${typeof exports_[k]})`));
-  console.log('  -> move these into shared/helpers.js or an internal module no services.js lists\n');
+  console.log('  -> move these into shared/helpers.js or an internal module no services.ts lists\n');
 } else {
   console.log(`Export purity: OK (${Object.keys(exports_).length} exports, all Cloud Functions)`);
 }
 
 // --- 1b. Lazy-load scan coverage -------------------------------------------
 
-// serviceLoader.js finds a function's owning file by regex-scanning sources for
+// serviceLoader.ts finds a function's owning file by regex-scanning sources for
 // `exports.<name> =` rather than requiring them, so a function declared some
 // other way would not be found. That is fail-open (it falls back to loading
 // everything, costing startup time but never breaking), but it silently loses

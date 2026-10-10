@@ -6,8 +6,8 @@ this codebase was untangled from god files (a 3,900-line `App.jsx`, a
 logic. Do not undo that work.
 
 Everything is TypeScript (strict, `noUncheckedIndexedAccess`). The backend
-plumbing (`functions/src/index.js`, `serviceLoader.js`, `servicePaths.js`, each
-domain's `services.js`) and the backend `*.test.js` files are still JavaScript.
+plumbing (`functions/src/index.ts`, `serviceLoader.ts`, `servicePaths.ts`, each
+domain's `services.ts`) and the backend `*.test.js` files are still JavaScript.
 
 ## Layout
 
@@ -34,9 +34,9 @@ src/
 └── constants/                 economy, achievements, cosmetics, seasons
 
 functions/src/
-├── index.js                   Entry point only
-├── servicePaths.js            Joins every domain's services.js into one list
-├── serviceLoader.js           Loads only the service owning the invoked function
+├── index.ts                   Entry point only
+├── servicePaths.ts            Joins every domain's services.ts into one list
+├── serviceLoader.ts           Loads only the service owning the invoked function
 ├── shared/                    constants, helpers, fnConfig (instance cap, App Check),
 │                              sentry, rules/, characters.ts + crews.ts (generated,
 │                              never edit)
@@ -55,7 +55,7 @@ functions/src/
 ├── moderation/                Watchlist, alt detection, coordination scan and review
 └── admin/                     Backups, ops, repair, migrations, health, billing
 
-Each domain folder's services.js lists the files there that declare Cloud
+Each domain folder's services.ts lists the files there that declare Cloud
 Functions; the rest are internal modules.
 ```
 
@@ -104,7 +104,7 @@ These rules exist because we spent significant effort cleaning up a codebase tha
 | Any hook (`src/features/*/hooks/`, `src/shared/hooks/`) | 200 lines | Split by concern |
 | `src/App.tsx` | 500 lines | Stop and refactor before adding more |
 | Any backend file (`functions/src/<domain>/`, not `shared/`) | 600 lines | Split by sub-domain |
-| `functions/src/index.js` | 15 lines | Entry point only. Deployable files are listed per domain in `functions/src/<domain>/services.js` — never add logic here |
+| `functions/src/index.ts` | 15 lines | Entry point only. Deployable files are listed per domain in `functions/src/<domain>/services.ts` — never add logic here |
 
 If a new feature would push a file past its limit, **split the file first, then add the feature.** ESLint enforces these limits (`max-lines` in `eslint.config.js`).
 
@@ -143,11 +143,11 @@ If a new feature would push a file past its limit, **split the file first, then 
 
 **Domain folders** (`functions/src/<domain>/`)
 - Backend code is grouped by domain: `trading`, `orders`, `margin`, `market`, `season`, `admin`, `discord`, `moderation`, `ladder`, `predictions`, `users`, `crews`, `missions`. Code every domain uses lives in `functions/src/shared/` (constants, helpers, fnConfig, sentry, the generated characters/crews)
-- Each domain's `services.js` lists its files that declare Cloud Functions; `functions/src/servicePaths.js` joins them. The Codebase Map below covers the service files and the internal modules
-- Adding a new Cloud Function: find the right service file and append to it. A new file goes in its domain folder and that folder's `services.js`. A new domain folder also goes in `DOMAINS` in `servicePaths.js`
-- Internal modules (tradeGuards, limitOrderMatching, missionChecks, crewMissionProgress, ...) are required directly by their owning service and must NOT be listed in a `services.js`
+- Each domain's `services.ts` lists its files that declare Cloud Functions; `functions/src/servicePaths.ts` joins them. The Codebase Map below covers the service files and the internal modules
+- Adding a new Cloud Function: find the right service file and append to it. A new file goes in its domain folder and that folder's `services.ts`. A new domain folder also goes in `DOMAINS` in `servicePaths.ts`
+- Internal modules (tradeGuards, limitOrderMatching, missionChecks, crewMissionProgress, ...) are required directly by their owning service and must NOT be listed in a `services.ts`
 - Backend vitest files sit beside the module they test (`functions/src/season/seasonTiers.test.js`)
-- Never add Cloud Function logic directly to `functions/src/index.js`
+- Never add Cloud Function logic directly to `functions/src/index.ts`
 
 **Shared constants** (`functions/src/shared/constants/`)
 - All numeric economy values live here, one file per topic (`market`, `margin`, `economy`, `seasons`, `discord`, ...). `require('../shared/constants')` loads the folder's `index.js`, which gathers them all
@@ -224,7 +224,7 @@ Before committing any feature or fix, scan for:
 - [ ] No `darkMode={darkMode}` props passed to components that can read context
 - [ ] No inline numeric economy values — all named constants
 - [ ] No file past its line limit
-- [ ] `functions/src/index.js` is still a pure re-exporter (≤15 lines; deployable files listed in each domain's `services.js`)
+- [ ] `functions/src/index.ts` is still a pure re-exporter (≤15 lines; deployable files listed in each domain's `services.ts`)
 - [ ] If characters changed: ran `npm run sync:chars` and committed both files
 
 ---
@@ -268,11 +268,11 @@ Quick reference so you know where to look and where to add things.
 
 | Path | What lives here |
 |---|---|
-| `functions/src/index.js` | Re-exports only — ≤15 lines, never add logic here |
+| `functions/src/index.ts` | Re-exports only — ≤15 lines, never add logic here |
 | `functions/lib/` | Build output of `npm run build:functions`. Never edit, never commit |
-| `functions/src/servicePaths.js` | Builds the full service list from every domain's `services.js`. A new domain folder is added to `DOMAINS` here |
-| `functions/src/<domain>/services.js` | The files in that domain that declare Cloud Functions. Never list internal modules |
-| `functions/src/serviceLoader.js` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
+| `functions/src/servicePaths.ts` | Builds the full service list from every domain's `services.ts`. A new domain folder is added to `DOMAINS` here |
+| `functions/src/<domain>/services.ts` | The files in that domain that declare Cloud Functions. Never list internal modules |
+| `functions/src/serviceLoader.ts` | Loads services onto index.js. Copies only real Cloud Functions (so leaked helpers/constants can't masquerade as deployable), and at runtime loads ONLY the service owning the invoked function — cold start is ~350ms instead of ~1.4s. Always fails open to loading everything |
 | `functions/src/shared/sentry.ts` | Error monitoring. `@sentry/node` is loaded lazily on first error, not at startup — it was ~700ms of every cold start and does nothing unless something fails |
 | `functions/src/shared/constants/` | All backend economy constants, one file per topic — add new ones to the right topic |
 | `functions/src/shared/helpers.ts` | Re-exports the shared topic modules beside it (impact, cohorts, equity, usernames, ...) |
@@ -307,20 +307,20 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/archiving.ts` | Data archiving and cleanup |
 | `functions/src/orders/marketOrders.ts` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
 | `functions/src/orders/preMarket.ts` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
-| `functions/src/orders/orderNetwork.ts` | **Internal module, not in services.js.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |
+| `functions/src/orders/orderNetwork.ts` | **Internal module, not in services.ts.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |
 | `functions/src/market/marketWeekly.ts` | Weekly market summary, leaderboard, crew rankings (scheduled) |
 | `functions/src/market/crewRankings.ts` | **Internal module.** runWeeklyCrewRankings: active counts, underdog multipliers, crew head rotation + role sync, the Discord post |
-| `functions/src/market/tickerRename.ts` | **Internal module, not in services.js.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.ts |
+| `functions/src/market/tickerRename.ts` | **Internal module, not in services.ts.** The ticker rename engine: preflight, journalled phases, alias map, verification. Driven by `renameTicker` in adminMigrate.ts |
 | `functions/src/market/tickerRenameChecks.ts` | **Internal module.** The rename's preflight, dry-run counts and verification scan; re-exported by tickerRename.ts |
-| `functions/src/market/tickerRemap.ts` | **Internal module, not in services.js.** The rename engine's pure helpers: which user/market maps a rename moves (`USER_TICKER_MAPS`, `MARKET_TICKER_MAPS`). Any new ticker-keyed field on a player or market/current must be added here |
+| `functions/src/market/tickerRemap.ts` | **Internal module, not in services.ts.** The rename engine's pure helpers: which user/market maps a rename moves (`USER_TICKER_MAPS`, `MARKET_TICKER_MAPS`). Any new ticker-keyed field on a player or market/current must be added here |
 | `functions/src/market/tickerStats.ts` | recordPriceExtremes — hourly all-time high/low sweep |
 | `functions/src/season/season.ts` | Seasons: start/end, the Thursday checkpoint, the standings board. Scores live net equity at frozen prices, never the stored portfolioValue |
 | `functions/src/season/seasonCheckpoint.ts` | **Internal module.** runSeasonCheckpoint (the Thursday week record) plus the season doc ref and ladder-cash read season.ts shares |
-| `functions/src/season/seasonRecords.ts` | **Internal module, not in services.js.** The weekly record, board membership, and one player's board entry (incl. size division) |
+| `functions/src/season/seasonRecords.ts` | **Internal module, not in services.ts.** The weekly record, board membership, and one player's board entry (incl. size division) |
 | `functions/src/season/seasonExclusions.ts` | Admin: players flagged for coordination this season, and keeping one out of Platinum/Diamond (`seasonTopTierExclusion` on the user doc, private) |
 | `functions/src/moderation/coordDetection.ts` | Hourly coordination scan (`35 * * * *`). Alerts + admin DM, then `coordEnforcement.ts` (internal): 48h buy-back + short block for everyone in a TIGHT downward cluster, and the "all in on borrowed money" flag on upward ones. `npm run test:coord` |
 | `functions/src/moderation/coordReview.ts` | Admin: what a flagged push made a player (math in `coordProfitMath.ts`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
-| `functions/src/season/seasonTiers.ts` | **Internal module, not in services.js.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Thresholds and money maths come from the shared `rules/seasons` + `rules/seasonMoney`; `functions/src/season/seasonTiers.test.js` checks the site's week derivation matches |
+| `functions/src/season/seasonTiers.ts` | **Internal module, not in services.ts.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Thresholds and money maths come from the shared `rules/seasons` + `rules/seasonMoney`; `functions/src/season/seasonTiers.test.js` checks the site's week derivation matches |
 | `functions/src/season/seasonMoney.ts` | **Internal module.** Writes the season margin tally and reads server-only counters; re-exports the shared `rules/seasonMoney` maths. Re-exported by seasonTiers.ts |
 
 ---

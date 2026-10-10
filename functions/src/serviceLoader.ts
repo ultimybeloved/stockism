@@ -1,4 +1,3 @@
-'use strict';
 // Loads service files onto index.js's exports, and copies across only the
 // exports Firebase would actually deploy.
 //
@@ -23,46 +22,55 @@
 // back to loading everything — i.e. exactly the old behaviour. A wrong guess
 // costs a little startup time, never a missing function.
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+
+type Exports = Record<string, unknown>;
 
 // The runtime sets one of these to the function being invoked. All are unset
 // when firebase-tools loads this file locally to discover what to deploy, which
 // is exactly when we want to load everything.
-const invokedFunction = () => process.env.K_SERVICE || process.env.FUNCTION_TARGET || process.env.FUNCTION_NAME || null;
+const invokedFunction = (): string | null =>
+  process.env.K_SERVICE || process.env.FUNCTION_TARGET || process.env.FUNCTION_NAME || null;
 
 // Does this file export `name`, without executing it? Every Cloud Function in
 // this codebase is declared as `exports.<name> = ...` at the start of a line;
 // `npm run check:functions` verifies this scan still finds all of them.
-const fileExports = (absPathNoExt, name) => {
+const fileExports = (absPathNoExt: string, name: string): boolean => {
   try {
     const source = fs.readFileSync(`${absPathNoExt}.js`, 'utf8');
     return new RegExp(`^exports\\.${name}\\s*=`, 'm').test(source);
-  } catch (_) {
+  } catch {
     return false;
   }
 };
 
-const isDeployable = (value) =>
-  typeof value === 'function' && (value.__endpoint !== undefined || value.__trigger !== undefined);
+const isDeployable = (value: unknown): boolean =>
+  typeof value === 'function' &&
+  ((value as { __endpoint?: unknown }).__endpoint !== undefined ||
+    (value as { __trigger?: unknown }).__trigger !== undefined);
 
-const copyFunctions = (serviceModule, target) => {
+const copyFunctions = (serviceModule: Exports, target: Exports): void => {
   for (const [name, value] of Object.entries(serviceModule)) {
     if (isDeployable(value)) target[name] = value;
   }
 };
 
-module.exports = (target, baseDir, servicePaths) => {
-  const resolve = (p) => path.join(baseDir, p);
+const loadServices = (target: Exports, baseDir: string, servicePaths: string[]): void => {
+  const resolve = (p: string) => path.join(baseDir, p);
   const wanted = invokedFunction();
 
   if (wanted) {
     const owner = servicePaths.find((p) => fileExports(resolve(p), wanted));
     if (owner) {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- loading only this file is the point
       copyFunctions(require(resolve(owner)), target);
       if (typeof target[wanted] === 'function') return;
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- paths are only known at runtime
   servicePaths.forEach((p) => copyFunctions(require(resolve(p)), target));
 };
+
+export = loadServices;
