@@ -118,6 +118,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
   return (
     <div className="space-y-6">
       <ShopDeals
+        show="featured"
         cash={cash}
         featuredId={featuredId}
         onRequestPurchase={onRequestPurchase}

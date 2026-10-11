@@ -14,6 +14,8 @@ import type { PendingPurchase } from '../PinShopModal';
 export const useFeaturedId = () => useMemo(() => featuredCosmeticId(COSMETICS), []);
 
 interface ShopDealsProps {
+  /** The Shop tab shows the featured card; the Bundles tab shows the bundles. */
+  show: 'featured' | 'bundles';
   cash: number;
   featuredId: string | null;
   onRequestPurchase: (purchase: PendingPurchase) => void;
@@ -29,9 +31,9 @@ const Swatch = ({ cosmetic }: { cosmetic: Cosmetic }) => (
   </span>
 );
 
-// The top of the shop: this week's featured item and the bundles. Tapping a
-// bundle tries the whole set on the preview row.
-const ShopDeals = ({ cash, featuredId, onRequestPurchase, onTryOn }: ShopDealsProps) => {
+// Shop deals: this week's featured item (top of the Shop tab) and the bundles
+// (their own tab). Tapping a bundle tries the whole set on the preview row.
+const ShopDeals = ({ show, cash, featuredId, onRequestPurchase, onTryOn }: ShopDealsProps) => {
   const { userData } = useSession();
   const { textClass, mutedClass, borderClass } = themeClasses;
   const owned = userData?.ownedCosmetics || [];
@@ -48,7 +50,7 @@ const ShopDeals = ({ cash, featuredId, onRequestPurchase, onTryOn }: ShopDealsPr
 
   return (
     <>
-      {featured && (
+      {show === 'featured' && featured && (
         <div>
           <h3 className={`font-semibold ${textClass} mb-2`}>
             Featured This Week
@@ -88,65 +90,68 @@ const ShopDeals = ({ cash, featuredId, onRequestPurchase, onTryOn }: ShopDealsPr
         </div>
       )}
 
-      <div>
-        <h3 className={`font-semibold ${textClass} mb-2`}>
-          Bundles
-          <span className={`ml-2 text-xs font-normal ${mutedClass}`}>
-            20% off. Already own a piece? You only pay for the rest.
-          </span>
-        </h3>
-        <div className="space-y-2">
-          {BUNDLES.map((bundle) => {
-            const items = bundle.items.map((id) => COSMETIC_MAP[id]).filter((c): c is Cosmetic => !!c);
-            const { missing, fullPrice, price } = bundleQuote(bundle, owned, (id) => COSMETIC_MAP[id]?.price);
-            const selected = selectedBundle === bundle.id;
-            const canAfford = cash >= price;
-            return (
-              <div
-                key={bundle.id}
-                onClick={() => {
-                  setSelectedBundle(selected ? null : bundle.id);
-                  onTryOn(selected ? null : items);
-                }}
-                className={`p-2 rounded-sm border flex items-center gap-3 cursor-pointer ${
-                  selected ? 'border-orange-500' : borderClass
-                }`}
-              >
-                <div className="flex -space-x-1">
-                  {items.map((c) => (
-                    <Swatch key={c.id} cosmetic={c} />
-                  ))}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className={`text-sm font-semibold ${textClass}`}>{bundle.name}</div>
-                  <div className={`text-xs ${mutedClass} truncate`}>
-                    {missing.length === items.length
-                      ? items.map((c) => c.name).join(', ')
-                      : missing.length
-                        ? `${missing.length} of ${items.length} left to collect`
-                        : 'You own the whole set'}
+      {show === 'bundles' && (
+        <div>
+          <h3 className={`font-semibold ${textClass} mb-2`}>
+            Bundles
+            <span className={`ml-2 text-xs font-normal ${mutedClass}`}>
+              20% off. Already own a piece? You only pay for the rest.
+            </span>
+          </h3>
+          <div className="space-y-2">
+            {BUNDLES.map((bundle) => {
+              const items = bundle.items.map((id) => COSMETIC_MAP[id]).filter((c): c is Cosmetic => !!c);
+              const { missing, fullPrice, price } = bundleQuote(bundle, owned, (id) => COSMETIC_MAP[id]?.price);
+              const selected = selectedBundle === bundle.id;
+              const canAfford = cash >= price;
+              return (
+                <div
+                  key={bundle.id}
+                  onClick={() => {
+                    setSelectedBundle(selected ? null : bundle.id);
+                    onTryOn(selected ? null : items);
+                  }}
+                  className={`p-2 rounded-sm border flex items-center gap-3 cursor-pointer ${
+                    selected ? 'border-orange-500' : borderClass
+                  }`}
+                >
+                  <div className="flex -space-x-1">
+                    {items.map((c) => (
+                      <Swatch key={c.id} cosmetic={c} />
+                    ))}
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <div className={`text-sm font-semibold ${textClass}`}>{bundle.name}</div>
+                    <div className={`text-xs ${mutedClass} truncate`}>
+                      {missing.length === items.length
+                        ? items.map((c) => c.name).join(', ')
+                        : missing.length
+                          ? `${missing.length} of ${items.length} left to collect`
+                          : 'You own the whole set'}
+                    </div>
+                  </div>
+                  {missing.length ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (canAfford)
+                          onRequestPurchase({ type: 'bundle', item: bundle, price, count: missing.length });
+                      }}
+                      disabled={!canAfford}
+                      className={btn(canAfford)}
+                    >
+                      <span className="line-through opacity-70 mr-1">{formatCurrency(fullPrice)}</span>
+                      {formatCurrency(price)}
+                    </button>
+                  ) : (
+                    <span className="text-xs font-semibold text-orange-500">Owned</span>
+                  )}
                 </div>
-                {missing.length ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (canAfford) onRequestPurchase({ type: 'bundle', item: bundle, price, count: missing.length });
-                    }}
-                    disabled={!canAfford}
-                    className={btn(canAfford)}
-                  >
-                    <span className="line-through opacity-70 mr-1">{formatCurrency(fullPrice)}</span>
-                    {formatCurrency(price)}
-                  </button>
-                ) : (
-                  <span className="text-xs font-semibold text-orange-500">Owned</span>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 };

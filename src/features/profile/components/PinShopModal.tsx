@@ -7,6 +7,7 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import RowPreview from './pinshop/RowPreview';
 import MyLookTab from './pinshop/MyLookTab';
 import ShopTab from './pinshop/ShopTab';
+import ShopDeals from './pinshop/ShopDeals';
 import type { ShopPin } from '../../../crews';
 import type { Cosmetic } from '../../../constants/cosmetics';
 import type { Bundle } from '../../../rules/shop';
@@ -95,6 +96,7 @@ const PinShopModal = ({
             [
               ['look', '✨ My Look'],
               ['shop', '🛒 Shop'],
+              ['bundles', '🎁 Bundles'],
             ] as const
           ).map(([tab, label]) => (
             <button
@@ -123,6 +125,17 @@ const PinShopModal = ({
               onRequestPurchase={setConfirmPurchase}
               onTryOn={setTryOn}
             />
+          )}
+          {activeTab === 'bundles' && (
+            <div className="space-y-6">
+              <ShopDeals
+                show="bundles"
+                cash={cash}
+                featuredId={null}
+                onRequestPurchase={setConfirmPurchase}
+                onTryOn={setTryOn}
+              />
+            </div>
           )}
         </div>
 
