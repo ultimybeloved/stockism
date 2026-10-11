@@ -111,7 +111,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
         const items = COSMETICS.filter(
           (c) =>
             c.type === type && (type !== 'rowGlow' || (glowVariant === 'pulse' ? !!c.effectClass : !c.effectClass)),
-        );
+        ).sort((a, b) => a.price - b.price);
         const selectedItem = items.find((i) => i.id === selectedId);
         const minPrice = Math.min(...items.map((i) => i.price));
         return (
@@ -162,7 +162,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
                     {/* Explicit size, not absolute inset: cos-frame-* classes set
                         position:relative and would collapse an absolute span. */}
                     <span
-                      className={`block w-full h-full rounded-full ${cosmetic.type !== 'nameColor' ? cosmetic.effectClass || '' : ''}`}
+                      className={`cos-swatch block w-full h-full rounded-full ${cosmetic.type !== 'nameColor' ? cosmetic.effectClass || '' : ''}`}
                       style={{ backgroundColor: cosmetic.color }}
                     />
                     {owned && (

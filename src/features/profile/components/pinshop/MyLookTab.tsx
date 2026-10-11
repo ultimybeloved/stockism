@@ -38,7 +38,11 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) =>
   const maxAchievementSlots = getMaxAchievementSlots(userData);
   const maxShopSlots = getMaxShopSlots(userData);
   const ownedByType = COSMETIC_TYPES.map(
-    (type) => [type, COSMETICS.filter((c) => c.type === type && ownedCosmetics.includes(c.id))] as const,
+    (type) =>
+      [
+        type,
+        COSMETICS.filter((c) => c.type === type && ownedCosmetics.includes(c.id)).sort((a, b) => a.price - b.price),
+      ] as const,
   ).filter(([, items]) => items.length > 0);
 
   const chipClass = (active: boolean) =>
@@ -73,7 +77,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) =>
                           {/* Explicit size, not absolute inset: cos-frame-* classes set
                               position:relative and would collapse an absolute span. */}
                           <span
-                            className={`block w-full h-full rounded-full ${cosmetic.type !== 'nameColor' ? cosmetic.effectClass || '' : ''}`}
+                            className={`cos-swatch block w-full h-full rounded-full ${cosmetic.type !== 'nameColor' ? cosmetic.effectClass || '' : ''}`}
                             style={{ backgroundColor: cosmetic.color }}
                           />
                         </button>
