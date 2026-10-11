@@ -12,7 +12,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { ADMIN_UID, ADMIN_MEMO_MAX_LENGTH, REINSTATE_CASH_DEFAULT, COSMETIC_CATALOG } from '../shared/constants';
 import { grantedValueUpdate } from '../shared/equity';
-import { notifyCashGrant } from './adminCashNotify';
+import { notifyCashGrant, notifyCosmeticGrant } from './adminCashNotify';
 import { recordLedger } from '../shared/ledger';
 
 export const removeAchievement = cf().https.onCall(async (data, context) => {
@@ -213,13 +213,15 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
   }
 
   const userRef = db.collection('users').doc(userId);
-  return db.runTransaction(async (transaction) => {
+  let discordId: string | undefined;
+  const result = await db.runTransaction(async (transaction) => {
     const userSnap = await transaction.get(userRef);
     if (!userSnap.exists) {
       throw new functions.https.HttpsError('not-found', 'User not found');
     }
 
     const owned = userSnap.data()!.ownedCosmetics || [];
+    discordId = userSnap.data()!.discordId;
 
     if (revoke) {
       if (!owned.includes(cosmeticId)) {
@@ -256,6 +258,8 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
     });
     return { success: true, userId, cosmeticId, granted: true };
   });
+  if (result.granted) await notifyCosmeticGrant(userId, discordId, cosmeticId, cosmetic.name);
+  return result;
 });
 
 /**

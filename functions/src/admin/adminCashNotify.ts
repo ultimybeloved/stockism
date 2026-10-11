@@ -1,5 +1,5 @@
 // Internal module for adminOps.js — tells a player when an admin has put money
-// in their account.
+// in their account, or granted them a cosmetic.
 //
 // NOT a service. Never list this in servicePaths.js; it exports a helper, not a
 // Cloud Function.
@@ -65,4 +65,29 @@ export async function notifyCashGrant(
   }
 
   return { notified: true, dmSent };
+}
+
+/**
+ * Notify a player that an admin granted them a cosmetic (a giveaway prize).
+ * Bell plus a Discord DM, worded like a player gift so it reads the same.
+ * Fail-soft like notifyCashGrant: the item has already landed.
+ */
+export async function notifyCosmeticGrant(
+  uid: string,
+  discordId: string | null | undefined,
+  cosmeticId: string,
+  cosmeticName: string,
+): Promise<void> {
+  const text = `You received ${cosmeticName}! Find it in Customize, under My Look.`;
+  try {
+    await writeNotification(uid, {
+      type: 'system',
+      title: '🎁 You got a gift',
+      message: text,
+      data: { cosmeticId },
+    });
+    if (discordId) await sendDiscordDM(discordId, `🎁 ${text}`);
+  } catch {
+    // The grant stands either way; closed DMs are normal.
+  }
 }
