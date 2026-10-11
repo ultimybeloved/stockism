@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSeason } from '../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
@@ -18,7 +19,29 @@ import {
 //
 // No countdown by design — a season ends when the arc's Finale chapter lands and
 // nobody knows that in advance.
+//
+// Starts folded to one line: not everyone is here to compete, and the full card
+// was the whole first screen. Open/closed is remembered per device.
+const OPEN_KEY = 'stockism.seasonCardOpen';
+const readOpen = () => {
+  try {
+    return window.localStorage.getItem(OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 const SeasonCard = () => {
+  const [open, setOpen] = useState(readOpen);
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      window.localStorage.setItem(OPEN_KEY, next ? '1' : '0');
+    } catch {
+      // Private mode / storage disabled: it just won't be remembered.
+    }
+  };
   const { textClass, mutedClass } = themeClasses;
   const {
     active,
@@ -66,31 +89,47 @@ const SeasonCard = () => {
   const firstTitled = SEASON_TIERS.find((t) => tierGivesTitle(t.id, rules));
 
   return (
-    <div className="p-4 rounded-sm border mb-4 light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h3 className={`font-semibold ${textClass}`}>
+    <div
+      className={`${open ? 'p-4' : 'px-4 py-2'} rounded-sm border mb-4 light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700`}
+    >
+      <div className={`flex justify-between gap-3 ${open ? 'items-start flex-wrap' : 'items-center'}`}>
+        <div className="min-w-0">
+          <h3 className={`font-semibold ${textClass} ${open ? '' : 'text-sm truncate'}`}>
             🏅 {seasonLabel(season)} · {season.name}
+            {!open && inSeason && (
+              <span className={`ml-2 font-bold ${returnPercent! >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+                {fmtPct(returnPercent!)}
+              </span>
+            )}
           </h3>
-          <p className={`text-xs ${mutedClass}`}>Week {weeks} · ends when the arc finale drops</p>
-          {season.preseason && (
+          {open && <p className={`text-xs ${mutedClass}`}>Week {weeks} · ends when the arc finale drops</p>}
+          {open && season.preseason && (
             <p className={`text-xs ${mutedClass} mt-1`}>
               A trial run before Season 1.
               {firstTitled && ` Finishing ${firstTitled.name} or better gives a Preseason title.`}
             </p>
           )}
         </div>
-        {lockedTierMeta && (
-          <span
-            className="px-2 py-1 rounded-sm text-xs font-bold"
-            style={{ backgroundColor: `${lockedTierMeta.color}22`, color: lockedTierMeta.color }}
+        <div className="flex items-center gap-2 shrink-0">
+          {lockedTierMeta && (
+            <span
+              className="px-2 py-1 rounded-sm text-xs font-bold"
+              style={{ backgroundColor: `${lockedTierMeta.color}22`, color: lockedTierMeta.color }}
+            >
+              {lockedTierMeta.name} secured
+            </span>
+          )}
+          <button
+            onClick={toggle}
+            aria-expanded={open}
+            className="text-xs font-semibold text-orange-500 hover:underline whitespace-nowrap"
           >
-            {lockedTierMeta.name} secured
-          </span>
-        )}
+            {open ? 'Hide ▴' : 'Details ▾'}
+          </button>
+        </div>
       </div>
 
-      {!inSeason ? (
+      {!open ? null : !inSeason ? (
         <p className={`text-sm ${mutedClass} mt-3`}>
           {belowFloor
             ? `Your account was under $${SEASON_MIN_BASELINE.toLocaleString()} when this season started. Get it over $${SEASON_MIN_BASELINE.toLocaleString()} and the next Thursday checkpoint adds you, scored from there.`
@@ -156,12 +195,14 @@ const SeasonCard = () => {
         </>
       )}
 
-      <Link
-        to="/leaderboard?board=season"
-        className="inline-block mt-3 text-xs font-semibold text-orange-500 hover:underline"
-      >
-        See the season board →
-      </Link>
+      {open && (
+        <Link
+          to="/leaderboard?board=season"
+          className="inline-block mt-3 text-xs font-semibold text-orange-500 hover:underline"
+        >
+          See the season board →
+        </Link>
+      )}
     </div>
   );
 };
