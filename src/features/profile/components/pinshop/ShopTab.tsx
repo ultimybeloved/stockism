@@ -16,6 +16,8 @@ interface ShopTabProps {
   cash: number;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => unknown;
   onRequestPurchase: (purchase: PendingPurchase) => void;
+  /** Opens the gift dialog for a shop item at the price the giver would pay. */
+  onRequestGift: (cosmetic: Cosmetic, price: number) => void;
   /** Previews cosmetics on the sample row (one item or a bundle); null clears it. */
   onTryOn: (cosmetics: Cosmetic[] | null) => void;
 }
@@ -31,7 +33,7 @@ const PULSE_PREFIX = 'glow_pulse_';
 const toPulse = (id: string) => (id.startsWith(PULSE_PREFIX) ? id : id.replace('glow_', PULSE_PREFIX));
 const toStandard = (id: string) => id.replace(PULSE_PREFIX, 'glow_');
 
-const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabProps) => {
+const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onRequestGift, onTryOn }: ShopTabProps) => {
   const { userData } = useSession();
   const { textClass, mutedClass, borderClass } = themeClasses;
   const ownedCosmetics = userData?.ownedCosmetics || [];
@@ -91,6 +93,13 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
             </div>
           )}
         </div>
+        <button
+          onClick={() => onRequestGift(cosmetic, price)}
+          title="Buy this for another player"
+          className="shrink-0 px-2 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
+        >
+          🎁 Gift
+        </button>
         {owned ? (
           <button
             onClick={() => onEquipCosmetic(cosmetic.type, equipped ? null : cosmetic.id)}

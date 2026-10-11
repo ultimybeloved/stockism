@@ -34,6 +34,8 @@ const { playLadderGame } =
   require('../../functions/src/ladder/ladderGame') as typeof import('../../functions/src/ladder/ladderGame');
 const { adminSetCash } =
   require('../../functions/src/admin/adminOps') as typeof import('../../functions/src/admin/adminOps');
+const { giftCosmetic } =
+  require('../../functions/src/users/cosmeticGifts') as typeof import('../../functions/src/users/cosmeticGifts');
 const { ADMIN_UID, isWeeklyTradingHalt } =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
@@ -95,6 +97,31 @@ async function main() {
 
   await run(adminSetCash, { userId: UID, mode: 'add', amount: 123.45, memo: 'ledger test' }, ADMIN_UID);
   expected.add('admin_set_cash');
+
+  // Gifting: the giver pays, the item lands with the recipient, both booked.
+  const FRIEND = 'ledger_friend';
+  await db.collection('users').doc(FRIEND).set({ displayName: 'LedgerFriend', cash: 0, ownedCosmetics: [] });
+  await db.collection('usernames').doc('ledgerfriend').set({ uid: FRIEND });
+  const gift = await run(giftCosmetic, { cosmeticId: 'frame_steel', recipient: 'LedgerFriend' });
+  expected.add('cosmetic_gift_sent');
+  const friend = (await db.collection('users').doc(FRIEND).get()).data();
+  check('gift lands in the recipient collection', friend.ownedCosmetics.includes('frame_steel'));
+  const received = (await db.collection('ledger').where('uid', '==', FRIEND).get()).docs.map((d: Loose) => d.data());
+  check(
+    'recipient ledger shows a gift from the giver, not a purchase',
+    received.some(
+      (e: Loose) => e.type === 'cosmetic_gift_received' && e.account === 'cosmetics' && e.detail?.from === UID,
+    ),
+    JSON.stringify(received),
+  );
+  let refused = false;
+  try {
+    await run(giftCosmetic, { cosmeticId: 'frame_steel', recipient: 'LedgerFriend' });
+  } catch {
+    refused = true;
+  }
+  check('cannot gift something they already own', refused);
+  check('gift charged the shown price', gift.price > 0, JSON.stringify(gift));
 
   const user = (await db.collection('users').doc(UID).get()).data();
   const ladder = (await db.collection('ladderGameUsers').doc(UID).get()).data();

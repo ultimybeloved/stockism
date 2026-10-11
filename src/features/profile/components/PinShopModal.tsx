@@ -8,6 +8,7 @@ import RowPreview from './pinshop/RowPreview';
 import MyLookTab from './pinshop/MyLookTab';
 import ShopTab from './pinshop/ShopTab';
 import ShopDeals from './pinshop/ShopDeals';
+import GiftDialog from './pinshop/GiftDialog';
 import type { ShopPin } from '../../../crews';
 import type { Cosmetic } from '../../../constants/cosmetics';
 import type { Bundle } from '../../../rules/shop';
@@ -25,6 +26,7 @@ interface PinShopModalProps {
   onPurchase: (action: PinAction, payload: unknown, cost?: number) => Promise<void>;
   onPurchaseCosmetic: (cosmeticId: string) => Promise<void>;
   onPurchaseBundle: (bundleId: string) => Promise<void>;
+  onGiftCosmetic: (cosmeticId: string, recipient: string) => Promise<string | null>;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => Promise<void>;
   portfolioValue: number;
 }
@@ -38,6 +40,7 @@ const PinShopModal = ({
   onPurchase,
   onPurchaseCosmetic,
   onPurchaseBundle,
+  onGiftCosmetic,
   onEquipCosmetic,
   portfolioValue,
 }: PinShopModalProps) => {
@@ -46,6 +49,7 @@ const PinShopModal = ({
   const [activeTab, setActiveTab] = useState('look');
   const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
   const [purchasing, setPurchasing] = useState(false);
+  const [gift, setGift] = useState<{ cosmetic: Cosmetic; price: number } | null>(null);
   const [tryOn, setTryOn] = useState<Cosmetic[] | null>(null); // shop cosmetics being previewed on the row
 
   const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
@@ -123,6 +127,7 @@ const PinShopModal = ({
               cash={cash}
               onEquipCosmetic={onEquipCosmetic}
               onRequestPurchase={setConfirmPurchase}
+              onRequestGift={(cosmetic, price) => setGift({ cosmetic, price })}
               onTryOn={setTryOn}
             />
           )}
@@ -138,6 +143,16 @@ const PinShopModal = ({
             </div>
           )}
         </div>
+
+        {gift && (
+          <GiftDialog
+            cosmetic={gift.cosmetic}
+            price={gift.price}
+            cash={cash}
+            onSend={(recipient) => onGiftCosmetic(gift.cosmetic.id, recipient)}
+            onClose={() => setGift(null)}
+          />
+        )}
 
         {/* Purchase Confirmation Dialog */}
         {confirmPurchase && (

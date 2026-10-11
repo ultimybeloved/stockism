@@ -1,7 +1,12 @@
 import { useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { purchasePinFunction, purchaseCosmeticFunction, purchaseBundleFunction } from '../../../api/callables';
+import {
+  purchasePinFunction,
+  purchaseCosmeticFunction,
+  purchaseBundleFunction,
+  giftCosmeticFunction,
+} from '../../../api/callables';
 import { SHOP_PINS } from '../../../crews';
 import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';
@@ -93,6 +98,21 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
     [user, userData, showNotification, setUserData],
   );
 
+  // Returns an error message for the gift dialog to show, or null on success.
+  const handleGiftCosmetic = useCallback(
+    async (cosmeticId: string, recipient: string): Promise<string | null> => {
+      if (!user) return 'Log in first.';
+      try {
+        const { data } = await giftCosmeticFunction({ cosmeticId, recipient });
+        showNotification('success', `Gift sent to ${data.recipientName}!`);
+        return null;
+      } catch (err) {
+        return errorMessage(err) || 'Gift failed. Try again.';
+      }
+    },
+    [user, showNotification],
+  );
+
   const handleEquipCosmetic = useCallback(
     async (type: string, cosmeticId: string | null) => {
       if (!user) return;
@@ -110,5 +130,5 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
     [user, setUserData],
   );
 
-  return { handlePinAction, handlePurchaseCosmetic, handlePurchaseBundle, handleEquipCosmetic };
+  return { handlePinAction, handlePurchaseCosmetic, handlePurchaseBundle, handleGiftCosmetic, handleEquipCosmetic };
 }
