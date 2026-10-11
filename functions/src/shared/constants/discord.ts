@@ -35,18 +35,18 @@ export const DISCORD_DAILY_DROP_CHANNEL = '1483767343581761658';
 // A blank role ID disables that crew entirely — no add, no remove. All blank
 // (the default) no-ops the whole feature, so this ships safely before the
 // Discord side is set up.
-export const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID || '';
+export const DISCORD_GUILD_ID = process.env.DISCORD_GUILD_ID || '1466532292242702452';
 export const CREW_HEAD_ROLE_IDS = {
-  ALLIED: '',
-  BIG_DEAL: '',
-  FIST_GANG: '',
-  GOD_DOG: '',
-  SECRET_FRIENDS: '',
-  HOSTEL: '',
-  WTJC: '',
-  WORKERS: '',
-  YAMAZAKI: '',
-  KITAE_UNION: '',
+  ALLIED: '1558743343146729552',
+  BIG_DEAL: '1558744258582675466',
+  FIST_GANG: '1558744263674691655',
+  GOD_DOG: '1558744268066000926',
+  SECRET_FRIENDS: '1558744271907983471',
+  HOSTEL: '1558744275574063195',
+  WTJC: '1558744279533228143',
+  WORKERS: '1558744332415016981',
+  YAMAZAKI: '1558744340640170014',
+  KITAE_UNION: '1558744337028874320',
 };
 // ============================================
 // DISCORD CREW EMOJIS (helpers.crewEmoji)
