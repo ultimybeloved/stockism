@@ -37,7 +37,11 @@ const LeaderboardRow = ({
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
   const isGainSort = sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
   const crew = leader.crew ? CREW_MAP[leader.crew] : null;
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(leader.activeCosmetics);
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass, frameStyle, frameTrend } = getCosmeticStyles(
+    leader.activeCosmetics,
+    null,
+    { seedKey: leader.displayName, trend: leader.frameTrend },
+  );
   // Crew heads get a crew-colored pulsing aura, but a purchased
   // glow cosmetic always wins — the crown never hides paid looks.
   const crownGlow = leader.isCrewHead && crew && !leader.activeCosmetics?.rowGlow;
@@ -59,7 +63,9 @@ const LeaderboardRow = ({
       className={`relative p-3 flex items-center gap-3 ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''} ${
         displayRank <= 3 ? 'light:bg-amber-50 dark:bg-zinc-900/50' : ''
       } ${isCurrentUser ? 'border-l-4' : ''}`}
+      data-trend={frameTrend}
       style={{
+        ...frameStyle,
         ...(isCurrentUser
           ? {
               borderLeftColor: userCrewColor,

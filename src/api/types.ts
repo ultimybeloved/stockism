@@ -691,6 +691,8 @@ export interface PublicProfile {
   activeCosmetics: import('../types').ActiveCosmetics | null;
   /** Only a title the server granted; never the raw client-written one. */
   title: import('../types').SeasonTitle | null;
+  /** Bull / Bear frame direction; null unless that frame is worn. */
+  frameTrend?: 'up' | 'down' | null;
   portfolioValue: number;
   holdingsCount: number;
   rank: number | null;

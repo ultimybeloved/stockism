@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { changeDisplayNameFunction } from '../../../api/callables';
 import { getCosmeticStyles, getActiveTitle } from '../../../utils/cosmetics';
+import { frameTrend as frameTrendOf } from '../../../rules/cosmetics';
 import { validateUsername } from '../../../utils/username';
 import { themeClasses } from '../../../utils/theme';
 import { errorMessage } from '../../../utils/errors';
@@ -49,16 +50,22 @@ const ProfileHeader = ({
     setNameSaving(false);
   };
 
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass, frameStyle, frameTrend } = getCosmeticStyles(
     userData?.activeCosmetics,
     userData?.ownedCosmetics,
+    {
+      seedKey: userData?.displayName,
+      trend: frameTrendOf(userData?.portfolioValue, userData?.portfolioSnapshot24h),
+    },
   );
   const activeTitle = getActiveTitle(userData);
 
   return (
     <div
       className={`relative p-4 border-b light:border-amber-200 dark:border-zinc-800 ${rowClass}`}
+      data-trend={frameTrend}
       style={{
+        ...frameStyle,
         ...(glowColor ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
         ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
       }}

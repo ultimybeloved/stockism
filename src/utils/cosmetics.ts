@@ -1,4 +1,7 @@
+import type { CSSProperties } from 'react';
 import { COSMETIC_MAP } from '../constants/cosmetics';
+import { frameSeed, type FrameTrend } from '../rules/cosmetics';
+import { tickerTapeStyle } from './tickerTape';
 import type { ActiveCosmetics, SeasonTitle, UserData } from '../types';
 
 // Resolve a user's equipped cosmetics into ready-to-apply pieces. Centralizes the
@@ -13,9 +16,15 @@ import type { ActiveCosmetics, SeasonTitle, UserData } from '../types';
 // arrive pre-filtered to owned items, so callers rendering them pass nothing.
 // Callers with the full user doc (own profile header) pass the owned list so
 // an unowned equip never renders, even for the owner.
+//
+// `frame` (optional) personalises animated frames: `seedKey` (the player's
+// name) offsets the animation so identical frames never move in step, and
+// `trend` drives the Bull / Bear frame. Apply `frameStyle` to the row's style
+// and `frameTrend` as its data-trend attribute.
 export const getCosmeticStyles = (
   activeCosmetics: ActiveCosmetics | null | undefined = {},
   ownedCosmetics: string[] | null | undefined = null,
+  frame: { seedKey?: string | null; trend?: FrameTrend | 'split' } = {},
 ) => {
   let ac: ActiveCosmetics = activeCosmetics && typeof activeCosmetics === 'object' ? activeCosmetics : {};
   if (Array.isArray(ownedCosmetics)) {
@@ -35,7 +44,21 @@ export const getCosmeticStyles = (
     backdropColor: backC ? backC.color : undefined,
     // Animated glow + frame CSS classes (the row needs `position: relative`).
     rowClass: [glowC?.effectClass, frameC?.effectClass].filter(Boolean).join(' '),
+    frameStyle: frameC?.effectClass
+      ? {
+          ...seedStyle(frame.seedKey),
+          ...(frameC.id === TICKER_FRAME_ID ? tickerTapeStyle(frame.seedKey) : {}),
+        }
+      : undefined,
+    frameTrend: frameC?.effectClass ? frame.trend || undefined : undefined,
   };
+};
+
+const TICKER_FRAME_ID = 'frame_ticker';
+
+const seedStyle = (key: string | null | undefined): CSSProperties => {
+  const { seconds, degrees } = frameSeed(key);
+  return { '--cos-seed': seconds, '--cos-start': `${degrees}deg` } as CSSProperties;
 };
 
 // The season title to show under a player's name, or null.

@@ -317,6 +317,8 @@ export interface LeaderRow {
   isPublic?: boolean;
   activeCosmetics?: ActiveCosmetics;
   title?: SeasonTitle;
+  /** Bull / Bear frame direction, set by the server only when that frame is worn. */
+  frameTrend?: 'up' | 'down' | null;
   [key: string]: unknown;
 }
 

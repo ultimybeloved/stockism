@@ -46,7 +46,11 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
   const isCurrentUser = user && leader.id === user.uid;
   const userCrewColor = userData?.crew ? CREW_MAP[userData.crew]?.color : '#6b7280';
   const crew = leader.crew ? CREW_MAP[leader.crew] : null;
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(leader.activeCosmetics);
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass, frameStyle, frameTrend } = getCosmeticStyles(
+    leader.activeCosmetics,
+    null,
+    { seedKey: leader.displayName, trend: leader.frameTrend },
+  );
   // place is always 1, 2 or 3.
   const placeStyle = PLACE_STYLES[place]!;
   const isFirst = place === 1;
@@ -77,7 +81,8 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
       className={`relative min-w-0 border rounded-sm text-center px-1.5 sm:px-2 ${
         isFirst ? 'flex-[1.15] py-3 sm:py-4' : 'flex-1 py-2.5 sm:py-3'
       } ${darkMode ? placeStyle.dark : placeStyle.light} ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''}`}
-      style={style}
+      data-trend={frameTrend}
+      style={{ ...frameStyle, ...style }}
     >
       {isFirst && <div className={`podium-sheen${darkMode ? '' : ' podium-sheen-light'}`} aria-hidden="true" />}
       <div className={isFirst ? 'text-3xl' : 'text-2xl'}>{placeStyle.medal}</div>

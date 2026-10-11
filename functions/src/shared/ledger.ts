@@ -9,7 +9,10 @@
 // `account` is 'cash' unless set: 'ladder' entries track the separate ladder
 // game balance (top-ups and plays), which never touches cash directly, and
 // 'shares' entries record shares handed out or taken without a trade (daily
-// drop, admin edits), valued at the market price in `amount`.
+// drop, admin edits), valued at the market price in `amount`. 'cosmetics'
+// entries record shop items handed out or taken without payment (admin grants
+// and revokes), valued at the shop price; a bought item shows up instead as a
+// 'cosmetic_purchase' cash entry, so paid and free items can always be told apart.
 // `amount` is the signed change to that account. `cashAfter` is that account's balance after the
 // change when the writer knows it (null for FieldValue.increment writes made
 // without reading the balance first). `ref` points at what the money was for:
@@ -21,7 +24,7 @@ import { round2 } from './money';
 export interface LedgerInput {
   uid: string;
   type: string;
-  account?: 'cash' | 'ladder' | 'shares';
+  account?: 'cash' | 'ladder' | 'shares' | 'cosmetics';
   amount: number;
   cashAfter?: number | null;
   ref?: string | null;

@@ -231,6 +231,14 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
         updates[`activeCosmetics.${cosmetic.type}`] = FieldValue.delete();
       }
       transaction.update(userRef, updates);
+      recordLedger(transaction, {
+        uid: userId,
+        type: 'admin_revoke_cosmetic',
+        account: 'cosmetics',
+        amount: -cosmetic.price,
+        ref: cosmeticId,
+        detail: { by: context.auth!.uid },
+      });
       return { success: true, userId, cosmeticId, revoked: true };
     }
 
@@ -238,6 +246,14 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('already-exists', 'User already owns this cosmetic');
     }
     transaction.update(userRef, { ownedCosmetics: FieldValue.arrayUnion(cosmeticId) });
+    recordLedger(transaction, {
+      uid: userId,
+      type: 'admin_grant_cosmetic',
+      account: 'cosmetics',
+      amount: cosmetic.price,
+      ref: cosmeticId,
+      detail: { by: context.auth!.uid },
+    });
     return { success: true, userId, cosmeticId, granted: true };
   });
 });

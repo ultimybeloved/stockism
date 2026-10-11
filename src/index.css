@@ -451,6 +451,684 @@ html .cos-name-aurora {
 }
 .cos-frame-gold::after {
   box-shadow: inset 0 0 14px #f59e0b40;
+  /* The top tier earns a little more: a shine sweeps the row now and then, and
+     two sparkles twinkle on the border in between. */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpath d='M6 0 L7.2 4.8 L12 6 L7.2 7.2 L6 12 L4.8 7.2 L0 6 L4.8 4.8 Z' fill='%23fffbeb'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpath d='M6 0 L7.2 4.8 L12 6 L7.2 7.2 L6 12 L4.8 7.2 L0 6 L4.8 4.8 Z' fill='%23fffbeb'/%3E%3C/svg%3E"),
+    linear-gradient(105deg, transparent 40%, #fffbeb4d 50%, transparent 60%);
+  background-repeat: no-repeat;
+  background-size:
+    0 0,
+    0 0,
+    250% 100%;
+  background-position:
+    88% 0,
+    6% 100%,
+    100% 0;
+  animation: cosGildedShine 9s ease-in-out infinite;
+}
+@keyframes cosGildedShine {
+  0% {
+    background-position:
+      88% 0,
+      6% 100%,
+      100% 0;
+    background-size:
+      0 0,
+      0 0,
+      250% 100%;
+  }
+  15%,
+  100% {
+    background-position:
+      88% 0,
+      6% 100%,
+      0 0;
+  }
+  32%,
+  40%,
+  58%,
+  66%,
+  100% {
+    background-size:
+      0 0,
+      0 0,
+      250% 100%;
+  }
+  36% {
+    background-size:
+      12px 12px,
+      0 0,
+      250% 100%;
+  }
+  62% {
+    background-size:
+      0 0,
+      12px 12px,
+      250% 100%;
+  }
+}
+
+/* Second-generation frames (2026-10). Same ring technique as above, shared
+   through one `cos-frame` base class so a new frame only sets its colors and
+   motion. Motion follows the hold-then-tick rule: still most of the time, then
+   a quick, noticeable beat. */
+.cos-frame {
+  position: relative;
+}
+.cos-frame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+.cos-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Starter frames: a still metallic ring, no motion. */
+.cos-frame-steel::before {
+  background-image: linear-gradient(90deg, #475569, #cbd5e1, #64748b, #e2e8f0, #475569);
+}
+.cos-frame-steel::after {
+  box-shadow: inset 0 0 10px #94a3b830;
+}
+.cos-frame-jade::before {
+  background-image: linear-gradient(90deg, #064e3b, #34d399, #065f46, #6ee7b7, #064e3b);
+}
+.cos-frame-jade::after {
+  box-shadow: inset 0 0 10px #10b98130;
+}
+.cos-frame-ruby::before {
+  background-image: linear-gradient(90deg, #7f1d1d, #f87171, #991b1b, #fca5a5, #7f1d1d);
+}
+.cos-frame-ruby::after {
+  box-shadow: inset 0 0 10px #ef444430;
+}
+
+/* Ticker Tape: a dark LED tape on all four edges, crawling clockwise (top
+   moves right, right side down, bottom left, left side up) one quote at a
+   time. The top and bottom tapes are per player: src/utils/tickerTape.ts sets
+   --cos-tape-top/--cos-tape-bottom to 8 quotes of 56px each. Each step moves one
+   quote and each cycle one whole tape, so the loop is seamless; change the
+   slot size or count there and these keyframes must change too. The sides are
+   a slim dashed tape so they never crowd the row's text. */
+html .cos-frame-ticker::before {
+  padding: 0;
+  -webkit-mask: none;
+  mask: none;
+  background-image:
+    var(--cos-tape-top, linear-gradient(#18181b, #18181b)), var(--cos-tape-bottom, linear-gradient(#18181b, #18181b)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='14'%3E%3Crect width='4' height='14' fill='%2318181b'/%3E%3Crect x='1' y='3' width='2' height='6' rx='1' fill='%23fbbf24'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='14'%3E%3Crect width='4' height='14' fill='%2318181b'/%3E%3Crect x='1' y='3' width='2' height='6' rx='1' fill='%23fbbf24'/%3E%3C/svg%3E");
+  background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+  background-size:
+    448px 10px,
+    448px 10px,
+    4px 14px,
+    4px 14px;
+  background-position:
+    0px 0,
+    0px 100%,
+    0 0px,
+    100% 0px;
+  animation: cosTickerCrawl 16s ease-in-out infinite;
+}
+.cos-frame-ticker::after {
+  box-shadow: inset 0 0 14px #fbbf2422;
+}
+@keyframes cosTickerCrawl {
+  0%,
+  10.5% {
+    background-position:
+      0px 0,
+      0px 100%,
+      0 0px,
+      100% 0px;
+  }
+  14%,
+  23% {
+    background-position:
+      56px 0,
+      -56px 100%,
+      0 -56px,
+      100% 56px;
+  }
+  26.5%,
+  35.5% {
+    background-position:
+      112px 0,
+      -112px 100%,
+      0 -112px,
+      100% 112px;
+  }
+  39%,
+  48% {
+    background-position:
+      168px 0,
+      -168px 100%,
+      0 -168px,
+      100% 168px;
+  }
+  51.5%,
+  60.5% {
+    background-position:
+      224px 0,
+      -224px 100%,
+      0 -224px,
+      100% 224px;
+  }
+  64%,
+  73% {
+    background-position:
+      280px 0,
+      -280px 100%,
+      0 -280px,
+      100% 280px;
+  }
+  76.5%,
+  85.5% {
+    background-position:
+      336px 0,
+      -336px 100%,
+      0 -336px,
+      100% 336px;
+  }
+  89%,
+  98% {
+    background-position:
+      392px 0,
+      -392px 100%,
+      0 -392px,
+      100% 392px;
+  }
+  100% {
+    background-position:
+      448px 0,
+      -448px 100%,
+      0 -448px,
+      100% 448px;
+  }
+}
+
+/* Bull / Bear: the row sets data-trend from the player's day. Bull = green ring
+   with chevrons climbing both sides; bear = red ring with chevrons falling.
+   The ring flashes brighter on each step. No trend yet = a plain gold ring. */
+.cos-frame-bullbear::before {
+  background-image: linear-gradient(90deg, #a16207, #fbbf24, #a16207);
+}
+.cos-frame-bullbear[data-trend='up']::before {
+  background-image: linear-gradient(90deg, #166534, #4ade80, #166534);
+  animation: cosTrendFlash 6s ease-out infinite;
+}
+.cos-frame-bullbear[data-trend='down']::before {
+  background-image: linear-gradient(90deg, #991b1b, #f87171, #991b1b);
+  animation: cosTrendFlash 6s ease-out infinite;
+}
+.cos-frame-bullbear[data-trend]::after {
+  background-repeat: repeat-y;
+  background-size: 8px 12px;
+  background-position:
+    2px 0px,
+    calc(100% - 2px) 0px;
+}
+.cos-frame-bullbear[data-trend='up']::after {
+  box-shadow: inset 0 0 16px #22c55e3d;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 8 L4 5 L6.5 8' fill='none' stroke='%234ade80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 8 L4 5 L6.5 8' fill='none' stroke='%234ade80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  animation: cosChevronsUp 6s ease-in-out infinite;
+}
+.cos-frame-bullbear[data-trend='down']::after {
+  box-shadow: inset 0 0 16px #ef44443d;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 4.5 L4 7.5 L6.5 4.5' fill='none' stroke='%23f87171' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 4.5 L4 7.5 L6.5 4.5' fill='none' stroke='%23f87171' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  animation: cosChevronsDown 6s ease-in-out infinite;
+}
+@keyframes cosChevronsUp {
+  0%,
+  20% {
+    background-position:
+      2px 0px,
+      calc(100% - 2px) 0px;
+  }
+  25%,
+  45% {
+    background-position:
+      2px -12px,
+      calc(100% - 2px) -12px;
+  }
+  50%,
+  70% {
+    background-position:
+      2px -24px,
+      calc(100% - 2px) -24px;
+  }
+  75%,
+  95% {
+    background-position:
+      2px -36px,
+      calc(100% - 2px) -36px;
+  }
+  100% {
+    background-position:
+      2px -48px,
+      calc(100% - 2px) -48px;
+  }
+}
+@keyframes cosChevronsDown {
+  0%,
+  20% {
+    background-position:
+      2px 0px,
+      calc(100% - 2px) 0px;
+  }
+  25%,
+  45% {
+    background-position:
+      2px 12px,
+      calc(100% - 2px) 12px;
+  }
+  50%,
+  70% {
+    background-position:
+      2px 24px,
+      calc(100% - 2px) 24px;
+  }
+  75%,
+  95% {
+    background-position:
+      2px 36px,
+      calc(100% - 2px) 36px;
+  }
+  100% {
+    background-position:
+      2px 48px,
+      calc(100% - 2px) 48px;
+  }
+}
+/* Shop preview only: both days at once. Bull on the left half, bear on the
+   right; RowPreview flips the row to 'up' or 'down' when the player points at
+   or taps a side. */
+.cos-frame-bullbear[data-trend='split']::before {
+  background-image: linear-gradient(90deg, #166534, #4ade80 30%, #a16207 50%, #f87171 70%, #991b1b);
+  animation: cosTrendFlash 6s ease-out infinite;
+}
+.cos-frame-bullbear[data-trend='split']::after {
+  box-shadow:
+    inset 12px 0 16px -8px #22c55e3d,
+    inset -12px 0 16px -8px #ef44443d;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 8 L4 5 L6.5 8' fill='none' stroke='%234ade80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 4.5 L4 7.5 L6.5 4.5' fill='none' stroke='%23f87171' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  animation: cosChevronsSplit 6s ease-in-out infinite;
+}
+@keyframes cosChevronsSplit {
+  0%,
+  20% {
+    background-position:
+      2px 0px,
+      calc(100% - 2px) 0px;
+  }
+  25%,
+  45% {
+    background-position:
+      2px -12px,
+      calc(100% - 2px) 12px;
+  }
+  50%,
+  70% {
+    background-position:
+      2px -24px,
+      calc(100% - 2px) 24px;
+  }
+  75%,
+  95% {
+    background-position:
+      2px -36px,
+      calc(100% - 2px) 36px;
+  }
+  100% {
+    background-position:
+      2px -48px,
+      calc(100% - 2px) 48px;
+  }
+}
+@keyframes cosTrendFlash {
+  0%,
+  20%,
+  25%,
+  45%,
+  50%,
+  70%,
+  75%,
+  95% {
+    filter: none;
+  }
+  22%,
+  47%,
+  72%,
+  97% {
+    filter: brightness(1.7);
+  }
+}
+
+/* Glitch: a ring that never quite holds still. Three loops with lengths that
+   don't divide into each other, so the pattern never visibly repeats:
+   - cosGlitchColor (1.7s): the gradient jumps to a new spot every few tenths
+     of a second, so the colours flicker and shift.
+   - cosGlitch (4.3s): the ring jolts sideways with an RGB split (red and cyan
+     ghost copies) and a hue jump.
+   - cosGlitchCrack (7.1s): pieces of the border break out for a moment and
+     snap back. The clip-path keeps the same 20 points throughout so it
+     animates; at rest every notch has zero size. */
+.cos-frame-glitch::before {
+  background-image: linear-gradient(90deg, #22d3ee, #e879f9, #f0abfc, #6366f1, #22d3ee, #ffffff, #e879f9, #22d3ee);
+  background-size: 400% 100%;
+  clip-path: polygon(
+    0 0,
+    30% 0,
+    30% 0px,
+    30% 0px,
+    30% 0,
+    100% 0,
+    100% 55%,
+    calc(100% - 0px) 55%,
+    calc(100% - 0px) 55%,
+    100% 55%,
+    100% 100%,
+    66% 100%,
+    66% calc(100% - 0px),
+    66% calc(100% - 0px),
+    66% 100%,
+    0 100%,
+    0 20%,
+    0px 20%,
+    0px 20%,
+    0 20%
+  );
+  animation:
+    cosGlitchColor 1.7s steps(1, end) infinite,
+    cosGlitch 4.3s steps(1, end) infinite,
+    cosGlitchCrack 7.1s steps(1, end) infinite;
+}
+.cos-frame-glitch::after {
+  box-shadow: inset 0 0 12px #a855f72e;
+  animation: cosGlitchGlow 4.3s steps(1, end) infinite;
+}
+@keyframes cosGlitchColor {
+  0% {
+    background-position: 0% 0;
+  }
+  18% {
+    background-position: 37% 0;
+  }
+  31% {
+    background-position: 12% 0;
+  }
+  52% {
+    background-position: 71% 0;
+  }
+  64% {
+    background-position: 45% 0;
+  }
+  83% {
+    background-position: 93% 0;
+  }
+}
+@keyframes cosGlitch {
+  0%,
+  86%,
+  100% {
+    transform: none;
+    filter: none;
+    opacity: 1;
+  }
+  88% {
+    transform: translate(-3px, 1px);
+    filter: hue-rotate(90deg) drop-shadow(3px 0 0 #ff0040) drop-shadow(-3px 0 0 #00e5ff);
+  }
+  90% {
+    transform: translate(3px, -1px);
+    filter: drop-shadow(-4px 0 0 #ff0040) drop-shadow(4px 0 0 #00e5ff) drop-shadow(0 2px 0 #4d5bff);
+    opacity: 0.6;
+  }
+  92% {
+    transform: translate(-1px, 0);
+    filter: hue-rotate(-70deg);
+    opacity: 1;
+  }
+  94% {
+    transform: translate(2px, 1px);
+    filter: drop-shadow(2px 0 0 #ff0040) drop-shadow(-2px 0 0 #00e5ff);
+    opacity: 0.8;
+  }
+  96% {
+    transform: none;
+    filter: invert(1) hue-rotate(180deg);
+  }
+}
+@keyframes cosGlitchGlow {
+  0%,
+  86%,
+  100% {
+    box-shadow: inset 0 0 12px #a855f72e;
+  }
+  88%,
+  92% {
+    box-shadow:
+      inset 4px 0 0 #ff004099,
+      inset -4px 0 0 #00e5ff99,
+      inset 0 0 18px #a855f755;
+  }
+  90%,
+  94% {
+    box-shadow:
+      inset -4px 0 0 #ff004099,
+      inset 4px 0 0 #00e5ff99,
+      inset 0 2px 0 #4d5bff88;
+  }
+}
+@keyframes cosGlitchCrack {
+  0%,
+  62%,
+  70%,
+  100% {
+    clip-path: polygon(
+      0 0,
+      30% 0,
+      30% 0px,
+      30% 0px,
+      30% 0,
+      100% 0,
+      100% 55%,
+      calc(100% - 0px) 55%,
+      calc(100% - 0px) 55%,
+      100% 55%,
+      100% 100%,
+      66% 100%,
+      66% calc(100% - 0px),
+      66% calc(100% - 0px),
+      66% 100%,
+      0 100%,
+      0 20%,
+      0px 20%,
+      0px 20%,
+      0 20%
+    );
+  }
+  63% {
+    clip-path: polygon(
+      0 0,
+      30% 0,
+      30% 5px,
+      42% 5px,
+      42% 0,
+      100% 0,
+      100% 55%,
+      calc(100% - 6px) 55%,
+      calc(100% - 6px) 80%,
+      100% 80%,
+      100% 100%,
+      74% 100%,
+      74% calc(100% - 5px),
+      66% calc(100% - 5px),
+      66% 100%,
+      0 100%,
+      0 38%,
+      6px 38%,
+      6px 20%,
+      0 20%
+    );
+  }
+  66% {
+    clip-path: polygon(
+      0 0,
+      30% 0,
+      30% 3px,
+      37.2% 3px,
+      37.2% 0,
+      100% 0,
+      100% 55%,
+      calc(100% - 3.6px) 55%,
+      calc(100% - 3.6px) 70%,
+      100% 70%,
+      100% 100%,
+      70.8% 100%,
+      70.8% calc(100% - 3px),
+      66% calc(100% - 3px),
+      66% 100%,
+      0 100%,
+      0 30.8%,
+      3.6px 30.8%,
+      3.6px 20%,
+      0 20%
+    );
+  }
+  68% {
+    clip-path: polygon(
+      0 0,
+      30% 0,
+      30% 5px,
+      42% 5px,
+      42% 0,
+      100% 0,
+      100% 55%,
+      calc(100% - 6px) 55%,
+      calc(100% - 6px) 80%,
+      100% 80%,
+      100% 100%,
+      74% 100%,
+      74% calc(100% - 5px),
+      66% calc(100% - 5px),
+      66% 100%,
+      0 100%,
+      0 38%,
+      6px 38%,
+      6px 20%,
+      0 20%
+    );
+  }
+}
+
+/* Bloodline: a deep red ring with a heartbeat, two quick beats then rest. */
+.cos-frame-bloodline::before {
+  background-image: linear-gradient(90deg, #7f1d1d, #ef4444, #991b1b, #ef4444, #7f1d1d);
+}
+.cos-frame-bloodline::after {
+  box-shadow: inset 0 0 12px #b91c1c33;
+  animation: cosHeartbeat 2.6s ease-out infinite;
+}
+@keyframes cosHeartbeat {
+  0%,
+  40%,
+  100% {
+    box-shadow: inset 0 0 12px #b91c1c33;
+  }
+  8% {
+    box-shadow: inset 0 0 26px #dc262688;
+  }
+  16% {
+    box-shadow: inset 0 0 12px #b91c1c33;
+  }
+  24% {
+    box-shadow: inset 0 0 22px #dc262670;
+  }
+}
+
+/* Every frame starts its loop at a per-player point (--cos-seed, in seconds,
+   set on the row from the player's id), so two rows wearing the same frame
+   never move in step. The html prefix outranks the per-frame shorthands. */
+html .cos-frame::before,
+html .cos-frame::after,
+html .cos-frame-ember::before,
+html .cos-frame-frost::before,
+html .cos-frame-electric::before,
+html .cos-frame-gold::before,
+html .cos-frame-gold::after {
+  animation-delay: calc(var(--cos-seed, 0) * -1s);
+}
+
+/* Comet: a white-gold spark circles the row once, then rests on a dim silver
+   ring. Needs @property so the angle can animate; browsers without it show
+   the spark standing still, which still reads fine. */
+@property --cos-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+.cos-frame-comet::before {
+  padding: 2px;
+  background-image:
+    conic-gradient(
+      from calc(var(--cos-angle) + var(--cos-start, 0deg)),
+      transparent 0 72%,
+      #fde68a55 82%,
+      #fde68a 92%,
+      #ffffff 96%,
+      transparent 97%
+    ),
+    linear-gradient(90deg, #52525b, #a1a1aa, #52525b);
+  animation: cosOrbit 18s ease-in-out infinite;
+}
+.cos-frame-comet::after {
+  box-shadow: inset 0 0 14px #fde68a2e;
+}
+@keyframes cosOrbit {
+  /* Three laps per cycle, resting at 0, 130 and 250 degrees. 1440 degrees is a
+     whole number of turns, so the cycle joins up. */
+  0%,
+  18% {
+    --cos-angle: 0deg;
+  }
+  33%,
+  51% {
+    --cos-angle: 490deg;
+  }
+  66%,
+  84% {
+    --cos-angle: 970deg;
+  }
+  100% {
+    --cos-angle: 1440deg;
+  }
 }
 
 /* Pulsing glow auras. One shared keyframe; each color class only sets --cgp.
@@ -622,6 +1300,9 @@ html .cos-name-aurora {
   .cos-frame-frost::before,
   .cos-frame-electric::before,
   .cos-frame-gold::before,
+  .cos-frame-gold::after,
+  .cos-frame::before,
+  .cos-frame::after,
   .pred-teaser-bar-a,
   .pred-teaser-bar-b,
   .pred-teaser-bar-c,

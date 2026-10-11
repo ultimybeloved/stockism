@@ -6,6 +6,7 @@ const db = admin.firestore();
 import type { DocumentData, Query } from 'firebase-admin/firestore';
 // Rank counting lives in shared/equity — shared with the Discord bot's /profile.
 import { countRankAbove, grantedSince, netReturnPercent } from '../shared/equity';
+import { BULLBEAR_FRAME_ID, frameTrend } from '../shared/rules/cosmetics';
 
 import {
   LEADERBOARD_CACHE_TTL,
@@ -40,6 +41,8 @@ const LEADERBOARD_FIELDS = [
   'isPublic',
   'isBot',
   'portfolioSnapshot7d',
+  // Bull / Bear frame direction (see frameTrend).
+  'portfolioSnapshot24h',
   // Season title: the equipped id plus the label it resolves to.
   'activeTitle',
   // Needed to net free money out of the percent board — see grantedSince.
@@ -91,6 +94,12 @@ const sanitizeDisplayFields = (userData: DocumentData) => {
     displayedShopPins: asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)),
     activeCosmetics,
     title,
+    // Only wearers of the Bull / Bear frame get a direction, so the board
+    // doesn't publish everyone's day.
+    frameTrend:
+      activeCosmetics?.rowFrame === BULLBEAR_FRAME_ID
+        ? frameTrend(userData.portfolioValue, userData.portfolioSnapshot24h)
+        : null,
   };
 };
 

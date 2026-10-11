@@ -69,7 +69,11 @@ const PublicProfilePage = () => {
   if (!profile) return null;
 
   const crew = profile.crew ? CREW_MAP[profile.crew] : null;
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass } = getCosmeticStyles(profile.activeCosmetics);
+  const { nameColor, nameClass, glowColor, backdropColor, rowClass, frameStyle, frameTrend } = getCosmeticStyles(
+    profile.activeCosmetics,
+    null,
+    { seedKey: profile.displayName, trend: profile.frameTrend },
+  );
   const profileTitle = profile.title;
   const crewColor = crew?.color || '#6b7280';
 
@@ -98,7 +102,9 @@ const PublicProfilePage = () => {
       {/* Header */}
       <div
         className={`relative ${cardClass} border rounded-sm p-4 ${rowClass}`}
+        data-trend={frameTrend}
         style={{
+          ...frameStyle,
           ...(glowColor ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
           ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
         }}

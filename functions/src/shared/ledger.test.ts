@@ -47,6 +47,15 @@ describe('money ledger coverage', () => {
     expect(missing, 'These files change cash without a ledger entry').toEqual([]);
   });
 
+  it('every backend file that hands out a cosmetic books a ledger entry', () => {
+    const GIVES_COSMETIC = /ownedCosmetics:\s*FieldValue\.arrayUnion/;
+    const missing = walk(SRC)
+      .map((p) => ({ file: relative(SRC, p).replace(/\\/g, '/'), src: readFileSync(p, 'utf8') }))
+      .filter(({ src }) => GIVES_COSMETIC.test(src) && !BOOKS_LEDGER.test(src))
+      .map(({ file }) => file);
+    expect(missing, 'These files give out cosmetics without a ledger entry').toEqual([]);
+  });
+
   it('the exemption list has no stale entries', () => {
     const files = new Set(walk(SRC).map((p) => relative(SRC, p).replace(/\\/g, '/')));
     expect(Object.keys(NO_LEDGER_NEEDED).filter((f) => !files.has(f))).toEqual([]);

@@ -127,7 +127,7 @@ Platinum and Diamond are ranked within four size divisions (Rookie under $10k, T
 - **Leaderboards** by total portfolio value, by weekly percentage gain (with a minimum baseline so a $50 account doubling up cannot top it), by crew, and the season board.
 - **Public profiles** at `/u/username` with stats, portfolio sparkline, top holdings, and pinned achievements.
 - **49 achievements** with pinnable badges. Extra pin slots are purchasable.
-- **43 cosmetics**: name colors, row glows, backdrops, and animated frames, $5,000 to $120,000.
+- **51 cosmetics**: name colors, row glows, backdrops, and animated frames, $5,000 to $150,000. Frame animations are offset per player so identical frames never move in step. Cosmetics given out without payment (admin grants) are booked in the ledger at their shop price.
 - **Daily check-in** with a streak: $300 on day one, rising to $500 by day seven.
 - **Price alerts** you set per ticker, checked every 30 minutes.
 - **Bankruptcy and bailout.** If your portfolio falls to $100 or below you are marked bankrupt and can take a $1,500 bailout once per 24 hours. The bailout wipes every position you hold, turns off margin, and removes you from your crew, so it is a last resort. Bankruptcy clears itself once you are back above $500.
