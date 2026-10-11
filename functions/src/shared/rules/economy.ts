@@ -22,7 +22,7 @@ export const LEADERBOARD_CACHE_TTL = 5 * 60 * 1000;
 export const PRE_MARKET_MAX_BUY_BUFFER = 1.06;
 
 // Event prediction markets: LMSR liquidity (b) and the smallest buy.
-export const EVENT_AMM_LIQUIDITY = 5000;
+export const EVENT_AMM_LIQUIDITY = 20000;
 export const EVENT_MIN_BUYIN = 1;
 
 // Market index reads this when every character sits at its base price.

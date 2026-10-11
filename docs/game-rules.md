@@ -192,7 +192,7 @@ Admins can also halt the market manually at any time with a custom reason.
 | Wash rule | 4% down-impact in 24h blocks buying back for 48h |
 | Circuit breaker | 10% move in 5 min pauses the stock 3 min, max 2 a day |
 | Neglect decay | 1% a day after 14 days untraded, to a hidden floor |
-| Event market liquidity (b) | 5,000 |
+| Event market liquidity (b) | 20,000 default for new markets (admin can set per market; existing markets keep theirs) |
 | Ladder starting balance | $500 |
 | Weekly halt | Thursday 13:00 to 21:00 UTC |
 

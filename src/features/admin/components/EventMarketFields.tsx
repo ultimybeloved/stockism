@@ -58,7 +58,8 @@ const EventMarketFields = ({
           className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
         />
         <p className={`text-xs ${mutedClass} mt-1`}>
-          Higher = steadier prices. No end date; resolve it when canon confirms the outcome.
+          Higher = steadier prices. 20,000 suits most markets; go higher for a hot topic. No end date; resolve it when
+          canon confirms the outcome.
         </p>
       </div>
 
