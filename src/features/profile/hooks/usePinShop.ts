@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { purchasePinFunction, purchaseCosmeticFunction } from '../../../api/callables';
+import { purchasePinFunction, purchaseCosmeticFunction, purchaseBundleFunction } from '../../../api/callables';
 import { SHOP_PINS } from '../../../crews';
 import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';
@@ -76,6 +76,23 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
     [user, userData, showNotification, setUserData],
   );
 
+  const handlePurchaseBundle = useCallback(
+    async (bundleId: string) => {
+      if (!user || !userData) return;
+      try {
+        const { data } = await purchaseBundleFunction({ bundleId });
+        setUserData((prev) =>
+          prev ? { ...prev, ownedCosmetics: [...new Set([...(prev.ownedCosmetics || []), ...data.items])] } : prev,
+        );
+        showNotification('success', 'Bundle purchased!');
+      } catch (err) {
+        reportUnexpected(err, { where: 'handlePurchaseBundle', bundleId });
+        showNotification('error', errorMessage(err) || 'Purchase failed');
+      }
+    },
+    [user, userData, showNotification, setUserData],
+  );
+
   const handleEquipCosmetic = useCallback(
     async (type: string, cosmeticId: string | null) => {
       if (!user) return;
@@ -93,5 +110,5 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
     [user, setUserData],
   );
 
-  return { handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic };
+  return { handlePinAction, handlePurchaseCosmetic, handlePurchaseBundle, handleEquipCosmetic };
 }

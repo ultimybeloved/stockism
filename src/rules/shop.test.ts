@@ -1,0 +1,85 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { COSMETICS, COSMETIC_MAP } from '../constants/cosmetics';
+import {
+  BUNDLES,
+  NEVER_DISCOUNTED,
+  FEATURED_MIN_PRICE,
+  bundleQuote,
+  featuredCosmeticId,
+  featuredPrice,
+  shopWeek,
+  shopWeekEndsAt,
+} from './shop';
+
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+const priceOf = (id: string) => COSMETIC_MAP[id]?.price;
+
+describe('cosmetic catalogs', () => {
+  it('the server catalog matches the shop list item for item', () => {
+    const src = readFileSync(join(__dirname, '../../functions/src/shared/constants/cosmetics.ts'), 'utf8');
+    const server = Object.fromEntries(
+      [...src.matchAll(/^\s+([a-z_]+): \{ type: '(\w+)', price: (\d+), name: '((?:[^'\\]|\\.)*)' \},$/gm)].map((m) => [
+        m[1],
+        { type: m[2], price: Number(m[3]), name: m[4]!.replace(/\\'/g, "'") },
+      ]),
+    );
+    const shop = Object.fromEntries(COSMETICS.map((c) => [c.id, { type: c.type, price: c.price, name: c.name }]));
+    expect(server).toEqual(shop);
+  });
+});
+
+describe('bundles', () => {
+  it('every bundle is four real items, one per slot, none of them a top frame', () => {
+    for (const b of BUNDLES) {
+      const items = b.items.map((id) => COSMETIC_MAP[id]);
+      expect(items.every(Boolean), b.id).toBe(true);
+      expect(new Set(items.map((c) => c!.type)).size, b.id).toBe(4);
+      expect(
+        b.items.some((id) => NEVER_DISCOUNTED.includes(id)),
+        b.id,
+      ).toBe(false);
+    }
+  });
+
+  it('charges 20% off only the pieces the player is missing', () => {
+    const steel = BUNDLES.find((b) => b.id === 'bundle_steel')!;
+    expect(bundleQuote(steel, [], priceOf)).toEqual({ missing: steel.items, fullPrice: 75000, price: 60000 });
+    const partial = bundleQuote(steel, ['frame_steel', 'name_silver'], priceOf);
+    expect(partial.missing).toEqual(['glow_silver', 'backdrop_onyx']);
+    expect(partial.price).toBe(32000);
+    expect(bundleQuote(steel, steel.items, priceOf)).toMatchObject({ missing: [], price: 0 });
+  });
+});
+
+describe('featured item', () => {
+  const catalog = COSMETICS.map(({ id, price }) => ({ id, price }));
+  const eligible = catalog.filter((c) => c.price >= FEATURED_MIN_PRICE && !NEVER_DISCOUNTED.includes(c.id));
+  const monday = Date.UTC(2026, 9, 12); // Monday 12 Oct 2026, 00:00 UTC
+
+  it('is never Gilded or Comet, and never a cheap item', () => {
+    for (let w = 0; w < 300; w++) {
+      const id = featuredCosmeticId(catalog, monday + w * WEEK);
+      expect(NEVER_DISCOUNTED).not.toContain(id);
+      expect(COSMETIC_MAP[id!]!.price).toBeGreaterThanOrEqual(FEATURED_MIN_PRICE);
+    }
+  });
+
+  it('features every eligible item once before repeating', () => {
+    const start = Math.ceil(shopWeek(monday) / eligible.length) * eligible.length;
+    const firstWeek = Date.UTC(2024, 0, 1) + start * WEEK;
+    const ids = eligible.map((_, w) => featuredCosmeticId(catalog, firstWeek + w * WEEK));
+    expect(new Set(ids).size).toBe(eligible.length);
+  });
+
+  it('holds all week and changes at Monday 00:00 UTC', () => {
+    expect(featuredCosmeticId(catalog, monday + 1000)).toBe(featuredCosmeticId(catalog, monday + WEEK - 1000));
+    expect(shopWeekEndsAt(monday + 1000)).toBe(monday + WEEK);
+    expect(new Date(shopWeekEndsAt(monday + 3 * 24 * 3600 * 1000)).getUTCDay()).toBe(1);
+  });
+
+  it('takes 25% off', () => {
+    expect(featuredPrice(80000)).toBe(60000);
+  });
+});

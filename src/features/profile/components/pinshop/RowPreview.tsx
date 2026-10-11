@@ -13,18 +13,21 @@ import type { Cosmetic } from '../../../../constants/cosmetics';
 // effects + name color/class + PinDisplay), so what shows here is what every
 // other player sees. Reads straight from userData, so it updates the moment
 // anything is equipped or purchased.
-const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?: Cosmetic | null }) => {
+const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?: Cosmetic[] | null }) => {
   const { darkMode } = useTheme();
   const { userData, holdings } = useSession();
   const { textClass, mutedClass } = themeClasses;
   // `tryOn` is a shop item being browsed: layer it over the equipped set so the
   // row previews it before purchase. The owned filter is skipped for try-ons
   // (they aren't owned yet — that's the point); display-only, nothing persists.
-  const actives = tryOn ? { ...(userData?.activeCosmetics || {}), [tryOn.type]: tryOn.id } : userData?.activeCosmetics;
+  // A bundle try-on layers every piece at once.
+  const actives = tryOn?.length
+    ? { ...(userData?.activeCosmetics || {}), ...Object.fromEntries(tryOn.map((c) => [c.type, c.id])) }
+    : userData?.activeCosmetics;
   // Trying on Bull / Bear shows both days at once (bull left, bear right).
   // Pointing at a side, or tapping it on a phone, shows that day in full.
   const [side, setSide] = useState<'up' | 'down' | null>(null);
-  const tryingBullBear = tryOn?.id === BULLBEAR_FRAME_ID;
+  const tryingBullBear = !!tryOn?.some((c) => c.id === BULLBEAR_FRAME_ID);
   const sideAt = (e: MouseEvent<HTMLDivElement>) => {
     const box = e.currentTarget.getBoundingClientRect();
     return e.clientX - box.left < box.width / 2 ? 'up' : 'down';
@@ -37,7 +40,7 @@ const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?:
     setSide((cur) => (cur === next ? null : next));
   };
   const trend = tryingBullBear ? side || 'split' : frameTrend(userData?.portfolioValue, userData?.portfolioSnapshot24h);
-  const styles = getCosmeticStyles(actives, tryOn ? null : userData?.ownedCosmetics, {
+  const styles = getCosmeticStyles(actives, tryOn?.length ? null : userData?.ownedCosmetics, {
     seedKey: userData?.displayName,
     trend,
   });
@@ -51,9 +54,9 @@ const RowPreview = ({ portfolioValue, tryOn }: { portfolioValue: number; tryOn?:
   return (
     <div className="px-4 pt-3">
       <p className={`text-[10px] uppercase tracking-wide font-semibold ${mutedClass} mb-1`}>
-        {tryOn ? (
+        {tryOn?.length ? (
           <>
-            Previewing: <span className="text-orange-500">{tryOn.name}</span>
+            Previewing: <span className="text-orange-500">{tryOn.map((c) => c.name).join(' + ')}</span>
           </>
         ) : (
           'Your row on the leaderboard'

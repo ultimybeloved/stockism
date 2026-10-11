@@ -128,6 +128,7 @@ Platinum and Diamond are ranked within four size divisions (Rookie under $10k, T
 - **Public profiles** at `/u/username` with stats, portfolio sparkline, top holdings, and pinned achievements.
 - **49 achievements** with pinnable badges. Extra pin slots are purchasable.
 - **51 cosmetics**: name colors, row glows, backdrops, and animated frames, $5,000 to $150,000. Frame animations are offset per player so identical frames never move in step. Cosmetics given out without payment (admin grants) are booked in the ledger at their shop price.
+- **Shop deals** (src/rules/shop.ts): 10 bundles (name colour + glow + backdrop + frame) at 20% off the pieces you don't own yet; one featured item each week at 25% off, rotating Monday 00:00 UTC through every item worth $25,000+, announced in the Monday Discord report. Gilded Frame and Comet are never discounted.
 - **Daily check-in** with a streak: $300 on day one, rising to $500 by day seven.
 - **Price alerts** you set per ticker, checked every 30 minutes.
 - **Bankruptcy and bailout.** If your portfolio falls to $100 or below you are marked bankrupt and can take a $1,500 bailout once per 24 hours. The bailout wipes every position you hold, turns off margin, and removes you from your crew, so it is a last resort. Bankruptcy clears itself once you are back above $500.

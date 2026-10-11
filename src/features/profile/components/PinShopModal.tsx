@@ -9,18 +9,21 @@ import MyLookTab from './pinshop/MyLookTab';
 import ShopTab from './pinshop/ShopTab';
 import type { ShopPin } from '../../../crews';
 import type { Cosmetic } from '../../../constants/cosmetics';
+import type { Bundle } from '../../../rules/shop';
 import type { PinAction } from '../hooks/usePinShop';
 
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
   | { type: 'pin'; item: ShopPin; price: number }
   | { type: 'cosmetic'; item: Cosmetic; price: number }
+  | { type: 'bundle'; item: Bundle; price: number; count: number }
   | { type: 'slot'; item: 'achievement' | 'shop'; price: number };
 
 interface PinShopModalProps {
   onClose: () => void;
   onPurchase: (action: PinAction, payload: unknown, cost?: number) => Promise<void>;
   onPurchaseCosmetic: (cosmeticId: string) => Promise<void>;
+  onPurchaseBundle: (bundleId: string) => Promise<void>;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => Promise<void>;
   portfolioValue: number;
 }
@@ -33,6 +36,7 @@ const PinShopModal = ({
   onClose,
   onPurchase,
   onPurchaseCosmetic,
+  onPurchaseBundle,
   onEquipCosmetic,
   portfolioValue,
 }: PinShopModalProps) => {
@@ -41,7 +45,7 @@ const PinShopModal = ({
   const [activeTab, setActiveTab] = useState('look');
   const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
   const [purchasing, setPurchasing] = useState(false);
-  const [tryOn, setTryOn] = useState<Cosmetic | null>(null); // shop cosmetic being previewed on the row
+  const [tryOn, setTryOn] = useState<Cosmetic[] | null>(null); // shop cosmetics being previewed on the row
 
   const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
   const cash = userData?.cash || 0;
@@ -56,6 +60,8 @@ const PinShopModal = ({
         await onPurchase('buySlot', confirmPurchase.item, confirmPurchase.price);
       } else if (confirmPurchase.type === 'cosmetic') {
         await onPurchaseCosmetic(confirmPurchase.item.id);
+      } else if (confirmPurchase.type === 'bundle') {
+        await onPurchaseBundle(confirmPurchase.item.id);
       }
     } finally {
       setPurchasing(false);
@@ -145,6 +151,12 @@ const PinShopModal = ({
                       style={{ backgroundColor: confirmPurchase.item.color }}
                     />
                     <strong>{confirmPurchase.item.name}</strong> for{' '}
+                    <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?
+                  </>
+                ) : confirmPurchase.type === 'bundle' ? (
+                  <>
+                    Buy the <strong>{confirmPurchase.item.name}</strong> bundle ({confirmPurchase.count}{' '}
+                    {confirmPurchase.count === 1 ? 'item' : 'items'}) for{' '}
                     <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?
                   </>
                 ) : (

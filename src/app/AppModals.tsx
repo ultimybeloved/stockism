@@ -95,6 +95,7 @@ const AppModals = ({
   handleOnboardingComplete,
   handlePinAction,
   handlePurchaseCosmetic,
+  handlePurchaseBundle,
   handleRepayMargin,
   handleRerollMissions,
   handleToggleDrip,
@@ -189,6 +190,7 @@ const AppModals = ({
           onClose={() => setShowPinShop(false)}
           onPurchase={handlePinAction}
           onPurchaseCosmetic={handlePurchaseCosmetic}
+          onPurchaseBundle={handlePurchaseBundle}
           onEquipCosmetic={handleEquipCosmetic}
           portfolioValue={portfolioValue}
         />

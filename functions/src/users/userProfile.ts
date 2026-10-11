@@ -14,6 +14,8 @@ import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import type { UserData } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
+import { COSMETIC_PRICE_LIST } from '../shared/constants/cosmetics';
+import { BUNDLE_MAP, bundleQuote, featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
 
 /** One account in a name group, for the username backfill. */
 interface NameEntry {
@@ -323,8 +325,11 @@ export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: st
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
   const { cosmeticId } = data || {};
-  const cosmetic = (COSMETIC_CATALOG as Record<string, { type: string; price: number }>)[cosmeticId as string];
+  const cosmetic = COSMETIC_CATALOG[cosmeticId as string];
   if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
+  // This week's featured item sells at a discount (rules/shop).
+  const featured = featuredCosmeticId(COSMETIC_PRICE_LIST) === cosmeticId;
+  const price = featured ? featuredPrice(cosmetic.price) : cosmetic.price;
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'cosmetics');
@@ -341,21 +346,68 @@ export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: st
       throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
     if ((userData.ownedCosmetics || []).includes(cosmeticId as string))
       throw new functions.https.HttpsError('already-exists', 'You already own this cosmetic.');
-    if ((userData.cash || 0) < cosmetic.price)
-      throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
+    if ((userData.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
 
     transaction.update(userRef, {
       ownedCosmetics: FieldValue.arrayUnion(cosmeticId),
-      cash: FieldValue.increment(-cosmetic.price),
+      cash: FieldValue.increment(-price),
     });
     recordLedger(transaction, {
       uid,
       type: 'cosmetic_purchase',
-      amount: -cosmetic.price,
-      cashAfter: (userData.cash || 0) - cosmetic.price,
+      amount: -price,
+      cashAfter: (userData.cash || 0) - price,
       ref: cosmeticId as string,
+      detail: featured ? { featured: true, listPrice: cosmetic.price } : null,
     });
 
-    return { success: true };
+    return { success: true, price };
+  });
+});
+
+/**
+ * Buy a bundle: every piece of the set the player doesn't own yet, at the
+ * bundle discount (rules/shop bundleQuote). Owning part of a set just makes
+ * the rest cheaper; owning all of it is refused.
+ */
+export const purchaseBundle = cf().https.onCall(async (data: { bundleId?: string } | null, context) => {
+  requireAppCheck(context);
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+
+  const bundle = BUNDLE_MAP[(data?.bundleId as string) || ''];
+  if (!bundle || bundle.items.some((id) => !COSMETIC_CATALOG[id])) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid bundle.');
+  }
+
+  const uid = context.auth.uid;
+  touchLastActive(uid, 'cosmetics');
+  const userRef = db.collection('users').doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+
+    const userData = userDoc.data() as ProfileUser;
+    if (userData.isBot || userData.isBanned)
+      throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
+
+    const { missing, price } = bundleQuote(bundle, userData.ownedCosmetics, (id) => COSMETIC_CATALOG[id]?.price);
+    if (!missing.length) throw new functions.https.HttpsError('already-exists', 'You already own this whole set.');
+    if ((userData.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
+
+    transaction.update(userRef, {
+      ownedCosmetics: FieldValue.arrayUnion(...missing),
+      cash: FieldValue.increment(-price),
+    });
+    recordLedger(transaction, {
+      uid,
+      type: 'bundle_purchase',
+      amount: -price,
+      cashAfter: (userData.cash || 0) - price,
+      ref: bundle.id,
+      detail: { items: missing },
+    });
+
+    return { success: true, price, items: missing };
   });
 });

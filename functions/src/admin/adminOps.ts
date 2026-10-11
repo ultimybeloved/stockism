@@ -207,7 +207,7 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
   requireAdmin(context);
 
   const { userId, cosmeticId, revoke } = data || {};
-  const cosmetic = (COSMETIC_CATALOG as Record<string, { type: string; price: number }>)[cosmeticId];
+  const cosmetic = COSMETIC_CATALOG[cosmeticId];
   if (!userId || !cosmetic) {
     throw new functions.https.HttpsError('invalid-argument', 'Valid userId and cosmeticId required');
   }

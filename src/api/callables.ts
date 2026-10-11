@@ -16,6 +16,10 @@ export const checkUsernameFunction = callable<{ displayName: string }, { availab
 export const deleteAccountFunction = callable<{ confirmUsername: string }>('deleteAccount');
 export const changeDisplayNameFunction = callable<{ displayName: string }, { success: boolean }>('changeDisplayName');
 export const purchaseCosmeticFunction = callable<{ cosmeticId: string }>('purchaseCosmetic');
+export const purchaseBundleFunction = callable<
+  { bundleId: string },
+  { success: boolean; price: number; items: string[] }
+>('purchaseBundle');
 export const createBotsFunction = callable<Record<string, never>, Api.CreateBotsResponse>('createBots');
 export const fixBasePriceCliffsFunction = callable<Record<string, never>, Api.FixCliffsResponse>('fixBasePriceCliffs');
 export const triggerManualBackupFunction = callable<void, { filename?: string }>('triggerManualBackup');

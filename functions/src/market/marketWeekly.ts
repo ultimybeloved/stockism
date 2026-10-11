@@ -12,6 +12,8 @@ import { isRosterTicker } from '../shared/roster';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
 import { runWeeklyCrewRankings, runCrewRoleSyncOnly } from './crewRankings';
+import { COSMETIC_CATALOG, COSMETIC_PRICE_LIST } from '../shared/constants/cosmetics';
+import { featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
 
 type UserRow = DocumentData & { id: string };
 
@@ -137,6 +139,11 @@ async function runWeeklyMarketSummary() {
       .sort((a, b) => b.portfolioValue - a.portfolioValue)
       .slice(0, 5);
 
+    // The shop's featured item turns over at this same moment (Monday 00:00
+    // UTC), so the report announces the new one.
+    const featuredId = featuredCosmeticId(COSMETIC_PRICE_LIST, now + 60 * 1000);
+    const featured = featuredId ? COSMETIC_CATALOG[featuredId] : null;
+
     // Build comprehensive embed
     const embed = {
       title: '📈 Weekly Market Report',
@@ -173,6 +180,15 @@ async function runWeeklyMarketSummary() {
               .join('\n') || 'None',
           inline: false,
         },
+        ...(featured
+          ? [
+              {
+                name: '🛍️ Featured in the Shop This Week',
+                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until next Monday.`,
+                inline: false,
+              },
+            ]
+          : []),
       ],
       footer: {
         text: 'Next report: same time next week',

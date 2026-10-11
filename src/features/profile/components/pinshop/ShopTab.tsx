@@ -7,6 +7,8 @@ import { useSession } from '../../../../context/AppContext';
 
 import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { PendingPurchase } from '../PinShopModal';
+import ShopDeals, { useFeaturedId } from './ShopDeals';
+import { featuredPrice } from '../../../../rules/shop';
 
 type GlowVariant = 'standard' | 'pulse';
 
@@ -14,8 +16,8 @@ interface ShopTabProps {
   cash: number;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => unknown;
   onRequestPurchase: (purchase: PendingPurchase) => void;
-  /** Previews a cosmetic on the sample row; null clears it. */
-  onTryOn: (cosmetic: Cosmetic | null) => void;
+  /** Previews cosmetics on the sample row (one item or a bundle); null clears it. */
+  onTryOn: (cosmetics: Cosmetic[] | null) => void;
 }
 
 // Shop tab: everything money can buy. Cosmetics render as compact swatch rows
@@ -37,6 +39,8 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
   const ownedPins = userData?.ownedShopPins || [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const featuredId = useFeaturedId();
+  const priceOf = (c: Cosmetic) => (c.id === featuredId ? featuredPrice(c.price) : c.price);
   // Row glows exist in a standard and a pulsing variant of every color; the
   // toggle swaps the whole section between the two sets. Opens on whichever
   // set holds the equipped glow. Switching also re-targets the open detail
@@ -51,7 +55,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
       const paired = variant === 'pulse' ? toPulse(selectedId) : toStandard(selectedId);
       if (COSMETIC_MAP[paired]) {
         setSelectedId(paired);
-        onTryOn(COSMETIC_MAP[paired]);
+        onTryOn([COSMETIC_MAP[paired]]);
       }
     }
   };
@@ -68,7 +72,8 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
   const renderDetailPanel = (cosmetic: Cosmetic) => {
     const owned = ownedCosmetics.includes(cosmetic.id);
     const equipped = activeCosmetics[cosmetic.type] === cosmetic.id;
-    const canAfford = cash >= cosmetic.price;
+    const price = priceOf(cosmetic);
+    const canAfford = cash >= price;
     return (
       <div className={panelClass}>
         <div className="min-w-0">
@@ -79,6 +84,12 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
             {cosmetic.name}
           </div>
           <div className={`text-xs ${mutedClass}`}>{cosmetic.description}</div>
+          {price !== cosmetic.price && !owned && (
+            <div className="text-xs font-semibold text-orange-500">
+              Featured this week, 25% off{' '}
+              <span className={`line-through ${mutedClass}`}>{formatCurrency(cosmetic.price)}</span>
+            </div>
+          )}
         </div>
         {owned ? (
           <button
@@ -93,11 +104,11 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
           </button>
         ) : (
           <button
-            onClick={() => canAfford && onRequestPurchase({ type: 'cosmetic', item: cosmetic, price: cosmetic.price })}
+            onClick={() => canAfford && onRequestPurchase({ type: 'cosmetic', item: cosmetic, price })}
             disabled={!canAfford}
             className={buyBtnClass(canAfford)}
           >
-            {formatCurrency(cosmetic.price)}
+            {formatCurrency(price)}
           </button>
         )}
       </div>
@@ -106,6 +117,16 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
 
   return (
     <div className="space-y-6">
+      <ShopDeals
+        cash={cash}
+        featuredId={featuredId}
+        onRequestPurchase={onRequestPurchase}
+        onTryOn={(items) => {
+          setSelectedId(null);
+          onTryOn(items);
+        }}
+      />
+
       {/* Cosmetics — swatch grid per type */}
       {COSMETIC_TYPES.map((type) => {
         const items = COSMETICS.filter(
@@ -154,7 +175,7 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
                     onClick={() => {
                       const next = selected ? null : cosmetic.id;
                       setSelectedId(next);
-                      onTryOn(next ? cosmetic : null);
+                      onTryOn(next ? [cosmetic] : null);
                     }}
                     title={cosmetic.name}
                     className={`relative w-9 h-9 rounded-full border-2 p-0.5 ${selected ? 'border-orange-500' : 'border-transparent'}`}
@@ -165,10 +186,19 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onTryOn }: ShopTabP
                       className={`cos-swatch block w-full h-full rounded-full ${cosmetic.type !== 'nameColor' ? cosmetic.effectClass || '' : ''}`}
                       style={{ backgroundColor: cosmetic.color }}
                     />
-                    {owned && (
+                    {owned ? (
                       <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-600 text-white text-[9px] flex items-center justify-center font-bold">
                         ✓
                       </span>
+                    ) : (
+                      cosmetic.id === featuredId && (
+                        <span
+                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-zinc-900 text-[9px] flex items-center justify-center font-bold"
+                          title="Featured this week"
+                        >
+                          %
+                        </span>
+                      )
                     )}
                   </button>
                 );
