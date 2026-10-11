@@ -773,10 +773,10 @@ describe('exitEquityAt', () => {
 
 describe('seasonTitles', () => {
   it('gives a real season the season and arc titles', () => {
-    const t = seasonTitles({ id: 'S1', number: 1, name: 'Gapryong Kim Arc' }, 'gold');
+    const t = seasonTitles({ id: 'S1', number: 1, name: 'Gapryong Kim Arc' }, 'platinum');
     expect(t).toEqual([
-      { id: 'season_1_gold', text: 'Season 1 Gold' },
-      { id: 'arc_s1_gold', text: 'Gapryong Kim Arc Gold' },
+      { id: 'season_1_platinum', text: 'Season 1 Platinum' },
+      { id: 'arc_s1_platinum', text: 'Gapryong Kim Arc Platinum' },
     ]);
   });
 
@@ -789,14 +789,15 @@ describe('seasonTitles', () => {
   });
 
   it('numbers a second preseason', () => {
-    const t = seasonTitles({ id: 'P2', number: 1, preseason: true, preseasons: 2, name: 'X' }, 'gold');
-    expect(t).toEqual([{ id: 'preseason_2_gold', text: 'Preseason 2 Gold' }]);
+    const t = seasonTitles({ id: 'P2', number: 1, preseason: true, preseasons: 2, name: 'X' }, 'platinum');
+    expect(t).toEqual([{ id: 'preseason_2_platinum', text: 'Preseason 2 Platinum' }]);
   });
 
-  it('gives Bronze and Silver no title by default', () => {
+  it('gives Bronze, Silver and Gold no title by default', () => {
     const s1 = { id: 'S1', number: 1, name: 'X' };
     expect(seasonTitles(s1, 'bronze')).toEqual([]);
     expect(seasonTitles({ ...s1, preseason: true }, 'silver')).toEqual([]);
+    expect(seasonTitles(s1, 'gold')).toEqual([]);
     expect(seasonTitles(s1, null)).toEqual([]);
   });
 

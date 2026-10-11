@@ -3,7 +3,9 @@
 // Cosmetic catalog — validates shop purchases (purchaseCosmetic) and admin
 // grants (adminGrantCosmetic). Keep ids/types/prices/names in sync with the
 // frontend list in src/constants/cosmetics.ts (cosmeticCatalog.test.ts checks).
-export type CatalogEntry = { type: string; price: number; name: string };
+// `earned`: a season reward. Never sold or gifted; `price` is only the value the
+// money ledger books when one is handed out.
+export type CatalogEntry = { type: string; price: number; name: string; earned?: true };
 
 export const COSMETIC_CATALOG: Record<string, CatalogEntry> = {
   name_gold: { type: 'nameColor', price: 5000, name: 'Gold' },
@@ -49,6 +51,11 @@ export const COSMETIC_CATALOG: Record<string, CatalogEntry> = {
   frame_ticker: { type: 'rowFrame', price: 100000, name: 'Ticker Tape' },
   frame_glitch: { type: 'rowFrame', price: 100000, name: 'Glitch' },
   frame_comet: { type: 'rowFrame', price: 150000, name: 'Comet' },
+  frame_p1_bronze: { type: 'rowFrame', price: 10000, name: 'Preseason Bronze', earned: true },
+  frame_p1_silver: { type: 'rowFrame', price: 25000, name: 'Preseason Silver', earned: true },
+  frame_p1_gold: { type: 'rowFrame', price: 60000, name: 'Preseason Gold', earned: true },
+  frame_p1_platinum: { type: 'rowFrame', price: 100000, name: 'Preseason Platinum', earned: true },
+  frame_p1_diamond: { type: 'rowFrame', price: 200000, name: 'Preseason Diamond', earned: true },
   glow_pulse_gold: { type: 'rowGlow', price: 50000, name: 'Pulsing Gold' },
   glow_pulse_crimson: { type: 'rowGlow', price: 50000, name: 'Pulsing Crimson' },
   glow_pulse_neon: { type: 'rowGlow', price: 50000, name: 'Pulsing Neon' },
@@ -61,4 +68,8 @@ export const COSMETIC_CATALOG: Record<string, CatalogEntry> = {
 };
 
 // The catalog as a list, for the weekly featured pick (rules/shop).
-export const COSMETIC_PRICE_LIST = Object.entries(COSMETIC_CATALOG).map(([id, c]) => ({ id, price: c.price }));
+export const COSMETIC_PRICE_LIST = Object.entries(COSMETIC_CATALOG).map(([id, c]) => ({
+  id,
+  price: c.price,
+  earned: c.earned,
+}));

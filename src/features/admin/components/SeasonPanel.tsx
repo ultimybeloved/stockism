@@ -120,7 +120,7 @@ const SeasonPanel = ({
             />
             <span>
               Preseason (trial run). Doesn't use up a season number, so the next real one is still{' '}
-              {seasonLabel({ number: (season?.number || 0) + 1 })}. Tiers earn a single "Preseason Gold" style title
+              {seasonLabel({ number: (season?.number || 0) + 1 })}. Tiers earn a single "Preseason Diamond" style title
               instead of the season and arc titles.
             </span>
           </label>

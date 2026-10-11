@@ -85,18 +85,18 @@ const rng = (seed: number) => () => {
 };
 
 /**
- * This week's featured cosmetic id, or null. Worked out from the date alone,
+ * This week's featured cosmetic id, or null. Season rewards (earned) never feature. Worked out from the date alone,
  * so the shop and the server agree without storing anything. Every eligible
  * item is featured once before any repeats: each cycle is a fresh shuffle.
  * Adding or removing catalog items reshuffles, which can change the current
  * week's pick once.
  */
 export const featuredCosmeticId = (
-  catalog: readonly { id: string; price: number }[],
+  catalog: readonly { id: string; price: number; earned?: boolean }[],
   now: number = Date.now(),
 ): string | null => {
   const eligible = catalog
-    .filter((c) => c.price >= FEATURED_MIN_PRICE && !NEVER_DISCOUNTED.includes(c.id))
+    .filter((c) => !c.earned && c.price >= FEATURED_MIN_PRICE && !NEVER_DISCOUNTED.includes(c.id))
     .map((c) => c.id)
     .sort();
   if (!eligible.length) return null;

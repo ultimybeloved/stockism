@@ -371,7 +371,14 @@ const run = async () => {
     { tier: diverse.seasonTier, titles: diverse.ownedTitles },
   );
   check('sitter ends Platinum', (await user('sitter')).seasonTier?.tier === 'platinum');
-  check('margin ends Gold, ahead of the market over the season', (await user('margin')).seasonTier?.tier === 'gold');
+  const marginEnd = await user('margin');
+  check('margin ends Gold, ahead of the market over the season', marginEnd.seasonTier?.tier === 'gold');
+  check(
+    'Gold earns no title any more (Platinum and Diamond only)',
+    !marginEnd.ownedTitles?.length,
+    marginEnd.ownedTitles,
+  );
+  check('a season with no rewards listed hands out no cosmetics', !diverse.ownedCosmetics?.length);
   // The late joiner was pinned at checkpoint 1 and scored when that week re-ran,
   // so they were active in weeks 1 and 2. Ending re-runs week 2 and must not
   // make it three.
@@ -445,6 +452,26 @@ const run = async () => {
     preDiverse.ownedTitles,
   );
   check('preseason results filed under P1', (await db.collection('seasonResults').doc('P1').get()).exists);
+  // P1 pays row frames, a tier's own and every one below it.
+  check(
+    'a Diamond finisher gets all five Preseason frames',
+    ['bronze', 'silver', 'gold', 'platinum', 'diamond'].every((t) =>
+      preDiverse.ownedCosmetics?.includes(`frame_p1_${t}`),
+    ),
+    preDiverse.ownedCosmetics,
+  );
+  const rewardLedger = (await db.collection('ledger').where('uid', '==', 'diverse').get()).docs
+    .map((d: Loose) => d.data())
+    .filter((e: Loose) => e.type === 'season_reward');
+  check(
+    'the frames are booked in the ledger as a season reward',
+    rewardLedger.length === 1 && rewardLedger[0].account === 'cosmetics' && rewardLedger[0].ref === 'P1',
+    rewardLedger,
+  );
+  const rewardNote = (await db.collection('users').doc('diverse').collection('notifications').get()).docs
+    .map((d: Loose) => d.data())
+    .find((n: Loose) => n.title === 'Season rewards');
+  check('the player is told what they earned', /Preseason at Diamond/.test(rewardNote?.message || ''), rewardNote);
 
   console.log('\nG. Counting the start week');
   await db.collection('users').doc('diverse').update({ lastActive: Date.now() });

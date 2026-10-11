@@ -10,6 +10,11 @@ export interface Cosmetic {
   /** Animated cosmetics render through a CSS class instead of a static color. */
   effectClass?: string;
   rarity?: string;
+  /**
+   * Season rewards: earned, never sold or gifted. `price` is only the value the
+   * money ledger books when one is handed out.
+   */
+  earned?: true;
 }
 
 export const COSMETICS: Cosmetic[] = [
@@ -392,6 +397,63 @@ export const COSMETICS: Cosmetic[] = [
     rarity: 'legendary',
     effectClass: 'cos-frame cos-frame-comet',
     description: 'A spark circles your row, then rests somewhere new.',
+  },
+
+  // Season rewards (earned only, see SEASON_REWARDS in src/rules/seasons.ts)
+  {
+    id: 'frame_p1_bronze',
+    name: 'Preseason Bronze',
+    type: 'rowFrame',
+    color: '#B4783A',
+    price: 10000,
+    rarity: 'rare',
+    effectClass: 'cos-frame cos-season cos-season-bronze',
+    description: 'A copper medal rim. Earned by finishing Preseason at Bronze or better.',
+    earned: true,
+  },
+  {
+    id: 'frame_p1_silver',
+    name: 'Preseason Silver',
+    type: 'rowFrame',
+    color: '#CBD5E1',
+    price: 25000,
+    rarity: 'rare',
+    effectClass: 'cos-frame cos-season cos-season-silver',
+    description: 'A silver rim that catches the light. Earned by finishing Preseason at Silver or better.',
+    earned: true,
+  },
+  {
+    id: 'frame_p1_gold',
+    name: 'Preseason Gold',
+    type: 'rowFrame',
+    color: '#CA8A04',
+    price: 60000,
+    rarity: 'epic',
+    effectClass: 'cos-frame cos-season cos-season-gold',
+    description: 'A satin gold band with laurels. Earned by finishing Preseason at Gold or better.',
+    earned: true,
+  },
+  {
+    id: 'frame_p1_platinum',
+    name: 'Preseason Platinum',
+    type: 'rowFrame',
+    color: '#F5D0FE',
+    price: 100000,
+    rarity: 'legendary',
+    effectClass: 'cos-frame cos-season cos-season-platinum',
+    description: 'Holographic foil that shifts color. Earned by finishing Preseason at Platinum or better.',
+    earned: true,
+  },
+  {
+    id: 'frame_p1_diamond',
+    name: 'Preseason Diamond',
+    type: 'rowFrame',
+    color: '#BFDBFE',
+    price: 200000,
+    rarity: 'legendary',
+    effectClass: 'cos-frame cos-season cos-season-diamond cos-season-diamond-p1',
+    description: 'A brilliant cut that flashes rainbow fire. Earned by finishing Preseason at Diamond.',
+    earned: true,
   },
 
   // Animated glows — one pulsing variant per standard glow color

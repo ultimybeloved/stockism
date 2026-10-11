@@ -12,6 +12,7 @@ import {
   shopWeek,
   shopWeekEndsAt,
 } from './shop';
+import { SEASON_REWARDS, seasonRewardIds } from './seasons';
 
 const WEEK = 7 * 24 * 60 * 60 * 1000;
 const priceOf = (id: string) => COSMETIC_MAP[id]?.price;
@@ -20,13 +21,38 @@ describe('cosmetic catalogs', () => {
   it('the server catalog matches the shop list item for item', () => {
     const src = readFileSync(join(__dirname, '../../functions/src/shared/constants/cosmetics.ts'), 'utf8');
     const server = Object.fromEntries(
-      [...src.matchAll(/^\s+([a-z_]+): \{ type: '(\w+)', price: (\d+), name: '((?:[^'\\]|\\.)*)' \},$/gm)].map((m) => [
-        m[1],
-        { type: m[2], price: Number(m[3]), name: m[4]!.replace(/\\'/g, "'") },
-      ]),
+      [
+        ...src.matchAll(
+          /^\s+([a-z0-9_]+): \{ type: '(\w+)', price: (\d+), name: '((?:[^'\\]|\\.)*)'(, earned: true)? \},$/gm,
+        ),
+      ].map((m) => [m[1], { type: m[2], price: Number(m[3]), name: m[4]!.replace(/\\'/g, "'"), earned: !!m[5] }]),
     );
-    const shop = Object.fromEntries(COSMETICS.map((c) => [c.id, { type: c.type, price: c.price, name: c.name }]));
+    const shop = Object.fromEntries(
+      COSMETICS.map((c) => [c.id, { type: c.type, price: c.price, name: c.name, earned: !!c.earned }]),
+    );
     expect(server).toEqual(shop);
+  });
+});
+
+describe('season rewards', () => {
+  it('every reward is an earned item, never bundled', () => {
+    for (const tiers of Object.values(SEASON_REWARDS)) {
+      for (const id of Object.values(tiers)) {
+        expect(COSMETIC_MAP[id!]?.earned, id).toBe(true);
+        expect(
+          BUNDLES.some((b) => b.items.includes(id!)),
+          id,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('a tier earns its own reward and every one below it', () => {
+    expect(seasonRewardIds('P1', 'bronze')).toEqual(['frame_p1_bronze']);
+    expect(seasonRewardIds('P1', 'gold')).toEqual(['frame_p1_bronze', 'frame_p1_silver', 'frame_p1_gold']);
+    expect(seasonRewardIds('P1', 'diamond')).toHaveLength(5);
+    expect(seasonRewardIds('P1', null)).toEqual([]);
+    expect(seasonRewardIds('S9', 'diamond')).toEqual([]);
   });
 });
 
@@ -54,14 +80,17 @@ describe('bundles', () => {
 });
 
 describe('featured item', () => {
-  const catalog = COSMETICS.map(({ id, price }) => ({ id, price }));
-  const eligible = catalog.filter((c) => c.price >= FEATURED_MIN_PRICE && !NEVER_DISCOUNTED.includes(c.id));
+  const catalog = COSMETICS.map(({ id, price, earned }) => ({ id, price, earned }));
+  const eligible = catalog.filter(
+    (c) => !c.earned && c.price >= FEATURED_MIN_PRICE && !NEVER_DISCOUNTED.includes(c.id),
+  );
   const monday = Date.UTC(2026, 9, 12); // Monday 12 Oct 2026, 00:00 UTC
 
-  it('is never Gilded or Comet, and never a cheap item', () => {
+  it('is never Gilded, Comet, a season reward, or a cheap item', () => {
     for (let w = 0; w < 300; w++) {
       const id = featuredCosmeticId(catalog, monday + w * WEEK);
       expect(NEVER_DISCOUNTED).not.toContain(id);
+      expect(COSMETIC_MAP[id!]!.earned, id!).toBeUndefined();
       expect(COSMETIC_MAP[id!]!.price).toBeGreaterThanOrEqual(FEATURED_MIN_PRICE);
     }
   });

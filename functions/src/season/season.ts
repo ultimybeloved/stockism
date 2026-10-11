@@ -40,6 +40,9 @@ import type { DocumentData } from 'firebase-admin/firestore';
 import type { SeasonDoc, UserData } from '../shared/types';
 import { latestWeekRecord, weeksElapsed, isSeasonParticipant, boardEntry } from './seasonRecords';
 import { seasonRef, BATCH_LIMIT, readLadderCash, runSeasonCheckpoint } from './seasonCheckpoint';
+import { seasonRewardIds } from '../shared/rules/seasons';
+import { COSMETIC_CATALOG } from '../shared/constants/cosmetics';
+import { recordLedger } from '../shared/ledger';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 // Rows kept per size division on the live board and in the filed results.
@@ -218,7 +221,8 @@ export const triggerSeasonCheckpoint = cf({ timeoutSeconds: 540 }).https.onCall(
  *
  * Runs a final checkpoint first so the closing week counts, then decides Silver
  * and Gold from where each player finished, hands out Platinum and Diamond
- * across the board, and awards titles (see seasonTitles).
+ * across the board, awards titles (see seasonTitles) and hands out the
+ * season's reward cosmetics (SEASON_REWARDS in src/rules/seasons.ts).
  */
 export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (data, context) => {
   requireAdmin(context);
@@ -288,6 +292,7 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
   let batch = db.batch();
   let ops = 0;
   let awarded = 0;
+  const rewarded: RewardNotice[] = [];
 
   for (const { entry, ref, displayName } of scoredPlayers) {
     const tier = finalTier(entry, ranked, rules);
@@ -311,6 +316,22 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
       // Silver, Gold, Platinum and Diamond are only decided now, so they are written here.
       ...(tier !== entry.tier ? { seasonTier: { seasonId: season.id, tier, lockedAt: endedAt } } : {}),
     };
+    // The season's reward cosmetics (a tier's own and every one below it),
+    // booked in the ledger like any other cosmetic grant.
+    const rewards = seasonRewardIds(season.id, tier).filter((id) => COSMETIC_CATALOG[id]?.earned);
+    if (rewards.length) {
+      update.ownedCosmetics = FieldValue.arrayUnion(...rewards);
+      recordLedger(batch, {
+        uid: entry.uid,
+        type: 'season_reward',
+        account: 'cosmetics',
+        amount: rewards.reduce((sum, id) => sum + COSMETIC_CATALOG[id]!.price, 0),
+        ref: season.id,
+        detail: { tier, items: rewards },
+      });
+      ops++;
+      rewarded.push({ uid: entry.uid, tier, names: rewards.map((id) => COSMETIC_CATALOG[id]!.name) });
+    }
     awarded++;
     if (!Object.keys(update).length) continue;
     batch.update(ref, update);
@@ -360,6 +381,8 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
     }
   }
 
+  await notifyRewards(season.preseason ? 'Preseason' : `Season ${season.number}`, rewarded);
+
   logger.info(
     `SEASON ENDED: ${season.id} "${season.name}" — ${standings.length} scored, ${awarded} tiered`,
     tierCounts,
@@ -374,6 +397,33 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
     top: standings.slice(0, 10),
   };
 });
+
+interface RewardNotice {
+  uid: string;
+  tier: string;
+  names: string[];
+}
+
+/**
+ * Tell each player what the season handed them. Best-effort and after the
+ * results are filed, a few at a time so a big season doesn't flood Firestore.
+ */
+const notifyRewards = async (seasonLabel: string, rewarded: RewardNotice[]) => {
+  for (let i = 0; i < rewarded.length; i += 25) {
+    await Promise.all(
+      rewarded.slice(i, i + 25).map(({ uid, tier, names }) => {
+        const earned = names.length === 1 ? `the ${names[0]} frame` : `${names.length} frames: ${names.join(', ')}`;
+        return writeNotification(uid, {
+          type: 'season_end',
+          title: 'Season rewards',
+          message: `You finished ${seasonLabel} at ${tier.charAt(0).toUpperCase() + tier.slice(1)} and earned ${earned}. Find ${names.length === 1 ? 'it' : 'them'} in Customize, under My Look.`,
+        }).catch(() => {
+          /* never block the close on a notification */
+        });
+      }),
+    );
+  }
+};
 
 // ── Standings ────────────────────────────────────────────────────────────────
 

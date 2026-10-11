@@ -141,7 +141,9 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onRequestGift, onTr
       {COSMETIC_TYPES.map((type) => {
         const items = COSMETICS.filter(
           (c) =>
-            c.type === type && (type !== 'rowGlow' || (glowVariant === 'pulse' ? !!c.effectClass : !c.effectClass)),
+            !c.earned &&
+            c.type === type &&
+            (type !== 'rowGlow' || (glowVariant === 'pulse' ? !!c.effectClass : !c.effectClass)),
         ).sort((a, b) => a.price - b.price);
         const selectedItem = items.find((i) => i.id === selectedId);
         const minPrice = Math.min(...items.map((i) => i.price));

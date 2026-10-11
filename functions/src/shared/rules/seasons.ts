@@ -42,8 +42,36 @@ export const SEASON_DIAMOND_CONCENTRATION_MIN_INVESTED = 0.25;
 
 // Tiers that hand out a permanent title when the season ends. The lower tiers
 // still show, they just don't pay a title: a title every active player owns
-// means nothing.
-export const SEASON_TITLED_TIERS: readonly string[] = Object.freeze(['gold', 'platinum', 'diamond']);
+// means nothing. Platinum and Diamond only since 2026-10-11 (Darth YG); every
+// tier earns a cosmetic instead (SEASON_REWARDS).
+export const SEASON_TITLED_TIERS: readonly string[] = Object.freeze(['platinum', 'diamond']);
+
+// The cosmetic each tier earns when a season ends, by season id. The kind of
+// reward rotates by season (Darth YG, 2026-10-11): Preseason 1 pays row
+// frames, later seasons may pay pins, glows or name colors. Each id must be an
+// `earned` entry in both cosmetic catalogs.
+export const SEASON_REWARDS: Readonly<Record<string, Readonly<Partial<Record<string, string>>>>> = Object.freeze({
+  P1: {
+    bronze: 'frame_p1_bronze',
+    silver: 'frame_p1_silver',
+    gold: 'frame_p1_gold',
+    platinum: 'frame_p1_platinum',
+    diamond: 'frame_p1_diamond',
+  },
+});
+
+/**
+ * The cosmetics a finishing tier earns: its own reward and every one below it,
+ * since the tiers are a ladder (a Diamond finisher gets all five frames).
+ */
+export const seasonRewardIds = (seasonId: string, tier: string | null | undefined): string[] => {
+  const rewards = SEASON_REWARDS[seasonId];
+  const rank = SEASON_TIER_ORDER.indexOf(tier as (typeof SEASON_TIER_ORDER)[number]);
+  if (!rewards || rank < 0) return [];
+  return SEASON_TIER_ORDER.slice(0, rank + 1)
+    .map((t) => rewards[t])
+    .filter((id): id is string => !!id);
+};
 
 export interface SeasonDivision {
   id: string;

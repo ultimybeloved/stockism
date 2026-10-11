@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useSeason } from '../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
 import { themeClasses } from '../../../utils/theme';
+import { SEASON_REWARDS } from '../../../rules/seasons';
 
 import {
   SEASON_TIERS,
@@ -191,6 +192,9 @@ const SeasonCard = () => {
             as long as you owe it, so margin can't make your return look bigger. Talking about stocks is fine, but
             repeatedly planning trades with other players to move a price keeps you out of Platinum and Diamond.
             {firstTitled && ` ${firstTitled.name} and up earn a permanent title.`}
+            {season?.id &&
+              SEASON_REWARDS[season.id] &&
+              ' Every tier earns a row frame, plus the frames of the tiers below it.'}
           </p>
         </>
       )}
