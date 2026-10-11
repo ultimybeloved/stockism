@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { formatCurrency } from '../../../../utils/formatters';
 import { themeClasses } from '../../../../utils/theme';
-import type { Cosmetic } from '../../../../constants/cosmetics';
+import type { GiftTarget } from '../../hooks/usePinShop';
 
 interface GiftDialogProps {
-  cosmetic: Cosmetic;
-  price: number;
+  gift: GiftTarget;
   cash: number;
   /** Resolves to an error message to show, or null once the gift is sent. */
   onSend: (recipient: string) => Promise<string | null>;
   onClose: () => void;
 }
 
-// Gift a shop item to another player by name. No message box on purpose (see
+// Gift a shop item or bundle to another player by name. No message box on purpose (see
 // functions/src/users/cosmeticGifts.ts); the recipient is told who sent it.
-const GiftDialog = ({ cosmetic, price, cash, onSend, onClose }: GiftDialogProps) => {
+const GiftDialog = ({ gift, cash, onSend, onClose }: GiftDialogProps) => {
+  const { price } = gift;
+  const isBundle = gift.kind === 'bundle';
   const { cardClass, textClass, mutedClass, inputClass } = themeClasses;
   const [recipient, setRecipient] = useState('');
   const [sending, setSending] = useState(false);
@@ -34,10 +35,13 @@ const GiftDialog = ({ cosmetic, price, cash, onSend, onClose }: GiftDialogProps)
   return (
     <div className="absolute inset-0 bg-black/50 flex items-center justify-center" onClick={onClose}>
       <div className={`${cardClass} border rounded-sm p-6 m-4 max-w-sm w-full`} onClick={(e) => e.stopPropagation()}>
-        <h3 className={`text-lg font-semibold ${textClass} mb-1`}>🎁 Gift {cosmetic.name}</h3>
+        <h3 className={`text-lg font-semibold ${textClass} mb-1`}>
+          🎁 Gift {isBundle ? `the ${gift.name} bundle` : gift.name}
+        </h3>
         <p className={`text-sm ${mutedClass} mb-4`}>
-          You pay <span className="text-orange-500 font-semibold">{formatCurrency(price)}</span> and it goes straight to
-          their collection. They&apos;ll see it came from you.
+          You pay <span className="text-orange-500 font-semibold">{formatCurrency(price)}</span>.{' '}
+          {isBundle && 'Every piece they don’t already own goes '}
+          {!isBundle && 'It goes '}straight to their collection and they&apos;ll see it came from you.
         </p>
         <input
           autoFocus

@@ -10,7 +10,17 @@ import {
 import { SHOP_PINS } from '../../../crews';
 import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';
+import { formatCurrency } from '../../../utils/formatters';
 import type { ActionHookDeps } from '../../../shared/hooks/types';
+
+/** What a gift is: one shop item or a whole bundle. */
+export interface GiftTarget {
+  kind: 'cosmetic' | 'bundle';
+  id: string;
+  name: string;
+  /** What the giver sees: an item's price, or a whole bundle's before owned pieces come off. */
+  price: number;
+}
 
 export type PinAction = 'buyPin' | 'setShopPins' | 'setAchievementPins' | 'toggleCrewPin' | 'buySlot';
 
@@ -100,11 +110,14 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
 
   // Returns an error message for the gift dialog to show, or null on success.
   const handleGiftCosmetic = useCallback(
-    async (cosmeticId: string, recipient: string): Promise<string | null> => {
+    async (target: GiftTarget, recipient: string): Promise<string | null> => {
       if (!user) return 'Log in first.';
       try {
-        const { data } = await giftCosmeticFunction({ cosmeticId, recipient });
-        showNotification('success', `Gift sent to ${data.recipientName}!`);
+        const { data } = await giftCosmeticFunction({
+          ...(target.kind === 'bundle' ? { bundleId: target.id } : { cosmeticId: target.id }),
+          recipient,
+        });
+        showNotification('success', `Gift sent to ${data.recipientName} for ${formatCurrency(data.price)}!`);
         return null;
       } catch (err) {
         return errorMessage(err) || 'Gift failed. Try again.';

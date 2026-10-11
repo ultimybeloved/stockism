@@ -5,6 +5,7 @@ export = [
   'adminAnalytics',
   'adminBackups',
   'adminCashLog',
+  'adminGiftLog',
   'adminMigrate',
   'adminOps',
   'adminRepair',

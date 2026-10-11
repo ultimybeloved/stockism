@@ -1,5 +1,6 @@
 import RecentSignups from './watchlist/RecentSignups';
 import AltScanCard from './watchlist/AltScanCard';
+import GiftLogCard from './watchlist/GiftLogCard';
 import DefenseHealthCard from './watchlist/DefenseHealthCard';
 import WatchedUserCard from './watchlist/WatchedUserCard';
 import WatchlistAlerts from './watchlist/WatchlistAlerts';
@@ -67,6 +68,8 @@ const WatchlistTab = ({
         result={altScanResult}
         runScan={runAltScan}
       />
+
+      <GiftLogCard textClass={textClass} mutedClass={mutedClass} inputClass={inputClass} />
 
       <DefenseHealthCard
         textClass={textClass}

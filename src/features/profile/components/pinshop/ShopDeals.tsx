@@ -7,6 +7,7 @@ import { useSession } from '../../../../context/AppContext';
 
 import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { PendingPurchase } from '../PinShopModal';
+import type { GiftTarget } from '../../hooks/usePinShop';
 
 // This week's featured cosmetic id. Worked out from the date (rules/shop), the
 // same way purchaseCosmetic prices it, so the shop never shows a price the
@@ -19,6 +20,7 @@ interface ShopDealsProps {
   cash: number;
   featuredId: string | null;
   onRequestPurchase: (purchase: PendingPurchase) => void;
+  onRequestGift?: (gift: GiftTarget) => void;
   onTryOn: (cosmetics: Cosmetic[] | null) => void;
 }
 
@@ -33,7 +35,7 @@ const Swatch = ({ cosmetic }: { cosmetic: Cosmetic }) => (
 
 // Shop deals: this week's featured item (top of the Shop tab) and the bundles
 // (their own tab). Tapping a bundle tries the whole set on the preview row.
-const ShopDeals = ({ show, cash, featuredId, onRequestPurchase, onTryOn }: ShopDealsProps) => {
+const ShopDeals = ({ show, cash, featuredId, onRequestPurchase, onRequestGift, onTryOn }: ShopDealsProps) => {
   const { userData } = useSession();
   const { textClass, mutedClass, borderClass } = themeClasses;
   const owned = userData?.ownedCosmetics || [];
@@ -102,6 +104,8 @@ const ShopDeals = ({ show, cash, featuredId, onRequestPurchase, onTryOn }: ShopD
             {BUNDLES.map((bundle) => {
               const items = bundle.items.map((id) => COSMETIC_MAP[id]).filter((c): c is Cosmetic => !!c);
               const { missing, fullPrice, price } = bundleQuote(bundle, owned, (id) => COSMETIC_MAP[id]?.price);
+              // A gift always costs the whole set, whatever either player owns.
+              const wholeSet = bundleQuote(bundle, [], (id) => COSMETIC_MAP[id]?.price).price;
               const selected = selectedBundle === bundle.id;
               const canAfford = cash >= price;
               return (
@@ -130,6 +134,18 @@ const ShopDeals = ({ show, cash, featuredId, onRequestPurchase, onTryOn }: ShopD
                           : 'You own the whole set'}
                     </div>
                   </div>
+                  {onRequestGift && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRequestGift({ kind: 'bundle', id: bundle.id, name: bundle.name, price: wholeSet });
+                      }}
+                      title="Buy this bundle for another player"
+                      className="shrink-0 px-2 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
+                    >
+                      🎁
+                    </button>
+                  )}
                   {missing.length ? (
                     <button
                       onClick={(e) => {

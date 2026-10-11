@@ -17,7 +17,7 @@ export const deleteAccountFunction = callable<{ confirmUsername: string }>('dele
 export const changeDisplayNameFunction = callable<{ displayName: string }, { success: boolean }>('changeDisplayName');
 export const purchaseCosmeticFunction = callable<{ cosmeticId: string }>('purchaseCosmetic');
 export const giftCosmeticFunction = callable<
-  { cosmeticId: string; recipient: string },
+  { cosmeticId?: string; bundleId?: string; recipient: string },
   { success: boolean; price: number; recipientName: string }
 >('giftCosmetic');
 export const purchaseBundleFunction = callable<
@@ -292,4 +292,5 @@ export const adminImportDiscordMessageFunction = callable<
 >('adminImportDiscordMessage');
 
 // Admin: read the cash adjustment audit log
+export const adminListGiftsFunction = callable<Record<string, never>, Api.GiftLogResponse>('adminListGifts');
 export const adminListCashLogFunction = callable<Record<string, never>, Api.CashLogResponse>('adminListCashLog');

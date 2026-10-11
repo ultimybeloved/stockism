@@ -1,20 +1,27 @@
-// Gifting: buy a shop cosmetic for another player.
+// Gifting: buy a shop cosmetic, or a bundle, for another player.
 //
 // The giver pays what they would pay to buy it themselves (this week's featured
-// discount included) and the item lands in the recipient's collection. There is
+// discount included) and the item lands in the recipient's collection. A gifted
+// bundle always costs the whole set at the bundle discount, even when the
+// recipient already owns some pieces (Darth YG's call); they get the rest. There is
 // deliberately no message box: free text sent to another player is a harassment
 // channel, so the notification only names the sender.
 //
 // Both sides go in the ledger: the giver's cash out ('cosmetic_gift_sent') and
 // the recipient's item in ('cosmetic_gift_received', account 'cosmetics'), so a
 // gifted item can always be told apart from a purchase or an admin grant.
+//
+// Every gift also writes an admin-only `giftLog` entry with the giver's
+// connection, so the admin gift log (adminGiftLog.ts) can spot an alt feeding
+// its main. The ledger is player-readable, so the connection never goes there.
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import { COSMETIC_CATALOG, COSMETIC_PRICE_LIST } from '../shared/constants/cosmetics';
-import { featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
+import { BUNDLE_MAP, bundleQuote, featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
+import { networkKey } from '../shared/accountGuards';
 import { recordLedger } from '../shared/ledger';
 import { touchLastActive } from '../shared/activity';
 import { writeNotification } from '../shared/notifications';
@@ -31,13 +38,18 @@ type GiftUser = UserData & { giftsSent?: { day?: string; count?: number } };
 const utcDay = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export const giftCosmetic = cf().https.onCall(
-  async (data: { cosmeticId?: unknown; recipient?: unknown } | null, context) => {
+  async (data: { cosmeticId?: unknown; bundleId?: unknown; recipient?: unknown } | null, context) => {
     requireAppCheck(context);
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
-    const { cosmeticId, recipient } = data || {};
+    const { cosmeticId, bundleId, recipient } = data || {};
     const cosmetic = typeof cosmeticId === 'string' ? COSMETIC_CATALOG[cosmeticId] : undefined;
-    if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
+    const bundle = typeof bundleId === 'string' ? BUNDLE_MAP[bundleId] : undefined;
+    if (bundle ? cosmetic || bundle.items.some((id) => !COSMETIC_CATALOG[id]) : !cosmetic) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid item.');
+    }
+    const itemId = (bundle?.id || cosmeticId) as string;
+    const giftName = bundle ? `the ${bundle.name} bundle` : cosmetic!.name;
     const recipientName = typeof recipient === 'string' ? recipient.trim() : '';
     if (!recipientName || recipientName.length > 40) {
       throw new functions.https.HttpsError('invalid-argument', "Enter the player's name.");
@@ -45,8 +57,7 @@ export const giftCosmetic = cf().https.onCall(
 
     const uid = context.auth.uid;
     touchLastActive(uid, 'cosmetics');
-    const featured = featuredCosmeticId(COSMETIC_PRICE_LIST) === cosmeticId;
-    const price = featured ? featuredPrice(cosmetic.price) : cosmetic.price;
+    const featured = !bundle && featuredCosmeticId(COSMETIC_PRICE_LIST) === cosmeticId;
 
     // Resolve the name outside the transaction; the transaction re-reads both
     // accounts, so nothing decided here can go stale.
@@ -73,8 +84,26 @@ export const giftCosmetic = cf().https.onCall(
       if (target.isBot || target.isBanned) {
         throw new functions.https.HttpsError('failed-precondition', "That player can't receive gifts.");
       }
-      if (((target.ownedCosmetics as string[] | undefined) || []).includes(cosmeticId as string)) {
-        throw new functions.https.HttpsError('already-exists', `${target.displayName || 'They'} already own this.`);
+      const owned = (target.ownedCosmetics as string[] | undefined) || [];
+      // What lands, what it's worth at list price, and what the giver pays.
+      let items: string[];
+      let listValue: number;
+      let price: number;
+      if (bundle) {
+        const quote = bundleQuote(bundle, owned, (id) => COSMETIC_CATALOG[id]?.price);
+        items = quote.missing;
+        listValue = quote.fullPrice;
+        price = bundleQuote(bundle, [], (id) => COSMETIC_CATALOG[id]?.price).price;
+      } else {
+        items = owned.includes(itemId) ? [] : [itemId];
+        listValue = cosmetic!.price;
+        price = featured ? featuredPrice(cosmetic!.price) : cosmetic!.price;
+      }
+      if (!items.length) {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          `${target.displayName || 'They'} already own ${bundle ? 'the whole set' : 'this'}.`,
+        );
       }
       const sentToday = giver.giftsSent?.day === today ? giver.giftsSent.count || 0 : 0;
       if (sentToday >= GIFTS_PER_DAY) {
@@ -89,25 +118,43 @@ export const giftCosmetic = cf().https.onCall(
         cash: FieldValue.increment(-price),
         giftsSent: { day: today, count: sentToday + 1 },
       });
-      tx.update(recipientRef, { ownedCosmetics: FieldValue.arrayUnion(cosmeticId) });
+      tx.update(recipientRef, { ownedCosmetics: FieldValue.arrayUnion(...items) });
       recordLedger(tx, {
         uid,
         type: 'cosmetic_gift_sent',
         amount: -price,
         cashAfter: (giver.cash || 0) - price,
-        ref: cosmeticId as string,
-        detail: { to: recipientUid, ...(featured && { featured: true, listPrice: cosmetic.price }) },
+        ref: itemId,
+        detail: {
+          to: recipientUid,
+          ...(bundle && { items }),
+          ...(featured && { featured: true, listPrice: listValue }),
+        },
       });
       recordLedger(tx, {
         uid: recipientUid,
         type: 'cosmetic_gift_received',
         account: 'cosmetics',
-        amount: cosmetic.price,
-        ref: cosmeticId as string,
-        detail: { from: uid },
+        amount: listValue,
+        ref: itemId,
+        detail: { from: uid, ...(bundle && { items }) },
+      });
+      tx.set(db.collection('giftLog').doc(), {
+        at: now,
+        fromUid: uid,
+        fromName: giver.displayName || null,
+        fromNet: networkKey(context.rawRequest?.ip),
+        toUid: recipientUid,
+        toName: target.displayName || recipientName,
+        itemId,
+        itemName: bundle ? `${bundle.name} bundle` : cosmetic!.name,
+        items,
+        price,
+        value: listValue,
       });
 
       return {
+        price,
         giverName: giver.displayName || 'A player',
         recipientName: target.displayName || recipientName,
         recipientDiscordId: target.discordId as string | undefined,
@@ -115,19 +162,19 @@ export const giftCosmetic = cf().https.onCall(
     });
 
     // Fail-soft: the gift has landed; a missed notification must not undo it.
-    const text = `${result.giverName} gifted you ${cosmetic.name}! Find it in Customize, under My Look.`;
+    const text = `${result.giverName} gifted you ${giftName}! Find it in Customize, under My Look.`;
     try {
       await writeNotification(recipientUid, {
         type: 'system',
         title: '🎁 You got a gift',
         message: text,
-        data: { cosmeticId, from: result.giverName },
+        data: { ...(bundle ? { bundleId } : { cosmeticId }), from: result.giverName },
       });
       if (result.recipientDiscordId) await sendDiscordDM(result.recipientDiscordId, `🎁 ${text}`);
     } catch (err) {
       logger.warn('giftCosmetic: notification failed:', (err as Error).message);
     }
 
-    return { success: true, price, recipientName: result.recipientName };
+    return { success: true, price: result.price, recipientName: result.recipientName };
   },
 );

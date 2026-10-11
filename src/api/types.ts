@@ -776,3 +776,21 @@ export interface CreatePreMarketOrderRequest {
   shares: number;
   allowPartialFills: boolean;
 }
+
+export interface GiftLogEntry {
+  id: string;
+  at: number | null;
+  fromUid: string;
+  fromName: string | null;
+  toUid: string;
+  toName: string | null;
+  itemName: string;
+  price: number;
+  value: number;
+  /** Reasons the two accounts may be the same person. Empty when nothing ties them. */
+  flags: string[];
+}
+
+export interface GiftLogResponse {
+  entries?: GiftLogEntry[];
+}

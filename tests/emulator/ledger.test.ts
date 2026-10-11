@@ -123,6 +123,29 @@ async function main() {
   check('cannot gift something they already own', refused);
   check('gift charged the shown price', gift.price > 0, JSON.stringify(gift));
 
+  // A gifted bundle costs the whole set even though the recipient owns a piece.
+  await run(adminSetCash, { userId: UID, mode: 'add', amount: 100000, memo: 'bundle gift test' }, ADMIN_UID);
+  const cashBefore = (await db.collection('users').doc(UID).get()).data().cash;
+  const bundleGift = await run(giftCosmetic, { bundleId: 'bundle_steel', recipient: 'LedgerFriend' });
+  const friendAfter = (await db.collection('users').doc(FRIEND).get()).data();
+  check(
+    'bundle gift lands the missing pieces',
+    ['name_silver', 'glow_silver', 'backdrop_onyx', 'frame_steel'].every((id) =>
+      friendAfter.ownedCosmetics.includes(id),
+    ),
+  );
+  check('bundle gift charges the whole set', bundleGift.price === 60000, JSON.stringify(bundleGift));
+  check(
+    'bundle gift charged the giver exactly',
+    Math.abs((await db.collection('users').doc(UID).get()).data().cash - (cashBefore - 60000)) < 0.01,
+  );
+  const giftLog = (await db.collection('giftLog').where('fromUid', '==', UID).get()).docs.map((d: Loose) => d.data());
+  check(
+    'every gift is in the admin gift log',
+    giftLog.length === 2 && giftLog.every((g: Loose) => g.toUid === FRIEND),
+    JSON.stringify(giftLog),
+  );
+
   const user = (await db.collection('users').doc(UID).get()).data();
   const ladder = (await db.collection('ladderGameUsers').doc(UID).get()).data();
   const entries = (await db.collection('ledger').where('uid', '==', UID).get()).docs.map((d: Loose) => d.data());

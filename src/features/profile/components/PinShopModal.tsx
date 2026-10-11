@@ -12,7 +12,7 @@ import GiftDialog from './pinshop/GiftDialog';
 import type { ShopPin } from '../../../crews';
 import type { Cosmetic } from '../../../constants/cosmetics';
 import type { Bundle } from '../../../rules/shop';
-import type { PinAction } from '../hooks/usePinShop';
+import type { PinAction, GiftTarget } from '../hooks/usePinShop';
 
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
@@ -26,7 +26,7 @@ interface PinShopModalProps {
   onPurchase: (action: PinAction, payload: unknown, cost?: number) => Promise<void>;
   onPurchaseCosmetic: (cosmeticId: string) => Promise<void>;
   onPurchaseBundle: (bundleId: string) => Promise<void>;
-  onGiftCosmetic: (cosmeticId: string, recipient: string) => Promise<string | null>;
+  onGiftCosmetic: (target: GiftTarget, recipient: string) => Promise<string | null>;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => Promise<void>;
   portfolioValue: number;
 }
@@ -49,7 +49,7 @@ const PinShopModal = ({
   const [activeTab, setActiveTab] = useState('look');
   const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
   const [purchasing, setPurchasing] = useState(false);
-  const [gift, setGift] = useState<{ cosmetic: Cosmetic; price: number } | null>(null);
+  const [gift, setGift] = useState<GiftTarget | null>(null);
   const [tryOn, setTryOn] = useState<Cosmetic[] | null>(null); // shop cosmetics being previewed on the row
 
   const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
@@ -127,7 +127,9 @@ const PinShopModal = ({
               cash={cash}
               onEquipCosmetic={onEquipCosmetic}
               onRequestPurchase={setConfirmPurchase}
-              onRequestGift={(cosmetic, price) => setGift({ cosmetic, price })}
+              onRequestGift={(cosmetic, price) =>
+                setGift({ kind: 'cosmetic', id: cosmetic.id, name: cosmetic.name, price })
+              }
               onTryOn={setTryOn}
             />
           )}
@@ -138,6 +140,7 @@ const PinShopModal = ({
                 cash={cash}
                 featuredId={null}
                 onRequestPurchase={setConfirmPurchase}
+                onRequestGift={setGift}
                 onTryOn={setTryOn}
               />
             </div>
@@ -146,10 +149,9 @@ const PinShopModal = ({
 
         {gift && (
           <GiftDialog
-            cosmetic={gift.cosmetic}
-            price={gift.price}
+            gift={gift}
             cash={cash}
-            onSend={(recipient) => onGiftCosmetic(gift.cosmetic.id, recipient)}
+            onSend={(recipient) => onGiftCosmetic(gift, recipient)}
             onClose={() => setGift(null)}
           />
         )}

@@ -433,6 +433,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Who gifted what to whom, with the giver's connection. Read through the
+    // admin-gated adminListGifts callable only: it holds network addresses.
+    match /giftLog/{entryId} {
+      allow read, write: if false;
+    }
+
     // ============================================
     // ADMIN-MANAGED DISCORD MESSAGES
     // ============================================
