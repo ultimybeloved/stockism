@@ -18,6 +18,7 @@ import {
 // is exactly what gets charged.
 import { calculateLadderWithdrawTax } from '../shared/rules/ladder';
 import { recordLedger } from '../shared/ledger';
+import { logAdminAction } from '../shared/adminLog';
 
 /**
  * Deposit from Stockism cash to ladder game balance (one-way)
@@ -327,7 +328,7 @@ export const adminTransferToLadder = cf().https.onCall(async (data, context) => 
   }
 
   try {
-    return await db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction(async (transaction) => {
       const mainUserRef = db.collection('users').doc(userId);
       const ladderUserRef = db.collection('ladderGameUsers').doc(userId);
 
@@ -421,6 +422,14 @@ export const adminTransferToLadder = cf().https.onCall(async (data, context) => 
         newLadderBalance,
       };
     });
+    await logAdminAction(context, {
+      action: 'transfer_to_ladder',
+      uid: userId,
+      before: { cash: result.previousCash, ladder: result.previousLadderBalance },
+      after: { cash: result.newCash, ladder: result.newLadderBalance },
+      detail: { amount },
+    });
+    return result;
   } catch (error) {
     if (error instanceof functions.https.HttpsError) throw error;
     reportError(error, { where: 'adminTransferToLadder' });

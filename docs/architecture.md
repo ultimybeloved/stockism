@@ -298,7 +298,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/discord/discordAdmin.ts` | Discord-triggered admin diagnostics and recovery tools |
 | `functions/src/admin/admin.ts` | banUser, fixBasePriceCliffs, createBots |
 | `functions/src/admin/adminBackups.ts` | Market backup/restore/retention (restoreBackup overwrites live data) |
-| `functions/src/admin/adminOps.ts` | Small direct admin ops: grant/revoke, set cash, broadcast, toggles, Discord unlink/move-link |
+| `functions/src/admin/adminOps.ts` | Small direct admin ops: grant/revoke achievements and cosmetics, reinstate, set cash, broadcast |
 | `functions/src/admin/adminUserEdit.ts` | Direct edits to one player's game state: crew, achievements, margin, a single holding. Skips player-facing penalties/cooldowns on purpose |
 | `functions/src/admin/adminRepair.ts` | Heavy bulk player-data repair (repairSpikeVictims, reconstructPortfolioHistory) |
 | `functions/src/admin/adminMigrate.ts` | Ticker/roster migrations: renameTicker, initNewCharacterPrices |
@@ -332,6 +332,10 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/adminAnalytics.ts` | adminReturnDistribution: read-only measurements for design decisions (how returns are spread), never changes state |
 | `functions/src/admin/adminCashLog.ts` | adminListCashLog: read side of the `adminCashLog` audit trail adminSetCash writes |
 | `functions/src/admin/adminCashNotify.ts` | **Internal module.** Bell + Discord DM when an admin grants cash or a cosmetic |
+| `functions/src/admin/adminDiscordOps.ts` | Admin Discord-link tools: the link wall, unlink, free a Discord ID, move a link between accounts |
+| `functions/src/admin/adminHistory.ts` | adminListLog: read side of the admin history (`adminLog`), read-only |
+| `functions/src/shared/adminLog.ts` | **Internal module.** `logAdminAction`: every admin callable that changes a player or the market records what it was before and after, after the change lands. A new admin action must call it |
+| `functions/src/predictions/predictionAdmin.ts` | adminCancelPrediction: cancel a weekly prediction and refund every unpaid stake (ledger `prediction_refund`, flow reversed, bell). Event markets use cancelEventMarket |
 | `functions/src/admin/adminGiftLog.ts` | adminListGifts: the gift log with same-connection / alt-scan / watchlist flags, for spotting alts feeding a main |
 | `functions/src/admin/haltAudit.ts` | haltPriceAudit (Thursday 21:05 UTC): flags untagged price points inside the halt, DMs the admin, silent when clean. Pure logic in `haltAuditCore.ts` (internal, unit-tested). Manual version: `npm run audit:halt` |
 | `functions/src/crews/crewMissions.ts` | claimCrewMission; progress writing lives in an internal module |

@@ -41,6 +41,8 @@ require.cache[constantsPath]!.exports = { ...constants, isWeeklyTradingHalt: () 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
 const { placeBet, claimPredictionPayout } =
   require('../../functions/src/predictions/predictions') as typeof import('../../functions/src/predictions/predictions');
+const { adminCancelPrediction } =
+  require('../../functions/src/predictions/predictionAdmin') as typeof import('../../functions/src/predictions/predictionAdmin');
 
 const DAY = 24 * 60 * 60 * 1000;
 const near = (a: number, b: number, tol = 0.011) => Math.abs(a - b) < tol;
@@ -351,6 +353,47 @@ async function main() {
     const u = await getUser(uid);
     check(`${uid}: nothing moved`, u.cash === 5000 && !u.grantedValue && !u.bets.p_main.paid);
   }
+
+  // ── G. Admin cancel and refund ────────────────────────────────────────────
+  console.log('\nG. Admin cancel and refund');
+
+  await setPredictions([...(await predictionsRef.get()).data().list, prediction('p_cancel')]);
+  await seedUser('c_one');
+  await seedUser('c_two');
+  await bet('c_one', 'p_cancel', 'Yes', 200);
+  await bet('c_two', 'p_cancel', 'No', 50);
+  check(
+    'only the admin can cancel',
+    (await rejects(() => adminCancelPrediction.run({ predictionId: 'p_cancel' }, ctx('c_one')), /admin/i)) === true,
+  );
+  const adminUid = constants.ADMIN_UID;
+  const cancelled = await adminCancelPrediction.run({ predictionId: 'p_cancel' }, ctx(adminUid));
+  check('both stakes are refunded', cancelled.refunded === 2 && cancelled.total === 250, cancelled);
+  const c1 = await getUser('c_one');
+  check(
+    'the stake comes back as cash and the side-game flow is reversed',
+    c1.cash === 5000 && c1.predictionFlowValue === 0 && c1.bets.p_cancel.refunded === true,
+    `cash=${c1.cash} flow=${c1.predictionFlowValue}`,
+  );
+  const refunds = (await db.collection('ledger').where('uid', '==', 'c_one').get()).docs
+    .map((d: Loose) => d.data())
+    .filter((e: Loose) => e.type === 'prediction_refund');
+  check('the refund is in the ledger', refunds.length === 1 && refunds[0].amount === 200, refunds);
+  const again = await adminCancelPrediction.run({ predictionId: 'p_cancel' }, ctx(adminUid));
+  check('cancelling twice pays nobody twice', again.refunded === 0 && (await getUser('c_one')).cash === 5000, again);
+  check(
+    'no new bets on a cancelled prediction',
+    (await rejects(() => bet('c_one', 'p_cancel', 'Yes', 10), /ended/i)) === true,
+  );
+  check('and no payout claims', (await rejects(() => claim('c_two', 'p_cancel'), /cancelled/i)) === true);
+  const history = (await db.collection('adminLog').where('action', '==', 'cancel_prediction').get()).docs.map(
+    (d: Loose) => d.data(),
+  );
+  check(
+    'the cancel is in the admin history',
+    history.some((h: Loose) => h.detail?.predictionId === 'p_cancel' && h.detail?.refunded === 2 && h.by === adminUid),
+    history,
+  );
 }
 
 it('prediction bets', main);

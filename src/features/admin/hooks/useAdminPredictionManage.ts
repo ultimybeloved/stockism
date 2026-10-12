@@ -1,9 +1,14 @@
 import { useState } from 'react';
-import { doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { triggerEventSettlementsFunction, cancelEventMarketFunction } from '../../../api/callables';
+import {
+  triggerEventSettlementsFunction,
+  cancelEventMarketFunction,
+  adminCancelPredictionFunction,
+} from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
-import type { PredictionDoc, UserData } from '../../../types';
+import { errorMessage } from '../../../utils/errors';
+import type { PredictionDoc } from '../../../types';
 
 // Predictions tab: resolve, extend/reopen, cancel-refund, and delete.
 // getEndTime comes from the create-form hook so both share the same end-time rule.
@@ -113,36 +118,18 @@ export function useAdminPredictionManage({
         return;
       }
 
-      // Weekly predictions: mark cancelled and refund bets from the client.
-      const updatedList = currentList.map((p) =>
-        p.id === predictionId ? { ...p, cancelled: true, cancelledAt: Date.now() } : p,
+      // Weekly predictions: the server marks it cancelled and refunds every
+      // stake, with ledger entries and an admin history record.
+      const res = await adminCancelPredictionFunction({ predictionId });
+      const { refunded = 0, total = 0 } = res?.data || {};
+      showMessage(
+        'success',
+        `Prediction cancelled: ${refunded} bettor${refunded !== 1 ? 's' : ''} refunded ($${Math.round(total).toLocaleString()})`,
       );
-      await updateDoc(predictionsRef, { list: updatedList });
-
-      // Refund all unpaid bettors
-      const usersSnap = await getDocs(collection(db, 'users'));
-      let refunded = 0;
-      for (const userDoc of usersSnap.docs) {
-        const userData = userDoc.data() as UserData;
-        const bet = userData.bets?.[predictionId];
-        if (!bet || bet.paid) continue;
-        try {
-          await updateDoc(doc(db, 'users', userDoc.id), {
-            cash: (userData.cash || 0) + (bet.amount as number),
-            [`bets.${predictionId}.paid`]: true,
-            [`bets.${predictionId}.payout`]: bet.amount,
-            [`bets.${predictionId}.refunded`]: true,
-          });
-          refunded++;
-        } catch (e) {
-          console.error('Failed to refund', userDoc.id, e);
-        }
-      }
-
-      showMessage('success', `Prediction cancelled — ${refunded} bettor${refunded !== 1 ? 's' : ''} refunded`);
+      setSelectedPrediction(null);
     } catch (err) {
       console.error(err);
-      showMessage('error', 'Cancel failed');
+      showMessage('error', `Cancel failed: ${errorMessage(err)}`);
     }
     setLoading(false);
   };

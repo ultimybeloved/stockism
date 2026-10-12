@@ -16,6 +16,7 @@ import { priceHistoryRef } from '../shared/marketData';
 import { remapAliasedKeys } from '../shared/roster';
 import { recordHeartbeat } from '../shared/activity';
 import { reportError } from '../shared/sentry';
+import { logAdminAction } from '../shared/adminLog';
 
 /**
  * The top players' portfolios, for the leaderboard backups.
@@ -285,6 +286,7 @@ export const restoreBackup = cf().https.onCall(async (data, context) => {
     await priceHistoryRef().set(restored!);
 
     logger.info('✅ Price history restored successfully!');
+    await logAdminAction(context, { action: 'restore_backup', detail: { backupName } });
 
     return {
       success: true,

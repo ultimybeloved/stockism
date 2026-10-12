@@ -31,7 +31,6 @@ const eventStaked = (p: AdminPrediction) => {
 const marketValue = (p: AdminPrediction) => (p.cancelled ? 0 : p.type === 'event' ? eventStaked(p) : sumPool(p));
 const valueLabel = (p: AdminPrediction) => (p.type === 'event' ? 'Staked' : 'Pool');
 
-import OverridePayoutPanel from './predictions/OverridePayoutPanel';
 import type { AdminCommonProps } from './types';
 import type { useAdminPredictionCreate } from '../hooks/useAdminPredictionCreate';
 import type { useAdminPredictionManage } from '../hooks/useAdminPredictionManage';
@@ -83,16 +82,6 @@ const PredictionsTab = ({
   loadAllBets,
   betsLoading,
   allBets,
-  recoveryPredictionId,
-  setRecoveryPredictionId,
-  recoveryBets,
-  setRecoveryBets,
-  recoveryOptions,
-  setRecoveryOptions,
-  recoveryWinner,
-  setRecoveryWinner,
-  handleScanForBets,
-  handleOverridePayout,
 }: AdminCommonProps &
   ReturnType<typeof useAdminPredictionCreate> &
   ReturnType<typeof useAdminPredictionManage> &
@@ -287,23 +276,6 @@ const PredictionsTab = ({
           </div>
         )}
       </div>
-
-      <OverridePayoutPanel
-        mutedClass={mutedClass}
-        inputClass={inputClass}
-        loading={loading}
-        predictions={predictions}
-        recoveryPredictionId={recoveryPredictionId}
-        setRecoveryPredictionId={setRecoveryPredictionId}
-        recoveryBets={recoveryBets}
-        setRecoveryBets={setRecoveryBets}
-        recoveryOptions={recoveryOptions}
-        setRecoveryOptions={setRecoveryOptions}
-        recoveryWinner={recoveryWinner}
-        setRecoveryWinner={setRecoveryWinner}
-        handleScanForBets={handleScanForBets}
-        handleOverridePayout={handleOverridePayout}
-      />
 
       {/* SECTION 5: Bets Summary */}
       {allBets.length > 0 && (

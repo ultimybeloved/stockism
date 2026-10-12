@@ -16,6 +16,7 @@ import { priceHistoryRef } from '../shared/marketData';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
+import { logAdminAction } from '../shared/adminLog';
 
 /**
  * Repair accounts damaged by the Jiho/Doo price spike.
@@ -312,6 +313,12 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
     });
     await batch.commit();
 
+    await logAdminAction(context, {
+      action: 'repair_spike_victim',
+      uid: userId,
+      before: { cash: userData.cash || 0 },
+      after: { cash: updates.cash },
+    });
     return { success: true, userId, correctedCash: victim.correctedCash };
   }
 
@@ -374,6 +381,10 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
       }
     }
 
+    await logAdminAction(context, {
+      action: 'repair_spike_victims_all',
+      detail: { repaired: results.filter((r) => r.success).length, failed: results.filter((r) => !r.success).length },
+    });
     return { results };
   }
 
@@ -547,6 +558,11 @@ export const reconstructPortfolioHistory = cf({ timeoutSeconds: 540, memory: '1G
       }
     }
 
+    await logAdminAction(context, {
+      action: 'reconstruct_history',
+      uid: targetUid,
+      detail: { usersProcessed, totalPointsWritten, errors },
+    });
     return { usersProcessed, usersSkipped, totalPointsWritten, errors, nextCursor, done };
   },
 );

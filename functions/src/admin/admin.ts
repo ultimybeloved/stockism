@@ -11,6 +11,7 @@ const db = admin.firestore();
 import { sendDiscordMessage } from '../shared/discordApi';
 import { priceHistoryRef } from '../shared/marketData';
 import { recordLedger } from '../shared/ledger';
+import { logAdminAction } from '../shared/adminLog';
 
 /**
  * Cancel every open order a banned user left on the books.
@@ -159,6 +160,15 @@ export const banUser = cf().https.onCall(async (data, context) => {
       logger.error('Failed to send Discord alert:', err);
     }
 
+    await logAdminAction(context, {
+      action: 'ban',
+      uid: userId,
+      name: displayName,
+      before: { cash: userData.cash || 0, portfolioValue: userData.portfolioValue || 0 },
+      after: { cash: rollbackCash, isBanned: true },
+      detail: { reason: reason || null },
+    });
+
     return {
       success: true,
       message: `User ${displayName} has been banned and reset to $${rollbackCash}`,
@@ -234,6 +244,7 @@ export const fixBasePriceCliffs = cf().https.onCall(async (data, context) => {
 
     // Apply updates
     await histRef.update(updates);
+    await logAdminAction(context, { action: 'fix_price_cliffs', detail: { tickersFixed, fixed: fixedTickers } });
 
     return {
       success: true,
@@ -325,6 +336,7 @@ export const createBots = cf().https.onCall(async (data, context) => {
       created++;
     }
 
+    await logAdminAction(context, { action: 'create_bots', detail: { created, skipped } });
     return {
       success: true,
       created,

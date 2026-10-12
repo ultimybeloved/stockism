@@ -9,7 +9,7 @@ import { errorMessage } from '../../../utils/errors';
 
 // Per-user admin operations. Owns the balance actions (cash, ladder transfer)
 // and composes the two sibling hooks so AdminPanel still spreads one object:
-//   useAdminBankruptcy    — bankrupt list, reinstate, rollback (Recovery tab)
+//   useAdminBankruptcy    — bankrupt list, reinstate (Recovery tab)
 //   useAdminUserIdentity  — Discord wall, unlink, display name (Users tab)
 //   useAdminDiscordRecovery — move a Discord link, unblock a Discord ID (Users tab)
 //   useAdminUserEdit      — crew, achievements, margin, holdings (Users tab)
@@ -21,7 +21,7 @@ export function useAdminUserOps({
   setLoading,
   setSelectedUser,
 }: Pick<AdminHookDeps, 'showMessage' | 'setLoading' | 'setSelectedUser'>) {
-  const bankruptcy = useAdminBankruptcy({ showMessage, setLoading, setSelectedUser });
+  const bankruptcy = useAdminBankruptcy({ showMessage, setLoading });
   const identity = useAdminUserIdentity({ showMessage, setLoading, setSelectedUser });
   const discordRecovery = useAdminDiscordRecovery({ showMessage, setLoading, setSelectedUser });
   const fieldEdits = useAdminUserEdit({ showMessage, setLoading, setSelectedUser });

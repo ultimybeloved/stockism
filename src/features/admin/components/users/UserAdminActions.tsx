@@ -21,7 +21,6 @@ const UserAdminActions = ({
   handleChangeDisplayName,
   newDisplayName,
   setNewDisplayName,
-  handleRollbackUser,
   moveSourceId,
   setMoveSourceId,
   moveSource,
@@ -235,12 +234,6 @@ const UserAdminActions = ({
                   <span>
                     Cash: ${tx.cashBefore?.toFixed(2)} → ${tx.cashAfter?.toFixed(2)}
                   </span>
-                  <button
-                    onClick={() => handleRollbackUser(selectedUser.id, tx)}
-                    className="ml-2 px-2 py-0.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700"
-                  >
-                    ⏮ Rollback
-                  </button>
                 </div>
               </div>
             ))}

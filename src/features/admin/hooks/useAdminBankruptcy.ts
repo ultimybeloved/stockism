@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { reinstateUserFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
-import type { AdminUser } from '../utils/adminShared';
 import type { ShareMap, ShortMap, UserData } from '../../../types';
 
 export interface BankruptUserRow {
@@ -19,20 +18,8 @@ export interface BankruptUserRow {
   shorts: ShortMap;
 }
 
-/** A transactionLog entry that recorded the balance after it. */
-interface BalanceSnapshot {
-  timestamp: number;
-  cashAfter?: number;
-  portfolioAfter?: number;
-}
-
-// Bankruptcy recovery: the bankrupt-user list, reinstating one, and the manual
-// rollback to a past transaction. Composed into useAdminUserOps.
-export function useAdminBankruptcy({
-  showMessage,
-  setLoading,
-  setSelectedUser,
-}: Pick<AdminHookDeps, 'showMessage' | 'setLoading' | 'setSelectedUser'>) {
+// Bankruptcy recovery: the bankrupt-user list and reinstating one. Composed into useAdminUserOps.
+export function useAdminBankruptcy({ showMessage, setLoading }: Pick<AdminHookDeps, 'showMessage' | 'setLoading'>) {
   const [bankruptUsers, setBankruptUsers] = useState<BankruptUserRow[]>([]);
   const [bankruptLoaded, setBankruptLoaded] = useState(false);
 
@@ -83,37 +70,5 @@ export function useAdminBankruptcy({
     setLoading(false);
   };
 
-  // Rollback user to a specific transaction timestamp
-  const handleRollbackUser = async (userId: string, transaction: BalanceSnapshot) => {
-    if (
-      !confirm(
-        `⚠️ ROLLBACK USER ⚠️\n\nRoll back to transaction from ${new Date(transaction.timestamp).toLocaleString()}?\n\nThis will:\n- Set cash to $${transaction.cashAfter?.toLocaleString() || '0'}\n- Set portfolio to $${transaction.portfolioAfter?.toLocaleString() || '0'}\n- You'll need to manually fix holdings/shorts\n\nContinue?`,
-      )
-    ) {
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        cash: transaction.cashAfter || 0,
-        portfolioValue: transaction.portfolioAfter || 0,
-      });
-
-      showMessage('success', `Rolled back user to ${new Date(transaction.timestamp).toLocaleString()}!`);
-
-      // Refresh selected user data
-      const updatedSnap = await getDoc(userRef);
-      if (updatedSnap.exists()) {
-        setSelectedUser({ id: updatedSnap.id, ...updatedSnap.data() } as AdminUser);
-      }
-    } catch (err) {
-      console.error(err);
-      showMessage('error', `Rollback failed: ${errorMessage(err)}`);
-    }
-    setLoading(false);
-  };
-
-  return { bankruptLoaded, bankruptUsers, loadBankruptUsers, handleReinstateUser, handleRollbackUser };
+  return { bankruptLoaded, bankruptUsers, loadBankruptUsers, handleReinstateUser };
 }

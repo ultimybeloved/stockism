@@ -794,3 +794,21 @@ export interface GiftLogEntry {
 export interface GiftLogResponse {
   entries?: GiftLogEntry[];
 }
+
+/** One admin action from adminListLog: what it was before and what it became. */
+export interface AdminLogEntry {
+  id: string;
+  at: number | null;
+  action: string;
+  by: string | null;
+  uid: string | null;
+  name: string | null;
+  before: unknown;
+  after: unknown;
+  detail: Record<string, unknown> | null;
+}
+
+export interface AdminLogResponse {
+  success: boolean;
+  entries: AdminLogEntry[];
+}

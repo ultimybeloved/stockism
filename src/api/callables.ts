@@ -98,6 +98,9 @@ export const buyIPOSharesFunction = callable<Api.BuyIPOSharesRequest>('buyIPOSha
 export const buyEventSharesFunction = callable<Api.EventSharesRequest, Api.EventSharesResponse>('buyEventShares');
 export const sellEventSharesFunction = callable<Api.EventSharesRequest, Api.EventSharesResponse>('sellEventShares');
 export const triggerEventSettlementsFunction = callable<void>('triggerEventSettlements');
+export const adminCancelPredictionFunction = callable<{ predictionId: string }, { refunded?: number; total?: number }>(
+  'adminCancelPrediction',
+);
 export const cancelEventMarketFunction = callable<{ marketId: string }, { refunded?: number; total?: number }>(
   'cancelEventMarket',
 );
@@ -293,4 +296,5 @@ export const adminImportDiscordMessageFunction = callable<
 
 // Admin: read the cash adjustment audit log
 export const adminListGiftsFunction = callable<Record<string, never>, Api.GiftLogResponse>('adminListGifts');
+export const adminListLogFunction = callable<{ limit?: number }, Api.AdminLogResponse>('adminListLog');
 export const adminListCashLogFunction = callable<Record<string, never>, Api.CashLogResponse>('adminListCashLog');

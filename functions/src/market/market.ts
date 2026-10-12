@@ -23,6 +23,7 @@ import { writeReviewChanges } from './reviewChanges';
 import { indexConstituents, reconcileDivisor, computeIndexValue } from '../shared/indexMaintenance';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
+import { logAdminAction } from '../shared/adminLog';
 
 type Mover = { ticker: string; price: number; change: number };
 type RecapLine = { ticker: string; before: number; after: number; change: number };
@@ -593,5 +594,6 @@ export const setMarketHalt = cf().https.onCall(async (data, context) => {
     logger.error('Failed to send market status alert:', err);
   }
 
+  await logAdminAction(context, { action: halted ? 'halt_market' : 'resume_market', detail: { reason } });
   return { success: true, halted };
 });

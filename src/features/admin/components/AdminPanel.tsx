@@ -17,6 +17,8 @@ import DiagnosticTab from './DiagnosticTab';
 import DividendsTab from './DividendsTab';
 import DiscordTab from './DiscordTab';
 import CashLogCard from './CashLogCard';
+import AdminHistoryCard from './AdminHistoryCard';
+import AdminTabBar from './AdminTabBar';
 import SiteMessagesTab from './SiteMessagesTab';
 import PriceAdjustModal from './PriceAdjustModal';
 import { useAdminDividends } from '../hooks/useAdminDividends';
@@ -134,10 +136,10 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
     setLoading,
     getEndTime: predictionCreate.getEndTime,
   });
-  const bets = useAdminBets({ showMessage, setLoading });
+  const bets = useAdminBets({ showMessage });
   const ipo = useAdminIpo({ showMessage, setLoading });
   const trades = useAdminTrades({ showMessage });
-  const recoveryTools = useAdminRecoveryTools({ showMessage, setLoading });
+  const recoveryTools = useAdminRecoveryTools();
   const discordMessages = useAdminDiscordMessages({ showMessage });
   const cashLog = useAdminCashLog({ showMessage });
   const siteMessages = useAdminSiteMessages({ showMessage });
@@ -194,90 +196,74 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
           </div>
         </div>
 
-        {/* Tabs — uniform pills, wrap as needed */}
-        <div className="px-3 py-2.5 border-b light:border-slate-200 dark:border-slate-700">
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { id: 'users', icon: '👥', label: 'Users' },
-              {
-                id: 'trades',
-                icon: '💹',
-                label: 'Trades',
-                load: () =>
-                  trades.loadRecentTrades(
-                    trades.tradeTimePeriod,
-                    trades.tradeTypeFilter,
-                    trades.tradeFilterTicker,
-                    trades.tradeBotFilter,
-                  ),
+        <AdminTabBar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          mutedClass={mutedClass}
+          tabs={[
+            { id: 'users', icon: '👥', label: 'Users' },
+            {
+              id: 'trades',
+              icon: '💹',
+              label: 'Trades',
+              load: () =>
+                trades.loadRecentTrades(
+                  trades.tradeTimePeriod,
+                  trades.tradeTypeFilter,
+                  trades.tradeFilterTicker,
+                  trades.tradeBotFilter,
+                ),
+            },
+            { id: 'holders', icon: '📊', label: 'Holders' },
+            { id: 'market', icon: '🏛️', label: 'Market' },
+            { id: 'stats', icon: '📈', label: 'Stats', load: stats.loadMarketStats },
+            { id: 'ipo', icon: '🚀', label: 'IPO', load: ipo.loadIPOs },
+            {
+              id: 'predictions',
+              icon: '🎲',
+              label: 'Bets',
+              badge: unresolvedPredictions.length,
+              load: bets.loadAllBets,
+            },
+            { id: 'dividends', icon: '💵', label: 'Dividends', load: dividends.loadDividendConfig },
+            { id: 'bots', icon: '🤖', label: 'Bots', load: bots.handleLoadBots },
+            { id: 'badges', icon: '🏅', label: 'Badges', load: badges.loadBadgeUsers },
+            {
+              id: 'watchlist',
+              icon: '👁️',
+              label: 'Watchlist',
+              load: () => {
+                if (!watchlist.watchlistLoaded) watchlist.loadWatchlist();
               },
-              { id: 'holders', icon: '📊', label: 'Holders' },
-              { id: 'market', icon: '🏛️', label: 'Market' },
-              { id: 'stats', icon: '📈', label: 'Stats', load: stats.loadMarketStats },
-              { id: 'ipo', icon: '🚀', label: 'IPO', load: ipo.loadIPOs },
-              {
-                id: 'predictions',
-                icon: '🎲',
-                label: 'Bets',
-                badge: unresolvedPredictions.length,
-                load: bets.loadAllBets,
+            },
+            {
+              id: 'giveaways',
+              icon: '📜',
+              label: 'History',
+              load: () => {
+                if (!cashLog.cashLogLoaded) cashLog.loadCashLog();
               },
-              { id: 'dividends', icon: '💵', label: 'Dividends', load: dividends.loadDividendConfig },
-              { id: 'bots', icon: '🤖', label: 'Bots', load: bots.handleLoadBots },
-              { id: 'badges', icon: '🏅', label: 'Badges', load: badges.loadBadgeUsers },
-              {
-                id: 'watchlist',
-                icon: '👁️',
-                label: 'Watchlist',
-                load: () => {
-                  if (!watchlist.watchlistLoaded) watchlist.loadWatchlist();
-                },
+            },
+            {
+              id: 'siteMessages',
+              icon: '📣',
+              label: 'Site Msgs',
+              load: () => {
+                if (!siteMessages.siteMessagesLoaded) siteMessages.loadSiteMessages();
               },
-              {
-                id: 'giveaways',
-                icon: '💸',
-                label: 'Giveaways',
-                load: () => {
-                  if (!cashLog.cashLogLoaded) cashLog.loadCashLog();
-                },
+            },
+            {
+              id: 'discord',
+              icon: '💬',
+              label: 'Discord',
+              load: () => {
+                if (!discordMessages.discordLoaded) discordMessages.loadDiscordMessages();
               },
-              {
-                id: 'siteMessages',
-                icon: '📣',
-                label: 'Site Msgs',
-                load: () => {
-                  if (!siteMessages.siteMessagesLoaded) siteMessages.loadSiteMessages();
-                },
-              },
-              {
-                id: 'discord',
-                icon: '💬',
-                label: 'Discord',
-                load: () => {
-                  if (!discordMessages.discordLoaded) discordMessages.loadDiscordMessages();
-                },
-              },
-              { id: 'diagnostic', icon: '🔍', label: 'Diagnostics' },
-              { id: 'recovery', icon: '🔧', label: 'Recovery' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveTab(tab.id);
-                  if (tab.load) tab.load();
-                }}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-full transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-teal-600 text-white'
-                    : `${mutedClass} light:bg-slate-100 light:hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700`
-                }`}
-              >
-                {tab.icon} {tab.label}
-                {(tab.badge ?? 0) > 0 ? ` (${tab.badge})` : ''}
-              </button>
-            ))}
-          </div>
-        </div>
+            },
+            { id: 'diagnostic', icon: '🔍', label: 'Diagnostics' },
+            { id: 'recovery', icon: '🔧', label: 'Recovery' },
+          ]}
+        />
 
         {/* Message */}
         {message && (
@@ -373,8 +359,13 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
           {/* DIAGNOSTIC TAB */}
           {activeTab === 'diagnostic' && <DiagnosticTab {...common} {...diagnostics} />}
 
-          {/* GIVEAWAYS TAB */}
-          {activeTab === 'giveaways' && <CashLogCard {...common} {...cashLog} />}
+          {/* HISTORY TAB: every admin action, then the cash adjustments with their memos */}
+          {activeTab === 'giveaways' && (
+            <div className="space-y-4">
+              <AdminHistoryCard {...common} />
+              <CashLogCard {...common} {...cashLog} />
+            </div>
+          )}
 
           {activeTab === 'siteMessages' && <SiteMessagesTab {...common} {...siteMessages} />}
 

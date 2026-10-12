@@ -14,6 +14,7 @@ import { CHARACTERS } from '../shared/characters';
 import { appendPriceHistory } from '../shared/marketData';
 import { runPreflight, countDryRun, runRename, PHASES } from '../market/tickerRename';
 import * as split from '../market/stockSplit';
+import { logAdminAction } from '../shared/adminLog';
 
 /**
  * Rename a ticker across live Firestore data.
@@ -94,7 +95,9 @@ export const renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onC
     }
   }
 
-  return runRename({ old, nw, mode, uid: context.auth!.uid });
+  const result = await runRename({ old, nw, mode, uid: context.auth!.uid });
+  if (mode !== 'dryRun') await logAdminAction(context, { action: 'rename_ticker', detail: { old, nw, mode } });
+  return result;
 });
 
 /**
@@ -146,7 +149,9 @@ export const splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCal
       throw new functions.https.HttpsError('failed-precondition', `Preflight failed: ${failed}`);
     }
   }
-  return split.runSplit({ ticker, ratio, mode, uid: context.auth!.uid });
+  const result = await split.runSplit({ ticker, ratio, mode, uid: context.auth!.uid });
+  if (mode !== 'dryRun') await logAdminAction(context, { action: 'split_stock', detail: { ticker, ratio, mode } });
+  return result;
 });
 
 /**
@@ -186,5 +191,6 @@ export const initNewCharacterPrices = cf().https.onCall(async (data, context) =>
   await marketRef.update(updates);
   await appendPriceHistory(null, historyPoints);
   logger.info(`Initialized prices for ${initialized.length} characters:`, initialized.map((i) => i.ticker).join(', '));
+  await logAdminAction(context, { action: 'init_prices', detail: { initialized } });
   return { message: `Initialized ${initialized.length} character prices`, initialized };
 });

@@ -69,7 +69,7 @@ export const placeBet = cf().https.onCall(async (data, context) => {
     if (predictionIndex === -1) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
 
     const prediction = predictionsList[predictionIndex];
-    if (prediction.resolved || (prediction.endsAt && prediction.endsAt < Date.now())) {
+    if (prediction.cancelled || prediction.resolved || (prediction.endsAt && prediction.endsAt < Date.now())) {
       throw new functions.https.HttpsError('failed-precondition', 'Betting has ended.');
     }
 
@@ -179,6 +179,8 @@ export const claimPredictionPayout = cf().https.onCall(async (data, context) => 
 
     const prediction = predictionsList.find((p: { id: string }) => p.id === predictionId);
     if (!prediction) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
+    if (prediction.cancelled)
+      throw new functions.https.HttpsError('failed-precondition', 'This prediction was cancelled.');
     if (!prediction.resolved) throw new functions.https.HttpsError('failed-precondition', 'Not resolved yet.');
     predictionLabel = prediction.question || prediction.title || predictionLabel;
 

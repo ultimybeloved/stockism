@@ -439,6 +439,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Every admin change to a player or the market, with before and after.
+    // Read through the admin-gated adminListLog callable only: it holds
+    // private fields such as Discord IDs and moderation notes.
+    match /adminLog/{entryId} {
+      allow read, write: if false;
+    }
+
     // ============================================
     // ADMIN-MANAGED DISCORD MESSAGES
     // ============================================

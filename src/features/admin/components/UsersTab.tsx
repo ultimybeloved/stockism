@@ -73,7 +73,6 @@ const UsersTab = ({
   handleChangeDisplayName,
   newDisplayName,
   setNewDisplayName,
-  handleRollbackUser,
   toggleUserForDeletion,
   deleteSelectedUsers,
 }: UsersTabProps) => {
@@ -248,7 +247,6 @@ const UsersTab = ({
               handleChangeDisplayName,
               newDisplayName,
               setNewDisplayName,
-              handleRollbackUser,
               moveSourceId,
               setMoveSourceId,
               moveSource,

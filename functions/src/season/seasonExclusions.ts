@@ -18,6 +18,7 @@ const db = admin.firestore();
 
 import { toMs } from '../shared/activity';
 import type { SeasonDoc } from '../shared/types';
+import { logAdminAction } from '../shared/adminLog';
 
 /** One player as the flags report builds them. */
 interface FlaggedPlayer {
@@ -126,6 +127,13 @@ export const setSeasonTopTierExclusion = cf().https.onCall(
     logger.info(
       `SEASON EXCLUSION: ${uid} ${excluded ? 'excluded from' : 'restored to'} Platinum/Diamond in ${season.id}`,
     );
+    await logAdminAction(context, {
+      action: excluded ? 'season_exclude' : 'season_restore',
+      uid,
+      name: userDoc.data()!.displayName,
+      after: !!excluded,
+      detail: { seasonId: season.id },
+    });
     return { success: true, uid, excluded: !!excluded };
   },
 );

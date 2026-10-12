@@ -20,6 +20,7 @@ import { touchLastActive, recordHeartbeat } from '../shared/activity';
 import { round2 } from '../shared/money';
 import { reportError } from '../shared/sentry';
 import { recordEventTrade } from '../shared/eventTradeRecords';
+import { logAdminAction } from '../shared/adminLog';
 
 /** One entry in predictions/current.list, the fields these lookups read. */
 type PredictionEntry = { id: string; type?: string; resolved?: boolean; settled?: boolean };
@@ -504,5 +505,9 @@ export const cancelEventMarket = cf().https.onCall(async (data, context) => {
     }
   });
 
+  await logAdminAction(context, {
+    action: 'cancel_event_market',
+    detail: { marketId, refunded: refundedCount, total: refundedTotal },
+  });
   return { success: true, refunded: refundedCount, total: refundedTotal };
 });

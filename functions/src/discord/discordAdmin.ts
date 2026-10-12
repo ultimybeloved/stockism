@@ -10,6 +10,7 @@ type TradeRow = DocumentData & { _ts: number; id: string };
 
 import { priceHistoryRef } from '../shared/marketData';
 import { recordLedger } from '../shared/ledger';
+import { logAdminAction } from '../shared/adminLog';
 
 // ─── TICKER ROLLBACK DIAGNOSTIC ──────────────────────────────────────────────
 export const diagnoseTickerRollback = cf().https.onCall(async (data, context) => {
@@ -491,6 +492,7 @@ export const recoverTicker = cf().https.onCall(async (data, context) => {
   }
 
   await batch.commit();
+  await logAdminAction(context, { action: 'recover_ticker', detail: { ticker, startTimestamp, rollbackToTimestamp } });
 
   return result;
 });

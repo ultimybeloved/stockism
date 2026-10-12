@@ -44,6 +44,7 @@ import { seasonMarginUpdate } from '../season/seasonTiers';
 import { pushWindows, windowProfit, planRemoval, WEEK_MS } from './coordProfitMath';
 import { clusterTrades } from './coordClustering';
 import { recordLedger } from '../shared/ledger';
+import { logAdminAction } from '../shared/adminLog';
 
 const LOOKBACK_MS = THIRTY_DAYS_MS;
 
@@ -247,7 +248,12 @@ export const adminRemoveCoordProfit = cf().https.onCall(
             ? ` $${result.toDebt.toLocaleString('en-US')} of it was added to your margin balance.`
             : ''),
       });
-      logger.info(`COORD PROFIT REMOVED: ${uid} $${amount} (debt ${result.toDebt})`);
+      logger.info(`COORD PROFIT REMOVED: ${uid} ${amount} (debt ${result.toDebt})`);
+      await logAdminAction(context, {
+        action: 'remove_coord_profit',
+        uid: uid as string,
+        detail: { amount, memo, fromCash: result.fromCash, toDebt: result.toDebt, shares: result.shares },
+      });
     }
     return { uid, amount, ...result };
   },

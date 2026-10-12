@@ -2,7 +2,7 @@ import RecoverySpikeRepair from './recovery/RecoverySpikeRepair';
 import RecoveryDiagnose from './recovery/RecoveryDiagnose';
 import RecoveryRenameTicker from './recovery/RecoveryRenameTicker';
 import RecoverySplitStock from './recovery/RecoverySplitStock';
-import RecoveryTradeRollback from './recovery/RecoveryTradeRollback';
+import RecoveryPriceHistory from './recovery/RecoveryPriceHistory';
 
 import type { AdminCommonProps } from './types';
 import type { ShowMessage } from '../utils/adminShared';
@@ -17,7 +17,7 @@ import type { PriceMap } from '../../../types';
 import { useTheme } from '../../../context/AppContext';
 
 type RecoveryTabProps = AdminCommonProps &
-  Omit<ReturnType<typeof useAdminBankruptcy>, 'handleRollbackUser'> &
+  ReturnType<typeof useAdminBankruptcy> &
   ReturnType<typeof useAdminSpikeRepair> &
   ReturnType<typeof useAdminBackups> &
   ReturnType<typeof useAdminAccountRepair> &
@@ -84,11 +84,6 @@ const RecoveryTab = ({
   selectedTickerHistory,
   setSelectedTickerHistory,
   getPriceHistoryForTicker,
-  rollbackTimestamp,
-  setRollbackTimestamp,
-  rollbackConfirm,
-  setRollbackConfirm,
-  executeFullRollback,
 }: RecoveryTabProps) => {
   const { darkMode } = useTheme();
   return (
@@ -357,7 +352,7 @@ const RecoveryTab = ({
       />
       <RecoverySplitStock {...{ darkMode, textClass, mutedClass, showMessage }} />
 
-      <RecoveryTradeRollback
+      <RecoveryPriceHistory
         {...{
           darkMode,
           textClass,
@@ -371,11 +366,6 @@ const RecoveryTab = ({
           selectedTickerHistory,
           setSelectedTickerHistory,
           getPriceHistoryForTicker,
-          rollbackTimestamp,
-          setRollbackTimestamp,
-          rollbackConfirm,
-          setRollbackConfirm,
-          executeFullRollback,
         }}
       />
     </div>

@@ -4,11 +4,10 @@ import type { useAdminRecoveryTools } from '../../hooks/useAdminRecoveryTools';
 import type { Character } from '../../../../characters';
 import type { PriceMap } from '../../../../types';
 
-const RecoveryTradeRollback = ({
+const RecoveryPriceHistory = ({
   textClass,
   mutedClass,
   inputClass,
-  loading,
   tradeFilterTicker,
   setTradeFilterTicker,
   sortedCharacters,
@@ -16,22 +15,10 @@ const RecoveryTradeRollback = ({
   selectedTickerHistory,
   setSelectedTickerHistory,
   getPriceHistoryForTicker,
-  rollbackTimestamp,
-  setRollbackTimestamp,
-  rollbackConfirm,
-  setRollbackConfirm,
-  executeFullRollback,
 }: AdminCommonProps &
   Pick<
     ReturnType<typeof useAdminRecoveryTools>,
-    | 'selectedTickerHistory'
-    | 'setSelectedTickerHistory'
-    | 'getPriceHistoryForTicker'
-    | 'rollbackTimestamp'
-    | 'setRollbackTimestamp'
-    | 'rollbackConfirm'
-    | 'setRollbackConfirm'
-    | 'executeFullRollback'
+    'selectedTickerHistory' | 'setSelectedTickerHistory' | 'getPriceHistoryForTicker'
   > & {
     tradeFilterTicker: string;
     setTradeFilterTicker: (ticker: string) => void;
@@ -39,7 +26,7 @@ const RecoveryTradeRollback = ({
     prices: PriceMap;
   }) => (
   <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-    <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Trade History & Rollback</h3>
+    <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Price History</h3>
 
     {/* Ticker selector for investigation */}
     <div className="mb-3">
@@ -82,7 +69,6 @@ const RecoveryTradeRollback = ({
           <span className={`text-sm font-semibold ${textClass}`}>
             ${tradeFilterTicker} Price History ({selectedTickerHistory.length} entries)
           </span>
-          <span className={`text-xs ${mutedClass}`}>Click timestamp to set rollback point</span>
         </div>
         <div className="max-h-48 overflow-y-auto space-y-1">
           {selectedTickerHistory
@@ -95,8 +81,7 @@ const RecoveryTradeRollback = ({
               return (
                 <div
                   key={i}
-                  className="text-xs flex justify-between items-center py-1.5 px-2 rounded cursor-pointer hover:bg-blue-500/20 light:bg-white dark:bg-slate-700"
-                  onClick={() => setRollbackTimestamp(h.timestamp.toString())}
+                  className="text-xs flex justify-between items-center py-1.5 px-2 rounded light:bg-white dark:bg-slate-700"
                 >
                   <span className={mutedClass}>{new Date(h.timestamp).toLocaleString()}</span>
                   <div className="flex items-center gap-3">
@@ -114,56 +99,7 @@ const RecoveryTradeRollback = ({
         </div>
       </div>
     )}
-
-    {/* Rollback Controls */}
-    <div className="p-3 rounded-sm light:bg-red-50 light:border light:border-red-300 dark:bg-red-900/30 dark:border dark:border-red-700">
-      <h4 className="font-semibold text-red-500 mb-2">⚠️ Rollback Trades</h4>
-      <p className={`text-xs ${mutedClass} mb-3`}>
-        This will reverse ALL trades after the selected timestamp and restore prices.
-      </p>
-
-      <div className="flex gap-2 mb-2">
-        <input
-          type="text"
-          value={rollbackTimestamp}
-          onChange={(e) => setRollbackTimestamp(e.target.value)}
-          placeholder="Timestamp (click history above)"
-          className={`flex-1 px-3 py-2 border rounded-sm text-sm ${inputClass}`}
-        />
-      </div>
-
-      {rollbackTimestamp && (
-        <p className={`text-sm ${textClass} mb-2`}>
-          Rollback to:{' '}
-          <span className="text-orange-500 font-semibold">
-            {new Date(parseInt(rollbackTimestamp)).toLocaleString()}
-          </span>
-        </p>
-      )}
-
-      <label className={`flex items-center gap-2 text-sm ${textClass} mb-3`}>
-        <input
-          type="checkbox"
-          checked={rollbackConfirm}
-          onChange={(e) => setRollbackConfirm(e.target.checked)}
-          className="w-4 h-4"
-        />
-        I understand this will reverse ALL trades and cannot be undone
-      </label>
-
-      <button
-        onClick={() => {
-          if (rollbackTimestamp && rollbackConfirm) {
-            executeFullRollback(parseInt(rollbackTimestamp));
-          }
-        }}
-        disabled={loading || !rollbackTimestamp || !rollbackConfirm}
-        className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-      >
-        {loading ? 'Rolling back...' : '⚠️ Execute Full Rollback'}
-      </button>
-    </div>
   </div>
 );
 
-export default RecoveryTradeRollback;
+export default RecoveryPriceHistory;

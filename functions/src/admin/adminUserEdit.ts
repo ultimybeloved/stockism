@@ -17,6 +17,7 @@ import { validateUsernameFormat } from '../shared/usernames';
 import { cohortRemoveUpdate } from '../shared/cohorts';
 import type { UserData } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
+import { logAdminAction } from '../shared/adminLog';
 
 const getUserRef = async (userId: unknown) => {
   if (!userId || typeof userId !== 'string') {
@@ -64,7 +65,7 @@ export const adminChangeDisplayName = cf().https.onCall(
     const userRef = db.collection('users').doc(userId);
     const newUsernameRef = db.collection('usernames').doc(newNameLower);
 
-    return db.runTransaction(async (transaction) => {
+    const result = await db.runTransaction(async (transaction) => {
       const [userDoc, existingDoc] = await Promise.all([transaction.get(userRef), transaction.get(newUsernameRef)]);
 
       if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found');
@@ -93,6 +94,14 @@ export const adminChangeDisplayName = cf().https.onCall(
 
       return { success: true, userId, previousDisplayName: oldDisplayName || null, displayName: trimmed };
     });
+    await logAdminAction(context, {
+      action: 'rename',
+      uid: userId,
+      name: trimmed,
+      before: result.previousDisplayName,
+      after: trimmed,
+    });
+    return result;
   },
 );
 
@@ -133,6 +142,13 @@ export const adminSetCrew = cf().https.onCall(async (data: { userId?: unknown; c
   }
 
   await ref.update(update);
+  await logAdminAction(context, {
+    action: 'set_crew',
+    uid: userId as string,
+    name: userData.displayName,
+    before: { crew: previousCrew, isCrewHead: !!userData.isCrewHead },
+    after: { crew: clearing ? null : crewId, isCrewHead: false },
+  });
   return { success: true, unchanged: false, previousCrew, crew: clearing ? null : crewId };
 });
 
@@ -160,6 +176,13 @@ export const adminGrantAchievement = cf().https.onCall(
     await ref.update({
       achievements: FieldValue.arrayUnion(achievementId),
       [`achievementDates.${achievementId}`]: Date.now(),
+    });
+    await logAdminAction(context, {
+      action: 'grant_achievement',
+      uid: userId as string,
+      name: userData.displayName,
+      before: null,
+      after: achievementId,
     });
 
     return { success: true, alreadyEarned: false, achievementId };
@@ -196,6 +219,13 @@ export const adminSetMargin = cf().https.onCall(
     }
 
     await ref.update(update);
+    await logAdminAction(context, {
+      action: 'set_margin',
+      uid: userId as string,
+      name: userData.displayName,
+      before: { marginEnabled: !!userData.marginEnabled, marginUsed: previousMarginUsed },
+      after: { marginEnabled: enabled, marginUsed: clearDebt ? 0 : previousMarginUsed },
+    });
     return {
       success: true,
       marginEnabled: enabled,
@@ -273,6 +303,17 @@ export const adminSetHolding = cf().https.onCall(
       detail: { by: context.auth!.uid, previousShares, shares: rounded, price },
     });
     await batch.commit();
+    await logAdminAction(context, {
+      action: 'set_holding',
+      uid: userId as string,
+      name: userData.displayName,
+      before: { ticker, shares: previousShares, costBasis: (userData.costBasis || {})[ticker] ?? null },
+      after: {
+        ticker,
+        shares: rounded,
+        costBasis: rounded <= 0 ? null : (update[`costBasis.${ticker}`] ?? (userData.costBasis || {})[ticker] ?? null),
+      },
+    });
     return { success: true, ticker, previousShares, shares: rounded, cleared: rounded <= 0 };
   },
 );
