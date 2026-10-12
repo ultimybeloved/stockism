@@ -17,6 +17,7 @@ const UI_PAL = {
   E: '#7a4420',
   k: '#e5e7eb',
   u: '#2d6a3a',
+  z: '#7dd3fc',
 };
 
 // Grid centre: cells 0-19 measured at their middles, so the true centre is 10.
@@ -535,6 +536,68 @@ const icons = {
     px(4, 16, 'O');
     px(3, 15, 'O');
     px(2, 17, 'D');
+  },
+  // Waiting on a result: an hourglass with sand running down.
+  hourglass: ({ rect, px }) => {
+    const w = (y) => Math.max(1, Math.round(Math.abs(y - 9.5) * 0.85));
+    rect(3, 1, 16, 2, 'n');
+    rect(3, 17, 16, 18, 'n');
+    for (let y = 3; y <= 16; y++) rect(C - w(y), y, C - 1 + w(y), y, 'z');
+    for (let y = 5; y <= 8; y++) if (w(y) > 1) rect(C - w(y) + 1, y, C - 2 + w(y), y, 'Y');
+    rect(9, 9, 10, 13, 'Y');
+    for (let y = 14; y <= 16; y++) rect(C - w(y) + 1, y, C - 2 + w(y), y, 'Y');
+    px(6, 4, 'W');
+  },
+  // About window tabs: an open book, a "?" bubble, a shield with a keyhole.
+  book: ({ rect, px }) => {
+    rect(1, 4, 18, 17, 'b');
+    rect(2, 3, 9, 15, 'W');
+    rect(10, 3, 17, 15, 'W');
+    rect(9, 3, 10, 16, 'S');
+    for (const y of [6, 8, 10, 12]) {
+      rect(3, y, 7, y, 's');
+      rect(12, y, 16, y, 's');
+    }
+    px(9, 16, 'b');
+    px(10, 16, 'b');
+  },
+  faq: ({ rect, px }) => {
+    rect(1, 2, 18, 14, 'B');
+    rect(1, 13, 18, 14, 'b');
+    for (const [x, y] of [
+      [1, 2],
+      [18, 2],
+      [1, 14],
+      [18, 14],
+    ])
+      px(x, y, null);
+    rect(4, 15, 6, 15, 'b');
+    rect(4, 16, 5, 16, 'b');
+    px(4, 17, 'b');
+    bmp(px, 7, 4, ['.XXXX.', 'XX..XX', '....XX', '...XX.', '..XX..', '......', '..XX..'], 'W');
+  },
+  privacy: ({ rect, px }) => {
+    for (let y = 1; y <= 18; y++) {
+      const w = y < 11 ? 8 : 8 - Math.round((y - 10) * 1.05);
+      if (w > 0) rect(C - w, y, C - 1 + w, y, y < 2 ? 'S' : 'G');
+      if (w > 1 && y > 1) rect(C - w + 1, y, C - 2 + w, y, 'g');
+    }
+    rect(10, 2, 17, 11, 'G');
+    bmp(px, 8, 5, ['.XX.', 'XXXX', 'XXXX', '.XX.', '.XX.', '.XX.'], 'N');
+  },
+  // Market halt: an orange pause button.
+  pause: ({ rect, px }) => {
+    rect(2, 2, 17, 17, 'y');
+    rect(2, 2, 17, 15, 'Y');
+    for (const [x, y] of [
+      [2, 2],
+      [17, 2],
+      [2, 17],
+      [17, 17],
+    ])
+      px(x, y, null);
+    rect(6, 5, 8, 14, 'W');
+    rect(11, 5, 13, 14, 'W');
   },
 };
 for (const [name, draw] of Object.entries(icons)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw, UI_PAL));

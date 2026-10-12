@@ -5,6 +5,7 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import AboutTab from './AboutTab';
 import FaqTab from './FaqTab';
 import PrivacyTab from './PrivacyTab';
+import PixelIcon from '../../../shared/components/PixelIcon';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 type AboutTabKey = 'about' | 'faq' | 'privacy';
@@ -37,9 +38,9 @@ const AboutModal = ({ onClose }: { onClose: () => void }) => {
         <div className={`flex border-b ${cardEdgeClass}`}>
           {(
             [
-              { key: 'about', label: '📖 About' },
-              { key: 'faq', label: '❓ FAQ' },
-              { key: 'privacy', label: '🔒 Privacy' },
+              { key: 'about', icon: 'book', label: 'About' },
+              { key: 'faq', icon: 'faq', label: 'FAQ' },
+              { key: 'privacy', icon: 'privacy', label: 'Privacy' },
             ] as const
           ).map((tab) => (
             <button
@@ -49,6 +50,7 @@ const AboutModal = ({ onClose }: { onClose: () => void }) => {
                 activeTab === tab.key ? 'text-orange-500 border-b-2 border-orange-500' : mutedClass
               }`}
             >
+              <PixelIcon name={tab.icon} className="w-4 h-4 mr-1 align-[-3px]" />
               {tab.label}
             </button>
           ))}

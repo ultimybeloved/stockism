@@ -116,7 +116,10 @@ const PredictionCard = ({
           </div>
           <h3 className={`font-semibold ${textClass}`}>{prediction.question}</h3>
           {prediction.mayExtend && !prediction.resolved && (
-            <p className="text-xs text-amber-500 mt-1">⏳ Result may take an extra week to confirm</p>
+            <p className="text-xs text-amber-500 mt-1">
+              <PixelIcon name="hourglass" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+              Result may take an extra week to confirm
+            </p>
           )}
         </div>
         <div className="text-right">
@@ -210,9 +213,10 @@ const PredictionCard = ({
             <div
               className={`text-center py-2 text-sm ${mutedClass} light:bg-slate-200/60 dark:bg-zinc-800/50 rounded-sm`}
             >
+              <PixelIcon name="pause" className="w-4 h-4 mr-1 align-[-3px]" />
               {marketData?.marketHalted
-                ? `⏸️ Betting paused: ${marketData.haltReason || 'market halted'}`
-                : `⏸️ Betting is closed for chapter review. Reopens ${marketTimes().reopen}.`}
+                ? `Betting paused: ${marketData.haltReason || 'market halted'}`
+                : `Betting is closed for chapter review. Reopens ${marketTimes().reopen}.`}
             </div>
           ) : hasExistingBet && !prediction.allowAdditionalBets ? (
             <div

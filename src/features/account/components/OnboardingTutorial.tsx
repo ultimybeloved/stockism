@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { themeClasses } from '../../../utils/theme';
 import { marketTimes } from '../../../utils/localTime';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import { pixelatedIfSvg } from '../../../constants/crests';
 
 const STEPS = [
   {
@@ -37,6 +38,7 @@ const STEPS = [
   {
     title: 'Thursday Halt & Pre-Market',
     emoji: '⏸️',
+    emojiImg: '/pins/ui/pause.svg',
     description: `Every week the market closes (${marketTimes().halt}) while new chapter events get priced in. Near the end (${marketTimes().preMarket}) you can queue pre-market buy and sell orders. They all execute together the moment the market reopens.`,
     spotlight: false,
   },
@@ -112,7 +114,12 @@ export default function OnboardingTutorial({ onComplete }: { onComplete: () => v
         {/* Illustration emoji */}
         <div className="text-5xl text-center mb-4">
           {current.emojiImg ? (
-            <img src={current.emojiImg} alt="" className="w-12 h-12 mx-auto object-contain" />
+            <img
+              src={current.emojiImg}
+              alt=""
+              className="w-12 h-12 mx-auto object-contain"
+              style={pixelatedIfSvg(current.emojiImg)}
+            />
           ) : (
             current.emoji
           )}

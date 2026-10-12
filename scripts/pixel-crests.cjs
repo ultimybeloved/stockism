@@ -80,12 +80,11 @@ const crests = {
         const d = Math.abs(x + 0.5 - 10) + Math.abs(y + 0.5 - 10);
         if (d <= 9.6) px(x, y, d > 7.6 ? (y < 10 ? 'Y' : 'd') : 'e');
       }
-    const B = ['XXX.', 'X..X', 'XXX.', 'X..X', 'X..X', 'XXX.'];
-    const D = ['XX..', 'X.X.', 'X..X', 'X..X', 'X.X.', 'XX..'];
-    bmp(px, 6, 8, B, 'E');
-    bmp(px, 12, 8, D, 'E');
-    bmp(px, 5, 7, B, 'W');
-    bmp(px, 11, 7, D, 'W');
+    // Big bold letters so it still reads at name size; they poke into the rim.
+    const B = ['XXXX.', 'XX..X', 'XX..X', 'XXXX.', 'XX..X', 'XX..X', 'XX..X', 'XXXX.'];
+    const D = ['XXXX.', 'XX..X', 'XX..X', 'XX..X', 'XX..X', 'XX..X', 'XX..X', 'XXXX.'];
+    bmp(px, 4, 6, B, 'W');
+    bmp(px, 11, 6, D, 'W');
   },
   // A raised fist inside a heart.
   fist_gang: ({ disc, rect, px }) => {

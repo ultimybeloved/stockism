@@ -124,7 +124,12 @@ const PredictionHistory = ({
                       </div>
                     )}
                   </div>
-                  {!bet.paid && <p className={`text-xs ${mutedClass} mt-1`}>⏳ Awaiting results...</p>}
+                  {!bet.paid && (
+                    <p className={`text-xs ${mutedClass} mt-1`}>
+                      <PixelIcon name="hourglass" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+                      Awaiting results...
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -186,7 +191,10 @@ const PredictionHistory = ({
                     {paidOut ? (
                       <span className={`${winText} ml-2`}>✓ Paid out to winners</span>
                     ) : bet.prediction?.resolved ? (
-                      <span className="text-amber-500 ml-2">⏳ Payout pending</span>
+                      <span className="text-amber-500 ml-2">
+                        <PixelIcon name="hourglass" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+                        Payout pending
+                      </span>
                     ) : null}
                   </div>
                 </div>

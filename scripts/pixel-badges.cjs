@@ -887,22 +887,27 @@ const badges = {
     px(1, 12, 'c');
   },
   // ── Leaderboard ──
-  top_10: ({ rect, px }) => {
-    // Contender: a race bib with "10" pinned on.
-    rect(3, 4, 16, 15, 'W');
-    rect(3, 4, 16, 6, 'R');
-    rect(3, 15, 16, 15, 'S');
-    px(4, 7, 'S');
-    px(15, 7, 'S');
-    px(4, 14, 'S');
-    px(15, 14, 'S');
-    rect(7, 8, 7, 13, 'N');
-    px(6, 9, 'N');
-    rect(6, 13, 8, 13, 'N');
-    rect(11, 8, 12, 8, 'N');
-    rect(10, 9, 10, 12, 'N');
-    rect(13, 9, 13, 12, 'N');
-    rect(11, 13, 12, 13, 'N');
+  top_10: ({ px }) => {
+    // Contender: a bold white "10" inside a laurel wreath tied with red.
+    for (let y = 3; y <= 16; y++) {
+      const off = Math.round(((y - 10) * (y - 10)) / 18) - 1;
+      px(2 + off, y, 'G');
+      px(17 - off, y, 'G');
+      if (y % 2 === 0) {
+        px(3 + off, y, 'g');
+        px(16 - off, y, 'g');
+        px(1 + off, y - 1, 'g');
+        px(18 - off, y - 1, 'g');
+      }
+    }
+    const paintRows = (x0, y0, rows) =>
+      rows.forEach((row, dy) => [...row].forEach((ch, dx) => ch === 'X' && px(x0 + dx, y0 + dy, 'W')));
+    paintRows(5, 6, ['.XX', 'XXX', '.XX', '.XX', '.XX', '.XX', '.XX']);
+    paintRows(10, 6, ['.XXX.', 'XX.XX', 'XX.XX', 'XX.XX', 'XX.XX', 'XX.XX', '.XXX.']);
+    px(9, 17, 'R');
+    px(10, 17, 'R');
+    px(8, 18, 'R');
+    px(11, 18, 'R');
   },
   top_3: ({ rect, px }) => {
     // Elite: the 1-2-3 podium.
