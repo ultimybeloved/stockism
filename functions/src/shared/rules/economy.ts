@@ -29,6 +29,24 @@ export interface StreakSaverFields {
   streakSaverUntil?: number;
 }
 
+// Only a streak already at the top rung can be saved: buying needs a live
+// streak this long, unless a saver is already running (extending one).
+export const STREAK_SAVER_MIN_STREAK = CHECKIN_STREAK_REWARDS.length;
+
+/** The UTC day (YYYY-MM-DD) before `day`. */
+const dayBefore = (day: string) => new Date(Date.parse(`${day}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+
+/**
+ * The streak as it stands today: the stored streak only counts while the last
+ * check-in was today or yesterday (UTC days); after that a missed day has
+ * already broken it.
+ */
+export const liveCheckinStreak = (storedStreak: number, lastCheckinDay: string | null, today: string) =>
+  lastCheckinDay === today || lastCheckinDay === dayBefore(today) ? storedStreak || 0 : 0;
+
+export const canBuyStreakSaver = (liveStreak: number, saverActive: boolean) =>
+  saverActive || liveStreak >= STREAK_SAVER_MIN_STREAK;
+
 export const streakSaverActive = (u: StreakSaverFields | null | undefined, now = Date.now()) =>
   !!u && (u.streakSaverPermanent === true || (u.streakSaverUntil || 0) > now);
 

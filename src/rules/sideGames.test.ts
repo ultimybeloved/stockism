@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sideGameCommitted, sideGameRoom } from './equity';
-import { checkinRewardFor, streakSaverActive } from './economy';
+import { checkinRewardFor, streakSaverActive, liveCheckinStreak, canBuyStreakSaver } from './economy';
 
 const user = {
   holdings: { AAA: 10 },
@@ -41,5 +41,17 @@ describe('streak saver', () => {
     expect(streakSaverActive({ streakSaverUntil: 20 }, 10)).toBe(true);
     expect(streakSaverActive({ streakSaverUntil: 5 }, 10)).toBe(false);
     expect(streakSaverActive({}, 10)).toBe(false);
+  });
+});
+
+describe('streak saver eligibility', () => {
+  it('needs a live 7-day streak, unless a saver is already running', () => {
+    expect(liveCheckinStreak(9, '2026-10-12', '2026-10-12')).toBe(9);
+    expect(liveCheckinStreak(9, '2026-10-11', '2026-10-12')).toBe(9);
+    expect(liveCheckinStreak(9, '2026-10-10', '2026-10-12')).toBe(0); // missed a day
+    expect(liveCheckinStreak(9, '2026-09-30', '2026-10-01')).toBe(9); // across a month end
+    expect(canBuyStreakSaver(6, false)).toBe(false);
+    expect(canBuyStreakSaver(7, false)).toBe(true);
+    expect(canBuyStreakSaver(0, true)).toBe(true);
   });
 });

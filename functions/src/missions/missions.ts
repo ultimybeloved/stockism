@@ -4,7 +4,14 @@ import * as admin from 'firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
-import { STREAK_SAVER_PLANS, streakSaverActive, checkinRewardFor } from '../shared/rules/economy';
+import {
+  STREAK_SAVER_PLANS,
+  STREAK_SAVER_MIN_STREAK,
+  streakSaverActive,
+  checkinRewardFor,
+  liveCheckinStreak,
+  canBuyStreakSaver,
+} from '../shared/rules/economy';
 import { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } from '../shared/crews';
 import { writeFeedEntry } from '../shared/notifications';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
@@ -229,6 +236,22 @@ export const rerollMissions = cf().https.onCall(async (data, context) => {
 });
 
 /**
+ * The UTC day (YYYY-MM-DD) of a stored lastCheckin, which comes in three shapes:
+ * an old toDateString() string, a Firestore Timestamp, or a plain {seconds}.
+ */
+const lastCheckinDay = (lastCheckin: unknown): string | null => {
+  if (!lastCheckin) return null;
+  if (typeof lastCheckin === 'string') {
+    const parsed = new Date(lastCheckin);
+    return isNaN(parsed.getTime()) ? null : parsed.toISOString().split('T')[0]!;
+  }
+  const ts = lastCheckin as { toDate?: () => Date; seconds?: number };
+  if (typeof ts.toDate === 'function') return ts.toDate().toISOString().split('T')[0]!;
+  if (ts.seconds) return new Date(ts.seconds * 1000).toISOString().split('T')[0]!;
+  return null;
+};
+
+/**
  * Purchase a pin, an extra pin slot or a streak saver from the shop
  */
 export const purchasePin = cf().https.onCall(async (data, context) => {
@@ -320,10 +343,21 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
       if (userData.streakSaverPermanent) {
         throw new functions.https.HttpsError('already-exists', 'You already have the permanent streak saver.');
       }
+      const now = Date.now();
+      const live = liveCheckinStreak(
+        userData.checkinStreak || 0,
+        lastCheckinDay(userData.lastCheckin),
+        new Date(now).toISOString().split('T')[0]!,
+      );
+      if (!canBuyStreakSaver(live, streakSaverActive(userData, now))) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          `You need a ${STREAK_SAVER_MIN_STREAK}-day check-in streak to buy a streak saver.`,
+        );
+      }
       if ((userData.cash || 0) < plan.price) {
         throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
       }
-      const now = Date.now();
       const until =
         plan.days === null ? null : Math.max(now, userData.streakSaverUntil || 0) + plan.days * 24 * 60 * 60 * 1000;
       transaction.update(userRef, {
@@ -375,24 +409,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
       const now = new Date();
       const today = now.toISOString().split('T')[0]!;
 
-      // Handle both string (old format) and Timestamp (new format)
-      let lastCheckinDate = null;
-      if (userData.lastCheckin) {
-        if (typeof userData.lastCheckin === 'string') {
-          // Old format: "Mon Jan 27 2025" from toDateString()
-          // Convert to YYYY-MM-DD for comparison
-          const parsedDate = new Date(userData.lastCheckin);
-          if (!isNaN(parsedDate.getTime())) {
-            lastCheckinDate = parsedDate.toISOString().split('T')[0]!;
-          }
-        } else if (typeof userData.lastCheckin.toDate === 'function') {
-          // New format: Firestore Timestamp
-          lastCheckinDate = userData.lastCheckin.toDate().toISOString().split('T')[0]!;
-        } else if (userData.lastCheckin.seconds) {
-          // Fallback: Plain timestamp object with seconds
-          lastCheckinDate = new Date(userData.lastCheckin.seconds * 1000).toISOString().split('T')[0]!;
-        }
-      }
+      const lastCheckinDate = lastCheckinDay(userData.lastCheckin);
 
       // Check if already checked in today
       if (lastCheckinDate === today) {
