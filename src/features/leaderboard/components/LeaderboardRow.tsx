@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import { useTheme, useSession } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import PinDisplay from '../../../shared/components/PinDisplay';
+import TitleText from '../../../shared/components/TitleText';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
@@ -110,9 +111,7 @@ const LeaderboardRow = ({
           )}
           <PinDisplay userData={leader} size="sm" />
         </div>
-        {leader.title && (
-          <div className="text-xs font-semibold light:text-amber-600 dark:text-amber-400">{leader.title.text}</div>
-        )}
+        <TitleText title={leader.title} />
         {leader.previousDisplayName &&
           leader.nameChangedAt &&
           Date.now() - (nameChangedMs as number) < 30 * 24 * 60 * 60 * 1000 && (

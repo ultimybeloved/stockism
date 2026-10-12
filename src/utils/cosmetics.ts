@@ -61,6 +61,11 @@ const seedStyle = (key: string | null | undefined): CSSProperties => {
   return { '--cos-seed': seconds, '--cos-start': `${degrees}deg` } as CSSProperties;
 };
 
+// The season tier a title belongs to, read off its id (adminEndSeason ends every
+// season title id with the tier), or null for a plain title.
+export const titleTier = (id: string | null | undefined) =>
+  /_(bronze|silver|gold|platinum|diamond)$/.exec(id || '')?.[1] ?? null;
+
 // The season title to show under a player's name, or null.
 //
 // Server payloads (leaderboard, public profile) already arrive as a validated

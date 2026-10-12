@@ -9,6 +9,7 @@ import { ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import type { PublicProfile } from '../../../api/types';
 import { formatCurrency } from '../../../utils/formatters';
 import PinDisplay from '../../../shared/components/PinDisplay';
+import TitleText from '../../../shared/components/TitleText';
 import ProfileAdminPanel from '../components/ProfileAdminPanel';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import { themeClasses } from '../../../utils/theme';
@@ -117,9 +118,7 @@ const PublicProfilePage = () => {
               </span>
               <PinDisplay userData={profile} size="sm" />
             </h1>
-            {profileTitle && (
-              <p className="text-sm font-semibold light:text-amber-600 dark:text-amber-400">{profileTitle.text}</p>
-            )}
+            <TitleText title={profileTitle} className="text-sm" />
             {crew && (
               <div className="flex items-center gap-1.5 mt-1">
                 {crew.icon ? (

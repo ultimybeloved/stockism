@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getCosmeticStyles } from './cosmetics';
+import { getCosmeticStyles, titleTier } from './cosmetics';
 import { frameTrend, frameSeed } from '../rules/cosmetics';
 
 describe('getCosmeticStyles', () => {
@@ -84,5 +84,19 @@ describe('frame personalisation', () => {
     const plain = getCosmeticStyles({ nameColor: 'name_gold' }, null, { seedKey: 'Alice', trend: 'up' });
     expect(plain.frameStyle).toBeUndefined();
     expect(plain.frameTrend).toBeUndefined();
+  });
+});
+
+describe('titleTier', () => {
+  it('reads the season tier off every title id adminEndSeason writes', () => {
+    expect(titleTier('preseason_1_diamond')).toBe('diamond');
+    expect(titleTier('season_2_platinum')).toBe('platinum');
+    expect(titleTier('arc_s1_gold')).toBe('gold');
+  });
+
+  it('treats anything else as a plain title', () => {
+    expect(titleTier('market_maker')).toBeNull();
+    expect(titleTier('diamond_hands')).toBeNull();
+    expect(titleTier(undefined)).toBeNull();
   });
 });

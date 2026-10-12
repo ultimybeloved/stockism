@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { changeDisplayNameFunction } from '../../../api/callables';
 import { getCosmeticStyles, getActiveTitle } from '../../../utils/cosmetics';
 import { frameTrend as frameTrendOf } from '../../../rules/cosmetics';
+import TitleText from '../../../shared/components/TitleText';
 import { validateUsername } from '../../../utils/username';
 import { themeClasses } from '../../../utils/theme';
 import { errorMessage } from '../../../utils/errors';
@@ -76,9 +77,7 @@ const ProfileHeader = ({
           {userData?.displayName}
         </span>
       </h2>
-      {activeTitle && (
-        <p className="text-sm font-semibold light:text-amber-600 dark:text-amber-400">{activeTitle.text}</p>
-      )}
+      <TitleText title={activeTitle} className="text-sm" />
       <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
 
       {!editingName ? (

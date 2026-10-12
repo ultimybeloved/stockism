@@ -4,6 +4,7 @@ import { useTheme, useSession } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import { formatCompactCurrency } from '../../../utils/formatters';
 import PinDisplay from '../../../shared/components/PinDisplay';
+import TitleText from '../../../shared/components/TitleText';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { CSSProperties, Ref } from 'react';
@@ -105,11 +106,7 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
           </span>
         )}
       </div>
-      {leader.title && (
-        <div className="text-[11px] font-semibold truncate light:text-amber-600 dark:text-amber-400">
-          {leader.title.text}
-        </div>
-      )}
+      <TitleText title={leader.title} className="text-[11px]" />
       <div className="flex items-center justify-center gap-1 flex-wrap">
         <PinDisplay userData={leader} size="sm" />
         {leader.isPublic && (

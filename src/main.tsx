@@ -6,6 +6,7 @@ import App from './App';
 import MarketDataProvider from './app/MarketDataProvider';
 import './index.css';
 import './styles/seasonFrames.css';
+import './styles/titles.css';
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
