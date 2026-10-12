@@ -441,16 +441,24 @@ html .cos-name-aurora {
   animation-duration: 2.8s;
 }
 .cos-frame-ember::after {
-  box-shadow: inset 0 0 14px #ea580c40;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 14px #ea580c40;
 }
 .cos-frame-frost::after {
-  box-shadow: inset 0 0 14px #22d3ee40;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 14px #22d3ee40;
 }
 .cos-frame-electric::after {
-  box-shadow: inset 0 0 14px #3b82f640;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 14px #3b82f640;
 }
 .cos-frame-gold::after {
-  box-shadow: inset 0 0 14px #f59e0b40;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 14px #f59e0b40;
   /* The top tier earns a little more: a shine sweeps the row now and then, and
      two sparkles twinkle on the border in between. */
   background-image:
@@ -540,6 +548,16 @@ html .cos-name-aurora {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
+  box-shadow: var(--cos-frame-outer, 0 0 #0000);
+}
+
+/* Light mode: pale rings melt into white, so every shop frame gets a hairline
+   edge and a soft drop shadow, like the season frames. It rides on ::after
+   (every frame's own ::after box-shadow starts with --cos-frame-outer), never on
+   the row, whose box-shadow belongs to glows and crew colours. Swatches stay flat. */
+html:not(.dark)
+  :is(.cos-frame, .cos-frame-ember, .cos-frame-frost, .cos-frame-electric, .cos-frame-gold):not(.cos-swatch) {
+  --cos-frame-outer: 0 0 0 1px #0f172a24, 0 2px 5px -1px #0f172a50;
 }
 
 /* Starter frames: a still metallic ring, no motion. */
@@ -547,19 +565,25 @@ html .cos-name-aurora {
   background-image: linear-gradient(90deg, #475569, #cbd5e1, #64748b, #e2e8f0, #475569);
 }
 .cos-frame-steel::after {
-  box-shadow: inset 0 0 10px #94a3b830;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 10px #94a3b830;
 }
 .cos-frame-jade::before {
   background-image: linear-gradient(90deg, #064e3b, #34d399, #065f46, #6ee7b7, #064e3b);
 }
 .cos-frame-jade::after {
-  box-shadow: inset 0 0 10px #10b98130;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 10px #10b98130;
 }
 .cos-frame-ruby::before {
   background-image: linear-gradient(90deg, #7f1d1d, #f87171, #991b1b, #fca5a5, #7f1d1d);
 }
 .cos-frame-ruby::after {
-  box-shadow: inset 0 0 10px #ef444430;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 10px #ef444430;
 }
 
 /* Ticker Tape: a dark LED tape on all four edges, crawling clockwise (top
@@ -591,7 +615,9 @@ html .cos-frame-ticker::before {
   animation: cosTickerCrawl 16s ease-in-out infinite;
 }
 .cos-frame-ticker::after {
-  box-shadow: inset 0 0 14px #fbbf2422;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 14px #fbbf2422;
 }
 @keyframes cosTickerCrawl {
   0%,
@@ -689,14 +715,18 @@ html .cos-frame-ticker::before {
     calc(100% - 2px) 0px;
 }
 .cos-frame-bullbear[data-trend='up']::after {
-  box-shadow: inset 0 0 16px #22c55e3d;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 16px #22c55e3d;
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 8 L4 5 L6.5 8' fill='none' stroke='%234ade80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 8 L4 5 L6.5 8' fill='none' stroke='%234ade80' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   animation: cosChevronsUp 6s ease-in-out infinite;
 }
 .cos-frame-bullbear[data-trend='down']::after {
-  box-shadow: inset 0 0 16px #ef44443d;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 16px #ef44443d;
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 4.5 L4 7.5 L6.5 4.5' fill='none' stroke='%23f87171' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='12'%3E%3Cpath d='M1.5 4.5 L4 7.5 L6.5 4.5' fill='none' stroke='%23f87171' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -773,6 +803,7 @@ html .cos-frame-ticker::before {
 }
 .cos-frame-bullbear[data-trend='split']::after {
   box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
     inset 12px 0 16px -8px #22c55e3d,
     inset -12px 0 16px -8px #ef44443d;
   background-image:
@@ -870,7 +901,9 @@ html .cos-frame-ticker::before {
     cosGlitchCrack 7.1s steps(1, end) infinite;
 }
 .cos-frame-glitch::after {
-  box-shadow: inset 0 0 12px #a855f72e;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 12px #a855f72e;
   animation: cosGlitchGlow 4.3s steps(1, end) infinite;
 }
 @keyframes cosGlitchColor {
@@ -929,11 +962,14 @@ html .cos-frame-ticker::before {
   0%,
   86%,
   100% {
-    box-shadow: inset 0 0 12px #a855f72e;
+    box-shadow:
+      var(--cos-frame-outer, 0 0 #0000),
+      inset 0 0 12px #a855f72e;
   }
   88%,
   92% {
     box-shadow:
+      var(--cos-frame-outer, 0 0 #0000),
       inset 4px 0 0 #ff004099,
       inset -4px 0 0 #00e5ff99,
       inset 0 0 18px #a855f755;
@@ -941,6 +977,7 @@ html .cos-frame-ticker::before {
   90%,
   94% {
     box-shadow:
+      var(--cos-frame-outer, 0 0 #0000),
       inset -4px 0 0 #ff004099,
       inset 4px 0 0 #00e5ff99,
       inset 0 2px 0 #4d5bff88;
@@ -1054,7 +1091,9 @@ html .cos-frame-ticker::before {
   background-image: linear-gradient(90deg, #7f1d1d, #ef4444, #991b1b, #ef4444, #7f1d1d);
 }
 .cos-frame-bloodline::after {
-  box-shadow: inset 0 0 12px #b91c1c33;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 12px #b91c1c33;
   /* The bottom border is an EKG trace: the ring (::before) leaves its bottom
      edge out and this line takes its place. One tile = one beat, scrolled one
      tile per heartbeat cycle, so a spike passes with every pulse. */
@@ -1075,16 +1114,24 @@ html .cos-frame-ticker::before {
   0%,
   40%,
   100% {
-    box-shadow: inset 0 0 12px #b91c1c33;
+    box-shadow:
+      var(--cos-frame-outer, 0 0 #0000),
+      inset 0 0 12px #b91c1c33;
   }
   8% {
-    box-shadow: inset 0 0 26px #dc262688;
+    box-shadow:
+      var(--cos-frame-outer, 0 0 #0000),
+      inset 0 0 26px #dc262688;
   }
   16% {
-    box-shadow: inset 0 0 12px #b91c1c33;
+    box-shadow:
+      var(--cos-frame-outer, 0 0 #0000),
+      inset 0 0 12px #b91c1c33;
   }
   24% {
-    box-shadow: inset 0 0 22px #dc262670;
+    box-shadow:
+      var(--cos-frame-outer, 0 0 #0000),
+      inset 0 0 22px #dc262670;
   }
 }
 
@@ -1158,7 +1205,9 @@ html .cos-frame-gold::after {
   animation: cosOrbit 18s ease-in-out infinite;
 }
 .cos-frame-comet::after {
-  box-shadow: inset 0 0 14px #fde68a2e;
+  box-shadow:
+    var(--cos-frame-outer, 0 0 #0000),
+    inset 0 0 14px #fde68a2e;
 }
 @keyframes cosOrbit {
   /* Three laps per cycle, resting at 0, 130 and 250 degrees. 1440 degrees is a
