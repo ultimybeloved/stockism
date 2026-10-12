@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ComponentProps } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ErrorBoundary from '../shared/components/ErrorBoundary';
 import DiscordLinkRedirect from './DiscordLinkRedirect';
 
@@ -24,6 +24,8 @@ interface AppRoutesProps {
 
 // Every page, by URL. App builds each page's props; this only maps paths to pages.
 export default function AppRoutes({ home, predictions, profile, onPinAction, onTrade, onShowLogin }: AppRoutesProps) {
+  // A crashed page clears itself when the player navigates somewhere else.
+  const { pathname } = useLocation();
   return (
     <Suspense
       fallback={
@@ -32,7 +34,7 @@ export default function AppRoutes({ home, predictions, profile, onPinAction, onT
         </div>
       }
     >
-      <ErrorBoundary>
+      <ErrorBoundary resetKey={pathname}>
         <Routes>
           <Route path="/" element={<HomePage {...home} />} />
           <Route path="/leaderboard" element={<LeaderboardPage />} />

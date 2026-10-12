@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import MarketDataProvider from './app/MarketDataProvider';
+import CrashScreen from './shared/components/CrashScreen';
 import './index.css';
 import './styles/seasonFrames.css';
 import './styles/titles.css';
@@ -21,7 +22,7 @@ Sentry.init({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Sentry.ErrorBoundary fallback={<p>Something went wrong. Please refresh the page.</p>}>
+      <Sentry.ErrorBoundary fallback={({ error }) => <CrashScreen error={error} fullPage />}>
         <MarketDataProvider>
           <App />
         </MarketDataProvider>
