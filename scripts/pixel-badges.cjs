@@ -807,6 +807,156 @@ const badges = {
     rect(15, 15, 16, 15, 'R');
     rect(16, 2, 16, 13, 'r');
   },
+  // ── Dedication ──
+  dedicated_7: ({ rect, px }) => {
+    // Regular: a steaming coffee mug, the regular's order.
+    rect(2, 17, 17, 18, 'S');
+    rect(4, 6, 13, 16, 'W');
+    rect(13, 7, 13, 16, 'S');
+    rect(4, 6, 13, 6, 'S');
+    rect(5, 7, 12, 8, 'n');
+    rect(4, 11, 13, 12, 'R');
+    rect(14, 9, 16, 9, 'W');
+    rect(16, 10, 16, 13, 'W');
+    rect(14, 14, 16, 14, 'W');
+    for (const x of [6, 10]) {
+      px(x, 4, 'S');
+      px(x, 3, 'S');
+      px(x + 1, 2, 'S');
+      px(x + 1, 1, 'S');
+      px(x, 0, 'S');
+    }
+  },
+  dedicated_14: ({ disc, rect, px }) => {
+    // Committed: a diamond engagement ring.
+    disc(C, 12.5, 6.2, 'Y', (x, y) => (x + 0.5 - C) ** 2 + (y + 0.5 - 12.5) ** 2 > 4.4 * 4.4);
+    disc(C, 12.5, 6.2, 'd', (x, y) => y >= 14 && x >= 10 && (x + 0.5 - C) ** 2 + (y + 0.5 - 12.5) ** 2 > 4.4 * 4.4);
+    rect(8, 1, 11, 1, 'c');
+    rect(7, 2, 12, 2, 'c');
+    rect(7, 3, 12, 3, 'B');
+    rect(8, 4, 11, 4, 'B');
+    rect(9, 5, 10, 5, 'b');
+    px(8, 1, 'W');
+    px(7, 2, 'W');
+    px(7, 4, 'Y');
+    px(12, 4, 'Y');
+    rect(8, 6, 11, 6, 'Y');
+    px(3, 2, 'W');
+    px(16, 1, 'W');
+    px(15, 5, 'c');
+  },
+  dedicated_30: ({ rect, px }) => {
+    // Devoted: a candle burning steady.
+    const flame = { 1: [9, 9], 2: [9, 10], 3: [8, 10], 4: [8, 11], 5: [8, 11], 6: [9, 10] };
+    for (const [y, [a, b]] of Object.entries(flame)) rect(a, +y, b, +y, 'y');
+    rect(9, 3, 9, 5, 'Y');
+    px(10, 4, 'Y');
+    px(9, 4, 'W');
+    px(9, 7, 'N');
+    rect(7, 8, 12, 16, 'W');
+    rect(12, 8, 12, 16, 'S');
+    px(7, 9, 'W');
+    px(6, 9, 'W');
+    px(6, 10, 'W');
+    rect(4, 16, 15, 17, 'd');
+    rect(5, 16, 14, 16, 'Y');
+    rect(16, 16, 17, 16, 'd');
+    px(4, 3, 'Y');
+    px(15, 2, 'Y');
+    px(14, 6, 'y');
+  },
+  dedicated_100: ({ rect, px }) => {
+    // Legendary: the sword in the stone.
+    const stone = { 13: [6, 13], 14: [4, 15], 15: [3, 16], 16: [3, 16], 17: [3, 16], 18: [3, 16] };
+    for (const [y, [a, b]] of Object.entries(stone)) rect(a, +y, b, +y, 'S');
+    px(6, 16, 's');
+    px(7, 17, 's');
+    px(13, 15, 's');
+    px(14, 16, 's');
+    rect(3, 18, 16, 18, 's');
+    px(2, 18, 'G');
+    px(17, 18, 'G');
+    px(1, 18, 'g');
+    rect(9, 6, 10, 13, 'W');
+    rect(10, 6, 10, 13, 'S');
+    rect(6, 5, 13, 5, 'Y');
+    rect(9, 1, 10, 4, 'n');
+    rect(9, 0, 10, 0, 'Y');
+    px(6, 4, 'Y');
+    px(13, 4, 'Y');
+    px(5, 8, 'c');
+    px(14, 9, 'c');
+    px(4, 2, 'c');
+    px(15, 2, 'W');
+  },
+
+  // ── Missions ──
+  mission_10: ({ rect, px }) => {
+    // Task runner: a running sneaker with speed lines.
+    const upper = { 9: [9, 12], 10: [6, 13], 11: [4, 15], 12: [3, 16], 13: [3, 17] };
+    for (const [y, [a, b]] of Object.entries(upper)) rect(a, +y, b, +y, 'R');
+    rect(8, 9, 11, 9, 'N');
+    px(10, 10, 'W');
+    px(11, 11, 'W');
+    px(12, 12, 'W');
+    rect(4, 12, 9, 12, 'W');
+    rect(3, 10, 5, 11, 'r');
+    rect(2, 14, 18, 15, 'W');
+    rect(2, 16, 18, 16, 's');
+    px(18, 14, 'S');
+    rect(0, 9, 2, 9, 'S');
+    rect(0, 11, 1, 11, 'S');
+    rect(0, 13, 1, 13, 's');
+  },
+  mission_50: ({ rect, px }) => {
+    // Mission master: a treasure map, the dotted route ending at the red X.
+    rect(2, 3, 17, 16, 'p');
+    rect(2, 3, 17, 3, 'O');
+    rect(2, 16, 17, 16, 'O');
+    px(2, 8, 'O');
+    px(17, 11, 'O');
+    px(6, 16, 'n');
+    px(12, 3, 'n');
+    for (const [x, y] of [
+      [4, 14],
+      [6, 13],
+      [8, 13],
+      [9, 11],
+      [8, 9],
+      [10, 8],
+      [12, 8],
+    ])
+      px(x, y, 'n');
+    px(4, 14, 'G');
+    rect(3, 13, 4, 14, 'G');
+    px(13, 5, 'R');
+    px(15, 5, 'R');
+    px(14, 6, 'R');
+    px(13, 7, 'R');
+    px(15, 7, 'R');
+    rect(4, 5, 5, 6, 'G');
+    px(4, 4, 'G');
+    rect(14, 12, 15, 13, 'B');
+  },
+  mission_100: ({ disc, rect, px }) => {
+    // Mission legend: a flag planted on the moon, mission accomplished.
+    disc(9.5, 22, 10.5, 'S');
+    px(5, 15, 's');
+    px(6, 15, 's');
+    px(13, 14, 's');
+    px(14, 16, 's');
+    px(9, 17, 's');
+    px(10, 17, 's');
+    rect(9, 2, 9, 13, 'W');
+    rect(10, 2, 16, 7, 'R');
+    rect(10, 4, 16, 5, 'W');
+    px(10, 2, 'r');
+    px(2, 3, 'W');
+    px(4, 9, 'W');
+    px(17, 10, 'W');
+    px(15, 0, 'Y');
+    px(1, 12, 'c');
+  },
 };
 for (const [name, draw] of Object.entries(badges)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw));
 console.log('wrote', Object.keys(badges).length);
