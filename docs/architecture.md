@@ -329,6 +329,38 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/moderation/coordReview.ts` | Admin: what a flagged push made a player (math in `coordProfitMath.ts`, internal, unit-tested against the real 9/17 raid) and removing it — cash first, rest as margin debt, refused below the forced-sale line |
 | `functions/src/season/seasonTiers.ts` | **Internal module, not in services.ts.** The tier rules: Bronze/Silver/Gold banked at checkpoints, Platinum/Diamond ranked within each size division (SEASON_DIVISIONS) at season end. Thresholds and money maths come from the shared `rules/seasons` + `rules/seasonMoney`; `functions/src/season/seasonTiers.test.ts` checks the site's week derivation matches |
 | `functions/src/season/seasonMoney.ts` | **Internal module.** Writes the season margin tally and reads server-only counters; re-exports the shared `rules/seasonMoney` maths. Re-exported by seasonTiers.ts |
+| `functions/src/admin/adminAnalytics.ts` | adminReturnDistribution: read-only measurements for design decisions (how returns are spread), never changes state |
+| `functions/src/admin/adminCashLog.ts` | adminListCashLog: read side of the `adminCashLog` audit trail adminSetCash writes |
+| `functions/src/admin/adminCashNotify.ts` | **Internal module.** Bell + Discord DM when an admin grants cash or a cosmetic |
+| `functions/src/admin/adminGiftLog.ts` | adminListGifts: the gift log with same-connection / alt-scan / watchlist flags, for spotting alts feeding a main |
+| `functions/src/admin/haltAudit.ts` | haltPriceAudit (Thursday 21:05 UTC): flags untagged price points inside the halt, DMs the admin, silent when clean. Pure logic in `haltAuditCore.ts` (internal, unit-tested). Manual version: `npm run audit:halt` |
+| `functions/src/crews/crewMissions.ts` | claimCrewMission; progress writing lives in an internal module |
+| `functions/src/discord/discordMessages.ts` | Admin Discord tab: post, edit, delete and import bot messages. Payload shaping in `discordMessagePayload.ts` (internal) |
+| `functions/src/discord/discordCommands.ts` | **Internal module.** Companion-bot slash-command handlers, driven by discordInteractions.ts |
+| `functions/src/discord/discordRoles.ts` | **Internal module.** Crew head role preflight and sync (only adds/removes assignments, never edits roles) |
+| `functions/src/discord/dailyDropRoll.ts` | **Internal module.** The daily free-stock loot roll |
+| `functions/src/discord/dropAudit.ts` | auditUserDrops: daily-drop claim auditing |
+| `functions/src/ladder/ladderTransfers.ts` | Ladder deposits, withdrawals (with the shared withdrawal tax) and adminTransferToLadder. Deposit caps in `shared/ladderMath.ts` |
+| `functions/src/margin/marginForceCover.ts` | **Internal module.** The forced short cover transaction used by the scanners |
+| `functions/src/market/marketMaker.ts` | marketMakerCycle: nudges stocks that stray more than 12% from their 7-day average |
+| `functions/src/market/neglectDecay.ts` | applyNeglectDecay: untraded stocks drift down toward a hidden floor. The decision is in `neglectDecayRules.ts` (internal, unit-tested) |
+| `functions/src/market/reviewChanges.ts` | **Internal module.** Persists what the admin changed during a chapter review (market/reviewChanges) and the collapse work |
+| `functions/src/market/reviewCollapse.ts` | collapseReviewHistory (20:54 UTC) + manual trigger: folds a finished review to one price point per stock, stashing detail in market/reviewDetail |
+| `functions/src/market/stockSplitMath.ts` | **Internal module.** Pure helpers for what a split does to each document |
+| `functions/src/market/migrationWalk.ts` | **Internal module.** Time-budgeted collection walks shared by the rename and split engines |
+| `functions/src/moderation/altDetection.ts` | scanForAltAccounts (scheduled) + manual trigger + alert review: proactive alt detection off stored IPs |
+| `functions/src/moderation/coordClustering.ts` | **Internal module.** Pure trade clustering behind coordDetection.ts |
+| `functions/src/orders/limitOrderGuards.ts` | **Internal module.** Limit-order sweep screening; thrown wording decides cancel vs defer |
+| `functions/src/orders/limitOrderEffects.ts` | **Internal module.** Post-commit notifications and feed posts for limit-order fills and cancels |
+| `functions/src/predictions/eventMarket.ts` | Long-term event markets (LMSR): buy/sell shares, settlements, cancel |
+| `functions/src/season/seasonDryRun.ts` | Season dry run: what the rules would hand out, written to a report only |
+| `functions/src/shared/indexMaintenance.ts` | **Internal module.** The divisor-adjusted market index |
+| `functions/src/shared/ladderMath.ts` | **Internal module.** Ladder deposit ramp and chip balances |
+| `functions/src/trading/tradeBackfill.ts` | backfillFillTradeRecords: rebuilds missing trade records from completed orders |
+| `functions/src/users/cosmeticGifts.ts` | giftCosmetic: gift a cosmetic or a whole bundle; writes `giftLog` and both ledger sides |
+| `functions/src/users/disposableEmail.ts` | **Internal module.** Disposable email blocking at signup |
+| `functions/src/users/ipCap.ts` | **Internal module.** Pure per-IP account counting for the signup cap |
+| `functions/src/users/signupCluster.ts` | **Internal module.** Email normalisation and clustering for the recent-signup report |
 
 ---
 

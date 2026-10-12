@@ -115,24 +115,30 @@ left alone on purpose: they are market history.
 
 ---
 
-### ban-user.js
-Ban a user and disable their account.
+### Everything else
 
-**Usage:**
-```bash
-node scripts/ban-user.js <userId>
-```
+Read-only unless marked. Each file's header comment has the full usage.
 
-**Example:**
-```bash
-node scripts/ban-user.js iTsQ6vLOmpUvjHHj6shx6itZARZ2
-```
+| Script | What it does |
+|---|---|
+| `halt-price-audit.cjs` (`npm run audit:halt [date]`) | What moved prices during a Thursday halt. Runs automatically every Thursday as `haltPriceAudit`; use this for a specific day |
+| `halt-window-audit.cjs` / `halt-window-profit.cjs` | Who traded inside the halt window, and whether it paid |
+| `pre-halt-check.cjs` | Looks for trading on advance knowledge of a chapter |
+| `who-is.cjs` | Find an account by name |
+| `account-forensics.cjs` | Week-by-week history of one account against exploit patch dates |
+| `alt-verdicts.cjs`, `alt-audit.cjs`, `connection-map.cjs`, `whose-connection.cjs` | Alt-account investigation: who works together, and which accounts are one person |
+| `household-roster.cjs`, `household-report.cjs`, `link-detail.cjs`, `link-report.cjs`, `location-matrix.cjs` | Accounts sharing a connection, measured directly |
+| `cluster-pump.cjs` | What a linked group did to prices, treated as one trader |
+| `sim-daily-drop.cjs` | Simulates the daily drop payout against live prices |
+| `download-backup.cjs` | Downloads the latest market backup from Storage |
+| `emergency-restore.cjs` | **WRITES.** Restores price history from the latest backup over live data. Last resort; the admin panel's restore is the normal path |
+| `collapse-review-history.cjs` | **WRITES.** Collapses one chapter review's price-history staircase by hand (the 20:54 job normally does this) |
+| `post-rules.cjs` | **WRITES to Discord.** Posts or edits the server rules message |
+| `register-discord-commands.cjs` (`npm run discord:commands`), `sync-crew-emojis.cjs` (`npm run discord:emojis`) | **WRITES to Discord.** Bot slash commands and crew emojis. `discord-api.cjs` is their shared plumbing |
+| `seed-emulator.cjs`, `set-sandbox-state.cjs`, `loadtest-*.cjs` | Local emulator sandbox only |
+| `sync-chars.cjs`, `check-*.cjs`, `deploy-functions.cjs` | Build and deploy tooling, run through the npm scripts in the root package.json |
 
-**What it does:**
-- ✅ Disables Firebase authentication (can't sign in)
-- ✅ Marks account as banned in database
-- ✅ Resets cash and portfolio to $1000
-- ✅ Clears holdings and shorts
+Banning a player is done from the admin panel (`banUser`), which also books the ledger. The old `ban-user.js` wrote cash directly and was removed.
 
 ---
 
