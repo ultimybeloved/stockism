@@ -206,7 +206,9 @@ const executeSweepFill = async (
     const historyPoints: Record<string, PricePoint> = {};
     for (const [t, price] of moved) {
       priceWrites[`prices.${t}`] = price;
-      historyPoints[t] = { timestamp: now, price };
+      // Tagged: this sweep runs at 20:56, inside the halt, and an untagged point
+      // there is what the weekly halt audit treats as unexplained.
+      historyPoints[t] = { timestamp: now, price, source: 'open_stop_loss' };
     }
     transaction.update(marketRef, priceWrites);
     appendPriceHistory(transaction, historyPoints);

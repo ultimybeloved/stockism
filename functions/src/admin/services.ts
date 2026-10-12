@@ -12,5 +12,6 @@ export = [
   'adminUserEdit',
   'archiving',
   'billing',
+  'haltAudit',
   'health',
 ];

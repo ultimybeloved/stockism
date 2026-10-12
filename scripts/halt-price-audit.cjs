@@ -18,6 +18,10 @@
 // untagged points and moved ~40 stocks straight through the 2026-08-20 review
 // with nothing on screen or in the data saying so.
 //
+// The same check runs automatically every Thursday at 21:05 UTC (haltPriceAudit
+// in functions/src/admin/haltAudit.ts) and DMs the admin only when it finds
+// something. This script is for looking at a specific day by hand.
+//
 // Writes nothing.
 
 const fs = require('fs');
