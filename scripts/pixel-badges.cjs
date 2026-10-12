@@ -25,6 +25,11 @@ const PAL = {
   P: '#b55088',
   T: '#68386c',
   O: '#e4a672',
+  n: '#8a4b2a',
+  m: '#5c2e1a',
+  q: '#f49ac2',
+  Q: '#c8628f',
+  d: '#b8860b',
   V: '#8b5cf6',
   v: '#5b2bb5',
   p: '#f5b8a0',
@@ -412,6 +417,236 @@ const badges = {
       line(x0, y0 + 2, x1 + 2, y1 - 2, 'r');
       px(x0, y0, 'W');
     }
+  },
+  // ── Portfolio ──
+  broke_2k: ({ disc, rect, line, px }) => {
+    // Breaking even... kinda: a standing piggy bank, cracked and patched with a band-aid, one coin going in.
+    disc(10.5, 11, 6.4, 'q');
+    rect(2, 10, 4, 13, 'q');
+    px(3, 11, 'Q');
+    px(3, 12, 'Q');
+    rect(6, 4, 7, 5, 'Q');
+    px(6, 8, 'K');
+    rect(5, 16, 6, 18, 'q');
+    rect(14, 16, 15, 18, 'q');
+    rect(8, 17, 9, 18, 'Q');
+    rect(11, 17, 12, 18, 'Q');
+    px(17, 9, 'Q');
+    px(18, 8, 'Q');
+    px(18, 10, 'Q');
+    rect(9, 5, 12, 5, 'N');
+    px(10, 15, 'Q');
+    px(9, 16, 'Q');
+    px(16, 7, 'Q');
+    px(15, 6, 'Q');
+    line(11, 13, 15, 9, 'O');
+    line(12, 13, 16, 9, 'O');
+    line(11, 12, 15, 8, 'O');
+    px(13, 11, 'W');
+    px(14, 10, 'W');
+    px(13, 10, 'W');
+    px(14, 11, 'W');
+    rect(10, 1, 11, 3, 'Y');
+    px(10, 1, 'W');
+    px(6, 9, 'W');
+    px(5, 10, 'W');
+  },
+  broke_5k: ({ rect, px }) => {
+    // High roller: a pair of dice.
+    rect(2, 4, 9, 11, 'W');
+    rect(2, 11, 9, 11, 'S');
+    rect(9, 4, 9, 11, 'S');
+    for (const [x, y] of [
+      [3, 5],
+      [7, 5],
+      [5, 7],
+      [3, 9],
+      [7, 9],
+    ])
+      px(x, y, 'N');
+    rect(10, 9, 17, 16, 'W');
+    rect(10, 16, 17, 16, 'S');
+    rect(17, 9, 17, 16, 'S');
+    for (const [x, y] of [
+      [11, 10],
+      [13, 12],
+      [15, 14],
+    ])
+      px(x, y, 'R');
+  },
+  broke_10k: ({ rect, line, px }) => {
+    // Big shot: a gold VIP lanyard pass.
+    line(3, 0, 8, 5, 'R');
+    line(16, 0, 11, 5, 'R');
+    rect(9, 4, 10, 5, 'S');
+    rect(4, 6, 15, 17, 'W');
+    rect(4, 6, 15, 8, 'Y');
+    rect(4, 17, 15, 17, 'S');
+    rect(8, 7, 11, 7, 'y');
+    for (const y of [10, 11, 12]) {
+      px(5, y, 'N');
+      px(7, y, 'N');
+    }
+    px(6, 13, 'N');
+    px(6, 14, 'N');
+    rect(9, 10, 9, 14, 'N');
+    rect(11, 10, 12, 10, 'N');
+    px(11, 11, 'N');
+    px(13, 11, 'N');
+    rect(11, 12, 12, 12, 'N');
+    rect(11, 13, 11, 14, 'N');
+  },
+  broke_25k: ({ rect }) => {
+    // Tycoon: a top hat.
+    rect(5, 2, 14, 13, 'N');
+    rect(6, 3, 6, 9, 's');
+    rect(5, 10, 14, 11, 'R');
+    rect(5, 11, 14, 11, 'r');
+    rect(1, 13, 18, 14, 'N');
+    rect(2, 15, 17, 15, 's');
+  },
+  broke_50k: ({ disc, rect, line }) => {
+    // Well established: a big tree with deep roots spreading underground.
+    rect(2, 13, 17, 19, 'm');
+    for (const [x0, y0, x1, y1] of [
+      [9, 13, 4, 18],
+      [10, 13, 15, 18],
+      [9, 14, 8, 19],
+      [10, 14, 12, 19],
+      [9, 15, 6, 19],
+      [10, 15, 13, 17],
+    ])
+      line(x0, y0, x1, y1, 'O');
+    rect(9, 9, 10, 13, 'n');
+    rect(2, 12, 17, 12, 'g');
+    disc(9.5, 5, 4.8, 'G');
+    disc(5.5, 7, 3, 'G');
+    disc(13.5, 7, 3, 'G');
+    disc(8, 3.5, 1.6, 'g');
+    disc(4.5, 6, 1, 'g');
+    disc(12.5, 5.5, 1, 'g');
+  },
+  broke_100k: ({ rect, px }) => {
+    // Six figures: a glowing LED counter that just rolled over to 100K.
+    rect(0, 4, 19, 15, 's');
+    rect(1, 5, 18, 14, 'N');
+    const glyphs = {
+      1: ['.#.', '##.', '.#.', '.#.', '###'],
+      0: ['###', '#.#', '#.#', '#.#', '###'],
+      K: ['#.#', '##.', '#..', '##.', '#.#'],
+    };
+    const draw = (ch, x, y) =>
+      glyphs[ch].forEach((row, dy) => [...row].forEach((c, dx) => c === '#' && px(x + dx, y + dy, 'g')));
+    ['1', '0', '0', 'K'].forEach((ch, i) => draw(ch, 2 + i * 4, 7));
+    rect(2, 13, 17, 13, 'G');
+    px(1, 5, 'S');
+    rect(8, 16, 11, 17, 's');
+  },
+  broke_250k: ({ rect, px }) => {
+    // Market shark: a shark in a suit and red tie, all teeth.
+    rect(9, 0, 10, 2, 's');
+    rect(8, 2, 11, 2, 's');
+    rect(6, 3, 13, 3, 's');
+    rect(4, 4, 15, 12, 's');
+    rect(5, 12, 14, 12, 'S');
+    rect(5, 8, 14, 11, 'r');
+    for (let x = 5; x <= 14; x += 2) {
+      px(x, 8, 'W');
+      px(x + 1, 11, 'W');
+    }
+    px(6, 6, 'K');
+    px(13, 6, 'K');
+    rect(5, 5, 6, 5, 'S');
+    rect(13, 5, 14, 5, 'S');
+    rect(3, 13, 16, 19, 'N');
+    rect(5, 13, 8, 14, 'W');
+    rect(11, 13, 14, 14, 'W');
+    rect(9, 13, 10, 14, 'R');
+    rect(9, 15, 10, 17, 'R');
+    px(9, 18, 'r');
+    px(10, 18, 'r');
+  },
+  broke_500k: ({ rect, line, px }) => {
+    // Untouchable: a shield with arrows bouncing off it.
+    const rows = {
+      3: [5, 14],
+      4: [5, 14],
+      5: [5, 14],
+      6: [5, 14],
+      7: [5, 14],
+      8: [5, 14],
+      9: [5, 14],
+      10: [5, 14],
+      11: [5, 14],
+      12: [6, 13],
+      13: [6, 13],
+      14: [7, 12],
+      15: [8, 11],
+      16: [9, 10],
+    };
+    for (const [y, [a, b]] of Object.entries(rows)) rect(a, +y, b, +y, 'B');
+    rect(6, 4, 6, 11, 'c');
+    rect(5, 3, 14, 3, 'c');
+    px(9, 6, 'Y');
+    px(10, 6, 'Y');
+    rect(8, 7, 11, 8, 'Y');
+    px(9, 9, 'Y');
+    px(10, 9, 'Y');
+    px(9, 7, 'W');
+    line(0, 3, 2, 5, 'n');
+    px(3, 6, 'S');
+    px(0, 2, 'W');
+    px(4, 4, 'Y');
+    px(3, 8, 'Y');
+    line(19, 13, 17, 11, 'n');
+    px(16, 10, 'S');
+    px(19, 14, 'W');
+    px(16, 12, 'Y');
+    px(15, 8, 'Y');
+  },
+  broke_1m: ({ rect, px }) => {
+    // First million: an open treasure chest heaped with gold.
+    rect(3, 3, 16, 6, 'm');
+    rect(4, 4, 15, 5, 'n');
+    rect(6, 7, 13, 7, 'Y');
+    rect(4, 8, 15, 8, 'Y');
+    rect(3, 9, 16, 9, 'Y');
+    px(8, 7, 'R');
+    px(12, 8, 'c');
+    px(6, 9, 'y');
+    px(14, 9, 'y');
+    px(10, 8, 'W');
+    rect(3, 10, 16, 17, 'n');
+    rect(3, 10, 16, 11, 'Y');
+    rect(9, 12, 10, 14, 'Y');
+    px(9, 13, 'K');
+    rect(3, 17, 16, 17, 'm');
+    px(1, 2, 'W');
+    px(18, 3, 'W');
+    px(0, 8, 'Y');
+  },
+  dividend_demon: ({ rect, px }) => {
+    // Dividend demon: a devil's pitchfork with gold coins skewered on its prongs, rising out of flames.
+    rect(3, 18, 16, 19, 'R');
+    for (const c of [5, 10, 14]) {
+      rect(c - 1, 15, c + 1, 19, 'y');
+      px(c, 14, 'y');
+      rect(c, 16, c, 18, 'Y');
+    }
+    rect(9, 9, 10, 17, 'r');
+    rect(4, 8, 15, 9, 'R');
+    rect(4, 9, 15, 9, 'r');
+    rect(4, 2, 5, 7, 'R');
+    rect(9, 0, 10, 7, 'R');
+    rect(14, 2, 15, 7, 'R');
+    const coin = (x0, y0) => {
+      rect(x0, y0, x0 + 3, y0 + 2, 'Y');
+      rect(x0, y0 + 2, x0 + 3, y0 + 2, 'd');
+      px(x0, y0, 'W');
+    };
+    coin(3, 4);
+    coin(8, 3);
+    coin(13, 4);
   },
 };
 for (const [name, draw] of Object.entries(badges)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw));
