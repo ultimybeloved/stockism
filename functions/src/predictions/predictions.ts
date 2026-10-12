@@ -14,6 +14,8 @@ import { reportError } from '../shared/sentry';
 import { applyDueIPOJumps, appendPriceHistory } from '../shared/marketData';
 import { touchLastActive, recordHeartbeat } from '../shared/activity';
 import { recordLedger } from '../shared/ledger';
+import { sideGameRoom } from '../shared/rules/equity';
+import { getLadderWithdrawable } from '../shared/ladderMath';
 
 export const placeBet = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -39,12 +41,14 @@ export const placeBet = cf().https.onCall(async (data, context) => {
   const userRef = db.collection('users').doc(uid);
   const predictionsRef = db.collection('predictions').doc('current');
   const marketRef = db.collection('market').doc('current');
+  const ladderRef = db.collection('ladderGameUsers').doc(uid);
 
   return db.runTransaction(async (transaction) => {
-    const [userDoc, predictionsDoc, marketDoc] = await Promise.all([
+    const [userDoc, predictionsDoc, marketDoc, ladderDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(predictionsRef),
       transaction.get(marketRef),
+      transaction.get(ladderRef),
     ]);
 
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
@@ -85,20 +89,21 @@ export const placeBet = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
     }
 
-    // Check bet limit (can't bet more than total invested value)
+    // Bet limit: everything riding on the side games (ladder, long-term
+    // markets, open weekly bets, this one included) can't exceed what the
+    // player has invested in stocks (rules/equity sideGameRoom).
     const totalInvested = getTotalInvested(userData);
 
     if (totalInvested <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Must invest in stocks before betting.');
     }
 
-    // Enforce bet limit: can't bet more than total invested or available cash
-    const betLimit = Math.min(totalInvested, userData.cash || 0);
-    const existingBetOnThis = userData.bets?.[predictionId]?.amount || 0;
-    if (amount > betLimit - existingBetOnThis) {
+    const room = sideGameRoom(userData, predictionsList, getLadderWithdrawable(ladderDoc.data()));
+    const betLimit = Math.min(room, userData.cash || 0);
+    if (amount > betLimit) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Bet exceeds limit. Max: $${Math.max(0, betLimit - existingBetOnThis).toFixed(2)}`,
+        `Bet exceeds limit. Max: $${Math.max(0, betLimit).toFixed(2)}. Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks.`,
       );
     }
 

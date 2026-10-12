@@ -4,7 +4,13 @@ import * as admin from 'firebase-admin';
 const db = admin.firestore();
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { getTotalInvested, grantedFlowUpdate } from '../shared/equity';
-import { getLadderDepositFactor, getLadderRampEndDate, getLadderChips } from '../shared/ladderMath';
+import {
+  getLadderDepositFactor,
+  getLadderRampEndDate,
+  getLadderChips,
+  getLadderWithdrawable,
+} from '../shared/ladderMath';
+import { sideGameRoom, type PredictionRef } from '../shared/rules/equity';
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import {
@@ -40,6 +46,12 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   try {
+    // Which weekly predictions are still open, for the shared side-game cap.
+    // Read outside the transaction: the bets themselves sit on the user doc,
+    // which the transaction does read, and this list rarely changes.
+    const predSnap = await db.collection('predictions').doc('current').get();
+    const predictions: PredictionRef[] = (predSnap.exists && predSnap.data()!.list) || [];
+
     return await db.runTransaction(async (transaction) => {
       const mainUserRef = db.collection('users').doc(uid);
       const ladderUserRef = db.collection('ladderGameUsers').doc(uid);
@@ -110,14 +122,16 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
         );
       }
 
-      // Enforce the invested-in-stocks cap on the ladder balance.
-      if (currentBalance + amount > totalInvested) {
-        const room = Math.max(0, totalInvested - currentBalance);
+      // Invested-in-stocks cap, shared with weekly bets and long-term markets
+      // (rules/equity sideGameRoom). Counts the player's own money in the
+      // ladder, not the free check-in chips.
+      const room = sideGameRoom(mainUser, predictions, getLadderWithdrawable(ladderUserDoc.data()));
+      if (amount > room) {
         throw new functions.https.HttpsError(
           'failed-precondition',
           room <= 0
-            ? `Your ladder balance is at your invested amount ($${totalInvested.toFixed(2)}). Invest more in stocks to deposit more.`
-            : `You can only deposit $${room.toFixed(2)} more — the ladder game is capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`,
+            ? `You're at your limit. Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). Invest more to deposit more.`
+            : `You can only deposit $${room.toFixed(2)} more. Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`,
         );
       }
 

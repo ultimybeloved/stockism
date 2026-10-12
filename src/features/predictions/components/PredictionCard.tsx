@@ -312,7 +312,7 @@ const PredictionCard = ({
                 {betLimit > 0 && (
                   <div className={`text-xs ${mutedClass} mt-1`}>
                     Your bet limit: <span className="text-orange-500 font-semibold">{formatCurrency(betLimit)}</span>
-                    <span className="opacity-70"> (based on market investment)</span>
+                    <span className="opacity-70"> (shared with long-term markets and the ladder)</span>
                   </div>
                 )}
               </div>

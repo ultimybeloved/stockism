@@ -12,6 +12,7 @@ import GiftDialog from './pinshop/GiftDialog';
 import type { ShopPin } from '../../../crews';
 import type { Cosmetic } from '../../../constants/cosmetics';
 import type { Bundle } from '../../../rules/shop';
+import type { StreakSaverPlan } from '../../../rules/economy';
 import type { PinAction, GiftTarget } from '../hooks/usePinShop';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
@@ -20,7 +21,8 @@ export type PendingPurchase =
   | { type: 'pin'; item: ShopPin; price: number }
   | { type: 'cosmetic'; item: Cosmetic; price: number }
   | { type: 'bundle'; item: Bundle; price: number; count: number }
-  | { type: 'slot'; item: 'achievement' | 'shop'; price: number };
+  | { type: 'slot'; item: 'achievement' | 'shop'; price: number }
+  | { type: 'perk'; item: StreakSaverPlan; name: string; price: number };
 
 interface PinShopModalProps {
   onClose: () => void;
@@ -65,6 +67,8 @@ const PinShopModal = ({
         await onPurchase('buyPin', confirmPurchase.item.id, confirmPurchase.price);
       } else if (confirmPurchase.type === 'slot') {
         await onPurchase('buySlot', confirmPurchase.item, confirmPurchase.price);
+      } else if (confirmPurchase.type === 'perk') {
+        await onPurchase('buyStreakSaver', confirmPurchase.item, confirmPurchase.price);
       } else if (confirmPurchase.type === 'cosmetic') {
         await onPurchaseCosmetic(confirmPurchase.item.id);
       } else if (confirmPurchase.type === 'bundle') {
@@ -190,6 +194,11 @@ const PinShopModal = ({
                   <>
                     Buy the <strong>{confirmPurchase.item.name}</strong> bundle ({confirmPurchase.count}{' '}
                     {confirmPurchase.count === 1 ? 'item' : 'items'}) for{' '}
+                    <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?
+                  </>
+                ) : confirmPurchase.type === 'perk' ? (
+                  <>
+                    Buy the <strong>{confirmPurchase.name}</strong> for{' '}
                     <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?
                   </>
                 ) : (

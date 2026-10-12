@@ -13,6 +13,31 @@ export const BAILOUT_CASH = 1500; // cash granted by a bankruptcy bailout
 // consecutive-day streak, then caps at the last value.
 export const CHECKIN_STREAK_REWARDS = [300, 325, 350, 375, 400, 425, 500];
 
+// Streak saver, a shop perk: while it is active every check-in pays the top
+// reward, even after missed days. The streak number itself still resets
+// honestly, so streak achievements and the margin unlock still need real
+// check-ins (Darth YG, 2026-10-11). `days: null` never runs out.
+export const STREAK_SAVER_PLANS = {
+  month: { price: 10000, days: 30 },
+  permanent: { price: 100000, days: null },
+} as const;
+export type StreakSaverPlan = keyof typeof STREAK_SAVER_PLANS;
+
+/** The user-doc fields the streak saver lives in. Server-written only. */
+export interface StreakSaverFields {
+  streakSaverPermanent?: boolean;
+  streakSaverUntil?: number;
+}
+
+export const streakSaverActive = (u: StreakSaverFields | null | undefined, now = Date.now()) =>
+  !!u && (u.streakSaverPermanent === true || (u.streakSaverUntil || 0) > now);
+
+/** What a check-in on streak day `streak` (1-based) pays. */
+export const checkinRewardFor = (streak: number, saverActive = false) =>
+  CHECKIN_STREAK_REWARDS[
+    saverActive ? CHECKIN_STREAK_REWARDS.length - 1 : Math.min(Math.max(streak, 1), CHECKIN_STREAK_REWARDS.length) - 1
+  ]!;
+
 // How long a precomputed leaderboard/{key} doc (and the server's in-memory
 // cache) counts as fresh.
 export const LEADERBOARD_CACHE_TTL = 5 * 60 * 1000;

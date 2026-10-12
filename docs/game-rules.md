@@ -93,7 +93,9 @@ IPO shares are locked from selling for 24 hours after the window closes, so the 
 Two formats run side by side:
 
 - **Weekly bets.** Cash pool betting on chapter outcomes. Winners split the pot in proportion to their stake.
-- **Event markets.** Long-term markets where each outcome is a share that pays $1 if it happens and $0 if it does not. Prices come from a house-run LMSR market maker, so you can buy or sell at any time instead of waiting for resolution. Admin sets the opening odds. The house takes the other side and can lose.
+- **Event markets.** Long-term markets where each outcome is a share that pays $1 if it happens and $0 if it does not. Prices come from a house-run LMSR market maker, so you can buy or sell at any time instead of waiting for resolution. Admin sets the opening odds. The house takes the other side and can lose. The card shows what you put in, what your shares are worth now, and what they pay if the outcome wins.
+
+**One shared limit** (src/rules/equity.ts `sideGameRoom`, since 2026-10-11): open weekly bets, long-term market positions (at what you paid) and your own money in the ladder (not the free check-in chips) together can't exceed what you've invested in stocks. Before, each game had its own limit, so the same stock let you put the full amount into all three.
 
 ### Ladder Game
 
@@ -131,6 +133,7 @@ Platinum and Diamond are ranked within four size divisions (Rookie under $10k, T
 - **Shop deals** (src/rules/shop.ts): 10 bundles (name colour + glow + backdrop + frame) at 20% off the pieces you don't own yet; one featured item each week at 25% off, rotating Monday 00:00 UTC through every item worth $25,000+, announced in the Monday Discord report. Gilded Frame and Comet are never discounted.
 - **Gifting** (functions/src/users/cosmeticGifts.ts): buy any shop cosmetic or bundle for another player by name, at the price you would pay yourself (a gifted bundle always costs the whole set at the bundle discount; the recipient gets the pieces they don't own). No message box (harassment channel); the recipient gets a bell notification and a Discord DM naming the sender. Max 10 gifts a day; no gifts to yourself, bots, banned players or someone who already owns the item. Both sides are booked in the ledger, and every gift goes in the admin-only giftLog with the giver's connection; Admin, Watchlist, Gift Log flags pairs that look like one person (shared connection, alt-scan pair, watchlist link, receiver under a week old).
 - **Daily check-in** with a streak: $300 on day one, rising to $500 by day seven.
+- **Streak saver** (shop perk, src/rules/economy.ts): while active, every check-in pays $500 even after missed days. $10,000 for 30 days (buying again adds 30 more) or $100,000 permanent. The streak number itself still resets on a missed day, so streak achievements and the margin unlock still need real check-ins.
 - **Price alerts** you set per ticker, checked every 30 minutes.
 - **Bankruptcy and bailout.** If your portfolio falls to $100 or below you are marked bankrupt and can take a $1,500 bailout once per 24 hours. The bailout wipes every position you hold, turns off margin, and removes you from your crew, so it is a last resort. Bankruptcy clears itself once you are back above $500.
 - **Guest mode** lets people browse the market without an account.

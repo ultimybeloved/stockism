@@ -213,6 +213,9 @@ export interface UserData {
   marginLockup?: Record<Ticker, ShareLock>;
   extraAchievementSlot?: boolean;
   extraShopSlot?: boolean;
+  /** Streak saver shop perk (rules/economy): server-written only. */
+  streakSaverPermanent?: boolean;
+  streakSaverUntil?: number;
   crew?: string | null;
   isAdmin?: boolean;
   activeCosmetics?: ActiveCosmetics;

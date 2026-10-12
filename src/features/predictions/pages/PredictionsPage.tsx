@@ -2,8 +2,8 @@ import { useEffect } from 'react';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { useNewPredictions } from '../hooks/useNewPredictions';
+import { useSideGameRoom } from '../hooks/useSideGameRoom';
 import { themeClasses } from '../../../utils/theme';
-import { getTotalInvested } from '../../../utils/calculations';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import PredictionCard from '../components/PredictionCard';
 import EventMarketCard from '../components/EventMarketCard';
@@ -64,10 +64,9 @@ const PredictionsPage = ({
   );
 
   const getUserBet = (id: string) => userData?.bets?.[id];
-  const betLimit = Math.min(
-    getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts),
-    userData?.cash || 0,
-  );
+  // One limit shared by weekly bets, long-term markets and the ladder.
+  const sideRoom = useSideGameRoom();
+  const betLimit = Math.min(sideRoom, userData?.cash || 0);
   const eventPositions = userData?.eventPositions || {};
 
   // Which group gets 2 of the 3 desktop tracks: the one with more cards
@@ -136,6 +135,7 @@ const PredictionsPage = ({
                     position={eventPositions[m.id]}
                     onBuy={onBuyEventShares}
                     onSell={onSellEventShares}
+                    room={sideRoom}
                     isGuest={isGuest}
                     isHalted={isHalted}
                     isAdmin={isAdmin}

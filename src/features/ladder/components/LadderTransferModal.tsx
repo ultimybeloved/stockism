@@ -7,7 +7,8 @@ import {
 } from '../../../constants/economy';
 import { getTotalInvested } from '../../../utils/calculations';
 import { calculateLadderWithdrawTax, getLadderDepositFactor, getLadderWithdrawable } from '../../../utils/ladderTax';
-import { useSession } from '../../../context/AppContext';
+import { useMarket, useSession } from '../../../context/AppContext';
+import { sideGameRoom } from '../../../rules/equity';
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 import type { useLadderModals } from '../hooks/useLadderModals';
 import type { LadderData } from '../../../utils/ladderTax';
@@ -51,6 +52,7 @@ const LadderTransferModal = ({
 }: LadderTransferModalProps) => {
   const dialogRef = useModalFocus();
   const { userData } = useSession();
+  const { predictions } = useMarket();
 
   const ladderBalance = userLadderData?.balance || 0;
   // Bonus chips (check-in grants, welcome stake) stay in the game. Only what
@@ -68,10 +70,13 @@ const LadderTransferModal = ({
   const rampFactor = getLadderDepositFactor(userData?.createdAt);
   const rampedMax = Math.floor(LADDER_GAME_MAX_BALANCE * rampFactor);
   const isRamping = rampFactor < 1;
-  const balanceCap = Math.min(rampedMax, totalInvested);
-  const maxDeposit = Math.max(0, balanceCap - ladderBalance);
+  // The invested cap is shared with weekly bets and long-term markets, and
+  // counts only the player's own ladder money, not bonus chips (rules/equity).
+  const sharedRoom = sideGameRoom(userData, predictions, withdrawable);
+  const balanceRoom = Math.max(0, rampedMax - ladderBalance);
+  const maxDeposit = Math.min(balanceRoom, sharedRoom);
   const ladderFull = !noInvestment && maxDeposit <= 0;
-  const capIsInvested = totalInvested < rampedMax;
+  const capIsInvested = sharedRoom < balanceRoom;
   const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   // Withdrawal tax preview. Mirrors the server math exactly; the server result is authoritative.
   const withdrawAmt = parseFloat(withdrawAmount);
@@ -172,10 +177,10 @@ const LadderTransferModal = ({
                 ? 'Invest in stocks first. The ladder game is capped at what you have invested.'
                 : ladderFull
                   ? capIsInvested
-                    ? `Your deposits are maxed out at your $${fmt(totalInvested)} invested.`
+                    ? `You are at your limit. The ladder, weekly bets and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
                     : `Your deposits are maxed out at the $${rampedMax.toLocaleString()} cap.`
                   : capIsInvested
-                    ? `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at your $${fmt(totalInvested)} invested.`
+                    ? `You can add up to $${fmt(maxDeposit)} more. The ladder, weekly bets and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
                     : `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at $${rampedMax.toLocaleString()}.`}
             </p>
             {isRamping && !noInvestment && (

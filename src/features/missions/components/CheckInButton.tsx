@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { getTodayDateString, toUTCDateString, msUntilUTCMidnight } from '../../../utils/date';
 import { CHECKIN_STREAK_REWARDS } from '../../../constants/economy';
+import { checkinRewardFor } from '../../../rules/economy';
 import type { TimestampLike } from '../../../types';
 
 const CAP_DAY = CHECKIN_STREAK_REWARDS.length; // streak length where the reward stops climbing
-
-// Reward for a given streak day (1-based), capped at the last tier.
-const rewardForStreak = (streak: number) => CHECKIN_STREAK_REWARDS[Math.min(Math.max(streak, 1) - 1, CAP_DAY - 1)];
 
 interface CheckInButtonProps {
   isGuest: boolean;
   lastCheckin: TimestampLike;
   checkinStreak?: number;
+  /** Streak saver perk active: every check-in pays the top reward. */
+  streakSaver?: boolean;
   onCheckin: () => void;
   onSignIn: () => void;
   loading?: boolean;
@@ -21,11 +21,14 @@ const CheckInButton = ({
   isGuest,
   lastCheckin,
   checkinStreak = 0,
+  streakSaver = false,
   onCheckin,
   onSignIn,
   loading,
 }: CheckInButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  // Reward for a given streak day (1-based), capped at the last tier.
+  const rewardForStreak = (streak: number) => checkinRewardFor(streak, streakSaver);
   const [timeUntilReset, setTimeUntilReset] = useState('');
 
   const today = getTodayDateString(); // UTC YYYY-MM-DD, matches server
@@ -81,6 +84,8 @@ const CheckInButton = ({
     statusLine = atCap
       ? `Max streak. Back tomorrow for +$${nextReward}.`
       : `${currentStreak} day streak. Tomorrow: +$${nextReward}.`;
+  } else if (lostStreak && streakSaver) {
+    statusLine = `Streak saver on. Claim +$${claimReward}.`;
   } else if (lostStreak) {
     statusLine = 'Streak reset. Start a new one today.';
   } else if (claimStreak >= CAP_DAY) {

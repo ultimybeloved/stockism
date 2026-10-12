@@ -22,14 +22,16 @@ export interface GiftTarget {
   price: number;
 }
 
-export type PinAction = 'buyPin' | 'setShopPins' | 'setAchievementPins' | 'toggleCrewPin' | 'buySlot';
+export type PinAction =
+  'buyPin' | 'setShopPins' | 'setAchievementPins' | 'toggleCrewPin' | 'buySlot' | 'buyStreakSaver';
 
 export function usePinShop({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handlePinAction = useCallback(
-    // payload is a pin id (buyPin), a pin list (set*Pins), a flag (toggleCrewPin) or a slot type (buySlot).
+    // payload is a pin id (buyPin), a pin list (set*Pins), a flag (toggleCrewPin), a slot type (buySlot)
+    // or a streak saver plan (buyStreakSaver).
     async (action: PinAction, payload: unknown, cost?: number) => {
       if (!user || !userData) return;
-      if (action === 'buyPin' || action === 'buySlot') setLoadingKey('pinAction', true);
+      if (action === 'buyPin' || action === 'buySlot' || action === 'buyStreakSaver') setLoadingKey('pinAction', true);
       try {
         const userRef = doc(db, 'users', user.uid);
         if (action === 'buyPin') {
@@ -63,10 +65,23 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
           const slotKey = payload === 'shop' ? 'extraShopSlot' : 'extraAchievementSlot';
           setUserData((prev) => (prev ? { ...prev, [slotKey]: true, cash: (prev.cash || 0) - (cost || 0) } : prev));
           showNotification('success', `Unlocked extra ${payload} pin slot!`);
+        } else if (action === 'buyStreakSaver') {
+          const res = await purchasePinFunction({ action: 'buyStreakSaver', plan: payload as string });
+          const until = (res.data as { until?: number | null }).until;
+          setUserData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  ...(until ? { streakSaverUntil: until } : { streakSaverPermanent: true }),
+                  cash: (prev.cash || 0) - (cost || 0),
+                }
+              : prev,
+          );
+          showNotification('success', 'Streak saver on. Every check-in pays the top reward.');
         }
       } catch (err) {
         reportUnexpected(err, { where: 'handlePinAction' });
-        showNotification('error', 'Action failed');
+        showNotification('error', errorMessage(err) || 'Action failed');
       } finally {
         setLoadingKey('pinAction', false);
       }

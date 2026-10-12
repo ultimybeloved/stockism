@@ -27,6 +27,8 @@ interface EventMarketCardProps {
   isHalted?: boolean;
   isAdmin?: boolean;
   onHide?: (marketId: string) => void;
+  /** What the player can still put in: one limit shared with weekly bets and the ladder. */
+  room?: number;
 }
 
 // Long-term event-share market card. Each outcome is a share that pays $1 if it
@@ -41,6 +43,7 @@ const EventMarketCard = ({
   isHalted = false,
   isAdmin = false,
   onHide,
+  room = 0,
 }: EventMarketCardProps) => {
   const { userData } = useSession();
   const { cardClass, textClass, mutedClass, subtleClass, chipClass } = themeClasses;
@@ -75,17 +78,14 @@ const EventMarketCard = ({
   const positionValue = outcomes.reduce((sum, o, i) => sum + ownedFor(o) * prices(i), 0);
   const hasPosition = outcomes.some((o) => ownedFor(o) > 0);
 
-  // Long-term markets are capped at what the user has invested in stocks (same
-  // rule as weekly bets and ladder deposits), enforced on the server. Mirror it
-  // here so the limit shows instead of bouncing off a server error. Only
-  // unsettled positions count, matching the backend.
+  // Weekly bets, long-term markets and the ladder share one limit, what the
+  // player has invested in stocks, enforced on the server. `room` mirrors it
+  // (useSideGameRoom) so the limit shows instead of bouncing off an error.
   const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
-  const activeEventCost = Object.values(userData?.eventPositions || {}).reduce(
-    (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0),
-    0,
-  );
-  const eventRoom = Math.max(0, totalInvested - activeEventCost);
+  const eventRoom = room;
   const noInvestment = totalInvested <= 0;
+  // What the player has put into this market, net of anything sold back.
+  const putIn = Math.max(0, position?.costBasis || 0);
 
   // The outcome buttons only ever select an index inside the list.
   const selectedOutcome = outcomes[selected]!;
@@ -182,16 +182,22 @@ const EventMarketCard = ({
                       {o === winning ? `Won ${formatCurrency(ownedFor(o))}` : 'Expired'}
                     </span>
                   ) : (
-                    <span className={mutedClass}>{formatCurrency(ownedFor(o) * prices(i))}</span>
+                    <span className={mutedClass}>
+                      worth {formatCurrency(ownedFor(o) * prices(i))} · pays{' '}
+                      <span className="font-semibold text-green-500">{formatCurrency(ownedFor(o))}</span> if it wins
+                    </span>
                   )}
                 </div>
               ),
           )}
-          {!resolved && (
-            <div className={`text-xs mt-1 ${mutedClass}`}>
-              Position value: <span className="text-orange-500 font-semibold">{formatCurrency(positionValue)}</span>
-            </div>
-          )}
+          <div className={`text-xs mt-1 ${mutedClass}`}>
+            You put in: <span className={`font-semibold ${textClass}`}>{formatCurrency(putIn)}</span>
+            {!resolved && (
+              <>
+                {' · '}Worth now: <span className="text-orange-500 font-semibold">{formatCurrency(positionValue)}</span>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -320,6 +326,14 @@ const EventMarketCard = ({
             <div className={`text-sm ${mutedClass}`}>
               {mode === 'buy' ? 'Cost' : 'You receive'}:{' '}
               <span className="text-orange-500 font-semibold">{formatCurrency(preview)}</span>
+              {mode === 'buy' && (
+                <div className="text-xs mt-0.5">
+                  If {selectedOutcome} wins you get{' '}
+                  <span className="font-semibold text-green-500">{formatCurrency(qty)}</span> (
+                  {qty >= preview ? '+' : ''}
+                  {formatCurrency(qty - preview)})
+                </div>
+              )}
             </div>
           )}
 
@@ -328,8 +342,8 @@ const EventMarketCard = ({
               <div className="text-xs text-red-500">Invest in stocks before buying prediction shares.</div>
             ) : (
               <div className={`text-xs ${exceedsCap ? 'text-red-500' : mutedClass}`}>
-                Limit left: <span className="font-semibold">{formatCurrency(eventRoom)}</span> · capped at what you've
-                invested in stocks
+                Limit left: <span className="font-semibold">{formatCurrency(eventRoom)}</span> · shared with weekly bets
+                and the ladder, capped at what you've invested in stocks
               </div>
             ))}
 

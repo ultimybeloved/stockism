@@ -105,6 +105,8 @@ async function main() {
   await setPredictions([
     prediction('p_main'),
     prediction('p_limits'),
+    prediction('p_shared_a'),
+    prediction('p_shared_b'),
     prediction('p_ended', { endsAt: Date.now() - 1000 }),
     prediction('p_resolved', { resolved: true, outcome: 'Yes' }),
     prediction('p_multi', { options: ['A', 'B', 'C'] }),
@@ -156,6 +158,26 @@ async function main() {
   );
   await bet('b_cap', 'p_limits', 'Yes', 400);
   check('right up to the cap is fine', (await getUser('b_cap')).bets.p_limits.amount === 1000);
+
+  // One limit across the side games: a bet on another open question, own
+  // ladder money and long-term positions all use up the same invested amount.
+  await seedUser('b_shared', {
+    cash: 5000,
+    invested: 1000,
+    extra: { eventPositions: { evt_x: { shares: { Yes: 300 }, costBasis: 200, settled: false } } },
+  });
+  await db
+    .collection('ladderGameUsers')
+    .doc('b_shared')
+    .set({ balance: 400, nonWithdrawable: 100, chipsMigrated: true });
+  await bet('b_shared', 'p_shared_a', 'Yes', 100);
+  // 1000 invested - 100 bet - 200 long-term - 300 own ladder money (chips don't count) = 400
+  check(
+    'bets, long-term markets and ladder money share one limit',
+    (await rejects(() => bet('b_shared', 'p_shared_b', 'Yes', 401), /Max: \$400\.00/)) === true,
+  );
+  await bet('b_shared', 'p_shared_b', 'Yes', 400);
+  check('right up to the shared limit is fine', (await getUser('b_shared')).bets.p_shared_b.amount === 400);
 
   await seedUser('b_poor', { cash: 100, invested: 5000 });
   check(

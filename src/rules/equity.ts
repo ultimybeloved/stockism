@@ -92,3 +92,53 @@ export const getTotalInvested = (userData: EquityFields | null | undefined) => {
   );
   return holdingsValue + shortMargin;
 };
+
+/** The user-doc fields the side-game cap reads, on top of EquityFields. */
+export interface SideGameFields extends EquityFields {
+  bets?: Record<string, { amount?: number; paid?: boolean } | null | undefined>;
+  eventPositions?: Record<string, { settled?: boolean; costBasis?: number } | null | undefined>;
+}
+
+/** One entry of predictions/current.list, the fields the cap reads. */
+export interface PredictionRef {
+  id: string;
+  type?: string;
+  resolved?: boolean;
+  cancelled?: boolean;
+}
+
+/**
+ * Money a player has riding on the side games right now: their own money in
+ * the ladder (not the free check-in chips), long-term market positions at
+ * what they paid, and weekly bets on predictions still open. One cap covers
+ * all three (Darth YG, 2026-10-11): before, each game was capped at the amount
+ * invested on its own, so the same $10k of stock let a player put $10k into
+ * each of them at once.
+ */
+export const sideGameCommitted = (
+  userData: SideGameFields | null | undefined,
+  predictions: readonly PredictionRef[] | null | undefined,
+  ladderOwn: number,
+) => {
+  if (!userData) return Math.max(0, ladderOwn || 0);
+  const open = new Set(
+    (predictions || []).filter((p) => p.type !== 'event' && !p.resolved && !p.cancelled).map((p) => p.id),
+  );
+  const weekly = Object.entries(userData.bets || {}).reduce(
+    (sum, [id, bet]) => sum + (bet && !bet.paid && open.has(id) ? Math.max(0, bet.amount || 0) : 0),
+    0,
+  );
+  // Max(0, …) guards any pre-clamp negative basis from older sells.
+  const event = Object.values(userData.eventPositions || {}).reduce(
+    (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0),
+    0,
+  );
+  return round2(Math.max(0, ladderOwn || 0) + weekly + event);
+};
+
+/** How much more a player may put into any side game: invested minus committed. */
+export const sideGameRoom = (
+  userData: SideGameFields | null | undefined,
+  predictions: readonly PredictionRef[] | null | undefined,
+  ladderOwn: number,
+) => Math.max(0, round2(getTotalInvested(userData) - sideGameCommitted(userData, predictions, ladderOwn)));

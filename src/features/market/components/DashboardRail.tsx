@@ -7,6 +7,7 @@ import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { CHARACTER_MAP } from '../../../characters';
 import { calculateMarginStatus } from '../../../utils/calculations';
+import { streakSaverActive } from '../../../rules/economy';
 import type { UserData } from '../../../types';
 import { pressable } from '../../../utils/a11y';
 
@@ -90,6 +91,7 @@ const DashboardRail = ({
             isGuest={isGuest}
             lastCheckin={userData?.lastCheckin}
             checkinStreak={userData?.checkinStreak || 0}
+            streakSaver={streakSaverActive(userData)}
             onCheckin={onCheckin}
             onSignIn={onShowLogin}
             loading={checkinLoading}

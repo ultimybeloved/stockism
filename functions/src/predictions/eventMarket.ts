@@ -21,6 +21,8 @@ import { round2 } from '../shared/money';
 import { reportError } from '../shared/sentry';
 import { recordEventTrade } from '../shared/eventTradeRecords';
 import { logAdminAction } from '../shared/adminLog';
+import { sideGameRoom } from '../shared/rules/equity';
+import { getLadderWithdrawable } from '../shared/ladderMath';
 
 /** One entry in predictions/current.list, the fields these lookups read. */
 type PredictionEntry = { id: string; type?: string; resolved?: boolean; settled?: boolean };
@@ -59,12 +61,14 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
   const userRef = db.collection('users').doc(uid);
   const predictionsRef = db.collection('predictions').doc('current');
   const marketRef = db.collection('market').doc('current');
+  const ladderRef = db.collection('ladderGameUsers').doc(uid);
 
   return db.runTransaction(async (tx) => {
-    const [userDoc, predDoc, marketDoc] = await Promise.all([
+    const [userDoc, predDoc, marketDoc, ladderDoc] = await Promise.all([
       tx.get(userRef),
       tx.get(predictionsRef),
       tx.get(marketRef),
+      tx.get(ladderRef),
     ]);
 
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
@@ -103,26 +107,19 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
     }
 
-    // Cap event-market exposure to what the user has invested in stocks, the same
-    // rule weekly bets and ladder deposits use. Without it, a barely-invested
-    // player could farm value straight out of the AMM. Only unsettled positions
-    // count toward the cap; resolved/settled ones are already realized.
+    // Cap side-game exposure to what the user has invested in stocks. One
+    // limit covers the ladder, long-term markets and open weekly bets together
+    // (rules/equity sideGameRoom). Without it, a barely-invested player could
+    // farm value straight out of the AMM. Settled positions don't count.
     const totalInvested = getTotalInvested(userData);
     if (totalInvested <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Invest in stocks before buying prediction shares.');
     }
-    const activeEventCost = Object.values(
-      (userData.eventPositions || {}) as Record<string, { settled?: boolean; costBasis?: number } | null>,
-    ).reduce(
-      // Max(0, …) guards any pre-clamp negative basis from older sells.
-      (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0),
-      0,
-    );
-    if (activeEventCost + cost > totalInvested) {
-      const room = Math.max(0, round2(totalInvested - activeEventCost));
+    const room = sideGameRoom(userData, list, getLadderWithdrawable(ladderDoc.data()));
+    if (cost > room) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Long-term markets are capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`,
+        `Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`,
       );
     }
 

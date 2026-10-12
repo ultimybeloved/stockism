@@ -8,6 +8,7 @@ import { useSession } from '../../../../context/AppContext';
 import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { PendingPurchase } from '../PinShopModal';
 import ShopDeals, { useFeaturedId } from './ShopDeals';
+import ShopPerks from './ShopPerks';
 import { featuredPrice } from '../../../../rules/shop';
 
 type GlowVariant = 'standard' | 'pulse';
@@ -286,6 +287,8 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onRequestGift, onTr
             </div>
           </div>
         ))}
+
+      <ShopPerks cash={cash} onRequestPurchase={onRequestPurchase} />
 
       {/* Extra pin slots */}
       <div>

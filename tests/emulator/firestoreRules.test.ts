@@ -137,6 +137,9 @@ async function main() {
   await check('grant self a title', 'blocked', { ownedTitles: ['season_9_diamond'] });
   await check('write own title label', 'blocked', { 'titleMeta.season_1_gold': 'Site Owner' });
 
+  await check('grant self a permanent streak saver', 'blocked', { streakSaverPermanent: true });
+  await check('extend own streak saver', 'blocked', { streakSaverUntil: 9e12 });
+
   console.log('\n── Legitimate preference writes that MUST still work ─────────');
   await check('toggle dark mode', 'allowed', { darkMode: false });
   await check('toggle color-blind mode', 'allowed', { colorBlindMode: true });

@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
-import { CHECKIN_STREAK_REWARDS } from '../shared/constants';
+import { STREAK_SAVER_PLANS, streakSaverActive, checkinRewardFor } from '../shared/rules/economy';
 import { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } from '../shared/crews';
 import { writeFeedEntry } from '../shared/notifications';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
@@ -229,7 +229,7 @@ export const rerollMissions = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Purchase a pin or extra pin slot from the shop
+ * Purchase a pin, an extra pin slot or a streak saver from the shop
  */
 export const purchasePin = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -310,6 +310,35 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
         ref: slotType,
       });
       return { success: true, cost: validCost };
+    } else if (action === 'buyStreakSaver') {
+      // Shop perk: check-ins pay the top reward while it lasts (rules/economy).
+      // Buying the month plan again stacks another 30 days on what's left.
+      const plan = STREAK_SAVER_PLANS[data.plan as keyof typeof STREAK_SAVER_PLANS];
+      if (!plan || !Object.prototype.hasOwnProperty.call(STREAK_SAVER_PLANS, data.plan)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid plan.');
+      }
+      if (userData.streakSaverPermanent) {
+        throw new functions.https.HttpsError('already-exists', 'You already have the permanent streak saver.');
+      }
+      if ((userData.cash || 0) < plan.price) {
+        throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
+      }
+      const now = Date.now();
+      const until =
+        plan.days === null ? null : Math.max(now, userData.streakSaverUntil || 0) + plan.days * 24 * 60 * 60 * 1000;
+      transaction.update(userRef, {
+        ...(until === null ? { streakSaverPermanent: true } : { streakSaverUntil: until }),
+        cash: (userData.cash || 0) - plan.price,
+      });
+      recordLedger(transaction, {
+        uid,
+        type: 'streak_saver_purchase',
+        amount: -plan.price,
+        cashAfter: (userData.cash || 0) - plan.price,
+        ref: data.plan,
+        detail: until === null ? { permanent: true } : { until },
+      });
+      return { success: true, cost: plan.price, until };
     } else {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid action.');
     }
@@ -380,8 +409,9 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
       const maxCheckinStreak = Math.max(userData.maxCheckinStreak || 0, newStreak);
 
       // Streak-based reward: escalates with the consecutive-day streak, then caps.
-      const rewardIndex = Math.min(newStreak - 1, CHECKIN_STREAK_REWARDS.length - 1);
-      const checkinReward = CHECKIN_STREAK_REWARDS[rewardIndex];
+      // An active streak saver (shop perk) pays the cap whatever the streak.
+      const saver = streakSaverActive(userData);
+      const checkinReward = checkinRewardFor(newStreak, saver);
 
       // Compute week ID for weekly missions
       const weekStartDate = new Date(now);
@@ -464,7 +494,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
         type: 'checkin_reward',
         amount: checkinReward ?? 0,
         cashAfter: (userData.cash || 0) + (checkinReward ?? 0),
-        detail: { streak: newStreak },
+        detail: saver ? { streak: newStreak, streakSaver: true } : { streak: newStreak },
       });
       recordLedger(transaction, { uid, type: 'checkin_ladder_topup', account: 'ladder', amount: ladderTopUpAmount });
 
