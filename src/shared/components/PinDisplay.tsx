@@ -3,6 +3,7 @@ import { ACHIEVEMENT_MAP } from '../../constants/achievements';
 import { SHOP_PINS } from '../../crews';
 import type { UserData } from '../../types';
 import AchievementIcon from './AchievementIcon';
+import { crewPinSrc, CREW_HEAD_PIN, PIXELATED } from '../../constants/crests';
 
 /** The fields pins are drawn from. A full user doc or a public profile both fit. */
 type PinSource = Pick<
@@ -24,7 +25,7 @@ const PinDisplay = ({
   const imgSize = size === 'sm' ? 'h-4' : size === 'md' ? 'h-5' : 'h-6';
 
   // Crew pin - shown if user has a crew and displayCrewPin is not false.
-  // Crew heads get a crown in front and always show the pin (the backend
+  // Crew heads get the rank mark in front and always show the pin (the backend
   // ignores their hide toggle anyway).
   if (userData.crew) {
     const crew = CREW_MAP[userData.crew];
@@ -32,7 +33,7 @@ const PinDisplay = ({
       if (userData.isCrewHead) {
         pins.push(
           <span key="crown" title={`Crew Head of ${crew.name}`} className={`inline-flex items-center ${sizeClass}`}>
-            🔱
+            <img src={CREW_HEAD_PIN} alt="Crew Head" className={`${imgSize} object-contain`} style={PIXELATED} />
           </span>,
         );
       }
@@ -40,7 +41,11 @@ const PinDisplay = ({
       if (shouldShowCrewPin) {
         pins.push(
           <span key="crew" title={crew.name} className={`inline-flex items-center ${sizeClass}`}>
-            {crew.icon ? <img src={crew.icon} alt={crew.name} className={`${imgSize} object-contain`} /> : crew.emblem}
+            {crewPinSrc(crew) ? (
+              <img src={crewPinSrc(crew)} alt={crew.name} className={`${imgSize} object-contain`} style={PIXELATED} />
+            ) : (
+              crew.emblem
+            )}
           </span>,
         );
       }

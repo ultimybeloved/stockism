@@ -336,7 +336,7 @@ export const ACHIEVEMENTS = {
     id: 'DISCORD_LINKED',
     name: 'Plugged In',
     emoji: '🔗',
-    icon: 'discord/discord.png',
+    icon: 'crests/discord.svg',
     description: 'Link your Discord account to your Stockism profile',
     hint: 'Connect your Discord from the profile page',
     revocable: false,

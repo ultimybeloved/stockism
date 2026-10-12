@@ -7,6 +7,7 @@ import { themeClasses } from '../../../../utils/theme';
 import { useSession } from '../../../../context/AppContext';
 import type { PinAction } from '../../hooks/usePinShop';
 import AchievementIcon from '../../../../shared/components/AchievementIcon';
+import { crewPinSrc, PIXELATED } from '../../../../constants/crests';
 
 interface MyLookTabProps {
   onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
@@ -186,8 +187,8 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) =>
                 disabled={isCrewHead}
                 className={`${chipClass(crewPinDisplayed)} ${isCrewHead ? 'cursor-default' : ''} inline-flex items-center`}
               >
-                {crew?.icon ? (
-                  <img src={crew.icon} alt="" className="w-5 h-5 object-contain mr-1" />
+                {crew && crewPinSrc(crew) ? (
+                  <img src={crewPinSrc(crew)} alt="" className="w-5 h-5 object-contain mr-1" style={PIXELATED} />
                 ) : (
                   <span className="mr-1">{crew?.emblem}</span>
                 )}

@@ -4,6 +4,7 @@ import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { Crew } from '../../../crews';
 import type { UserData } from '../../../types';
 import { useTheme } from '../../../context/AppContext';
+import { CREW_HEAD_PIN, PIXELATED } from '../../../constants/crests';
 
 interface CrewSectionProps {
   userCrew: string | null | undefined;
@@ -49,7 +50,9 @@ const CrewSection = ({ userCrew, crewData, userData, onOpenCrewSelection }: Crew
           >
             {crewData.name}
           </span>
-          {userData?.isCrewHead && <span title="Crew Head">🔱</span>}
+          {userData?.isCrewHead && (
+            <img src={CREW_HEAD_PIN} alt="Crew Head" title="Crew Head" className="w-5 h-5" style={PIXELATED} />
+          )}
         </div>
         <span className={mutedClass}>{showCrewSection ? '▼' : '▶'}</span>
       </button>
