@@ -18,6 +18,7 @@ import type { PricePoint, ShortPosition, TradeAction } from '../../../types';
 import type { LimitOrderRequest } from '../../account/hooks/useUserActions';
 import type { TradeAnimation } from '../../../shared/hooks/types';
 import { pressable } from '../../../utils/a11y';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface CharacterCardProps {
   character: Character;
@@ -276,7 +277,7 @@ const CharacterCard = ({
                 {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
                 {!isETF && statusBadge(character) && (
                   <span className="text-xs" title={STATUS_MAP[statusOf(character)]?.hint}>
-                    {statusBadge(character)}
+                    <PixelIcon name={statusBadge(character)} className="w-3.5 h-3.5" />
                   </span>
                 )}
               </div>

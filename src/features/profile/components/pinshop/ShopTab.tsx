@@ -10,6 +10,7 @@ import type { PendingPurchase } from '../PinShopModal';
 import ShopDeals, { useFeaturedId } from './ShopDeals';
 import ShopPerks from './ShopPerks';
 import { featuredPrice } from '../../../../rules/shop';
+import { pixelatedIfSvg } from '../../../../constants/crests';
 
 type GlowVariant = 'standard' | 'pulse';
 
@@ -250,7 +251,12 @@ const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onRequestGift, onTr
                     className={`p-3 rounded-sm border ${owned ? 'border-orange-500 bg-orange-500/10' : borderClass}`}
                   >
                     <div className="text-center mb-2 flex items-center justify-center h-8">
-                      <img src={`/pins/${pin.image}`} alt={pin.name} className="w-8 h-8 object-contain" />
+                      <img
+                        src={`/pins/${pin.image}`}
+                        alt={pin.name}
+                        className="w-8 h-8 object-contain"
+                        style={pixelatedIfSvg(pin.image)}
+                      />
                     </div>
                     <div className={`text-sm font-semibold text-center ${textClass}`}>{pin.name}</div>
                     <div className={`text-xs text-center ${mutedClass} mb-2`}>{pin.description}</div>

@@ -24,3 +24,7 @@ export const CREW_HEAD_PIN = '/pins/crests/crew_head.svg';
 
 /** Keeps pixel art crisp when the browser scales it. */
 export const PIXELATED: CSSProperties = { imageRendering: 'pixelated' };
+
+/** Pixel art is drawn as SVG; photos and logos (png) stay smooth. */
+export const pixelatedIfSvg = (src?: string): CSSProperties | undefined =>
+  src?.endsWith('.svg') ? PIXELATED : undefined;

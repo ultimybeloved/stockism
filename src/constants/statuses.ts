@@ -19,14 +19,15 @@
 export interface Status {
   id: string;
   label: string;
+  /** Pixel icon name in public/pins/ui/, or '' for none. */
   badge: string;
   hint: string;
 }
 
 export const STATUSES: Status[] = [
   { id: 'alive', label: 'Alive', badge: '', hint: 'Alive in the current story' },
-  { id: 'dead', label: 'Dead', badge: '💀', hint: 'Dead in the current story' },
-  { id: 'flashback', label: 'Flashback', badge: '⏳', hint: 'Dead in the present, active in a flashback arc' },
+  { id: 'dead', label: 'Dead', badge: 'dead', hint: 'Dead in the current story' },
+  { id: 'flashback', label: 'Flashback', badge: 'flashback', hint: 'Dead in the present, active in a flashback arc' },
 ];
 
 export const STATUS_IDS = STATUSES.map((s) => s.id);

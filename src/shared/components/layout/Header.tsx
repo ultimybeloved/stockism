@@ -12,6 +12,7 @@ import { useNewCharacters } from '../../../features/market/hooks/useNewCharacter
 import { useAdminAlerts } from '../../../features/admin/hooks/useAdminAlerts';
 import MyPreMarketOrdersModal from '../../../features/trading/components/MyPreMarketOrdersModal';
 import { themeClasses } from '../../../utils/theme';
+import PixelIcon from '../PixelIcon';
 
 export interface HeaderProps {
   setDarkMode: (dark: boolean) => void;
@@ -23,15 +24,6 @@ export interface HeaderProps {
 }
 
 // Ladder icon component - tan circle with X
-const LadderIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 20 20" className="inline-block">
-    <circle cx="10" cy="10" r="9" fill="#b4ac99" />
-    <text x="10" y="10" textAnchor="middle" dominantBaseline="central" fontSize="14" fontWeight="bold" fill="#333">
-      X
-    </text>
-  </svg>
-);
-
 const Header = ({
   setDarkMode,
   onShowAdminPanel,
@@ -122,10 +114,10 @@ const Header = ({
   const { newCount: newPredictions } = useNewPredictions();
 
   const navLinks = [
-    { path: '/leaderboard', label: 'Leaderboard', icon: '🏆' },
-    { path: '/predictions', label: 'Predictions', icon: '🔮', badge: newPredictions },
-    { path: '/ladder', label: 'Ladder', icon: <LadderIcon /> },
-    { path: '/achievements', label: 'Achievements', icon: '🏅' },
+    { path: '/leaderboard', label: 'Leaderboard', icon: <PixelIcon name="trophy" /> },
+    { path: '/predictions', label: 'Predictions', icon: <PixelIcon name="crystal" />, badge: newPredictions },
+    { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" /> },
+    { path: '/achievements', label: 'Achievements', icon: <PixelIcon name="medal" /> },
   ];
 
   return (
@@ -158,7 +150,7 @@ const Header = ({
                       : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
                 >
-                  <span className="mr-1">{link.icon}</span>
+                  <span className="mr-1 inline-flex align-[-2px]">{link.icon}</span>
                   {link.label}
                   {!!link.badge && link.badge > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
@@ -194,7 +186,7 @@ const Header = ({
                 className="p-2 rounded-md transition-colors light:hover:bg-amber-50 dark:hover:bg-zinc-800"
                 aria-label="Toggle dark mode"
               >
-                {darkMode ? '☀️' : '🌙'}
+                <PixelIcon name={darkMode ? 'sun' : 'moon'} className="w-5 h-5 block" />
               </button>
 
               {/* Pre-Market Orders Button */}
@@ -215,7 +207,7 @@ const Header = ({
                   className="p-2 rounded-md transition-colors relative light:hover:bg-amber-50 dark:hover:bg-zinc-800"
                   aria-label="Notifications"
                 >
-                  🔔
+                  <PixelIcon name="bell" className="w-5 h-5 block" />
                   {notificationCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
                       {notificationCount > 99 ? '99+' : notificationCount}
@@ -325,7 +317,7 @@ const Header = ({
                         : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                     }`}
                   >
-                    <span className="text-base sm:text-lg">👤</span>
+                    <PixelIcon name="profile" className="w-5 h-5 sm:w-6 sm:h-6" />
                     <div className="text-right">
                       <div
                         className={`text-[10px] sm:text-xs ${

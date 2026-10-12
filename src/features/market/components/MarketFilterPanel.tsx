@@ -5,6 +5,7 @@ import { CREW_FILTER_ALL } from '../../../utils/marketFilters';
 import type { ReactNode } from 'react';
 import type { MarketFilters } from '../../../utils/marketFilters';
 import type { UserData } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface MarketFilterPanelProps {
   filters: MarketFilters;
@@ -132,7 +133,7 @@ const MarketFilterPanel = ({
                 title={s.hint}
                 className={`${pill(shown, 'bg-emerald-700 text-white')} ${shown ? '' : 'line-through opacity-60'}`}
               >
-                {s.badge && <span className="mr-1">{s.badge}</span>}
+                {s.badge && <PixelIcon name={s.badge} className="w-3.5 h-3.5 mr-1 align-[-2px]" />}
                 {s.label}
               </button>
             );

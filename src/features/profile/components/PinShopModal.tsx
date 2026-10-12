@@ -15,6 +15,7 @@ import type { Bundle } from '../../../rules/shop';
 import type { StreakSaverPlan } from '../../../rules/economy';
 import type { PinAction, GiftTarget } from '../hooks/usePinShop';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import { pixelatedIfSvg } from '../../../constants/crests';
 
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
@@ -176,6 +177,7 @@ const PinShopModal = ({
                       src={`/pins/${confirmPurchase.item.image}`}
                       alt={confirmPurchase.item.name}
                       className="w-6 h-6 object-contain inline"
+                      style={pixelatedIfSvg(confirmPurchase.item.image)}
                     />{' '}
                     <strong>{confirmPurchase.item.name}</strong> for{' '}
                     <span className="text-orange-500 font-semibold">{formatCurrency(confirmPurchase.price)}</span>?

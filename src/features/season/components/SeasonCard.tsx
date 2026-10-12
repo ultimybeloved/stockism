@@ -13,6 +13,7 @@ import {
   divisionRange,
   SEASON_MIN_BASELINE,
 } from '../../../constants/seasons';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // The season at a glance: what you're on, what's next, and how far off it is.
 // This is the piece that gives a player a reason to open the site on a Tuesday,
@@ -96,7 +97,8 @@ const SeasonCard = () => {
       <div className={`flex justify-between gap-3 ${open ? 'items-start flex-wrap' : 'items-center'}`}>
         <div className="min-w-0">
           <h3 className={`font-semibold ${textClass} ${open ? '' : 'text-sm truncate'}`}>
-            🏅 {seasonLabel(season)} · {season.name}
+            <PixelIcon name="season" className="w-4 h-4 mr-1 align-[-3px]" />
+            {seasonLabel(season)} · {season.name}
             {!open && inSeason && (
               <span className={`ml-2 font-bold ${returnPercent! >= 0 ? 'text-green-500' : 'text-red-400'}`}>
                 {fmtPct(returnPercent!)}

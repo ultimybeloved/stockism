@@ -13,6 +13,7 @@ import StockPositionCard from '../components/StockPositionCard';
 import EtfLinks from '../components/EtfLinks';
 import type { ReactNode } from 'react';
 import type { PricePoint, TradeAction } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 type ChartType = 'area' | 'bar';
 
@@ -143,7 +144,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
                 {character.isETF && <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">ETF</span>}
                 {!character.isETF && statusBadge(character) && (
                   <span className="text-sm" title={STATUS_MAP[statusOf(character)]?.hint}>
-                    {statusBadge(character)}
+                    <PixelIcon name={statusBadge(character)} className="w-4 h-4" />
                   </span>
                 )}
                 {crews.map((crew) => (

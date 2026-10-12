@@ -3,7 +3,7 @@ import { ACHIEVEMENT_MAP } from '../../constants/achievements';
 import { SHOP_PINS } from '../../crews';
 import type { UserData } from '../../types';
 import AchievementIcon from './AchievementIcon';
-import { crewPinSrc, CREW_HEAD_PIN, PIXELATED } from '../../constants/crests';
+import { crewPinSrc, CREW_HEAD_PIN, PIXELATED, pixelatedIfSvg } from '../../constants/crests';
 
 /** The fields pins are drawn from. A full user doc or a public profile both fit. */
 type PinSource = Pick<
@@ -78,7 +78,12 @@ const PinDisplay = ({
     if (pin && (!ownedShopPins || ownedShopPins.includes(pinId))) {
       pins.push(
         <span key={`shop-${idx}`} title={pin.name} className={`inline-flex items-center ${sizeClass}`}>
-          <img src={`/pins/${pin.image}`} alt={pin.name} className={`${imgSize} object-contain`} />
+          <img
+            src={`/pins/${pin.image}`}
+            alt={pin.name}
+            className={`${imgSize} object-contain`}
+            style={pixelatedIfSvg(pin.image)}
+          />
         </span>,
       );
     }

@@ -7,7 +7,7 @@ import { themeClasses } from '../../../../utils/theme';
 import { useSession } from '../../../../context/AppContext';
 import type { PinAction } from '../../hooks/usePinShop';
 import AchievementIcon from '../../../../shared/components/AchievementIcon';
-import { crewPinSrc, PIXELATED } from '../../../../constants/crests';
+import { crewPinSrc, PIXELATED, pixelatedIfSvg } from '../../../../constants/crests';
 
 interface MyLookTabProps {
   onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
@@ -158,7 +158,12 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) =>
                   className={chipClass(isDisplayed)}
                 >
                   <span className="mr-1 inline-flex items-center align-middle">
-                    <img src={`/pins/${pin.image}`} alt={pin.name} className="w-5 h-5 object-contain" />
+                    <img
+                      src={`/pins/${pin.image}`}
+                      alt={pin.name}
+                      className="w-5 h-5 object-contain"
+                      style={pixelatedIfSvg(pin.image)}
+                    />
                   </span>
                   <span className={`text-sm ${textClass}`}>{pin.name}</span>
                   {isDisplayed && <span className="text-xs text-orange-500 ml-2">✓</span>}

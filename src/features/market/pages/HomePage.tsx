@@ -11,6 +11,7 @@ import { themeClasses } from '../../../utils/theme';
 import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import type { ComponentProps } from 'react';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 type GridProps = ComponentProps<typeof MarketGrid>;
 
@@ -84,25 +85,30 @@ const HomePage = ({
         {/* Sub-header buttons */}
         <div className="flex flex-wrap gap-2 mb-4 justify-center">
           <button onClick={onShowMissions} className={subHeaderBtnClass}>
-            📋 Missions
+            <PixelIcon name="missions" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            Missions
           </button>
           {user && !isGuest && (
             <button onClick={onShowPinShop} className={subHeaderBtnClass}>
-              🎨 Customization
+              <PixelIcon name="palette" className="w-4 h-4 mr-1.5 align-[-3px]" />
+              Customization
             </button>
           )}
           {(!userData?.crew || isGuest) && (
             <button onClick={onShowCrews} className={subHeaderBtnClass}>
-              👥 Crews
+              <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
+              Crews
             </button>
           )}
           {user && !isGuest && (
             <button onClick={onShowMargin} className={subHeaderBtnClass}>
-              💰 Margin
+              <PixelIcon name="margin" className="w-4 h-4 mr-1.5 align-[-3px]" />
+              Margin
             </button>
           )}
           <button onClick={onShowAbout} className={subHeaderBtnClass}>
-            ℹ️ About
+            <PixelIcon name="about" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            About
           </button>
         </div>
 

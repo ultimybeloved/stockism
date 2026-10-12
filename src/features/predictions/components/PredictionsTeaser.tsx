@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { themeClasses } from '../../../utils/theme';
 import type { PredictionDoc } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 const ROTATE_MS = 6000;
 
@@ -35,7 +36,10 @@ const PredictionsTeaser = ({ predictions = [] }: { predictions?: PredictionDoc[]
       className={`${cardClass} border rounded-sm p-4 mb-4 w-full text-left cursor-pointer transition-colors hover:border-orange-600 group`}
     >
       <div className="flex justify-between items-center mb-3">
-        <p className={`text-xs font-semibold uppercase ${mutedClass}`}>🔮 Predictions</p>
+        <p className={`text-xs font-semibold uppercase ${mutedClass}`}>
+          <PixelIcon name="crystal" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+          Predictions
+        </p>
         {openWeekly.length > 0 ? (
           <span className="text-xs font-semibold text-orange-500">
             {openWeekly.length} live bet{openWeekly.length !== 1 ? 's' : ''} →

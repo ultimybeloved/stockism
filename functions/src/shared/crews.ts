@@ -233,7 +233,7 @@ export const SHOP_PINS: Record<string, ShopPin> = {
   alpha_tester: {
     id: 'alpha_tester',
     name: 'Alpha Tester',
-    image: 'alpha/stockism_logo.png',
+    image: 'ui/stockism.svg',
     description: 'Exclusive badge for early supporters',
     price: 1,
     collection: 'alpha_rewards',

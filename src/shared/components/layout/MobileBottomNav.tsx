@@ -3,16 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../../../context/AppContext';
 
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
-
-// Ladder icon component - tan circle with X
-const LadderIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" className="inline-block">
-    <circle cx="12" cy="12" r="11" fill="#b4ac99" />
-    <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fontSize="16" fontWeight="bold" fill="#333">
-      X
-    </text>
-  </svg>
-);
+import PixelIcon from '../PixelIcon';
 
 const MobileBottomNav = () => {
   const { user } = useSession();
@@ -54,14 +45,19 @@ const MobileBottomNav = () => {
   const navItems = [
     {
       path: '/',
-      icon: <img src="/pins/alpha/stockism_logo.png" alt="Home" className="w-6 h-6" />,
+      icon: <PixelIcon name="stockism" alt="Home" className="w-6 h-6" />,
       label: 'Home',
     },
-    { path: '/leaderboard', icon: '🏆', label: 'Leaderboard' },
-    { path: '/predictions', icon: '🔮', label: 'Predict', badge: newPredictions },
-    { path: '/ladder', icon: <LadderIcon />, label: 'Ladder' },
-    { path: '/achievements', icon: '🏅', label: 'Achievements' },
-    ...(user ? [{ path: '/profile', icon: '👤', label: 'Profile' }] : []),
+    { path: '/leaderboard', icon: <PixelIcon name="trophy" className="w-6 h-6" />, label: 'Leaderboard' },
+    {
+      path: '/predictions',
+      icon: <PixelIcon name="crystal" className="w-6 h-6" />,
+      label: 'Predict',
+      badge: newPredictions,
+    },
+    { path: '/ladder', icon: <PixelIcon name="ladder" className="w-6 h-6" />, label: 'Ladder' },
+    { path: '/achievements', icon: <PixelIcon name="medal" className="w-6 h-6" />, label: 'Achievements' },
+    ...(user ? [{ path: '/profile', icon: <PixelIcon name="profile" className="w-6 h-6" />, label: 'Profile' }] : []),
   ];
 
   return (
@@ -79,7 +75,7 @@ const MobileBottomNav = () => {
               isActivePage(item.path) ? 'text-orange-500' : 'light:text-zinc-600 dark:text-zinc-400'
             }`}
           >
-            <span className="text-2xl mb-1">{item.icon}</span>
+            <span className="mb-1 flex h-6 items-center">{item.icon}</span>
             <span className="text-xs font-medium">{item.label}</span>
             {!!item.badge && item.badge > 0 && (
               <span className="absolute top-1.5 right-1/2 translate-x-4 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
