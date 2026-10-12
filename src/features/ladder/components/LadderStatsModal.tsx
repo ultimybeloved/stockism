@@ -1,5 +1,6 @@
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 import type { LadderData } from '../../../utils/ladderTax';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface LadderStatsModalProps {
   userLadderData: LadderData | null;
@@ -15,6 +16,7 @@ const LadderStatsModal = ({
   setShowStatsModal,
   setShowLadderTutorialReview,
 }: LadderStatsModalProps) => {
+  const dialogRef = useModalFocus();
   return (
     <div
       style={{
@@ -29,6 +31,7 @@ const LadderStatsModal = ({
       onClick={() => setShowStatsModal(false)}
     >
       <div
+        ref={dialogRef}
         style={{
           background: bgCard,
           padding: '20px',

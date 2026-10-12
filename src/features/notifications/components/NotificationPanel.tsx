@@ -10,6 +10,7 @@ import {
 import NotificationRow from './NotificationRow';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { StoredNotification } from '../../../utils/notifications';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface NotificationPanelProps {
   notifications: StoredNotification[];
@@ -28,6 +29,7 @@ export default function NotificationPanel({
   onClearAll,
   onDelete,
 }: NotificationPanelProps) {
+  const dialogRef = useModalFocus();
   useEscapeKey(onClose);
   const navigate = useNavigate();
   const [filter, setFilter] = useState('All');
@@ -62,6 +64,7 @@ export default function NotificationPanel({
 
       {/* Panel — fixed to top-right below header */}
       <div
+        ref={dialogRef}
         className={`fixed top-16 right-4 w-80 rounded-sm shadow-xl border z-50 flex flex-col max-h-[70vh] ${cardClass}`}
       >
         {/* Header */}

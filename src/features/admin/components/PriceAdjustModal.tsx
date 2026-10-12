@@ -2,6 +2,7 @@ import { CHARACTERS } from '../../../characters';
 import type { AdminCommonProps } from './types';
 import type { useAdminMarketTools } from '../hooks/useAdminMarketTools';
 import type { PriceMap } from '../../../types';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 type PriceAdjustModalProps = Omit<AdminCommonProps, 'inputClass'> &
   Pick<
@@ -44,6 +45,7 @@ const PriceAdjustModal = ({
   handleModalPriceAdjustment,
   reviewSoFar = {},
 }: PriceAdjustModalProps) => {
+  const dialogRef = useModalFocus();
   const signed = (pct: number) => `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`;
   const notable = (pct: unknown): pct is number => typeof pct === 'number' && Math.abs(pct) >= 0.01;
 
@@ -53,6 +55,7 @@ const PriceAdjustModal = ({
       onClick={() => setShowPriceModal(false)}
     >
       <div
+        ref={dialogRef}
         className={`w-full max-w-xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -61,10 +64,11 @@ const PriceAdjustModal = ({
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>💰 Adjust Character Prices</h2>
             <button
+              aria-label="Close"
               onClick={() => setShowPriceModal(false)}
               className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}
             >
-              ×
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>

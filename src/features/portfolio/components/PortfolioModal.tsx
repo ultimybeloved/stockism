@@ -22,6 +22,7 @@ import type { ComponentProps } from 'react';
 import type { TradeAction, UserData } from '../../../types';
 import type { ChartHoverPoint, ShareInputs } from '../utils/shared';
 import type { IpoHoldingItem } from './IpoHoldingsList';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 type RowProps = ComponentProps<typeof HoldingRow>;
 
@@ -53,6 +54,7 @@ const PortfolioModal = ({
   onToggleDrip,
 }: PortfolioModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { user, userData, holdings, shorts, costBasis, showNotification } = useSession();
   const { prices, priceHistory, marketData, activeIPOs = [], rarityTiers } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -181,6 +183,7 @@ const PortfolioModal = ({
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
+        ref={dialogRef}
         className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >

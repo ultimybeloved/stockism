@@ -9,6 +9,7 @@ import { usePriceHistory } from '../hooks/usePriceHistory';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { Character } from '../../../characters';
 import type { PricePoint } from '../../../types';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface ChartModalProps {
   character: Character;
@@ -19,6 +20,7 @@ interface ChartModalProps {
 
 const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' }: ChartModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { userData } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [timeRange, setTimeRange] = useState(defaultTimeRange);
@@ -48,7 +50,11 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-3xl overflow-hidden`} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className={`${modalShellClass} max-w-3xl overflow-hidden`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-start">
@@ -85,8 +91,8 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
                 )}
               </div>
             </div>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
-              ×
+            <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>

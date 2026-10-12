@@ -54,6 +54,19 @@ body {
   animation: ticker-scroll 12s linear infinite;
 }
 
+/* Keyboard focus: a clear orange ring on anything clickable, shown only when
+   moving with the keyboard (:focus-visible), never on a mouse click. The
+   `html` prefix beats Tailwind's outline utilities. Text fields keep their own
+   focus styles. A modal box takes focus when it opens (useModalFocus) but is
+   not something to click, so it gets no ring. */
+html :is(a, button, select, summary, [role='button'], [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid #f97316;
+  outline-offset: 2px;
+}
+html [role='dialog']:focus {
+  outline: none;
+}
+
 /* Site announcement bar. Slower than the price ticker: this is prose the reader
    has to actually finish, not glanceable numbers. */
 .site-message-scroll {

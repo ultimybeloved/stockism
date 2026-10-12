@@ -4,6 +4,7 @@ import { BAILOUT_CASH } from '../../../constants';
 import { useSession } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 // Bankruptcy bailout confirmation — destructive last resort (clears holdings,
 // permanent crew exile), so the consequences are spelled out before confirming.
@@ -15,13 +16,14 @@ interface BailoutModalProps {
 
 const BailoutModal = ({ onConfirm, onCancel, loading }: BailoutModalProps) => {
   useEscapeKey(onCancel);
+  const dialogRef = useModalFocus();
   const { userData } = useSession();
   const { ghostBtnClass, overlayClass, modalShellClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onCancel}>
-      <div className={`${modalShellClass} max-w-md p-6`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6`} onClick={(e) => e.stopPropagation()}>
         <div className="text-center mb-4">
           <div className="text-4xl mb-2">💸</div>
           <h2 className="text-xl font-bold light:text-slate-900 dark:text-zinc-100">Bankruptcy Bailout</h2>

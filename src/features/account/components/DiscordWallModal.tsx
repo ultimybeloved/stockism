@@ -5,6 +5,7 @@ import { auth } from '../../../firebase';
 import { signOut } from 'firebase/auth';
 import { themeClasses } from '../../../utils/theme';
 import { useDiscordLink } from '../../profile/hooks/useDiscordLink';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 /**
  * Full-screen wall for accounts flagged for Discord verification (suspected alts,
@@ -15,6 +16,7 @@ import { useDiscordLink } from '../../profile/hooks/useDiscordLink';
 function DiscordWallModal() {
   const { user, userData } = useSession();
   const { beginDiscordLink, linking, error } = useDiscordLink();
+  const dialogRef = useModalFocus();
 
   // Only walls a logged-in, flagged, not-yet-linked account.
   if (!user || !userData?.requiresDiscordLink || userData?.discordId) return null;
@@ -23,7 +25,7 @@ function DiscordWallModal() {
 
   return (
     <div className={`${overlayHeavyClass} z-[100] backdrop-blur-sm`}>
-      <div className={`${modalShellClass} max-w-md p-6 text-center`}>
+      <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6 text-center`}>
         <div className="text-4xl mb-3">🔗</div>
         <h2 className={`text-xl font-bold mb-2 ${textClass}`}>Link Discord to continue</h2>
         <p className={`text-sm mb-5 ${mutedClass}`}>

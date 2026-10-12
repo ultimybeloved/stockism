@@ -13,6 +13,7 @@ import { formatDateTime } from '../../../utils/localTime';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface CrewSelectionModalProps {
   onClose: () => void;
@@ -33,6 +34,7 @@ const CrewSelectionModal = ({
   selectLoading,
 }: CrewSelectionModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { darkMode } = useTheme();
   const { userData } = useSession();
   const { crewStats } = useMarket();
@@ -91,14 +93,15 @@ const CrewSelectionModal = ({
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
+        ref={dialogRef}
         className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🏴 {isGuest ? 'Crews' : 'Crew'}</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
-              ×
+            <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              <span aria-hidden="true">×</span>
             </button>
           </div>
           {isGuest && <p className="text-sm text-amber-500 mt-1">Sign in to join a crew!</p>}

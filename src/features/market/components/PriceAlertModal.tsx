@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { themeClasses } from '../../../utils/theme';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { PriceAlert } from '../../../types';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface PriceAlertModalProps {
   ticker: string;
@@ -21,6 +22,7 @@ export default function PriceAlertModal({
   onDeleteAlert,
 }: PriceAlertModalProps) {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const [direction, setDirection] = useState('above');
   const [targetPrice, setTargetPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -66,15 +68,19 @@ export default function PriceAlertModal({
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} ${textClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className={`${modalShellClass} ${textClass} p-4 max-w-md`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-lg font-bold">Price Alert</h2>
             <span className={`text-sm ${mutedClass}`}>{ticker}</span>
           </div>
-          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500 text-xl`}>
-            ✕
+          <button aria-label="Close" onClick={onClose} className={`${mutedClass} hover:text-orange-500 text-xl`}>
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 

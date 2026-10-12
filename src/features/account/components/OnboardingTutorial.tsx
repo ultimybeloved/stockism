@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 
 import { themeClasses } from '../../../utils/theme';
 import { marketTimes } from '../../../utils/localTime';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 const STEPS = [
   {
@@ -71,6 +72,7 @@ export default function OnboardingTutorial({ onComplete }: { onComplete: () => v
   );
 
   const { textClass, overlayHeavyClass, modalShellClass } = themeClasses;
+  const dialogRef = useModalFocus();
   const subtleText = 'light:text-slate-600 dark:text-zinc-400';
   const subtleBtn = 'light:text-slate-500 light:hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200';
 
@@ -78,6 +80,7 @@ export default function OnboardingTutorial({ onComplete }: { onComplete: () => v
     <div className={`${overlayHeavyClass} z-[100]`}>
       {/* Card */}
       <div
+        ref={dialogRef}
         className={`relative ${modalShellClass} ${textClass} max-w-md mx-auto p-6 transition-all duration-200 ${
           animating
             ? direction > 0

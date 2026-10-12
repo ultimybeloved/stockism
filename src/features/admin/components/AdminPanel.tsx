@@ -55,6 +55,7 @@ import { useAdminSiteMessages } from '../hooks/useAdminSiteMessages';
 import type { User } from 'firebase/auth';
 import type { MarketData } from '../../../context/AppContext';
 import type { PredictionDoc, PriceMap } from '../../../types';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface AdminPanelProps {
   user: User | null;
@@ -68,6 +69,7 @@ interface AdminPanelProps {
 // domain, and each tab component receives its hook's return spread as props.
 const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPanelProps) => {
   const [activeTab, setActiveTab] = useState('users');
+  const dialogRef = useModalFocus();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: string; text: string } | null>(null);
 
@@ -175,6 +177,7 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
       {/* 13 tabs of dense controls do not fit in 3xl — the pills wrapped and every
           panel was squeezed into a tall thin column. */}
       <div
+        ref={dialogRef}
         className={`w-full max-w-6xl ${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[92vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -189,8 +192,8 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
               >
                 💰 Adjust Prices
               </button>
-              <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>
-                ×
+              <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-teal-600 text-xl`}>
+                <span aria-hidden="true">×</span>
               </button>
             </div>
           </div>

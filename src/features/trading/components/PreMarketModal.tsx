@@ -14,6 +14,7 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { marketTimes } from '../../../utils/localTime';
 import { errorMessage } from '../../../utils/errors';
 import type { Character } from '../../../characters';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 type PreMarketAction = 'buy' | 'sell';
 
@@ -43,6 +44,7 @@ const PreMarketModal = ({
   onClose,
 }: PreMarketModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { user, showNotification } = useSession();
   const [action, setAction] = useState<PreMarketAction>(initialAction);
   const [shares, setShares] = useState(1);
@@ -145,7 +147,7 @@ const PreMarketModal = ({
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className={`${modalShellClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-start mb-3">
           <div>
             <h3 className={`text-lg font-bold ${textClass}`}>Pre-Market Queue</h3>
@@ -153,8 +155,8 @@ const PreMarketModal = ({
               {character.name} (${character.ticker})
             </p>
           </div>
-          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>
-            ✕
+          <button aria-label="Close" onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 

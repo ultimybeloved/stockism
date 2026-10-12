@@ -13,6 +13,7 @@ import type { ShopPin } from '../../../crews';
 import type { Cosmetic } from '../../../constants/cosmetics';
 import type { Bundle } from '../../../rules/shop';
 import type { PinAction, GiftTarget } from '../hooks/usePinShop';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
@@ -45,6 +46,7 @@ const PinShopModal = ({
   portfolioValue,
 }: PinShopModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { userData } = useSession();
   const [activeTab, setActiveTab] = useState('look');
   const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
@@ -77,14 +79,15 @@ const PinShopModal = ({
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
+        ref={dialogRef}
         className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>🎨 Customization</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
-              ×
+            <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              <span aria-hidden="true">×</span>
             </button>
           </div>
           <p className={`text-sm ${mutedClass}`}>

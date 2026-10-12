@@ -1,4 +1,5 @@
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 // Ladder leaderboard modal. Data loading lives in useLadderModals (it fires
 // when the modal opens).
@@ -19,6 +20,7 @@ const LadderLeaderboardModal = ({
   leaderboardLoading,
   setShowLeaderboardModal,
 }: LadderLeaderboardModalProps) => {
+  const dialogRef = useModalFocus();
   return (
     <div
       style={{
@@ -33,6 +35,7 @@ const LadderLeaderboardModal = ({
       onClick={() => setShowLeaderboardModal(false)}
     >
       <div
+        ref={dialogRef}
         style={{
           background: bgCard,
           padding: '20px',

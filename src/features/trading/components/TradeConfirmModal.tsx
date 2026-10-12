@@ -4,6 +4,7 @@ import { useSession } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { TradeConfirmation } from '../../../shared/hooks/types';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface TradeConfirmModalProps {
   confirmation: TradeConfirmation;
@@ -15,6 +16,7 @@ interface TradeConfirmModalProps {
 // Confirmation step for buy/sell/short/cover, shown before the trade executes.
 const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: TradeConfirmModalProps) => {
   useEscapeKey(onCancel);
+  const dialogRef = useModalFocus();
   const { userData } = useSession();
   const { borderClass, chipClass, overlayClass, modalShellClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -25,7 +27,7 @@ const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: Trade
 
   return (
     <div className={`${overlayClass} z-[60]`} onClick={onCancel}>
-      <div className={`${modalShellClass} max-w-sm p-5`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className={`${modalShellClass} max-w-sm p-5`} onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold mb-4 light:text-slate-900 dark:text-zinc-100">
           Confirm {action === 'buy' ? 'Purchase' : action === 'sell' ? 'Sale' : 'Short'}
         </h3>

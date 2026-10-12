@@ -5,11 +5,13 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import AboutTab from './AboutTab';
 import FaqTab from './FaqTab';
 import PrivacyTab from './PrivacyTab';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 type AboutTabKey = 'about' | 'faq' | 'privacy';
 
 const AboutModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const [activeTab, setActiveTab] = useState<AboutTabKey>('about');
 
   const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
@@ -17,6 +19,7 @@ const AboutModal = ({ onClose }: { onClose: () => void }) => {
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
+        ref={dialogRef}
         className={`${modalShellClass} max-w-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -24,8 +27,8 @@ const AboutModal = ({ onClose }: { onClose: () => void }) => {
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>About Stockism</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
-              ×
+            <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>

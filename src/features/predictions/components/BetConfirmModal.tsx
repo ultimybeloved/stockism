@@ -2,6 +2,7 @@ import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 export interface BetConfirmation {
   predictionId: string;
@@ -20,11 +21,12 @@ interface BetConfirmModalProps {
 // Confirmation step for weekly prediction bets.
 const BetConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: BetConfirmModalProps) => {
   useEscapeKey(onCancel);
+  const dialogRef = useModalFocus();
   const { borderClass, chipClass, overlayClass, modalShellClass } = themeClasses;
 
   return (
     <div className={`${overlayClass} z-[60]`} onClick={onCancel}>
-      <div className={`${modalShellClass} max-w-sm p-5`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className={`${modalShellClass} max-w-sm p-5`} onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold mb-4 light:text-slate-900 dark:text-zinc-100">Confirm Bet</h3>
         <div className="space-y-2 mb-5 light:text-slate-700 dark:text-zinc-300">
           <div className="mb-3">

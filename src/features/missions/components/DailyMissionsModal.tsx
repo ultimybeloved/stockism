@@ -11,6 +11,7 @@ import {
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 type ClaimReward = (missionId: string, reward: number) => unknown;
 type MissionTab = 'daily' | 'weekly' | 'crew';
@@ -41,6 +42,7 @@ const DailyMissionsModal = ({
   rerollLoading,
 }: DailyMissionsModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { darkMode } = useTheme();
   const { userData } = useSession();
   const { prices, crewStats } = useMarket();
@@ -110,13 +112,17 @@ const DailyMissionsModal = ({
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-md overflow-hidden`} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className={`${modalShellClass} max-w-md overflow-hidden`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
             <h2 className={`text-lg font-semibold ${textClass}`}>📋 Missions</h2>
-            <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
-              ×
+            <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </div>

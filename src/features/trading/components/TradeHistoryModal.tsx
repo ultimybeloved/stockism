@@ -24,6 +24,7 @@ import {
   exportTradesToCSV,
   type TradeRecord,
 } from '../../../utils/tradeHistory';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 /** A trades/{id} doc as this list reads it. Dividend payouts carry a breakdown instead of a price. */
 interface TradeRow extends TradeRecord {
@@ -40,6 +41,7 @@ const PAGE_SIZE = 30;
 
 const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -162,6 +164,7 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
+        ref={dialogRef}
         className={`${modalShellClass} max-w-lg overflow-hidden max-h-[85vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >

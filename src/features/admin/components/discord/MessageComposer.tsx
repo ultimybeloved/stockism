@@ -223,8 +223,12 @@ export default function MessageComposer({
               placeholder="https://…"
               className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`}
             />
-            <button onClick={() => onRemoveButton(i)} className="px-2 text-red-500 hover:text-red-400">
-              ×
+            <button
+              aria-label="Remove button"
+              onClick={() => onRemoveButton(i)}
+              className="px-2 text-red-500 hover:text-red-400"
+            >
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         ))}

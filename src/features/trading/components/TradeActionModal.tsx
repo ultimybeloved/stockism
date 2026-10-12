@@ -15,6 +15,7 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { errorMessage } from '../../../utils/errors';
 import type { Character } from '../../../characters';
 import type { ShortPosition, TradeAction } from '../../../types';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 /** Which order form the modal opens on; `true` is the old spelling of 'limit'. */
 export type OrderFormMode = boolean | 'limit' | 'stopLoss';
@@ -52,6 +53,7 @@ const TradeActionModal = ({
   haltInfo,
 }: TradeActionModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { userData, showNotification } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -301,7 +303,7 @@ const TradeActionModal = ({
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className={`${modalShellClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -310,8 +312,8 @@ const TradeActionModal = ({
             </h3>
             <p className={`text-sm ${mutedClass}`}>{character.name}</p>
           </div>
-          <button onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>
-            ✕
+          <button aria-label="Close" onClick={onClose} className={`${mutedClass} hover:text-orange-500`}>
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 

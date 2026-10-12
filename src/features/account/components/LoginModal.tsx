@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, twitterProvider } from '../../../firebase';
 import { themeClasses } from '../../../utils/theme';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -150,12 +151,17 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
   };
 
   const { textClass, mutedClass, inputClass, overlayClass, modalShellClass, ghostBtnClass } = themeClasses;
+  const dialogRef = useModalFocus();
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} relative max-w-md p-6`} onClick={(e) => e.stopPropagation()}>
-        <button onClick={onClose} className={`absolute top-4 right-4 ${mutedClass} hover:text-orange-500 text-xl`}>
-          ×
+      <div ref={dialogRef} className={`${modalShellClass} relative max-w-md p-6`} onClick={(e) => e.stopPropagation()}>
+        <button
+          aria-label="Close"
+          onClick={onClose}
+          className={`absolute top-4 right-4 ${mutedClass} hover:text-orange-500 text-xl`}
+        >
+          <span aria-hidden="true">×</span>
         </button>
 
         <h2 className={`text-lg font-semibold mb-6 ${textClass}`}>

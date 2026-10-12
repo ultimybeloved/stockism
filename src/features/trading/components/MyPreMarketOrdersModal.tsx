@@ -7,6 +7,7 @@ import { useSession } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { errorMessage } from '../../../utils/errors';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 /** preMarketOrders/{id}: an order queued for the reopening auction. */
 interface PreMarketOrder {
@@ -19,6 +20,7 @@ interface PreMarketOrder {
 
 const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { user, showNotification } = useSession();
   const [orders, setOrders] = useState<PreMarketOrder[]>([]);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -78,11 +80,15 @@ const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} relative max-w-md`} onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className={`${modalShellClass} relative max-w-md`} onClick={(e) => e.stopPropagation()}>
         <div className={`flex items-center justify-between px-4 py-3 border-b ${borderClass}`}>
           <h2 className={`font-bold text-base ${textClass}`}>My Pre-Market Orders</h2>
-          <button onClick={onClose} className={`text-lg leading-none ${mutedClass} hover:opacity-70`}>
-            ✕
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className={`text-lg leading-none ${mutedClass} hover:opacity-70`}
+          >
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 

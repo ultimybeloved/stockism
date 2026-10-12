@@ -4,6 +4,7 @@ import { auth } from '../../../firebase';
 import { themeClasses } from '../../../utils/theme';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 const EmailVerificationModal = ({ user, userData }: { user: User; userData: UserData | null }) => {
   const [loading, setLoading] = useState(false);
@@ -40,10 +41,11 @@ const EmailVerificationModal = ({ user, userData }: { user: User; userData: User
   };
 
   const { textClass, mutedClass, overlayClass, modalShellClass, ghostBtnClass } = themeClasses;
+  const dialogRef = useModalFocus();
 
   return (
     <div className={`${overlayClass} z-50`}>
-      <div className={`${modalShellClass} max-w-md p-6`}>
+      <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6`}>
         <div className="text-center mb-6">
           <div className="text-5xl mb-3">📧</div>
           <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Verify Your Email</h2>

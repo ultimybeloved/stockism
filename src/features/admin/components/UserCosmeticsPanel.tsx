@@ -74,6 +74,7 @@ const UserCosmeticsPanel = ({
                 <span className={textClass}>{c?.name || id}</span>
                 {isEquipped && <span className="text-teal-500 font-semibold">on</span>}
                 <button
+                  aria-label="Take this cosmetic away"
                   onClick={() =>
                     handleRevokeCosmetic(selectedUser.id, selectedUser.displayName || selectedUser.username, id)
                   }
@@ -81,7 +82,7 @@ const UserCosmeticsPanel = ({
                   title="Take this cosmetic away"
                   className={`${mutedClass} hover:text-red-500 disabled:opacity-50`}
                 >
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               </span>
             );

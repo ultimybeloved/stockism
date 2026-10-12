@@ -61,6 +61,7 @@ const LadderGame = ({ onClose }: { onClose?: () => void }) => {
         {/* Close button */}
         {onClose && (
           <button
+            aria-label="Close"
             onClick={onClose}
             style={{
               position: 'absolute',
@@ -78,7 +79,7 @@ const LadderGame = ({ onClose }: { onClose?: () => void }) => {
               fontWeight: 'bold',
             }}
           >
-            ×
+            <span aria-hidden="true">×</span>
           </button>
         )}
 

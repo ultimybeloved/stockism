@@ -11,6 +11,7 @@ import { useSession } from '../../../context/AppContext';
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 import type { useLadderModals } from '../hooks/useLadderModals';
 import type { LadderData } from '../../../utils/ladderTax';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 type LadderTransferModalProps = Pick<
   ReturnType<typeof useLadderModals>,
@@ -48,6 +49,7 @@ const LadderTransferModal = ({
   handleDeposit,
   handleWithdraw,
 }: LadderTransferModalProps) => {
+  const dialogRef = useModalFocus();
   const { userData } = useSession();
 
   const ladderBalance = userLadderData?.balance || 0;
@@ -114,6 +116,7 @@ const LadderTransferModal = ({
       onClick={() => setShowTransferModal(false)}
     >
       <div
+        ref={dialogRef}
         style={{
           background: bgCard,
           padding: '20px',

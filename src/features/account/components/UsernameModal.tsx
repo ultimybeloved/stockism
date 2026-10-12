@@ -5,6 +5,7 @@ import { validateUsername } from '../../../utils/username';
 import { themeClasses } from '../../../utils/theme';
 import type { FormEvent } from 'react';
 import { errorMessage } from '../../../utils/errors';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 // Wait this long after the last keystroke before asking the server. Without it
 // every character typed would be its own function call.
@@ -107,10 +108,11 @@ const UsernameModal = ({ onComplete, suggestedName = '' }: { onComplete: () => v
   };
 
   const { textClass, mutedClass, inputClass, overlayHeavyClass, modalShellClass } = themeClasses;
+  const dialogRef = useModalFocus();
 
   return (
     <div className={`${overlayHeavyClass} z-50`}>
-      <div className={`${modalShellClass} max-w-md p-6`}>
+      <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6`}>
         <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Welcome to Stockism! 🎉</h2>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Choose a username for the leaderboard. This is the only name other players will see.

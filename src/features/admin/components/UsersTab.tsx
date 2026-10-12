@@ -162,8 +162,12 @@ const UsersTab = ({
                 </p>
               )}
             </div>
-            <button onClick={() => setSelectedUser(null)} className={`text-xl ${mutedClass} hover:text-red-500`}>
-              ×
+            <button
+              aria-label="Close"
+              onClick={() => setSelectedUser(null)}
+              className={`text-xl ${mutedClass} hover:text-red-500`}
+            >
+              <span aria-hidden="true">×</span>
             </button>
           </div>
 

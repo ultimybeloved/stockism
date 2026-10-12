@@ -1,6 +1,7 @@
 import { themeClasses } from '../../../utils/theme';
 import { TIME_RANGES } from '../../../utils/marketIndex';
 import { useTheme } from '../../../context/AppContext';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 export interface IndexPoint {
   timestamp: number;
@@ -38,6 +39,7 @@ const IndexChartModal = ({
 }: IndexChartModalProps) => {
   const { darkMode } = useTheme();
   const { textClass, mutedClass, bgClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
+  const dialogRef = useModalFocus();
 
   if (chartData.length < 2) return null;
 
@@ -89,7 +91,11 @@ const IndexChartModal = ({
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-3xl overflow-hidden`} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className={`${modalShellClass} max-w-3xl overflow-hidden`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-start">

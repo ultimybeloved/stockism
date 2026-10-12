@@ -7,6 +7,7 @@ import { themeClasses } from '../../../utils/theme';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 interface MarginModalProps {
   onClose: () => void;
@@ -32,6 +33,7 @@ const MarginModal = ({
   onReviewTutorial,
 }: MarginModalProps) => {
   useEscapeKey(onClose);
+  const dialogRef = useModalFocus();
   const { userData } = useSession();
   const { prices, priceHistory } = useMarket();
   const [repayAmount, setRepayAmount] = useState(0);
@@ -104,6 +106,7 @@ const MarginModal = ({
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
+        ref={dialogRef}
         className={`${modalShellClass} max-w-md overflow-hidden max-h-[85vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -112,8 +115,8 @@ const MarginModal = ({
             <h2 className={`text-xl font-bold ${textClass}`}>📊 Margin Trading</h2>
             <p className={`text-sm ${mutedClass}`}>Leverage your portfolio</p>
           </div>
-          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
-            ×
+          <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
+            <span aria-hidden="true">×</span>
           </button>
         </div>
 

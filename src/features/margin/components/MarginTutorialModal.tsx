@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { themeClasses } from '../../../utils/theme';
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
 import { HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../../../utils/marketHours';
+import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 
 const STEPS = [
   { id: 1, title: 'What is margin trading?' },
@@ -30,6 +31,7 @@ interface MarginTutorialModalProps {
 
 const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: MarginTutorialModalProps) => {
   const { textClass, mutedClass, overlayHeavyClass, modalShellClass, cardEdgeClass } = themeClasses;
+  const dialogRef = useModalFocus();
   const [step, setStep] = useState(1);
   const [checks, setChecks] = useState<boolean[]>(Array(CHECKS.length).fill(false));
   const [confirmText, setConfirmText] = useState('');
@@ -47,7 +49,11 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
 
   return (
     <div className={`${overlayHeavyClass} z-50`} onClick={onClose}>
-      <div className={`${modalShellClass} max-w-lg max-h-[90vh] flex flex-col`} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        className={`${modalShellClass} max-w-lg max-h-[90vh] flex flex-col`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className={`p-4 border-b ${cardEdgeClass} flex items-center justify-between shrink-0`}>
           <div>
@@ -56,8 +62,12 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
             </p>
             <h2 className={`text-base font-bold ${textClass} mt-0.5`}>{STEPS[step - 1]?.title}</h2>
           </div>
-          <button onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl leading-none`}>
-            ×
+          <button
+            aria-label="Close"
+            onClick={onClose}
+            className={`p-2 ${mutedClass} hover:text-orange-500 text-xl leading-none`}
+          >
+            <span aria-hidden="true">×</span>
           </button>
         </div>
 
