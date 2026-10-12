@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { logPanelAction } from '../utils/panelLog';
 import { ADMIN_UIDS } from '../../../constants';
 import { summarizeForDeletion } from '../utils/deletionSummary';
 import type { Dispatch, SetStateAction } from 'react';
@@ -99,6 +100,15 @@ export function useAdminUserDeletion({
       try {
         await deleteDoc(doc(db, 'users', userId));
         deleted++;
+        const gone = allUsers.find((u) => u.id === userId);
+        await logPanelAction({
+          action: 'delete_user',
+          uid: userId,
+          name: gone?.displayName,
+          before: gone
+            ? { cash: gone.cash, portfolioValue: gone.portfolioValue, holdings: gone.holdings, shorts: gone.shorts }
+            : null,
+        });
       } catch (err) {
         console.error(`Failed to delete user ${userId}:`, err);
         failed++;

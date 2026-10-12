@@ -39,10 +39,14 @@ function DiscordWallModal() {
         >
           {linking ? 'Opening Discord...' : 'Link Discord'}
         </button>
-        {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
+        {error && (
+          <p role="alert" className="text-xs text-red-400 mb-3">
+            {error}
+          </p>
+        )}
         <button
           onClick={() => signOut(auth)}
-          className="text-xs underline light:text-zinc-500 light:hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300"
+          className="text-xs underline light:text-zinc-500 light:hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
         >
           Not you? Log out
         </button>

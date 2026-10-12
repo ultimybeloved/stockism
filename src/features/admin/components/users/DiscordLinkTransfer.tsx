@@ -33,6 +33,7 @@ const DiscordLinkTransfer = ({
       <label className={`text-xs ${mutedClass} block mb-1`}>Recover this account (move a Discord onto it):</label>
       <div className="flex gap-2">
         <input
+          aria-label="Account to move the Discord from"
           type="text"
           value={moveSourceId}
           onChange={(e) => setMoveSourceId(e.target.value)}
@@ -86,6 +87,7 @@ const DiscordLinkTransfer = ({
       <label className={`text-xs ${mutedClass} block mt-3 mb-1`}>Unblock a Discord ID:</label>
       <div className="flex gap-2">
         <input
+          aria-label="Discord ID to unblock"
           type="text"
           value={freeDiscordId}
           onChange={(e) => setFreeDiscordId(e.target.value)}

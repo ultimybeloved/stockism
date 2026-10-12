@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { logPanelAction } from '../utils/panelLog';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 
@@ -59,6 +60,7 @@ export function useAdminSiteMessages({ showMessage }: Pick<AdminHookDeps, 'showM
       setLoading(true);
       try {
         await setDoc(REF(), { messages: cleaned, updatedAt: Date.now() }, { merge: true });
+        await logPanelAction({ action: 'set_site_messages', after: cleaned });
         setMessages(cleaned);
         setDirty(false);
         showMessage(

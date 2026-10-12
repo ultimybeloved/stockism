@@ -2,6 +2,7 @@ import { doc, collection, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
+import { logPanelAction } from '../utils/panelLog';
 
 // This tool exists to repair documents whose numbers went bad, so it reads them
 // as untrusted: any field may hold NaN, Infinity, a string, or nothing.
@@ -129,6 +130,13 @@ export function useAdminAccountRepair({ setMessage, setLoading }: Pick<AdminHook
           const userRef = doc(db, 'users', account.uid);
           await updateDoc(userRef, account.fixes);
           fixed++;
+          await logPanelAction({
+            action: 'repair_corrupted_account',
+            uid: account.uid,
+            name: account.displayName,
+            after: account.fixes,
+            detail: { issues: account.issues },
+          });
         }
         setMessage({
           type: 'success',

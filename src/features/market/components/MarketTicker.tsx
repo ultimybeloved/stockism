@@ -166,7 +166,7 @@ const MarketTicker = () => {
                 </span>
               ))}
               {movers.length > 0 && <span className="light:text-slate-300 dark:text-zinc-600"> | </span>}
-              <span className="light:text-slate-500 dark:text-zinc-500">{scheduleText}</span>
+              <span className="light:text-slate-500 dark:text-zinc-400">{scheduleText}</span>
             </span>
             {/* Duplicate for seamless loop */}
             <span className="text-xs font-medium px-4 light:text-slate-600 dark:text-zinc-300">
@@ -203,7 +203,7 @@ const MarketTicker = () => {
                 </span>
               ))}
               {movers.length > 0 && <span className="light:text-slate-300 dark:text-zinc-600"> | </span>}
-              <span className="light:text-slate-500 dark:text-zinc-500">{scheduleText}</span>
+              <span className="light:text-slate-500 dark:text-zinc-400">{scheduleText}</span>
             </span>
           </>
         </div>

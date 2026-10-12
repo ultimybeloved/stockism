@@ -50,6 +50,7 @@ const DiagnosticTab = ({
           <div>
             <label className={`text-xs ${mutedClass} block mb-1`}>Ticker</label>
             <input
+              aria-label="Ticker"
               type="text"
               value={diagTicker}
               onChange={(e) => setDiagTicker(e.target.value.toUpperCase())}
@@ -59,6 +60,7 @@ const DiagnosticTab = ({
           <div>
             <label className={`text-xs ${mutedClass} block mb-1`}>Start Date (UTC)</label>
             <input
+              aria-label="Start date (UTC)"
               type="date"
               value={diagStartDate}
               onChange={(e) => setDiagStartDate(e.target.value)}
@@ -136,6 +138,7 @@ const DiagnosticTab = ({
             <div className="flex justify-between items-center mb-1">
               <h4 className={`font-semibold text-sm ${textClass}`}>👤 Per-User Breakdown</h4>
               <select
+                aria-label="Sort players by"
                 value={diagUserSort}
                 onChange={(e) => setDiagUserSort(e.target.value)}
                 className={`text-xs px-2 py-1 border rounded-sm ${inputClass}`}
@@ -225,6 +228,7 @@ const DiagnosticTab = ({
               <div>
                 <label className={`text-xs ${mutedClass}`}>Roll back price to</label>
                 <input
+                  aria-label="Roll back price to"
                   type="date"
                   value={recoveryRollbackDate}
                   onChange={(e) => setRecoveryRollbackDate(e.target.value)}

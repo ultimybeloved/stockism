@@ -55,6 +55,7 @@ const SiteMessagesTab = ({
               <div key={m.id} className={rowCard}>
                 <div className="flex gap-2 mb-2">
                   <input
+                    aria-label="Message text"
                     type="text"
                     value={m.text}
                     placeholder="What players need to know"
@@ -72,6 +73,7 @@ const SiteMessagesTab = ({
                 </div>
                 <div className="flex gap-2 flex-wrap items-center">
                   <input
+                    aria-label="Message link"
                     type="text"
                     value={m.link || ''}
                     placeholder="Optional link"
@@ -79,6 +81,7 @@ const SiteMessagesTab = ({
                     className={`flex-1 min-w-[140px] px-2 py-1 text-xs rounded-sm border ${inputClass}`}
                   />
                   <select
+                    aria-label="Message tone"
                     value={m.tone || 'info'}
                     onChange={(e) => updateSiteMessage(m.id, { tone: e.target.value })}
                     className={`px-2 py-1 text-xs rounded-sm border ${inputClass}`}

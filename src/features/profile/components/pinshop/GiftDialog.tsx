@@ -59,7 +59,11 @@ const GiftDialog = ({ gift, cash, onSend, onClose }: GiftDialogProps) => {
           placeholder="Player's name"
           className={`w-full px-3 py-2 border rounded-sm mb-2 ${inputClass}`}
         />
-        {error && <p className="text-xs mb-2 light:text-red-600 dark:text-red-400">{error}</p>}
+        {error && (
+          <p role="alert" className="text-xs mb-2 light:text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
         {cash < price && <p className="text-xs mb-2 light:text-red-600 dark:text-red-400">Not enough cash.</p>}
         <div className="flex gap-3 mt-2">
           <button

@@ -59,6 +59,7 @@ export default function AnnounceCard() {
         Sends a notification to every user&apos;s bell. Edit the text, then send.
       </p>
       <input
+        aria-label="Announcement title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         maxLength={100}
@@ -66,6 +67,7 @@ export default function AnnounceCard() {
         className={`w-full mb-2 px-3 py-2 text-sm rounded-sm border ${inputClass}`}
       />
       <textarea
+        aria-label="Announcement message"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         maxLength={1000}

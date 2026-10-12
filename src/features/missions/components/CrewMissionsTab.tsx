@@ -141,7 +141,11 @@ export default function CrewMissionsTab() {
         )}
       </div>
 
-      {claimError && <p className="text-xs text-red-500 text-center px-2">{claimError}</p>}
+      {claimError && (
+        <p role="alert" className="text-xs text-red-500 text-center px-2">
+          {claimError}
+        </p>
+      )}
 
       {CREW_MISSIONS.map((mission) => {
         const memberCount = (crewInfo?.members || []).length;

@@ -271,7 +271,9 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
               </>
             )}
             {error && (
-              <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">{error}</div>
+              <div role="alert" className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">
+                {error}
+              </div>
             )}
             {successMessage && (
               <div className="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded-sm text-sm">
@@ -316,7 +318,9 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
               required
             />
             {error && (
-              <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">{error}</div>
+              <div role="alert" className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">
+                {error}
+              </div>
             )}
             {successMessage && (
               <div className="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded-sm text-sm">

@@ -8,6 +8,7 @@ import {
 } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
+import { logPanelAction } from '../utils/panelLog';
 import type { PredictionDoc } from '../../../types';
 
 // Predictions tab: resolve, extend/reopen, cancel-refund, and delete.
@@ -52,6 +53,10 @@ export function useAdminPredictionManage({
       });
 
       await updateDoc(predictionsRef, { list: updatedList });
+      await logPanelAction({
+        action: 'resolve_prediction',
+        after: { id: selectedPrediction.id, question: selectedPrediction.question, outcomes: selectedOutcomes },
+      });
 
       const label = selectedOutcomes.length === 1 ? `"${selectedOutcomes[0]}"` : `"${selectedOutcomes.join('" & "')}"`;
       showMessage('success', `Resolved! Winner(s): ${label}`);
@@ -84,6 +89,10 @@ export function useAdminPredictionManage({
       const updatedList = currentList.filter((p) => p.id !== predictionId);
 
       await updateDoc(predictionsRef, { list: updatedList });
+      await logPanelAction({
+        action: 'delete_prediction',
+        before: currentList.find((p) => p.id === predictionId) || { id: predictionId },
+      });
 
       showMessage('success', 'Prediction deleted');
       setSelectedPrediction(null);
@@ -162,6 +171,11 @@ export function useAdminPredictionManage({
       await updateDoc(predictionsRef, { list: updatedList });
 
       const pred = currentList.find((p) => p.id === extendPredictionId);
+      await logPanelAction({
+        action: 'extend_prediction',
+        before: { id: extendPredictionId, question: pred?.question, endsAt: pred?.endsAt },
+        after: { endsAt: getEndTime(extendDays), allowAdditionalBets },
+      });
       showMessage(
         'success',
         `Extended "${pred?.question}" by ${extendDays} days${allowAdditionalBets ? ' • Additional bets allowed' : ''}`,

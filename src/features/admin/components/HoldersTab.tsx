@@ -33,6 +33,7 @@ const HoldersTab = ({
       <div>
         <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Search Characters</label>
         <input
+          aria-label="Search characters"
           type="text"
           placeholder="Filter by name or ticker..."
           value={holdersTicker}

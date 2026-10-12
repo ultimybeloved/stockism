@@ -97,6 +97,7 @@ const SeasonPanel = ({
           <label className={`text-xs ${mutedClass} block mb-1`}>Arc name (becomes the title):</label>
           <div className="flex gap-2 mb-3">
             <input
+              aria-label="Arc name"
               type="text"
               value={seasonName}
               onChange={(e) => setSeasonName(e.target.value)}

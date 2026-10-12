@@ -92,6 +92,7 @@ const UserAdminActions = ({
             <label className={`text-xs ${mutedClass} block mb-1`}>Change Display Name:</label>
             <div className="flex gap-2">
               <input
+                aria-label="New display name"
                 type="text"
                 value={newDisplayName}
                 onChange={(e) => setNewDisplayName(e.target.value)}

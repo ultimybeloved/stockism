@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { logPanelAction } from '../utils/panelLog';
 import { ADMIN_UIDS } from '../../../constants';
 import type { AdminHookDeps } from '../utils/adminShared';
 import type { UserData } from '../../../types';
@@ -94,6 +95,11 @@ export function useAdminOrphans({ showMessage, setLoading }: Pick<AdminHookDeps,
 
     try {
       await deleteDoc(doc(db, 'users', userId));
+      await logPanelAction({
+        action: 'delete_orphan',
+        uid: userId,
+        before: orphanedUsers.find((u) => u.id === userId) || null,
+      });
       setOrphanedUsers((prev) => prev.filter((u) => u.id !== userId));
       showMessage('success', `Deleted user ${userId}`);
     } catch (err) {
@@ -114,6 +120,7 @@ export function useAdminOrphans({ showMessage, setLoading }: Pick<AdminHookDeps,
       for (const user of orphanedUsers) {
         await deleteDoc(doc(db, 'users', user.id));
         deleted++;
+        await logPanelAction({ action: 'delete_orphan', uid: user.id, name: user.displayName, before: user });
       }
       setOrphanedUsers([]);
       showMessage('success', `Deleted ${deleted} orphaned users`);

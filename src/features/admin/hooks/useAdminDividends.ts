@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logPanelAction } from '../utils/panelLog';
 import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { runDividendPayoutNowFunction } from '../../../api/callables';
@@ -64,6 +65,11 @@ export function useAdminDividends({ showMessage }: Pick<AdminHookDeps, 'showMess
         next[ticker] = tier;
       }
       await setDoc(ref, { tiers: next }, { merge: true });
+      await logPanelAction({
+        action: 'set_dividend_tier',
+        before: { ticker, tier: dividendOverrides[ticker] || 'default' },
+        after: { ticker, tier: next[ticker] || 'default' },
+      });
       setDividendOverrides(next);
       showMessage('success', `Saved ${ticker} tier override.`);
     } catch (err) {

@@ -165,6 +165,7 @@ const RecoveryRenameTicker = ({
         <div className="flex-1">
           <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Old Ticker</label>
           <input
+            aria-label="Old ticker"
             type="text"
             placeholder="e.g. BUFF"
             value={renameOldTicker}
@@ -179,6 +180,7 @@ const RecoveryRenameTicker = ({
         <div className="flex-1">
           <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>New Ticker</label>
           <input
+            aria-label="New ticker"
             type="text"
             placeholder="e.g. YOKO"
             value={renameNewTicker}

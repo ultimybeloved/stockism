@@ -2,6 +2,7 @@ import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore'
 import { db } from '../../../firebase';
 import { errorMessage } from '../../../utils/errors';
 import { withUserDefaults } from '../utils/adminShared';
+import { logPanelAction } from '../utils/panelLog';
 import type { AdminHookDeps, AdminUser } from '../utils/adminShared';
 import type { UserData } from '../../../types';
 
@@ -48,6 +49,13 @@ export function useAdminPortfolioSync({
       await updateDoc(userRef, {
         portfolioValue: newPortfolioValue,
         lastSyncedAt: new Date(),
+      });
+      await logPanelAction({
+        action: 'sync_portfolio',
+        uid: userId,
+        name: userData.displayName,
+        before: { portfolioValue: userData.portfolioValue ?? null },
+        after: { portfolioValue: newPortfolioValue },
       });
 
       showMessage('success', `Synced ${userData.displayName}'s portfolio`);
@@ -100,6 +108,7 @@ export function useAdminPortfolioSync({
         }
       }
 
+      await logPanelAction({ action: 'sync_all_portfolios', detail: { updated } });
       showMessage('success', `Recalculated ${updated} portfolios`);
       // Reload users to see updated values
       await handleLoadAllUsers();

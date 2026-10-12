@@ -88,6 +88,7 @@ const MarketTab = ({
       <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
         <h4 className="font-semibold mb-3 light:text-slate-900 dark:text-white">Emergency Halt</h4>
         <input
+          aria-label="Halt reason"
           type="text"
           value={haltReasonInput}
           onChange={(e) => setHaltReasonInput(e.target.value)}

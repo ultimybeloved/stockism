@@ -117,7 +117,11 @@ const ReturnDistributionPanel = ({ textClass, mutedClass }: Pick<AdminCommonProp
         needs setting.
       </p>
 
-      {error && <p className="text-sm text-red-400 mt-2">Failed: {error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-red-400 mt-2">
+          Failed: {error}
+        </p>
+      )}
 
       {report && (
         <>

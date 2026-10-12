@@ -49,6 +49,7 @@ const RecoverySplitStock = ({
         <div className="flex-1">
           <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Ticker</label>
           <input
+            aria-label="Ticker to split"
             type="text"
             placeholder="e.g. SHNG"
             value={ticker}
@@ -60,6 +61,7 @@ const RecoverySplitStock = ({
         <div className="w-28">
           <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>For 1</label>
           <input
+            aria-label="Split ratio"
             type="number"
             min="2"
             max="100"

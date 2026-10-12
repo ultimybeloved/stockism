@@ -293,7 +293,7 @@ const PreMarketModal = ({
                   {o.shares} shares @ {formatCurrency(o.action === 'buy' ? ask : bid)} est.
                 </span>
                 {locked ? (
-                  <span className="text-xs px-2 py-1 light:text-slate-400 dark:text-zinc-500">Locked</span>
+                  <span className="text-xs px-2 py-1 light:text-slate-600 dark:text-zinc-400">Locked</span>
                 ) : (
                   <button
                     onClick={() => handleCancel(o.id)}

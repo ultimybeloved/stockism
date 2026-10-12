@@ -23,6 +23,7 @@ import {
   setDoc,
   updateDoc,
   deleteField,
+  serverTimestamp,
 } from 'firebase/firestore';
 import { check as record, type Loose } from './harness';
 
@@ -175,6 +176,34 @@ async function main() {
   await checkAccess('forge a ledger entry', 'blocked', () =>
     setDoc(doc(clientDb, 'ledger', 'forged'), { uid, type: 'admin_set_cash', amount: 1e6 }),
   );
+
+  console.log('\n── Admin history ─────────────────────────────────────────────');
+  const panelEntry = (by: string) => ({ action: 'adjust_price', by, source: 'panel', at: serverTimestamp() });
+  await checkAccess('player writes an admin history entry', 'blocked', () =>
+    setDoc(doc(clientDb, 'adminLog', 'player'), panelEntry(uid)),
+  );
+  await checkAccess('player reads the admin history', 'blocked', () => getDoc(doc(clientDb, 'adminLog', 'player')));
+
+  // Sign in as the admin (fixed uid in firestore.rules).
+  const ADMIN_UID = '4usiVxPmHLhmitEKH2HfCpbx4Yi1';
+  await admin
+    .auth()
+    .createUser({ uid: ADMIN_UID, email: 'rulesadmin@example.com', password: PASSWORD })
+    .catch(() => {});
+  await signInWithEmailAndPassword(clientAuth, 'rulesadmin@example.com', PASSWORD);
+  await checkAccess('admin panel logs an action', 'allowed', () =>
+    setDoc(doc(clientDb, 'adminLog', 'panel1'), panelEntry(ADMIN_UID)),
+  );
+  await checkAccess('admin logs an action as someone else', 'blocked', () =>
+    setDoc(doc(clientDb, 'adminLog', 'panel2'), panelEntry('someone_else')),
+  );
+  await checkAccess('admin backdates an action', 'blocked', () =>
+    setDoc(doc(clientDb, 'adminLog', 'panel3'), { ...panelEntry(ADMIN_UID), at: new Date(0) }),
+  );
+  await checkAccess('admin edits a logged action', 'blocked', () =>
+    updateDoc(doc(clientDb, 'adminLog', 'panel1'), { action: 'nothing_happened' }),
+  );
+  await checkAccess('admin reads the log directly', 'blocked', () => getDoc(doc(clientDb, 'adminLog', 'panel1')));
 }
 
 it('firestore.rules on the user doc', main);

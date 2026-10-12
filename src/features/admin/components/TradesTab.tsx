@@ -31,6 +31,7 @@ const TradesTab = ({
           <div>
             <label className={`text-xs ${mutedClass} block mb-1`}>Time Period</label>
             <select
+              aria-label="Time period"
               value={tradeTimePeriod}
               onChange={(e) => setTradeTimePeriod(e.target.value)}
               className="px-3 py-2 rounded-sm border text-sm light:bg-white light:border-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
@@ -46,6 +47,7 @@ const TradesTab = ({
           <div>
             <label className={`text-xs ${mutedClass} block mb-1`}>Trade Type</label>
             <select
+              aria-label="Trade type"
               value={tradeTypeFilter}
               onChange={(e) => setTradeTypeFilter(e.target.value)}
               className="px-3 py-2 rounded-sm border text-sm light:bg-white light:border-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
@@ -62,6 +64,7 @@ const TradesTab = ({
           <div>
             <label className={`text-xs ${mutedClass} block mb-1`}>Ticker (optional)</label>
             <input
+              aria-label="Ticker"
               type="text"
               value={tradeFilterTicker}
               onChange={(e) => setTradeFilterTicker(e.target.value.toUpperCase())}
@@ -74,6 +77,7 @@ const TradesTab = ({
           <div>
             <label className={`text-xs ${mutedClass} block mb-1`}>User Type</label>
             <select
+              aria-label="User type"
               value={tradeBotFilter}
               onChange={(e) => setTradeBotFilter(e.target.value)}
               className="px-3 py-2 rounded-sm border text-sm light:bg-white light:border-slate-300 dark:bg-slate-700 dark:border-slate-600 dark:text-white"

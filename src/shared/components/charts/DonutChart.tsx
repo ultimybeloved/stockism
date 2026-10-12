@@ -95,7 +95,7 @@ const DonutChart = ({ data = [], size = 200 }: { data?: DonutSlice[]; size?: num
               style={{ backgroundColor: seg.color }}
             />
             <span className="light:text-slate-700 dark:text-zinc-300">{seg.label}</span>
-            <span className="light:text-zinc-400 dark:text-zinc-500">
+            <span className="light:text-zinc-600 dark:text-zinc-400">
               ${seg.value.toFixed(0)} ({(seg.pct * 100).toFixed(1)}%)
             </span>
           </div>

@@ -50,7 +50,7 @@ export default function CrashScreen({ error, onRetry, fullPage = false }: CrashS
             </button>
           )}
         </div>
-        <p className="mt-5 text-xs light:text-zinc-400 dark:text-zinc-500">
+        <p className="mt-5 text-xs light:text-zinc-600 dark:text-zinc-400">
           If it keeps happening, tell us in Discord and mention version v{__APP_VERSION__}.
         </p>
       </div>

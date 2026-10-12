@@ -80,17 +80,23 @@ const ToastNotification = ({ notification, onDismiss }: ToastNotificationProps) 
       {notification.image ? (
         <img src={notification.image} alt="" className="w-6 h-6 object-contain" />
       ) : (
-        <span className="text-lg">{styles.icon}</span>
+        <span className="text-lg" aria-hidden="true">
+          {styles.icon}
+        </span>
       )}
       <span className="flex-1 text-sm font-semibold">{notification.message}</span>
-      <button className="opacity-60 hover:opacity-100 text-lg leading-none">&times;</button>
+      {/* The whole toast dismisses on click, so this is only a visual cue. */}
+      <span aria-hidden="true" className="opacity-60 hover:opacity-100 text-lg leading-none">
+        &times;
+      </span>
     </div>
   );
 };
 
 const ToastContainer = ({ notifications, onDismiss }: { notifications: Toast[]; onDismiss: (id: number) => void }) => {
   return (
-    <div className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 max-w-sm">
+    // Always mounted, so screen readers announce each toast as it arrives.
+    <div role="status" aria-live="polite" className="fixed bottom-20 right-4 z-50 flex flex-col gap-2 max-w-sm">
       {notifications.map((notif) => (
         <ToastNotification key={notif.id} notification={notif} onDismiss={() => onDismiss(notif.id)} />
       ))}

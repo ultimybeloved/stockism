@@ -7,6 +7,7 @@ import { recordReviewMoves, loadReviewChanges } from '../utils/reviewChangeTrack
 import { buildTrailingCascade } from '../utils/trailingCascade';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
+import { logPanelAction } from '../utils/panelLog';
 import type { FieldValue } from 'firebase/firestore';
 import type { Character } from '../../../characters';
 import type { ReviewChanges } from '../../../utils/marketHours';
@@ -108,6 +109,12 @@ export function useAdminMarketTools({
 
         await updateDoc(marketRef, marketUpdates);
         await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
+        await logPanelAction({
+          action: 'adjust_price',
+          before: { ticker: character.ticker, price: currentPrice },
+          after: { ticker: character.ticker, price: targetPrice },
+          detail: { percent, trailing: trailingMoves.map((m) => ({ ticker: m.ticker, from: m.from, to: m.to })) },
+        });
 
         // Fold this into the stored chapter-review changes so a follow-up nudge
         // counts as part of the same review, not as drift since it, and so the

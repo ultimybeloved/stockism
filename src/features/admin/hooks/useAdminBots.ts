@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { logPanelAction } from '../utils/panelLog';
 import { createBotsFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
@@ -44,6 +45,7 @@ export function useAdminBots({ showMessage, setLoading }: Pick<AdminHookDeps, 's
     setLoading(true);
     try {
       await deleteDoc(doc(db, 'users', botId));
+      await logPanelAction({ action: 'delete_bot', uid: botId });
       showMessage('success', 'Bot deleted!');
       await handleLoadBots();
     } catch (err) {

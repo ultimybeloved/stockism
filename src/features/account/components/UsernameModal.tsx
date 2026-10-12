@@ -169,7 +169,9 @@ const UsernameModal = ({ onComplete, suggestedName = '' }: { onComplete: () => v
           </div>
 
           {error && (
-            <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">{error}</div>
+            <div role="alert" className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-sm text-sm">
+              {error}
+            </div>
           )}
 
           <button

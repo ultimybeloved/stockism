@@ -48,6 +48,7 @@ export default function CashLogCard({
         <>
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <input
+              aria-label="Search cash log"
               value={cashLogSearch}
               onChange={(e) => setCashLogSearch(e.target.value)}
               placeholder="Search player or memo"

@@ -49,6 +49,7 @@ const CoordProfitPanel = ({
           <>
             <div className="flex gap-2 items-center flex-wrap">
               <input
+                aria-label="Amount to remove"
                 type="number"
                 min="0"
                 value={amount}
@@ -56,6 +57,7 @@ const CoordProfitPanel = ({
                 className={`w-28 ${inputClass}`}
               />
               <input
+                aria-label="Memo"
                 type="text"
                 value={memo}
                 onChange={(e) => setMemo(e.target.value)}
@@ -97,7 +99,11 @@ const CoordProfitPanel = ({
           </>
         )
       )}
-      {error && <p className="text-red-500">{error}</p>}
+      {error && (
+        <p role="alert" className="text-red-500">
+          {error}
+        </p>
+      )}
     </div>
   );
 };

@@ -51,6 +51,7 @@ const EventMarketFields = ({
       <div>
         <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>House Liquidity (seed)</label>
         <input
+          aria-label="House liquidity"
           type="number"
           min="100"
           value={seedLiquidity}
@@ -70,6 +71,7 @@ const EventMarketFields = ({
             <div key={i} className="flex items-center gap-2">
               <span className={`flex-1 text-sm truncate ${mutedClass}`}>{name}</span>
               <input
+                aria-label={`Opening odds for ${name}`}
                 type="number"
                 min={EVENT_OPENING_ODDS_MIN_PCT}
                 max={EVENT_OPENING_ODDS_MAX_PCT}
@@ -111,6 +113,7 @@ const EventMarketFields = ({
           ))}
         </div>
         <input
+          aria-label="Custom opening delay in hours"
           type="number"
           min="0"
           step="0.25"

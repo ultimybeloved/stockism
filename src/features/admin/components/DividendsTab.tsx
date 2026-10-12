@@ -114,6 +114,7 @@ const DividendsTab = ({
         <div className="flex justify-between items-center mb-2">
           <h3 className={`text-sm font-bold ${textClass}`}>Per-Ticker Tier Overrides</h3>
           <input
+            aria-label="Search ticker"
             type="text"
             value={dividendSearch}
             onChange={(e) => setDividendSearch(e.target.value)}
@@ -140,6 +141,7 @@ const DividendsTab = ({
                   <span className={`${mutedClass} flex-1 truncate`}>{c.name}</span>
                   <span className={`${mutedClass} w-24`}>auto: {autoTier}</span>
                   <select
+                    aria-label={`Dividend tier for ${c.ticker}`}
                     value={isOverride || 'default'}
                     onChange={(e) => saveDividendTier(c.ticker, e.target.value)}
                     disabled={c.isETF}

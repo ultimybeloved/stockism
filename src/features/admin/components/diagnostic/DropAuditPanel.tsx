@@ -27,6 +27,7 @@ const DropAuditPanel = ({
           <div className="flex-1">
             <label className={`text-xs ${mutedClass} block mb-1`}>Username or UID</label>
             <input
+              aria-label="Username or UID"
               type="text"
               value={dropAuditQuery}
               onChange={(e) => setDropAuditQuery(e.target.value)}

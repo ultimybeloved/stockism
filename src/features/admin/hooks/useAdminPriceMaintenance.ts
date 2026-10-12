@@ -5,6 +5,7 @@ import { CHARACTERS } from '../../../characters';
 import { priceHistoryDocRef } from '../utils/adminShared';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
+import { logPanelAction } from '../utils/panelLog';
 import type { FieldValue } from 'firebase/firestore';
 import type { PriceHistory, PricePoint } from '../../../types';
 
@@ -55,6 +56,7 @@ export function useAdminPriceMaintenance({
 
       if (Object.keys(cleanedHistory).length > 0) {
         await updateDoc(priceHistoryDocRef(), cleanedHistory);
+        await logPanelAction({ action: 'cleanup_base_prices', detail: { tickersCleaned, entriesRemoved } });
         showMessage('success', `✅ Cleaned ${tickersCleaned} tickers, removed ${entriesRemoved} base price entries!`);
       } else {
         showMessage('info', 'No base price entries found to clean.');
@@ -89,9 +91,17 @@ export function useAdminPriceMaintenance({
         }
       });
 
+      const oldPrices: Record<string, number> = (await getDoc(marketRef)).data()?.prices || {};
+
       // Update all prices at once
       await updateDoc(marketRef, {
         prices: updatedPrices,
+      });
+      const changed = Object.keys(updatedPrices).filter((t) => oldPrices[t] !== updatedPrices[t]);
+      await logPanelAction({
+        action: 'sync_prices_to_history',
+        before: Object.fromEntries(changed.map((t) => [t, oldPrices[t] ?? null])),
+        after: Object.fromEntries(changed.map((t) => [t, updatedPrices[t]])),
       });
 
       showMessage('success', `✅ Synced ${Object.keys(updatedPrices).length} prices to match latest history!`);
@@ -123,8 +133,10 @@ export function useAdminPriceMaintenance({
         resetHistory[char.ticker] = arrayUnion({ timestamp: now, price: char.basePrice, source: 'admin_reset' });
       });
 
+      const oldPrices: Record<string, number> = (await getDoc(marketRef)).data()?.prices || {};
       await updateDoc(marketRef, { prices: resetPrices });
       await setDoc(priceHistoryDocRef(), resetHistory, { merge: true });
+      await logPanelAction({ action: 'reset_all_prices', before: oldPrices, after: resetPrices });
 
       showMessage('success', `✅ Reset ${CHARACTERS.length} characters to base prices!`);
     } catch (err) {

@@ -53,18 +53,21 @@ export default function ImportMessageForm({
       </p>
       <div className="grid sm:grid-cols-3 gap-2 mb-2">
         <input
+          aria-label="Channel ID"
           value={channelId}
           onChange={(e) => setChannelId(e.target.value.trim())}
           placeholder="Channel ID"
           className={field}
         />
         <input
+          aria-label="Message ID"
           value={messageId}
           onChange={(e) => setMessageId(e.target.value.trim())}
           placeholder="Message ID"
           className={field}
         />
         <input
+          aria-label="Message name"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           placeholder="Name it, e.g. Server rules"

@@ -85,6 +85,7 @@ const UsersTab = ({
 
       <div className="flex gap-2 flex-wrap">
         <input
+          aria-label="Search users"
           type="text"
           value={userSearchQuery}
           onChange={(e) => {
@@ -95,6 +96,7 @@ const UsersTab = ({
           className={`flex-1 min-w-[150px] px-3 py-2 border rounded-sm ${inputClass}`}
         />
         <select
+          aria-label="Sort users by"
           value={userSortBy}
           onChange={(e) => handleUserSortChange(e.target.value)}
           className={`px-3 py-2 border rounded-sm ${inputClass}`}

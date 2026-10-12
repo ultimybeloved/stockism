@@ -61,12 +61,17 @@ const GiftLogCard = ({ textClass, mutedClass, inputClass }: GiftLogCardProps) =>
           {loading ? 'Loading...' : entries ? 'Refresh' : 'Load gifts'}
         </button>
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && (
+        <p role="alert" className="text-xs text-red-500">
+          {error}
+        </p>
+      )}
 
       {entries && (
         <>
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <input
+              aria-label="Search gifts"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search player"

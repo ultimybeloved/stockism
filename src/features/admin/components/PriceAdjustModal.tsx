@@ -79,6 +79,7 @@ const PriceAdjustModal = ({
           <div>
             <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Search Characters</label>
             <input
+              aria-label="Search characters"
               type="text"
               placeholder="Search by name or ticker..."
               value={priceModalSearch}
@@ -173,6 +174,7 @@ const PriceAdjustModal = ({
                       {/* Custom Input */}
                       <div className="flex gap-2">
                         <input
+                          aria-label="Price change percent"
                           type="number"
                           step="1"
                           value={priceAdjustPercent}

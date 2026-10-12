@@ -36,7 +36,9 @@ const Footer = () => {
             </React.Fragment>
           ))}
         </div>
-        <div className="mt-3 text-xs text-zinc-500">© {new Date().getFullYear()} Stockism. All rights reserved.</div>
+        <div className="mt-3 text-xs light:text-zinc-600 dark:text-zinc-400">
+          © {new Date().getFullYear()} Stockism. All rights reserved.
+        </div>
         {/* Build identity. Players quote this in bug reports, which is the only
             way to tell which deploy they were actually on. */}
         <div className="mt-1 text-xs text-zinc-500/70 font-mono" title={`Built ${__BUILD_TIME__}`}>

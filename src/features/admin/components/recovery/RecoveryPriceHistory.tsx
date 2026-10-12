@@ -33,6 +33,7 @@ const RecoveryPriceHistory = ({
       <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Investigate Ticker</label>
       <div className="flex gap-2">
         <select
+          aria-label="Ticker to investigate"
           value={tradeFilterTicker}
           onChange={(e) => {
             setTradeFilterTicker(e.target.value);

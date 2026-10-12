@@ -39,6 +39,7 @@ const PredictionExtendForm = ({
         <div>
           <label className={`block text-xs font-semibold uppercase mb-2 ${mutedClass}`}>Select Prediction</label>
           <select
+            aria-label="Prediction to extend"
             value={extendPredictionId}
             onChange={(e) => setExtendPredictionId(e.target.value)}
             className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
@@ -62,6 +63,7 @@ const PredictionExtendForm = ({
               <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Extend By (Days)</label>
               <div className="flex items-center gap-3">
                 <input
+                  aria-label="Extend by days"
                   type="range"
                   min="1"
                   max="14"

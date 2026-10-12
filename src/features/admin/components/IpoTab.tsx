@@ -96,6 +96,7 @@ const IpoTab = ({
           <div>
             <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Character</label>
             <select
+              aria-label="Character"
               value={ipoTicker}
               onChange={(e) => setIpoTicker(e.target.value)}
               className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
@@ -125,6 +126,7 @@ const IpoTab = ({
                 Buying Starts At (your local time)
               </label>
               <input
+                aria-label="Buying opens at"
                 type="datetime-local"
                 value={ipoStartAtInput}
                 onChange={(e) => setIpoStartAtInput(e.target.value)}
@@ -149,6 +151,7 @@ const IpoTab = ({
             <div>
               <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>IPO Duration (hours)</label>
               <input
+                aria-label="IPO duration in hours"
                 type="number"
                 value={ipoDurationHours}
                 onChange={(e) => setIpoDurationHours(Math.max(1, parseInt(e.target.value) || 24))}
@@ -162,6 +165,7 @@ const IpoTab = ({
             <div>
               <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Total Shares</label>
               <input
+                aria-label="Total shares"
                 type="number"
                 value={ipoTotalShares}
                 onChange={(e) => setIpoTotalShares(Math.max(1, parseInt(e.target.value) || 150))}
@@ -172,6 +176,7 @@ const IpoTab = ({
             <div>
               <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Max Per User</label>
               <input
+                aria-label="Max shares per player"
                 type="number"
                 value={ipoMaxPerUser}
                 onChange={(e) => setIpoMaxPerUser(Math.max(1, parseInt(e.target.value) || 10))}

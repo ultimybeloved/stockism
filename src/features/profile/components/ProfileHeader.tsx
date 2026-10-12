@@ -118,7 +118,11 @@ const ProfileHeader = ({
             placeholder="New username"
             className="w-full px-3 py-1.5 text-sm rounded-sm border light:bg-white light:border-slate-300 light:text-slate-900 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 focus:outline-none focus:border-orange-500"
           />
-          {nameError && <p className="text-xs text-red-500">{nameError}</p>}
+          {nameError && (
+            <p role="alert" className="text-xs text-red-500">
+              {nameError}
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               onClick={handleNameSave}

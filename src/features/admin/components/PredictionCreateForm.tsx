@@ -58,6 +58,7 @@ const PredictionCreateForm = ({
         <div>
           <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Question</label>
           <input
+            aria-label="Question"
             type="text"
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
@@ -71,6 +72,7 @@ const PredictionCreateForm = ({
           <div className="space-y-2">
             {options.map((opt, idx) => (
               <input
+                aria-label={`Option ${idx + 1}`}
                 key={idx}
                 type="text"
                 value={opt}
@@ -94,6 +96,7 @@ const PredictionCreateForm = ({
               </label>
               <div className="flex items-center gap-3">
                 <input
+                  aria-label="Days until betting closes"
                   type="range"
                   min="1"
                   max="14"
@@ -134,6 +137,7 @@ const PredictionCreateForm = ({
                 House Seed ($, optional)
               </label>
               <input
+                aria-label="House seed"
                 type="number"
                 min="0"
                 max={WEEKLY_PREDICTION_SEED_MAX}

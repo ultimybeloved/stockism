@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logPanelAction } from '../utils/panelLog';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { ipoAnnouncementAlertFunction } from '../../../api/callables';
@@ -98,6 +99,8 @@ export function useAdminIpo({ showMessage, setLoading }: Pick<AdminHookDeps, 'sh
         });
       }
 
+      await logPanelAction({ action: 'create_ipo', after: newIPO });
+
       // Send Discord announcement
       try {
         await ipoAnnouncementAlertFunction({
@@ -140,6 +143,10 @@ export function useAdminIpo({ showMessage, setLoading }: Pick<AdminHookDeps, 'sh
         const currentList: IPO[] = snap.data().list || [];
         const updatedList = currentList.filter((ipo) => ipo.ticker !== ticker);
         await updateDoc(ipoRef, { list: updatedList });
+        await logPanelAction({
+          action: 'cancel_ipo',
+          before: currentList.find((ipo) => ipo.ticker === ticker) || { ticker },
+        });
         showMessage('success', `Cancelled IPO for $${ticker}`);
         loadIPOs();
       }

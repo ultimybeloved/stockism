@@ -116,7 +116,11 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
           </button>
         )}
       </div>
-      {linkError && <p className="text-xs text-red-400 mt-2">{linkError}</p>}
+      {linkError && (
+        <p role="alert" className="text-xs text-red-400 mt-2">
+          {linkError}
+        </p>
+      )}
 
       {/* Season titles — earned by finishing a season at a tier, never bought.
           Only ownedTitles (server-written) can be equipped; the rule allowlist

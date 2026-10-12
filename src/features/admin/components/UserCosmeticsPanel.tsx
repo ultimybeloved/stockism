@@ -27,6 +27,7 @@ const UserCosmeticsPanel = ({
       {/* Give a cosmetic */}
       <div className="flex gap-2 mb-3">
         <select
+          aria-label="Cosmetic to give"
           value={pickedCosmetic}
           onChange={(e) => setPickedCosmetic(e.target.value)}
           className={`flex-1 px-2 py-1 text-sm border rounded ${inputClass}`}

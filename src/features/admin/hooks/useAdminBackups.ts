@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { logPanelAction } from '../utils/panelLog';
 import {
   listBackupsFunction,
   restoreBackupFunction,
@@ -183,6 +184,13 @@ export function useAdminBackups({
 
       // Update the new user with all old user's data
       await updateDoc(newUserRef, dataToTransfer);
+      await logPanelAction({
+        action: 'transfer_account',
+        uid: newUserId.trim(),
+        name: newData.displayName,
+        before: { cash: newData.cash, portfolioValue: newData.portfolioValue, holdings: newData.holdings },
+        detail: { fromUid: oldUserId.trim(), fromName: oldData.displayName },
+      });
 
       showMessage('success', `Successfully transferred data from ${oldData.displayName} to new account!`);
 
@@ -193,6 +201,7 @@ export function useAdminBackups({
         )
       ) {
         await deleteDoc(oldUserRef);
+        await logPanelAction({ action: 'delete_user', uid: oldUserId.trim(), name: oldData.displayName });
         showMessage('success', `Old user account deleted.`);
       }
 

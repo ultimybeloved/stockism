@@ -73,7 +73,12 @@ export default function MessageComposer({
           {editing ? (
             <div className={`${field} opacity-60`}>{channel ? `#${channel.name}` : draft.channelId}</div>
           ) : channels.length ? (
-            <select value={draft.channelId} onChange={(e) => onPatch({ channelId: e.target.value })} className={field}>
+            <select
+              aria-label="Channel"
+              value={draft.channelId}
+              onChange={(e) => onPatch({ channelId: e.target.value })}
+              className={field}
+            >
               <option value="">Pick a channel…</option>
               {channels.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -83,6 +88,7 @@ export default function MessageComposer({
             </select>
           ) : (
             <input
+              aria-label="Channel ID"
               value={draft.channelId}
               onChange={(e) => onPatch({ channelId: e.target.value.trim() })}
               placeholder="Paste a channel ID"
@@ -98,6 +104,7 @@ export default function MessageComposer({
         <div>
           <label className={labelCls}>Name it (only you see this)</label>
           <input
+            aria-label="Message name"
             value={draft.label}
             onChange={(e) => onPatch({ label: e.target.value })}
             maxLength={100}
@@ -115,6 +122,7 @@ export default function MessageComposer({
           </span>
         </label>
         <textarea
+          aria-label="Message text"
           value={draft.content}
           onChange={(e) => onPatch({ content: e.target.value })}
           maxLength={CONTENT_MAX}
@@ -136,6 +144,7 @@ export default function MessageComposer({
             <div>
               <label className={labelCls}>Box title</label>
               <input
+                aria-label="Box title"
                 value={draft.embed.title}
                 onChange={(e) => onPatchEmbed({ title: e.target.value })}
                 maxLength={EMBED_TITLE_MAX}
@@ -145,6 +154,7 @@ export default function MessageComposer({
             <div>
               <label className={labelCls}>Colour</label>
               <input
+                aria-label="Box colour"
                 type="color"
                 value={draft.embed.color}
                 onChange={(e) => onPatchEmbed({ color: e.target.value })}
@@ -160,6 +170,7 @@ export default function MessageComposer({
               </span>
             </label>
             <textarea
+              aria-label="Box text"
               value={draft.embed.description}
               onChange={(e) => onPatchEmbed({ description: e.target.value })}
               maxLength={EMBED_DESCRIPTION_MAX}
@@ -171,6 +182,7 @@ export default function MessageComposer({
             <div>
               <label className={labelCls}>Image link (optional, https)</label>
               <input
+                aria-label="Image link"
                 value={draft.embed.imageUrl}
                 onChange={(e) => onPatchEmbed({ imageUrl: e.target.value.trim() })}
                 placeholder="https://…"
@@ -180,6 +192,7 @@ export default function MessageComposer({
             <div>
               <label className={labelCls}>Small footer text (optional)</label>
               <input
+                aria-label="Footer text"
                 value={draft.embed.footer}
                 onChange={(e) => onPatchEmbed({ footer: e.target.value })}
                 className={field}
@@ -205,12 +218,14 @@ export default function MessageComposer({
         {draft.buttons.map((b, i) => (
           <div key={i} className="grid grid-cols-[3rem_1fr_2fr_auto] gap-2 mb-2">
             <input
+              aria-label={`Button ${i + 1} emoji`}
               value={b.emoji}
               onChange={(e) => onPatchButton(i, { emoji: e.target.value })}
               placeholder="🔗"
               className={`px-2 py-2 text-sm rounded-sm border text-center ${inputClass}`}
             />
             <input
+              aria-label={`Button ${i + 1} text`}
               value={b.label}
               onChange={(e) => onPatchButton(i, { label: e.target.value })}
               placeholder="Button text"
@@ -218,6 +233,7 @@ export default function MessageComposer({
               className={`px-3 py-2 text-sm rounded-sm border ${inputClass}`}
             />
             <input
+              aria-label={`Button ${i + 1} link`}
               value={b.url}
               onChange={(e) => onPatchButton(i, { url: e.target.value.trim() })}
               placeholder="https://…"

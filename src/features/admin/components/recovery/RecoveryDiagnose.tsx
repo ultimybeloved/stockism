@@ -21,6 +21,7 @@ const RecoveryDiagnose = ({
       Paste user IDs (comma or newline separated) to see their account state and recent trades.
     </p>
     <textarea
+      aria-label="User IDs to diagnose"
       value={diagnosisIds}
       onChange={(e) => setDiagnosisIds(e.target.value)}
       placeholder="Paste user IDs here..."

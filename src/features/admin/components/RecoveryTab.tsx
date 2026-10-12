@@ -189,6 +189,7 @@ const RecoveryTab = ({
           field blank to run for all non-bot users. Runs up to 9 minutes.
         </p>
         <input
+          aria-label="User UID"
           type="text"
           value={reconstructUid}
           onChange={(e) => setReconstructUid(e.target.value)}
@@ -285,6 +286,7 @@ const RecoveryTab = ({
           <div>
             <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Old User ID</label>
             <input
+              aria-label="Old user ID"
               type="text"
               placeholder="User ID with old email/data"
               value={oldUserId}
@@ -297,6 +299,7 @@ const RecoveryTab = ({
           <div>
             <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>New User ID</label>
             <input
+              aria-label="New user ID"
               type="text"
               placeholder="User ID of new account"
               value={newUserId}

@@ -335,6 +335,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/adminDiscordOps.ts` | Admin Discord-link tools: the link wall, unlink, free a Discord ID, move a link between accounts |
 | `functions/src/admin/adminHistory.ts` | adminListLog: read side of the admin history (`adminLog`), read-only |
 | `functions/src/shared/adminLog.ts` | **Internal module.** `logAdminAction`: every admin callable that changes a player or the market records what it was before and after, after the change lands. A new admin action must call it |
+| `src/features/admin/utils/panelLog.ts` | `logPanelAction`: the same history for admin panel tools that still write from the browser (price adjust, IPOs, predictions, site messages, deletions). Rules let only the admin append, stamped with their uid and server time. A new browser-side admin write must call it |
 | `functions/src/predictions/predictionAdmin.ts` | adminCancelPrediction: cancel a weekly prediction and refund every unpaid stake (ledger `prediction_refund`, flow reversed, bell). Event markets use cancelEventMarket |
 | `functions/src/admin/adminGiftLog.ts` | adminListGifts: the gift log with same-connection / alt-scan / watchlist flags, for spotting alts feeding a main |
 | `functions/src/admin/haltAudit.ts` | haltPriceAudit (Thursday 21:05 UTC): flags untagged price points inside the halt, DMs the admin, silent when clean. Pure logic in `haltAuditCore.ts` (internal, unit-tested). Manual version: `npm run audit:halt` |

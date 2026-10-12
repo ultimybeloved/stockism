@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logPanelAction } from '../utils/panelLog';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { broadcastNotificationFunction } from '../../../api/callables';
@@ -110,6 +111,7 @@ export function useAdminPredictionCreate({
           ...(opensAt && { opensAt }), // announced-but-locked until this time
         };
         await updateDoc(predictionsRef, { list: [...currentList, eventMarket] });
+        await logPanelAction({ action: 'create_event_market', after: eventMarket });
         showMessage(
           'success',
           opensAt
@@ -159,6 +161,7 @@ export function useAdminPredictionCreate({
       await updateDoc(predictionsRef, {
         list: [...currentList, newPrediction],
       });
+      await logPanelAction({ action: 'create_prediction', after: newPrediction });
 
       showMessage('success', `Created prediction: "${question.trim()}"`);
       await announcePrediction(

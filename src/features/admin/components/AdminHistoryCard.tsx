@@ -47,6 +47,27 @@ const ACTION_LABELS: Record<string, string> = {
   reconstruct_history: 'Rebuild chart history',
   fix_price_cliffs: 'Fix price cliffs',
   create_bots: 'Create bots',
+  // Browser-side panel tools (utils/panelLog.ts)
+  repair_corrupted_account: 'Repair corrupted account',
+  sync_portfolio: 'Sync portfolio',
+  sync_all_portfolios: 'Sync all portfolios',
+  set_dividend_tier: 'Dividend tier',
+  create_ipo: 'Create IPO',
+  cancel_ipo: 'Cancel IPO',
+  adjust_price: 'Adjust price',
+  cleanup_base_prices: 'Clean base prices',
+  sync_prices_to_history: 'Sync prices to chart',
+  reset_all_prices: 'Reset all prices',
+  create_prediction: 'Create prediction',
+  create_event_market: 'Create event market',
+  resolve_prediction: 'Resolve prediction',
+  delete_prediction: 'Delete prediction',
+  extend_prediction: 'Extend prediction',
+  set_site_messages: 'Site messages',
+  delete_bot: 'Delete bot',
+  delete_orphan: 'Delete orphan account',
+  delete_user: 'Delete account',
+  transfer_account: 'Transfer account',
 };
 
 // Short, readable form of a stored value: numbers as numbers, objects as key: value.
@@ -109,12 +130,17 @@ const AdminHistoryCard = ({ textClass, mutedClass, inputClass }: AdminHistoryCar
           {loading ? 'Loading...' : entries ? 'Refresh' : 'Load history'}
         </button>
       </div>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && (
+        <p role="alert" className="text-xs text-red-500">
+          {error}
+        </p>
+      )}
 
       {entries && (
         <>
           <div className="flex flex-wrap items-center gap-3 mb-2">
             <input
+              aria-label="Search history"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search player, action or ticker"

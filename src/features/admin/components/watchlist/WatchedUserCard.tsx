@@ -82,6 +82,7 @@ const WatchedUserCard = ({
       {watchLinkTarget === wu.id ? (
         <div className="flex gap-1 mt-1">
           <input
+            aria-label="Alt account UID"
             type="text"
             value={watchLinkAltId}
             onChange={(e) => setWatchLinkAltId(e.target.value)}
@@ -137,6 +138,7 @@ const WatchedUserCard = ({
       {watchAddIPTarget === wu.id ? (
         <div className="flex gap-1 mt-1">
           <input
+            aria-label="IP address"
             type="text"
             value={watchAddIPValue}
             onChange={(e) => setWatchAddIPValue(e.target.value)}

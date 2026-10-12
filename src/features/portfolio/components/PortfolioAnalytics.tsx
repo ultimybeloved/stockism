@@ -193,7 +193,7 @@ const PortfolioAnalytics = ({
         <div className="p-4 space-y-4 light:bg-white/50 dark:bg-zinc-900/30">
           {/* No positions guard */}
           {positionData.length === 0 ? (
-            <p className="text-sm text-center py-4 light:text-zinc-400 dark:text-zinc-500">
+            <p className="text-sm text-center py-4 light:text-zinc-600 dark:text-zinc-400">
               No positions to analyze. Buy some stocks first!
             </p>
           ) : (
@@ -217,7 +217,7 @@ const PortfolioAnalytics = ({
                     <span className={`text-4xl font-bold ${scoreTextColor(diversification.score)}`}>
                       {diversification.score}
                     </span>
-                    <span className="text-xs light:text-zinc-400 dark:text-zinc-500">out of 100</span>
+                    <span className="text-xs light:text-zinc-600 dark:text-zinc-400">out of 100</span>
                     {/* Progress bar */}
                     <div className="w-full h-3 rounded-full overflow-hidden light:bg-zinc-200 dark:bg-zinc-700">
                       <div
@@ -229,7 +229,7 @@ const PortfolioAnalytics = ({
                       <span className={colorBlindMode ? 'text-purple-400' : 'text-red-400'}>Concentrated</span>
                       <span className={colorBlindMode ? 'text-teal-400' : 'text-green-400'}>Diversified</span>
                     </div>
-                    <p className="text-xs mt-1 light:text-zinc-400 dark:text-zinc-500">
+                    <p className="text-xs mt-1 light:text-zinc-600 dark:text-zinc-400">
                       HHI: {diversification.hhi.toLocaleString()} / 10,000
                     </p>
                   </div>
@@ -333,7 +333,7 @@ const PortfolioAnalytics = ({
 
 const StatBox = ({ label, value, valueColor }: { label: string; value: string | number; valueColor?: string }) => (
   <div className="text-center">
-    <p className="text-xs light:text-zinc-400 dark:text-zinc-500">{label}</p>
+    <p className="text-xs light:text-zinc-600 dark:text-zinc-400">{label}</p>
     <p className={`text-sm font-semibold mt-0.5 ${valueColor || 'light:text-slate-900 dark:text-zinc-100'}`}>{value}</p>
   </div>
 );

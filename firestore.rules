@@ -441,9 +441,18 @@ service cloud.firestore {
 
     // Every admin change to a player or the market, with before and after.
     // Read through the admin-gated adminListLog callable only: it holds
-    // private fields such as Discord IDs and moderation notes.
+    // private fields such as Discord IDs and moderation notes. The admin panel
+    // may append entries for its browser-side tools (src/features/admin/utils/
+    // panelLog.ts), stamped with its own uid and the server time; nothing may
+    // change or remove an entry once written.
     match /adminLog/{entryId} {
-      allow read, write: if false;
+      allow read, update, delete: if false;
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['action', 'by', 'uid', 'name', 'before', 'after', 'detail', 'source', 'at'])
+        && request.resource.data.action is string
+        && request.resource.data.by == request.auth.uid
+        && request.resource.data.source == 'panel'
+        && request.resource.data.at == request.time;
     }
 
     // ============================================

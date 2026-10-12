@@ -30,7 +30,11 @@ const SeasonCoordFlags = ({
         they see it, on their own season card.
       </p>
 
-      {error && <p className="text-xs text-red-500 mb-2">{error}</p>}
+      {error && (
+        <p role="alert" className="text-xs text-red-500 mb-2">
+          {error}
+        </p>
+      )}
       {!loading && !players.length && !error && (
         <p className={`text-xs ${mutedClass}`}>No one has been flagged this season.</p>
       )}

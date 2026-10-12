@@ -98,6 +98,7 @@ const WatchlistTab = ({
         <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Add User to Watchlist</h3>
         <div className="space-y-2">
           <input
+            aria-label="User ID to watch"
             type="text"
             value={watchAddUserId}
             onChange={(e) => setWatchAddUserId(e.target.value)}
@@ -105,6 +106,7 @@ const WatchlistTab = ({
             className={`w-full px-2 py-1.5 text-xs border rounded-sm ${inputClass}`}
           />
           <input
+            aria-label="Reason"
             type="text"
             value={watchAddReason}
             onChange={(e) => setWatchAddReason(e.target.value)}
@@ -114,6 +116,7 @@ const WatchlistTab = ({
           <div className="flex gap-2 items-center">
             <label className={`text-xs ${mutedClass}`}>Max accounts per IP:</label>
             <input
+              aria-label="Max accounts per IP"
               type="number"
               min="1"
               max="10"

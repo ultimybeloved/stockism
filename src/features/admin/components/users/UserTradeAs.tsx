@@ -16,13 +16,19 @@ const UserTradeAs = ({
     <div className="mb-4">
       <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>Trade as this player</h4>
       <div className="flex gap-2 flex-wrap items-center">
-        <select value={action} onChange={(e) => setAction(e.target.value)} className={inputClass}>
+        <select
+          aria-label="Trade action"
+          value={action}
+          onChange={(e) => setAction(e.target.value)}
+          className={inputClass}
+        >
           <option value="sell">Sell</option>
           <option value="buy">Buy</option>
           <option value="cover">Cover</option>
           <option value="short">Short</option>
         </select>
         <input
+          aria-label="Shares"
           type="number"
           min="0"
           value={amount}
@@ -31,6 +37,7 @@ const UserTradeAs = ({
           className={`w-24 ${inputClass}`}
         />
         <input
+          aria-label="Ticker"
           type="text"
           value={ticker}
           onChange={(e) => setTicker(e.target.value)}
@@ -54,7 +61,11 @@ const UserTradeAs = ({
           {formatCurrency(result.total)}).
         </p>
       )}
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && (
+        <p role="alert" className="text-xs text-red-500 mt-1">
+          {error}
+        </p>
+      )}
     </div>
   );
 };

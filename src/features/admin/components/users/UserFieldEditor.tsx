@@ -45,6 +45,7 @@ const UserFieldEditor = ({
             {selectedUser.isCrewHead && <span className="ml-1 text-amber-400">(crew head)</span>}
           </label>
           <select
+            aria-label="Crew"
             value={selectedUser.crew || ''}
             onChange={(e) => handleSetCrew(selectedUser.id, name, e.target.value, CREWS[e.target.value]?.name)}
             disabled={loading}
@@ -64,6 +65,7 @@ const UserFieldEditor = ({
           <label className={`text-xs ${mutedClass} block mb-1`}>Grant achievement ({owned.length} earned):</label>
           <div className="flex gap-2">
             <select
+              aria-label="Achievement to grant"
               value={achievementId}
               onChange={(e) => setAchievementId(e.target.value)}
               className={`flex-1 ${fieldClass}`}
@@ -127,6 +129,7 @@ const UserFieldEditor = ({
           <label className={`text-xs ${mutedClass} block mb-1`}>Set a holding (0 shares removes it):</label>
           <div className="flex gap-2 flex-wrap">
             <select
+              aria-label="Holding ticker"
               value={editTicker}
               onChange={(e) => setEditTicker(e.target.value)}
               className={`flex-1 min-w-[110px] ${fieldClass}`}
@@ -140,6 +143,7 @@ const UserFieldEditor = ({
               ))}
             </select>
             <input
+              aria-label="Shares"
               type="number"
               min="0"
               step="any"
@@ -149,6 +153,7 @@ const UserFieldEditor = ({
               className={`w-24 ${fieldClass}`}
             />
             <input
+              aria-label="Cost basis"
               type="number"
               min="0"
               step="any"
