@@ -17,7 +17,8 @@ const AchievementIcon = ({
       src={`/pins/${achievement.icon}`}
       alt={alt}
       className={`${className} object-contain`}
-      style={{ imageRendering: 'pixelated' }}
+      // Only our pixel-art SVGs want hard edges; photos/logos (the Discord png) stay smooth.
+      style={achievement.icon.endsWith('.svg') ? { imageRendering: 'pixelated' } : undefined}
     />
   ) : (
     <span aria-hidden={alt ? undefined : true}>{achievement.emoji}</span>
