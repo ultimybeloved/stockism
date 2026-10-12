@@ -9,7 +9,8 @@ const { sprite } = require('./pixel-sprite.cjs');
 const out = path.join(__dirname, '..', 'public', 'pins', 'achievements');
 fs.mkdirSync(out, { recursive: true });
 
-const C = 9.5; // centre of the grid
+// Grid centre: cells 0-19 measured at their middles, so the true centre is 10.
+const C = 10;
 const badges = {
   first_blood: ({ disc, line, px }) => {
     disc(C, C + 0.5, 8.4, 'W');
@@ -447,7 +448,7 @@ const badges = {
       line(x0, y0, x1, y1, 'O');
     rect(9, 9, 10, 13, 'n');
     rect(2, 12, 17, 12, 'g');
-    disc(9.5, 5, 4.8, 'G');
+    disc(C, 5, 4.8, 'G');
     disc(5.5, 7, 3, 'G');
     disc(13.5, 7, 3, 'G');
     disc(8, 3.5, 1.6, 'g');
@@ -581,8 +582,8 @@ const badges = {
     // Oracle: an all-seeing eye with a purple iris and gold rays.
     const eye = { 7: [7, 12], 8: [4, 15], 9: [2, 17], 10: [1, 18], 11: [1, 18], 12: [2, 17], 13: [4, 15], 14: [7, 12] };
     for (const [y, [a, b]] of Object.entries(eye)) rect(a, +y, b, +y, 'W');
-    disc(9.5, 10.5, 3.6, 'V');
-    disc(9.5, 10.5, 1.7, 'N');
+    disc(C, 10.5, 3.6, 'V');
+    disc(C, 10.5, 1.7, 'N');
     px(8, 9, 'W');
     px(11, 12, 'v');
     rect(9, 2, 10, 4, 'Y');
@@ -594,7 +595,7 @@ const badges = {
   },
   prophet: ({ rect, disc, poly, px }) => {
     // Prophet: a crystal ball on a gold stand with a rising chart glowing inside.
-    disc(9.5, 8.5, 6.6, 'v');
+    disc(C, 8.5, 6.6, 'v');
     disc(9.2, 8.2, 5.3, 'V');
     poly(
       [
@@ -868,7 +869,7 @@ const badges = {
   },
   mission_100: ({ disc, rect, px }) => {
     // Mission legend: a flag planted on the moon, mission accomplished.
-    disc(9.5, 22, 10.5, 'S');
+    disc(C, 22, 10.5, 'S');
     px(5, 15, 's');
     px(6, 15, 's');
     px(13, 14, 's');
@@ -957,7 +958,7 @@ const badges = {
   // ── Crew ──
   crowned: ({ disc, rect, px }) => {
     // Crowned: a crown being lowered onto a head.
-    disc(9.5, 21, 7.6, 'N', (x, y) => y >= 13);
+    disc(C, 21, 7.6, 'N', (x, y) => y >= 13);
     rect(5, 16, 14, 19, 'p');
     rect(4, 15, 15, 15, 'N');
     px(7, 18, 'K');
