@@ -648,6 +648,165 @@ const badges = {
     coin(8, 3);
     coin(13, 4);
   },
+  // ── Predictions ──
+  oracle: ({ rect, disc, line, px }) => {
+    // Oracle: an all-seeing eye with a purple iris and gold rays.
+    const eye = { 7: [7, 12], 8: [4, 15], 9: [2, 17], 10: [1, 18], 11: [1, 18], 12: [2, 17], 13: [4, 15], 14: [7, 12] };
+    for (const [y, [a, b]] of Object.entries(eye)) rect(a, +y, b, +y, 'W');
+    disc(9.5, 10.5, 3.6, 'V');
+    disc(9.5, 10.5, 1.7, 'N');
+    px(8, 9, 'W');
+    px(11, 12, 'v');
+    rect(9, 2, 10, 4, 'Y');
+    line(3, 3, 5, 5, 'Y');
+    line(16, 3, 14, 5, 'Y');
+    line(3, 17, 5, 15, 'y');
+    line(16, 17, 14, 15, 'y');
+    rect(9, 16, 10, 17, 'y');
+  },
+  prophet: ({ rect, disc, poly, px }) => {
+    // Prophet: a crystal ball on a gold stand with a rising chart glowing inside.
+    disc(9.5, 8.5, 6.6, 'v');
+    disc(9.2, 8.2, 5.3, 'V');
+    poly(
+      [
+        [5, 11],
+        [7, 9],
+        [9, 10],
+        [11, 7],
+        [14, 5],
+      ],
+      'g',
+    );
+    px(14, 4, 'g');
+    px(13, 5, 'g');
+    px(6, 5, 'W');
+    px(7, 4, 'W');
+    px(5, 6, 'W');
+    rect(6, 14, 13, 14, 'd');
+    rect(5, 15, 14, 16, 'Y');
+    rect(4, 17, 15, 18, 'd');
+    px(5, 15, 'W');
+    px(1, 3, 'W');
+    px(18, 2, 'W');
+    px(17, 11, 'c');
+  },
+  underdog: ({ rect, px }) => {
+    // Underdog: a little pup wearing a crown and a gold medal.
+    rect(4, 11, 13, 15, 'O');
+    rect(11, 7, 16, 12, 'O');
+    rect(11, 7, 12, 10, 'n');
+    rect(16, 10, 17, 11, 'O');
+    px(17, 10, 'K');
+    px(14, 9, 'K');
+    for (const x of [5, 7, 10, 12]) rect(x, 16, x, 17, 'O');
+    px(3, 10, 'O');
+    px(2, 9, 'O');
+    rect(5, 15, 12, 15, 'n');
+    rect(12, 5, 15, 6, 'Y');
+    px(12, 4, 'Y');
+    px(14, 4, 'Y');
+    px(15, 3, 'Y');
+    px(13, 5, 'R');
+    rect(11, 12, 14, 12, 'R');
+    rect(12, 13, 13, 14, 'Y');
+    px(12, 13, 'W');
+  },
+
+  // ── Ladder Game ──
+  compulsive_gambler: ({ rect, px }) => {
+    // Compulsive gambler: a ladder with gold piled on its rungs, more the higher it goes.
+    rect(4, 1, 5, 19, 'n');
+    rect(14, 1, 15, 19, 'n');
+    for (const y of [4, 8, 12, 16]) rect(6, y, 13, y, 'O');
+    const coins = (y, w) => {
+      rect(10 - w, y - 1, 9 + w, y - 1, 'Y');
+      rect(10 - w, y - 1, 9 + w, y - 1, 'Y');
+      px(10 - w, y - 1, 'W');
+    };
+    coins(16, 1);
+    coins(12, 2);
+    coins(8, 3);
+    rect(7, 2, 12, 3, 'Y');
+    rect(7, 3, 12, 3, 'd');
+    px(7, 2, 'W');
+    px(9, 0, 'Y');
+    px(1, 3, 'W');
+    px(18, 6, 'W');
+  },
+  addicted: ({ disc, line, rect, px }) => {
+    // Addicted: a hamster running in its wheel, round and round.
+    line(9, 9, 3, 19, 'n');
+    line(10, 9, 16, 19, 'n');
+    const ring = (x, y) => (x + 0.5 - C) ** 2 + (y + 0.5 - 9) ** 2 > 6.4 * 6.4;
+    disc(C, 9, 8, 'S', ring);
+    for (const [x, y] of [
+      [9, 1],
+      [15, 3],
+      [17, 9],
+      [15, 15],
+      [3, 15],
+      [1, 9],
+      [3, 3],
+    ])
+      px(x, y, 's');
+    rect(9, 8, 10, 9, 'n');
+    const body = { 11: [7, 11], 12: [6, 12], 13: [6, 12], 14: [7, 11] };
+    for (const [y, [a, b]] of Object.entries(body)) rect(a, +y, b, +y, 'O');
+    rect(11, 10, 13, 13, 'O');
+    px(11, 9, 'O');
+    px(13, 11, 'K');
+    px(14, 12, 'q');
+    px(12, 12, 'q');
+    rect(7, 14, 10, 14, 'p');
+    px(7, 15, 'q');
+    px(11, 15, 'q');
+    px(3, 11, 'W');
+    px(4, 13, 'W');
+    px(3, 13, 'W');
+  },
+  casino_champion: ({ rect, px }) => {
+    // Casino champion: a gold championship belt with a "1" on the plate.
+    rect(0, 8, 19, 12, 'R');
+    rect(0, 12, 19, 12, 'r');
+    rect(2, 9, 3, 11, 'Y');
+    rect(16, 9, 17, 11, 'Y');
+    rect(6, 5, 13, 15, 'Y');
+    rect(5, 6, 14, 14, 'Y');
+    rect(7, 6, 12, 14, 'd');
+    rect(9, 7, 10, 13, 'W');
+    px(8, 8, 'W');
+    rect(8, 13, 11, 13, 'W');
+    px(6, 6, 'W');
+    px(5, 7, 'W');
+  },
+  jihoism: ({ rect, px }) => {
+    // Jihoism: the whole balance tumbling away, coins and a bill falling past a red crash arrow.
+    const coin = (x, y) => {
+      rect(x + 1, y, x + 2, y, 'Y');
+      rect(x, y + 1, x + 3, y + 2, 'Y');
+      rect(x + 1, y + 3, x + 2, y + 3, 'd');
+      px(x + 1, y + 1, 'W');
+      px(x + 1, y - 2, 'S');
+      px(x + 2, y - 3, 'S');
+      px(x + 1, y - 4, 's');
+    };
+    rect(1, 1, 6, 4, 'G');
+    rect(2, 2, 5, 3, 'g');
+    px(3, 2, 'G');
+    px(4, 3, 'G');
+    px(2, 0, 's');
+    px(5, 0, 's');
+    coin(8, 4);
+    coin(3, 9);
+    coin(9, 12);
+    coin(4, 15);
+    rect(15, 2, 16, 13, 'R');
+    rect(13, 13, 18, 13, 'R');
+    rect(14, 14, 17, 14, 'R');
+    rect(15, 15, 16, 15, 'R');
+    rect(16, 2, 16, 13, 'r');
+  },
 };
 for (const [name, draw] of Object.entries(badges)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw));
 console.log('wrote', Object.keys(badges).length);
