@@ -269,35 +269,36 @@ const badges = {
     px(12, 17, 'Y');
   },
   diamond_hands: ({ rect, line, px }) => {
-    // 🙌 raised hands, but the hands themselves are cut diamond: four fingers
-    // and a thumb that splits off the palm with a notch, angled toward the
-    // other hand.
+    // 🙌 raised hands, but the hands themselves are cut diamond. Fingers sit
+    // side by side (alternating shades) so each hand stays small and the
+    // thumb gets room to be big, angled up toward the other hand with a clear
+    // notch between it and the fingers.
     const hand = (dir) => {
       // dir 1 = left hand (thumb on its right), -1 = right hand, mirrored about x 9.5
       const X = (x) => (dir === 1 ? x : 19 - x);
-      for (const [x, top] of [
-        [0, 5],
-        [2, 3],
-        [4, 2],
-        [6, 3],
+      // rect() wants left <= right, which a mirrored hand flips
+      const R = (x0, y0, x1, y1, c) => rect(Math.min(X(x0), X(x1)), y0, Math.max(X(x0), X(x1)), y1, c);
+      for (const [x, top, c] of [
+        [1, 7, 'c'],
+        [2, 5, 'B'],
+        [3, 4, 'c'],
+        [4, 5, 'B'],
       ])
-        rect(X(x), top, X(x), 8, 'c'); // pinky → index
-      for (let x = 0; x <= 6; x++) rect(X(x), 9, X(x), x === 0 || x === 6 ? 14 : 15, 'c');
-      px(X(7), 12, 'c');
-      px(X(7), 13, 'c');
-      rect(X(8), 9, X(8), 11, 'c'); // thumb
-      // facets and light
-      line(X(0), 13, X(4), 9, 'B');
-      line(X(2), 9, X(6), 13, 'S');
-      rect(X(1), 15, X(5), 15, 'b');
-      px(X(6), 14, 'b');
-      px(X(7), 13, 'b');
-      rect(X(0), 5, X(0), 6, 'W');
-      rect(X(4), 2, X(4), 4, 'W');
+        rect(X(x), top, X(x), 9, c);
+      R(1, 9, 5, 15, 'c');
+      R(5, 8, 5, 9, 'c');
+      R(6, 12, 7, 15, 'c');
+      R(7, 10, 8, 12, 'c');
+      R(8, 8, 8, 9, 'c');
+      line(X(1), 13, X(4), 10, 'B');
+      px(X(2), 11, 'S');
+      px(X(7), 11, 'S');
+      R(1, 15, 6, 15, 'b');
+      px(X(7), 14, 'b');
+      px(X(8), 12, 'B');
+      px(X(3), 4, 'W');
+      px(X(8), 8, 'W');
       px(X(1), 10, 'W');
-      px(X(8), 9, 'W');
-      rect(X(2), 5, X(2), 7, 'B');
-      rect(X(6), 5, X(6), 7, 'B');
     };
     hand(1);
     hand(-1);
@@ -308,8 +309,9 @@ const badges = {
       px(x, y - 1, 'c');
       px(x, y + 1, 'c');
     };
-    star(9, 4);
-    px(10, 1, 'W');
+    star(9, 3);
+    px(10, 0, 'W');
+    px(0, 2, 'W');
   },
   cold_blooded: ({ disc, rect, px }) => {
     // A drop of blood frozen inside an ice-shell drop.
@@ -956,6 +958,154 @@ const badges = {
     px(17, 10, 'W');
     px(15, 0, 'Y');
     px(1, 12, 'c');
+  },
+  // ── Leaderboard ──
+  top_10: ({ rect, px }) => {
+    // Contender: a race bib with "10" pinned on.
+    rect(3, 4, 16, 15, 'W');
+    rect(3, 4, 16, 6, 'R');
+    rect(3, 15, 16, 15, 'S');
+    px(4, 7, 'S');
+    px(15, 7, 'S');
+    px(4, 14, 'S');
+    px(15, 14, 'S');
+    rect(7, 8, 7, 13, 'N');
+    px(6, 9, 'N');
+    rect(6, 13, 8, 13, 'N');
+    rect(11, 8, 12, 8, 'N');
+    rect(10, 9, 10, 12, 'N');
+    rect(13, 9, 13, 12, 'N');
+    rect(11, 13, 12, 13, 'N');
+  },
+  top_3: ({ rect, px }) => {
+    // Elite: the 1-2-3 podium.
+    const glyph = {
+      1: ['.#.', '##.', '.#.', '.#.', '###'],
+      2: ['##.', '..#', '.#.', '#..', '###'],
+      3: ['##.', '..#', '.#.', '..#', '##.'],
+    };
+    const draw = (ch, x, y, c) =>
+      glyph[ch].forEach((row, dy) => [...row].forEach((k, dx) => k === '#' && px(x + dx, y + dy, c)));
+    rect(0, 9, 6, 17, 'S');
+    rect(7, 5, 12, 17, 'Y');
+    rect(13, 12, 19, 17, 'O');
+    rect(0, 9, 6, 9, 'W');
+    rect(7, 5, 12, 5, 'W');
+    rect(13, 12, 19, 12, 'p');
+    rect(6, 10, 6, 17, 's');
+    rect(12, 6, 12, 17, 'd');
+    rect(19, 13, 19, 17, 'n');
+    draw(1, 8, 7, 'd');
+    draw(2, 2, 11, 's');
+    draw(3, 15, 13, 'n');
+    rect(0, 18, 19, 18, 's');
+  },
+  top_1: ({ rect, px }) => {
+    // Champion: a laurel wreath around a gold "1".
+    for (const [x, y] of [
+      [5, 4],
+      [4, 6],
+      [3, 8],
+      [3, 10],
+      [4, 12],
+      [5, 14],
+      [7, 16],
+    ]) {
+      px(x, y, 'G');
+      px(x - 1, y, 'g');
+      px(x, y + 1, 'G');
+      px(19 - x, y, 'G');
+      px(20 - x, y, 'g');
+      px(19 - x, y + 1, 'G');
+    }
+    rect(9, 4, 10, 13, 'Y');
+    px(8, 5, 'Y');
+    rect(8, 13, 11, 13, 'Y');
+    rect(10, 4, 10, 13, 'd');
+    px(9, 4, 'W');
+    rect(9, 16, 10, 17, 'R');
+    px(8, 18, 'R');
+    px(11, 18, 'R');
+  },
+
+  // ── Crew ──
+  crowned: ({ disc, rect, px }) => {
+    // Crowned: a crown being lowered onto a head.
+    disc(9.5, 21, 7.6, 'N', (x, y) => y >= 13);
+    rect(5, 16, 14, 19, 'p');
+    rect(4, 15, 15, 15, 'N');
+    px(7, 18, 'K');
+    px(12, 18, 'K');
+    px(6, 13, 's');
+    rect(5, 8, 14, 10, 'Y');
+    rect(5, 10, 14, 10, 'd');
+    rect(5, 5, 5, 7, 'Y');
+    rect(9, 4, 10, 7, 'Y');
+    rect(14, 5, 14, 7, 'Y');
+    rect(6, 7, 13, 7, 'Y');
+    px(6, 6, 'Y');
+    px(13, 6, 'Y');
+    px(5, 4, 'W');
+    px(14, 4, 'W');
+    rect(9, 3, 10, 3, 'R');
+    px(8, 9, 'R');
+    px(11, 9, 'B');
+    rect(2, 6, 2, 10, 'S');
+    rect(17, 6, 17, 10, 'S');
+    px(3, 12, 'S');
+    px(16, 12, 'S');
+  },
+  dynasty: ({ rect, px }) => {
+    // Dynasty: a castle that has stood for ages, flying the royal banner.
+    rect(3, 9, 16, 18, 'S');
+    rect(1, 6, 5, 18, 'S');
+    rect(14, 6, 18, 18, 'S');
+    for (const x of [1, 3, 5, 14, 16, 18]) px(x, 5, 'S');
+    for (const x of [7, 9, 11, 13]) px(x, 8, 'S');
+    rect(5, 7, 5, 18, 's');
+    rect(18, 7, 18, 18, 's');
+    rect(3, 18, 16, 18, 's');
+    rect(8, 13, 11, 18, 'N');
+    rect(9, 12, 10, 12, 'N');
+    px(3, 9, 'N');
+    px(3, 10, 'N');
+    px(16, 9, 'N');
+    px(16, 10, 'N');
+    px(5, 13, 's');
+    px(14, 15, 's');
+    px(12, 11, 's');
+    rect(9, 1, 9, 7, 'n');
+    rect(10, 1, 14, 4, 'R');
+    rect(10, 4, 14, 4, 'r');
+    px(11, 2, 'Y');
+    px(13, 2, 'Y');
+    rect(11, 3, 13, 3, 'Y');
+    px(12, 2, 'Y');
+  },
+  usurper: ({ rect, px }) => {
+    // Usurper: a dagger driven down through a crown.
+    rect(3, 14, 16, 18, 'Y');
+    rect(3, 18, 16, 18, 'd');
+    rect(3, 11, 5, 13, 'Y');
+    rect(4, 10, 4, 10, 'Y');
+    rect(8, 11, 11, 13, 'Y');
+    rect(14, 11, 16, 13, 'Y');
+    px(15, 10, 'Y');
+    px(4, 9, 'W');
+    px(15, 9, 'W');
+    px(6, 16, 'R');
+    px(13, 16, 'B');
+    px(7, 15, 'd');
+    px(8, 16, 'd');
+    px(7, 17, 'd');
+    px(12, 15, 'd');
+    px(11, 16, 'd');
+    px(12, 17, 'd');
+    rect(9, 5, 10, 15, 'W');
+    rect(10, 5, 10, 15, 'S');
+    rect(6, 4, 13, 4, 'S');
+    rect(9, 1, 10, 3, 'n');
+    rect(9, 0, 10, 0, 'R');
   },
 };
 for (const [name, draw] of Object.entries(badges)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw));
