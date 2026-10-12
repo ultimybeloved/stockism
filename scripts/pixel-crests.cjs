@@ -23,7 +23,8 @@ const CREW_PAL = {
   x: '#000000',
 };
 
-const C = 9.5;
+// Grid centre: cells 0-19 measured at their middles, so the true centre is 10.
+const C = 10;
 // Paints a bitmap: one string per row, 'X' cells get colour c.
 const bmp = (px, x0, y0, rows, c) =>
   rows.forEach((row, dy) => [...row].forEach((ch, dx) => ch === 'X' && px(x0 + dx, y0 + dy, c)));
