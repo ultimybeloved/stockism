@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { claimMissionRewardFunction, rerollMissionsFunction } from '../../../api/callables';
 import { fireDailyRewardConfetti, fireWeeklyRewardConfetti } from '../../../utils/confetti';
-import { ACHIEVEMENTS } from '../../../constants/achievements';
+import { ACHIEVEMENTS, achievementToast } from '../../../constants/achievements';
 import { getWeekId } from '../../../crews';
 import { getTodayDateString } from '../../../utils/date';
 import { formatCurrency } from '../../../utils/formatters';
@@ -41,7 +41,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
         else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
         if (earnedAchievement) {
-          showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
+          showNotification('achievement', ...achievementToast(earnedAchievement));
         } else {
           showNotification('success', `Claimed ${formatCurrency(reward)} mission reward!`);
         }
@@ -120,7 +120,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         else if (newTotal >= 50 && !achievements.includes('MISSION_50')) earnedAchievement = ACHIEVEMENTS.MISSION_50;
         else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
         if (earnedAchievement) {
-          showNotification('achievement', `🏆 ${earnedAchievement.emoji} ${earnedAchievement.name} unlocked!`);
+          showNotification('achievement', ...achievementToast(earnedAchievement));
         } else {
           showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);
         }

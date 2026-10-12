@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import type { HttpsCallableResult } from 'firebase/functions';
 import { executeTradeFunction } from '../../../api/callables';
 import { fireTradeConfetti } from '../../../utils/confetti';
-import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../constants/achievements';
+import { ACHIEVEMENTS, ACHIEVEMENT_MAP, achievementToast } from '../../../constants/achievements';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import { formatCurrency } from '../../../utils/formatters';
 import { errorMessage, isCapacityError, isContentionError, isInfraError } from '../../../utils/errors';
@@ -100,10 +100,7 @@ export function useTradeManagement({
         if (action === 'buy') {
           if (earnedAchievements.length > 0) {
             const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
-            showNotification(
-              'achievement',
-              `🏆 ${achievement.emoji} ${achievement.name} unlocked! Bought ${amount} ${ticker}`,
-            );
+            showNotification('achievement', ...achievementToast(achievement, ` Bought ${amount} ${ticker}`));
             sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
             let message = `Bought ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${Number(impactPercent) > 0 ? '+' : ''}${impactPercent}% impact)`;
@@ -119,7 +116,7 @@ export function useTradeManagement({
           const profitText = profitPercent >= 0 ? `+${profitPercent.toFixed(1)}%` : `${profitPercent.toFixed(1)}%`;
           if (earnedAchievements.length > 0) {
             const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
-            showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
+            showNotification('achievement', ...achievementToast(achievement));
             sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
             showNotification(
@@ -130,7 +127,7 @@ export function useTradeManagement({
         } else if (action === 'short') {
           if (earnedAchievements.length > 0) {
             const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
-            showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
+            showNotification('achievement', ...achievementToast(achievement));
             sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
             let message = `Shorted ${amount} ${ticker} @ ${formatCurrency(executionPrice)} (${impactPercent}% impact)`;
@@ -153,13 +150,10 @@ export function useTradeManagement({
           const isColdBlooded = profit > 0;
           if (isColdBlooded && earnedAchievements.includes('COLD_BLOODED')) {
             sendAchievementAlert('COLD_BLOODED', ACHIEVEMENTS['COLD_BLOODED']);
-            showNotification(
-              'achievement',
-              `🏆 ${ACHIEVEMENTS['COLD_BLOODED'].emoji} ${ACHIEVEMENTS['COLD_BLOODED'].name} unlocked!`,
-            );
+            showNotification('achievement', ...achievementToast(ACHIEVEMENTS['COLD_BLOODED']));
           } else if (earnedAchievements.length > 0) {
             const achievement = ACHIEVEMENT_MAP[earnedAchievements[0]!]!;
-            showNotification('achievement', `🏆 ${achievement.emoji} ${achievement.name} unlocked!`);
+            showNotification('achievement', ...achievementToast(achievement));
             sendAchievementAlert(earnedAchievements[0]!, achievement);
           } else {
             showNotification(

@@ -136,6 +136,7 @@ Read-only unless marked. Each file's header comment has the full usage.
 | `post-rules.cjs` | **WRITES to Discord.** Posts or edits the server rules message |
 | `register-discord-commands.cjs` (`npm run discord:commands`), `sync-crew-emojis.cjs` (`npm run discord:emojis`) | **WRITES to Discord.** Bot slash commands and crew emojis. `discord-api.cjs` is their shared plumbing |
 | `seed-emulator.cjs`, `set-sandbox-state.cjs`, `loadtest-*.cjs` | Local emulator sandbox only |
+| `pixel-badges.cjs` | Draws the pixel-art achievement badges into public/pins/achievements/ |
 | `sync-chars.cjs`, `check-*.cjs`, `deploy-functions.cjs` | Build and deploy tooling, run through the npm scripts in the root package.json |
 
 Banning a player is done from the admin panel (`banUser`), which also books the ledger. The old `ban-user.js` wrote cash directly and was removed.

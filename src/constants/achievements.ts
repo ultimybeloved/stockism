@@ -8,6 +8,7 @@ export interface Achievement {
   emoji: string;
   description: string;
   hint: string;
+  /** Badge image under public/pins/ (pixel art). Shown instead of the emoji. */
   icon?: string;
   revocable?: boolean;
 }
@@ -18,6 +19,7 @@ export const ACHIEVEMENTS = {
     id: 'FIRST_BLOOD',
     name: 'First Blood',
     emoji: '🎯',
+    icon: 'achievements/first_blood.svg',
     description: 'Make your first trade',
     hint: 'Buy or sell any stock',
   },
@@ -25,6 +27,7 @@ export const ACHIEVEMENTS = {
     id: 'SHARK',
     name: 'Shark',
     emoji: '🦈',
+    icon: 'achievements/shark.svg',
     description: 'Execute a single trade worth $1,000+',
     hint: 'Go big or go home',
   },
@@ -32,6 +35,7 @@ export const ACHIEVEMENTS = {
     id: 'DIVERSIFIED',
     name: 'Diversified',
     emoji: '🎨',
+    icon: 'achievements/diversified.svg',
     description: 'Hold 5+ different characters at once',
     hint: "Don't put all your eggs in one basket",
   },
@@ -205,6 +209,7 @@ export const ACHIEVEMENTS = {
     id: 'TRADER_20',
     name: 'Active Trader',
     emoji: '📊',
+    icon: 'achievements/trader_20.svg',
     description: 'Complete 20 trades',
     hint: 'Keep trading',
   },
@@ -212,6 +217,7 @@ export const ACHIEVEMENTS = {
     id: 'TRADER_100',
     name: 'Day Trader',
     emoji: '💹',
+    icon: 'achievements/trader_100.svg',
     description: 'Complete 100 trades',
     hint: 'Trading is your life now',
   },
@@ -221,6 +227,7 @@ export const ACHIEVEMENTS = {
     id: 'UNIFIER',
     name: 'Unifier of Seoul',
     emoji: '🗺️',
+    icon: 'achievements/unifier.svg',
     description: 'Hold a full share of every character',
     hint: "Gotta catch 'em all",
   },
@@ -255,6 +262,7 @@ export const ACHIEVEMENTS = {
     id: 'MONOPOLY',
     name: 'Monopoly',
     emoji: '🏗️',
+    icon: 'achievements/monopoly.svg',
     description: 'Buy so much stock that you increase its price by 5% (the max)',
     hint: 'Go all in on a single buy',
   },
@@ -341,6 +349,7 @@ export const ACHIEVEMENTS = {
     id: 'TOPPED_OFF',
     name: 'Topped Off',
     emoji: '🎯',
+    icon: 'achievements/topped_off.svg',
     description: 'Sell a stock at its all-time high',
     hint: 'Perfect timing',
   },
@@ -355,6 +364,7 @@ export const ACHIEVEMENTS = {
     id: 'THATS_A_BIG_DEAL',
     name: "That's a Big Deal",
     emoji: '📉',
+    icon: 'achievements/big_deal.svg',
     description: 'Buy a bullish stock at its 7-day low',
     hint: 'Buy the dip while others are scared',
   },
@@ -399,6 +409,12 @@ export const ACHIEVEMENTS = {
 
 /** Lookup by an id that arrived as a plain string (from the server or a user doc). */
 export const ACHIEVEMENT_MAP: Record<string, Achievement> = ACHIEVEMENTS;
+
+/** The "unlocked" toast for an achievement: message plus its badge image, if it has one. */
+export const achievementToast = (a: Achievement, suffix = ''): [string, string | null] => [
+  `${a.icon ? '' : `🏆 ${a.emoji} `}${a.name} unlocked!${suffix}`,
+  a.icon ? `/pins/${a.icon}` : null,
+];
 
 // Achievement IDs for easy checking
 export const ACHIEVEMENT_IDS = Object.keys(ACHIEVEMENTS);

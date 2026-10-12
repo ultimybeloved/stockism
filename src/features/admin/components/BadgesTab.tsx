@@ -1,6 +1,7 @@
 import { ACHIEVEMENTS } from '../../../constants/achievements';
 import type { AdminCommonProps } from './types';
 import type { useAdminBadges } from '../hooks/useAdminBadges';
+import AchievementIcon from '../../../shared/components/AchievementIcon';
 
 const BadgesTab = ({
   mutedClass,
@@ -31,7 +32,9 @@ const BadgesTab = ({
                   className="w-full text-left p-3 flex items-center justify-between hover:bg-slate-500/10 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{ach.emoji}</span>
+                    <span className="text-xl inline-flex">
+                      <AchievementIcon achievement={ach} className="w-6 h-6" />
+                    </span>
                     <div>
                       <div className="font-semibold text-sm light:text-slate-900 dark:text-white">{ach.name}</div>
                       <div className={`text-xs ${mutedClass}`}>{ach.description}</div>

@@ -14,6 +14,7 @@ import ProfileAdminPanel from '../components/ProfileAdminPanel';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import { themeClasses } from '../../../utils/theme';
 import { ADMIN_UIDS } from '../../../constants/economy';
+import AchievementIcon from '../../../shared/components/AchievementIcon';
 
 const PublicProfilePage = () => {
   const { username } = useParams();
@@ -265,11 +266,7 @@ const PublicProfilePage = () => {
                 title={a.description}
                 className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold light:bg-amber-100 light:text-slate-700 dark:bg-zinc-800 dark:text-zinc-200"
               >
-                {a.icon ? (
-                  <img src={`/${a.icon}`} alt="" className="w-3.5 h-3.5 object-contain" />
-                ) : (
-                  <span>{a.emoji}</span>
-                )}
+                <AchievementIcon achievement={a} className="w-3.5 h-3.5" />
                 {a.name}
               </div>
             ))}

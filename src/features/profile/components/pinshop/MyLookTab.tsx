@@ -6,6 +6,7 @@ import { getMaxAchievementSlots, getMaxShopSlots, toggleDisplayedPin } from '../
 import { themeClasses } from '../../../../utils/theme';
 import { useSession } from '../../../../context/AppContext';
 import type { PinAction } from '../../hooks/usePinShop';
+import AchievementIcon from '../../../../shared/components/AchievementIcon';
 
 interface MyLookTabProps {
   onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
@@ -118,7 +119,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) =>
                   className={chipClass(isDisplayed)}
                 >
                   <span className="mr-1 inline-flex items-center align-middle">
-                    {ach.icon ? <img src={`/pins/${ach.icon}`} alt="" className="w-5 h-5 object-contain" /> : ach.emoji}
+                    <AchievementIcon achievement={ach} />
                   </span>
                   <span className={`text-sm ${textClass}`}>{ach.name}</span>
                   {isDisplayed && <span className="text-xs text-orange-500 ml-2">✓</span>}

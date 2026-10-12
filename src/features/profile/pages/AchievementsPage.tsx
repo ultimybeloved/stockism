@@ -5,6 +5,7 @@ import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import { themeClasses } from '../../../utils/theme';
 import { getMaxAchievementSlots, toggleDisplayedPin } from '../../../utils/pinSlots';
 import type { PinAction } from '../hooks/usePinShop';
+import AchievementIcon from '../../../shared/components/AchievementIcon';
 
 const AchievementsPage = ({
   onPinAction,
@@ -111,15 +112,7 @@ const AchievementsPage = ({
                         <span
                           className={`text-2xl inline-flex items-center justify-center ${earned ? '' : 'grayscale opacity-50'}`}
                         >
-                          {achievement.icon ? (
-                            <img
-                              src={`/pins/${achievement.icon}`}
-                              alt={achievement.name}
-                              className="h-7 w-7 object-contain"
-                            />
-                          ) : (
-                            achievement.emoji
-                          )}
+                          <AchievementIcon achievement={achievement} className="h-7 w-7" />
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className={`font-semibold text-sm ${earned ? 'text-orange-500' : mutedClass}`}>
