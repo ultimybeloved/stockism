@@ -25,6 +25,9 @@ const PAL = {
   P: '#b55088',
   T: '#68386c',
   O: '#e4a672',
+  V: '#8b5cf6',
+  v: '#5b2bb5',
+  p: '#f5b8a0',
 };
 const N = 20;
 
@@ -237,6 +240,178 @@ const badges = {
     rect(12, 1, 13, 2, 'R');
     px(14, 2, 'R');
     px(12, 3, 'R');
+  },
+  // ── Profits ──
+  bull_run: ({ rect, px }) => {
+    // Bull market: a green bull head, horns up, ears out, lighter muzzle, gold nose ring.
+    rect(2, 1, 3, 3, 'W');
+    rect(3, 4, 4, 5, 'W');
+    rect(16, 1, 17, 3, 'W');
+    rect(15, 4, 16, 5, 'W');
+    rect(2, 7, 4, 8, 'G');
+    rect(15, 7, 17, 8, 'G');
+    rect(5, 5, 14, 12, 'G');
+    rect(6, 12, 13, 16, 'g');
+    rect(7, 17, 12, 17, 'g');
+    rect(8, 14, 8, 15, 'N');
+    rect(11, 14, 11, 15, 'N');
+    rect(6, 8, 7, 9, 'K');
+    px(7, 8, 'W');
+    rect(12, 8, 13, 9, 'K');
+    px(13, 8, 'W');
+    rect(8, 18, 11, 18, 'Y');
+    px(7, 17, 'Y');
+    px(12, 17, 'Y');
+  },
+  diamond_hands: ({ rect, line, px }) => {
+    // 🙌 raised hands, but the hands themselves are cut diamond: four fingers
+    // and a thumb that splits off the palm with a notch, angled toward the
+    // other hand.
+    const hand = (dir) => {
+      // dir 1 = left hand (thumb on its right), -1 = right hand, mirrored about x 9.5
+      const X = (x) => (dir === 1 ? x : 19 - x);
+      for (const [x, top] of [
+        [0, 5],
+        [2, 3],
+        [4, 2],
+        [6, 3],
+      ])
+        rect(X(x), top, X(x), 8, 'c'); // pinky → index
+      for (let x = 0; x <= 6; x++) rect(X(x), 9, X(x), x === 0 || x === 6 ? 14 : 15, 'c');
+      px(X(7), 12, 'c');
+      px(X(7), 13, 'c');
+      rect(X(8), 9, X(8), 11, 'c'); // thumb
+      // facets and light
+      line(X(0), 13, X(4), 9, 'B');
+      line(X(2), 9, X(6), 13, 'S');
+      rect(X(1), 15, X(5), 15, 'b');
+      px(X(6), 14, 'b');
+      px(X(7), 13, 'b');
+      rect(X(0), 5, X(0), 6, 'W');
+      rect(X(4), 2, X(4), 4, 'W');
+      px(X(1), 10, 'W');
+      px(X(8), 9, 'W');
+      rect(X(2), 5, X(2), 7, 'B');
+      rect(X(6), 5, X(6), 7, 'B');
+    };
+    hand(1);
+    hand(-1);
+    const star = (x, y) => {
+      px(x, y, 'W');
+      px(x - 1, y, 'c');
+      px(x + 1, y, 'c');
+      px(x, y - 1, 'c');
+      px(x, y + 1, 'c');
+    };
+    star(9, 4);
+    px(10, 1, 'W');
+  },
+  cold_blooded: ({ disc, rect, px }) => {
+    // A drop of blood frozen inside an ice-shell drop.
+    rect(9, 1, 10, 2, 'c');
+    rect(8, 3, 11, 4, 'c');
+    rect(7, 5, 12, 5, 'c');
+    disc(C, 12.5, 6.4, 'c', (x, y) => y >= 6);
+    rect(9, 6, 10, 7, 'R');
+    rect(8, 8, 11, 9, 'R');
+    disc(C, 13, 3.9, 'R', (x, y) => y >= 9);
+    disc(C, 13, 3.9, 'r', (x, y) => y >= 13 && x >= 11);
+    px(9, 2, 'W');
+    px(8, 4, 'W');
+    px(5, 10, 'W');
+    px(4, 11, 'W');
+    px(4, 12, 'W');
+    px(8, 10, 'p');
+    px(15, 16, 'S');
+    px(14, 17, 'S');
+    px(16, 6, 'W');
+    px(17, 5, 'c');
+    px(15, 5, 'c');
+    px(16, 4, 'c');
+  },
+  npc_lover: ({ rect, px }) => {
+    // A blank-faced background NPC with a heart floating over their head.
+    rect(7, 1, 8, 1, 'V');
+    rect(11, 1, 12, 1, 'V');
+    rect(6, 2, 13, 3, 'V');
+    rect(7, 4, 12, 4, 'V');
+    rect(8, 5, 11, 5, 'V');
+    rect(9, 6, 10, 6, 'V');
+    px(7, 2, 'W');
+    px(12, 3, 'v');
+    px(11, 4, 'v');
+    rect(6, 8, 13, 8, 's');
+    rect(6, 9, 13, 13, 'p');
+    px(8, 10, 'K');
+    px(11, 10, 'K');
+    rect(8, 12, 11, 12, 'O');
+    rect(8, 14, 11, 14, 'p');
+    rect(4, 15, 15, 19, 'S');
+    rect(4, 15, 5, 19, 's');
+    rect(14, 15, 15, 19, 's');
+  },
+  discount_deacon: ({ rect, line, px }) => {
+    rect(6, 4, 18, 15, 'y');
+    rect(5, 5, 5, 14, 'y');
+    rect(4, 6, 4, 13, 'y');
+    rect(3, 7, 3, 12, 'y');
+    rect(5, 9, 6, 10, 'N');
+    line(5, 9, 1, 2, 'S');
+    const nine = (x) => {
+      rect(x, 7, x + 2, 7, 'W');
+      px(x, 8, 'W');
+      px(x + 2, 8, 'W');
+      rect(x, 9, x + 2, 9, 'W');
+      px(x + 2, 10, 'W');
+      rect(x, 11, x + 2, 11, 'W');
+    };
+    px(9, 11, 'W');
+    nine(11);
+    nine(15);
+  },
+  profit_champion: ({ rect, px }) => {
+    rect(5, 3, 14, 9, 'Y');
+    rect(6, 10, 13, 11, 'Y');
+    rect(8, 12, 11, 12, 'Y');
+    rect(9, 13, 10, 14, 'y');
+    rect(6, 15, 13, 15, 'y');
+    rect(5, 16, 14, 17, 's');
+    rect(3, 4, 3, 6, 'Y');
+    px(4, 3, 'Y');
+    px(4, 7, 'Y');
+    rect(16, 4, 16, 6, 'Y');
+    px(15, 3, 'Y');
+    px(15, 7, 'Y');
+    rect(9, 4, 10, 8, 'W');
+    px(8, 5, 'W');
+    px(6, 4, 'W');
+    px(6, 5, 'W');
+    rect(13, 4, 13, 9, 'y');
+  },
+  youre_a_worker: ({ disc, rect, px }) => {
+    disc(C, 13, 7.6, 'Y', (x, y) => y <= 13);
+    rect(1, 13, 18, 14, 'y');
+    rect(9, 6, 10, 12, 'y');
+    px(5, 9, 'W');
+    px(6, 8, 'W');
+    px(7, 7, 'W');
+    rect(4, 16, 15, 17, 's');
+    px(4, 15, 's');
+    px(15, 15, 's');
+  },
+  animal_instinct: ({ disc, line, px }) => {
+    // Three solid claw slashes torn across a dark coin, tapering at both ends.
+    disc(C, C, 8.6, 'N');
+    for (const [x0, y0, x1, y1] of [
+      [12, 2, 3, 14],
+      [15, 3, 6, 16],
+      [17, 6, 10, 17],
+    ]) {
+      line(x0, y0, x1, y1, 'R');
+      line(x0 - 1, y0 + 2, x1 + 2, y1 - 1, 'R');
+      line(x0, y0 + 2, x1 + 2, y1 - 2, 'r');
+      px(x0, y0, 'W');
+    }
   },
 };
 for (const [name, draw] of Object.entries(badges)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw));
