@@ -32,6 +32,7 @@ import {
 } from './seasonTiers';
 import { ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, isWeeklyTradingHalt } from '../shared/constants';
 import { writeNotification } from '../shared/notifications';
+import { sendDiscordDM } from '../shared/discordApi';
 import { recordHeartbeat } from '../shared/activity';
 import { exitEquityAt } from '../shared/equity';
 import { readIndexNow } from '../shared/marketData';
@@ -252,6 +253,7 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
       'seasonMargin',
       'marginUsed',
       'displayName',
+      'discordId',
       'seasonTopTierExclusion',
       'lastSynced',
       'lastActive',
@@ -279,7 +281,7 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
       margin: recordMargin(latest, u.seasonBaseline?.pinnedAt as number),
     });
     if (!entry) continue;
-    scoredPlayers.push({ entry, ref: doc.ref, displayName: u.displayName || 'Anonymous' });
+    scoredPlayers.push({ entry, ref: doc.ref, displayName: u.displayName || 'Anonymous', discordId: u.discordId });
     // The same field the season board ranks, so the places handed out here are
     // the ones the board was showing.
     if (isSeasonParticipant(u, season)) field.push(entry);
@@ -294,7 +296,7 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
   let awarded = 0;
   const rewarded: RewardNotice[] = [];
 
-  for (const { entry, ref, displayName } of scoredPlayers) {
+  for (const { entry, ref, displayName, discordId } of scoredPlayers) {
     const tier = finalTier(entry, ranked, rules);
     standings.push({
       uid: entry.uid,
@@ -330,7 +332,13 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
         detail: { tier, items: rewards },
       });
       ops++;
-      rewarded.push({ uid: entry.uid, tier, names: rewards.map((id) => COSMETIC_CATALOG[id]!.name) });
+      rewarded.push({
+        uid: entry.uid,
+        discordId,
+        tier,
+        names: rewards.map((id) => COSMETIC_CATALOG[id]!.name),
+        titles: titles.map((t) => t.text),
+      });
     }
     awarded++;
     if (!Object.keys(update).length) continue;
@@ -400,26 +408,37 @@ export const adminEndSeason = cf({ timeoutSeconds: 540 }).https.onCall(async (da
 
 interface RewardNotice {
   uid: string;
+  discordId?: string | null;
   tier: string;
   names: string[];
+  titles: string[];
 }
 
+/** "You finished Preseason at Diamond and earned ..." for the bell and the DM. */
+export const rewardMessage = (seasonLabel: string, { tier, names, titles }: Omit<RewardNotice, 'uid'>) => {
+  const frames = names.length === 1 ? `the ${names[0]} frame` : `${names.length} frames: ${names.join(', ')}`;
+  const title = titles.length ? `, plus the title ${titles.map((t) => t.toUpperCase()).join(' and ')}` : '';
+  const them = names.length === 1 && !titles.length ? 'it' : 'them';
+  return `You finished ${seasonLabel} at ${tier.charAt(0).toUpperCase() + tier.slice(1)} and earned ${frames}${title}. Find ${them} in Customize, under My Look.`;
+};
+
 /**
- * Tell each player what the season handed them. Best-effort and after the
- * results are filed, a few at a time so a big season doesn't flood Firestore.
+ * Tell each player what the season handed them: a bell and, for linked
+ * accounts, a Discord DM. Best-effort and after the results are filed. Five at
+ * a time (each DM is two Discord calls) so a big season stays under Discord's
+ * rate limit and doesn't flood Firestore.
  */
 const notifyRewards = async (seasonLabel: string, rewarded: RewardNotice[]) => {
-  for (let i = 0; i < rewarded.length; i += 25) {
+  for (let i = 0; i < rewarded.length; i += 5) {
     await Promise.all(
-      rewarded.slice(i, i + 25).map(({ uid, tier, names }) => {
-        const earned = names.length === 1 ? `the ${names[0]} frame` : `${names.length} frames: ${names.join(', ')}`;
-        return writeNotification(uid, {
-          type: 'season_end',
-          title: 'Season rewards',
-          message: `You finished ${seasonLabel} at ${tier.charAt(0).toUpperCase() + tier.slice(1)} and earned ${earned}. Find ${names.length === 1 ? 'it' : 'them'} in Customize, under My Look.`,
-        }).catch(() => {
-          /* never block the close on a notification */
-        });
+      rewarded.slice(i, i + 5).map(async (notice) => {
+        const message = rewardMessage(seasonLabel, notice);
+        try {
+          await writeNotification(notice.uid, { type: 'season_end', title: 'Season rewards', message });
+          if (notice.discordId) await sendDiscordDM(notice.discordId, `🏆 ${message}`);
+        } catch {
+          /* never block the close on a notification; closed DMs are normal */
+        }
       }),
     );
   }

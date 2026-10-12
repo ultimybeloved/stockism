@@ -471,7 +471,13 @@ const run = async () => {
   const rewardNote = (await db.collection('users').doc('diverse').collection('notifications').get()).docs
     .map((d: Loose) => d.data())
     .find((n: Loose) => n.title === 'Season rewards');
-  check('the player is told what they earned', /Preseason at Diamond/.test(rewardNote?.message || ''), rewardNote);
+  check(
+    'the player is told their frames and title',
+    /Preseason at Diamond and earned 5 frames: .*, plus the title PRESEASON DIAMOND. Find them/.test(
+      rewardNote?.message || '',
+    ),
+    rewardNote,
+  );
 
   console.log('\nG. Counting the start week');
   await db.collection('users').doc('diverse').update({ lastActive: Date.now() });
