@@ -116,7 +116,7 @@ const Header = ({
   const navLinks = [
     { path: '/leaderboard', label: 'Leaderboard', icon: <PixelIcon name="trophy" /> },
     { path: '/predictions', label: 'Predictions', icon: <PixelIcon name="crystal" />, badge: newPredictions },
-    { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" /> },
+    { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5 -my-0.5" /> },
     { path: '/achievements', label: 'Achievements', icon: <PixelIcon name="medal" /> },
   ];
 

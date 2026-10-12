@@ -55,7 +55,7 @@ const MobileBottomNav = () => {
       label: 'Predict',
       badge: newPredictions,
     },
-    { path: '/ladder', icon: <PixelIcon name="ladder" className="w-6 h-6" />, label: 'Ladder' },
+    { path: '/ladder', icon: <PixelIcon name="ladder" className="w-7 h-7" />, label: 'Ladder' },
     { path: '/achievements', icon: <PixelIcon name="medal" className="w-6 h-6" />, label: 'Achievements' },
     ...(user ? [{ path: '/profile', icon: <PixelIcon name="profile" className="w-6 h-6" />, label: 'Profile' }] : []),
   ];
