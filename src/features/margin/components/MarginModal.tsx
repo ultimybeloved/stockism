@@ -64,21 +64,21 @@ const MarginModal = ({
     }
   };
 
+  const STATUS_LABELS: Record<string, [string, string]> = {
+    safe: ['success', 'Safe'],
+    warning: ['warning', 'Warning'],
+    danger: ['danger', 'Danger Zone'],
+    margin_call: ['margincall', 'Margin Call'],
+    liquidation: ['dead', 'Liquidation Imminent'],
+  };
   const getStatusLabel = (status: MarginStatusLevel) => {
-    switch (status) {
-      case 'safe':
-        return '✓ Safe';
-      case 'warning':
-        return '⚠️ Warning';
-      case 'danger':
-        return '🔴 Danger Zone';
-      case 'margin_call':
-        return '🚨 Margin Call';
-      case 'liquidation':
-        return '💀 Liquidation Imminent';
-      default:
-        return 'Disabled';
-    }
+    const [icon, label] = STATUS_LABELS[status] ?? ['', 'Disabled'];
+    return (
+      <>
+        {icon && <PixelIcon name={icon} className="w-4 h-4 mr-1 align-[-3px]" />}
+        {label}
+      </>
+    );
   };
 
   const getStatusBg = (status: MarginStatusLevel) => {
@@ -125,7 +125,10 @@ const MarginModal = ({
           {!eligibility.eligible && (marginStatus.marginUsed || 0) === 0 ? (
             // Locked state - show requirements (only if no debt)
             <div className="p-4 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50">
-              <h3 className={`font-semibold mb-2 ${textClass}`}>🔒 Margin Trading Locked</h3>
+              <h3 className={`font-semibold mb-2 ${textClass}`}>
+                <PixelIcon name="lock" className="w-4 h-4 mr-1 align-[-3px]" />
+                Margin Trading Locked
+              </h3>
               <p className={`text-sm ${mutedClass} mb-3`}>Meet these requirements to unlock:</p>
               <div className="space-y-1">
                 {eligibility.requirements.map((req, i) => (
@@ -200,7 +203,8 @@ const MarginModal = ({
                 className={`p-3 rounded-sm border ${colorBlindMode ? 'light:bg-purple-50 light:border-purple-200 dark:bg-purple-900/10 dark:border-purple-800' : 'light:bg-red-50 light:border-red-200 dark:bg-red-900/10 dark:border-red-800'}`}
               >
                 <h4 className={`font-semibold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>
-                  ⚠️ Risk Warning
+                  <PixelIcon name="warning" className="w-4 h-4 mr-1 align-[-3px]" />
+                  Risk Warning
                 </h4>
                 <p className={`text-xs ${mutedClass}`}>
                   Margin trading amplifies both gains AND losses. You can lose more than your initial investment. If
@@ -295,7 +299,10 @@ const MarginModal = ({
               {/* Margin Call Warning */}
               {marginStatus.status === 'margin_call' && (
                 <div className="p-3 rounded-sm light:bg-orange-50 dark:bg-orange-900/30 border border-orange-500">
-                  <h4 className="font-bold text-orange-500 mb-1">🚨 Margin Call!</h4>
+                  <h4 className="font-bold text-orange-500 mb-1">
+                    <PixelIcon name="margincall" className="w-4 h-4 mr-1 align-[-3px]" />
+                    Margin Call!
+                  </h4>
                   <p className={`text-xs ${mutedClass}`}>
                     Deposit funds or sell positions to bring your equity above 30%. Auto-liquidation occurs at 25%
                     equity.

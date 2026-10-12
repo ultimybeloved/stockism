@@ -1,5 +1,6 @@
 import { themeClasses } from '../../../utils/theme';
 import { formatShares, roundShares } from '../../../utils/tradeLimits';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface TradeAmountInputProps {
   action: string;
@@ -120,7 +121,8 @@ const TradeAmountInput = ({
       {maxShares > 0 && <p className={`text-xs ${mutedClass} mt-1`}>Max: {formatShares(maxShares)} shares</p>}
       {action === 'sell' && marginLockedShares > 0 && (
         <p className="text-xs text-amber-500 mt-1">
-          🔒 {formatShares(marginLockedShares)} share{marginLockedShares === 1 ? '' : 's'} locked from a margin buy (~
+          <PixelIcon name="lock" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+          {formatShares(marginLockedShares)} share{marginLockedShares === 1 ? '' : 's'} locked from a margin buy (~
           {marginLockHours}h left)
         </p>
       )}

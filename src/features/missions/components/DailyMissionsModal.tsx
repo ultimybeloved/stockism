@@ -198,7 +198,14 @@ const DailyMissionsModal = ({
                 }`}
                 title="Reroll all missions ($50)"
               >
-                {rerollLoading ? '...' : '🎲 Reroll $50'}
+                {rerollLoading ? (
+                  '...'
+                ) : (
+                  <>
+                    <PixelIcon name="reroll" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+                    Reroll $50
+                  </>
+                )}
               </button>
             )}
             {hasRerolled && <span className={`text-xs ${mutedClass} italic`}>Rerolled ✓</span>}

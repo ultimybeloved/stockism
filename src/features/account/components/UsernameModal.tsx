@@ -6,6 +6,7 @@ import { themeClasses } from '../../../utils/theme';
 import type { FormEvent } from 'react';
 import { errorMessage } from '../../../utils/errors';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Wait this long after the last keystroke before asking the server. Without it
 // every character typed would be its own function call.
@@ -183,7 +184,10 @@ const UsernameModal = ({ onComplete, suggestedName = '' }: { onComplete: () => v
           </button>
         </form>
 
-        <p className={`text-xs ${mutedClass} mt-4 text-center`}>🔒 Your account info is never stored or shared</p>
+        <p className={`text-xs ${mutedClass} mt-4 text-center`}>
+          <PixelIcon name="lock" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+          Your account info is never stored or shared
+        </p>
 
         <p className={`text-xs ${mutedClass} mt-2 text-center`}>
           By creating an account, you agree to our{' '}

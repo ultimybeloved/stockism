@@ -88,7 +88,8 @@ const PredictionsPage = ({
 
         {isHalted && (
           <div className="mb-6 p-3 rounded-sm text-sm light:bg-amber-50 light:border light:border-amber-200 light:text-amber-800 dark:bg-zinc-900 dark:border dark:border-zinc-800 dark:text-zinc-300">
-            🔒 Predictions are closed for chapter review. Trading reopens {marketTimes().reopen}.
+            <PixelIcon name="lock" className="w-4 h-4 mr-1 align-[-3px]" />
+            Predictions are closed for chapter review. Trading reopens {marketTimes().reopen}.
           </div>
         )}
 

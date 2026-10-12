@@ -7,8 +7,9 @@ import TitleText from '../../../shared/components/TitleText';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
-import { getRankEmoji, getRankStyle, formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
+import { getRankMedal, getRankStyle, formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
 import type { RankedLeader } from '../hooks/useLeaderboard';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface LeaderboardRowProps {
   leader: RankedLeader;
@@ -87,7 +88,11 @@ const LeaderboardRow = ({
       }}
     >
       <div className={`w-10 text-center font-bold ${getRankStyle(displayRank, darkMode, mutedClass)}`}>
-        {getRankEmoji(displayRank)}
+        {getRankMedal(displayRank) ? (
+          <PixelIcon name={getRankMedal(displayRank)!} className="w-6 h-6 mx-auto block" />
+        ) : (
+          `#${displayRank}`
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className={`font-semibold truncate ${textClass} flex items-center gap-1`}>

@@ -10,21 +10,22 @@ import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { CSSProperties, Ref } from 'react';
 import type { User } from 'firebase/auth';
 import type { RankedLeader } from '../hooks/useLeaderboard';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Gold / silver / bronze card treatments, keyed by podium place.
 const PLACE_STYLES: Record<number, { medal: string; dark: string; light: string }> = {
   1: {
-    medal: '🥇',
+    medal: 'rank1',
     dark: 'border-yellow-500/60 bg-yellow-500/10',
     light: 'border-yellow-400 bg-yellow-50',
   },
   2: {
-    medal: '🥈',
+    medal: 'rank2',
     dark: 'border-zinc-400/50 bg-zinc-400/10',
     light: 'border-zinc-300 bg-zinc-100',
   },
   3: {
-    medal: '🥉',
+    medal: 'rank3',
     dark: 'border-amber-600/50 bg-amber-700/15',
     light: 'border-amber-500/60 bg-orange-50',
   },
@@ -86,7 +87,7 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
       style={{ ...frameStyle, ...style }}
     >
       {isFirst && <div className={`podium-sheen${darkMode ? '' : ' podium-sheen-light'}`} aria-hidden="true" />}
-      <div className={isFirst ? 'text-3xl' : 'text-2xl'}>{placeStyle.medal}</div>
+      <PixelIcon name={placeStyle.medal} className={isFirst ? 'w-9 h-9 mx-auto block' : 'w-7 h-7 mx-auto block'} />
       {/* Name gets the full card width; pins/globe live on their own row below
           so they can never squeeze the name into truncating early. */}
       <div

@@ -47,7 +47,7 @@ const ToastNotification = ({ notification, onDismiss }: ToastNotificationProps) 
         return {
           bg: 'light:bg-red-100 light:border-red-400 dark:bg-red-900/90 dark:border-red-700',
           text: 'light:text-red-800 dark:text-red-100',
-          icon: '❌',
+          icon: <PixelIcon name="error" className="w-5 h-5 block" />,
         };
       case 'info':
         return {
@@ -65,7 +65,7 @@ const ToastNotification = ({ notification, onDismiss }: ToastNotificationProps) 
         return {
           bg: 'light:bg-green-100 light:border-green-400 dark:bg-green-900/90 dark:border-green-700',
           text: 'light:text-green-800 dark:text-green-100',
-          icon: '✓',
+          icon: <PixelIcon name="success" className="w-5 h-5 block" />,
         };
     }
   };

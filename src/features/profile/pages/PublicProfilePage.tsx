@@ -56,7 +56,11 @@ const PublicProfilePage = () => {
       <div className="max-w-2xl mx-auto p-4">
         <div className={`${cardClass} border rounded-sm p-8 text-center`}>
           <p className="text-2xl mb-2">
-            {error === 'private' ? '🔒' : <PixelIcon name="profile" className="w-8 h-8 mx-auto" />}
+            {error === 'private' ? (
+              <PixelIcon name="lock" className="w-8 h-8 mx-auto" />
+            ) : (
+              <PixelIcon name="profile" className="w-8 h-8 mx-auto" />
+            )}
           </p>
           <p className={`font-semibold ${textClass}`}>
             {error === 'private' ? 'This profile is private' : 'Profile not found'}

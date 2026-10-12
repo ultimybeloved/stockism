@@ -218,13 +218,15 @@ const EventMarketCard = ({
       {/* Trade panel */}
       {!resolved && notYetOpen && (
         <div className={`text-center py-2 text-sm ${mutedClass} light:bg-slate-200/60 dark:bg-zinc-800/50 rounded-sm`}>
-          🔒 Opens in {formatCountdown(market.opensAt! - nowTs)}
+          <PixelIcon name="lock" className="w-4 h-4 mr-1 align-[-3px]" />
+          Opens in {formatCountdown(market.opensAt! - nowTs)}
         </div>
       )}
 
       {!resolved && !notYetOpen && isHalted && (
         <div className={`text-center py-2 text-sm ${mutedClass} light:bg-slate-200/60 dark:bg-zinc-800/50 rounded-sm`}>
-          🔒 Closed for chapter review. Trading reopens {marketTimes().reopen}.
+          <PixelIcon name="lock" className="w-4 h-4 mr-1 align-[-3px]" />
+          Closed for chapter review. Trading reopens {marketTimes().reopen}.
         </div>
       )}
 

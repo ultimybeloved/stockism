@@ -39,17 +39,17 @@ export interface StoredNotification extends AppNotification {
 }
 
 export const NOTIFICATION_META: Record<string, NotificationMeta> = {
-  trade: { icon: '📈', colorKey: 'green', category: 'Trades' },
+  trade: { icon: '📈', pixel: 'trade', colorKey: 'green', category: 'Trades' },
   alert: { icon: '🔔', pixel: 'bell', colorKey: 'blue', category: 'Alerts' },
-  announcement: { icon: '📢', colorKey: 'blue', category: 'Alerts' },
-  margin: { icon: '⚠️', colorKey: 'amber', category: 'Alerts' },
+  announcement: { icon: '📢', pixel: 'announce', colorKey: 'blue', category: 'Alerts' },
+  margin: { icon: '⚠️', pixel: 'warning', colorKey: 'amber', category: 'Alerts' },
   achievement: { icon: '🏆', pixel: 'medal', colorKey: 'gold', category: 'Rewards' },
-  dividend: { icon: '💰', colorKey: 'emerald', category: 'Rewards' },
-  loyalty: { icon: '🎖️', colorKey: 'gold', category: 'Rewards' },
-  system: { icon: '💵', colorKey: 'violet', category: 'Rewards' },
+  dividend: { icon: '💰', pixel: 'dividend', colorKey: 'emerald', category: 'Rewards' },
+  loyalty: { icon: '🎖️', pixel: 'loyalty', colorKey: 'gold', category: 'Rewards' },
+  system: { icon: '💵', pixel: 'cash', colorKey: 'violet', category: 'Rewards' },
 };
 
-const DEFAULT_META: NotificationMeta = { icon: '📢', colorKey: 'gray', category: 'Rewards' };
+const DEFAULT_META: NotificationMeta = { icon: '📢', pixel: 'announce', colorKey: 'gray', category: 'Rewards' };
 
 export const FILTER_TABS = ['All', 'Trades', 'Alerts', 'Rewards'];
 

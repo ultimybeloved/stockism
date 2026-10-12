@@ -15,6 +15,7 @@ import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import CrewPin from '../../../shared/components/CrewPin';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface CrewSelectionModalProps {
   onClose: () => void;
@@ -312,7 +313,10 @@ const CrewSelectionModal = ({
                       <span className="text-xs text-orange-500 mt-2 block">✓ Current crew</span>
                     )}
                     {lockedDays > 0 && crew.id !== currentCrew && (
-                      <span className="text-xs text-red-400 mt-2 block">🔒 Locked for {lockedDays}d</span>
+                      <span className="text-xs text-red-400 mt-2 block">
+                        <PixelIcon name="lock" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+                        Locked for {lockedDays}d
+                      </span>
                     )}
                   </button>
                 );

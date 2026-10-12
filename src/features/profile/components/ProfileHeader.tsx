@@ -101,7 +101,8 @@ const ProfileHeader = ({
               }}
               className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
             >
-              ✏️ Change name ($10,000)
+              <PixelIcon name="pencil" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+              Change name ($10,000)
             </button>
           ) : (
             <p className={`text-xs ${mutedClass}`}>

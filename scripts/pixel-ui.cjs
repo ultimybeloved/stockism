@@ -13,6 +13,10 @@ const UI_PAL = {
   l: '#8f8670',
   D: '#333333',
   h: '#fde68a',
+  e: '#c27c48',
+  E: '#7a4420',
+  k: '#e5e7eb',
+  u: '#2d6a3a',
 };
 
 // Grid centre: cells 0-19 measured at their middles, so the true centre is 10.
@@ -25,6 +29,25 @@ const mirror = (px) => (x, y, c) => {
   px(x, y, c);
   px(19 - x, y, c);
 };
+
+const DIGITS = {
+  1: ['.XX.', 'XXX.', '.XX.', '.XX.', '.XX.', 'XXXX'],
+  2: ['XXX.', '...X', '.XX.', 'X...', 'X...', 'XXXX'],
+  3: ['XXX.', '...X', '.XX.', '...X', '...X', 'XXX.'],
+};
+// Leaderboard top 3: a numbered medal on a blue-and-red ribbon.
+const rankMedal =
+  (n, hi, lo, ink) =>
+  ({ disc, rect, px }) => {
+    for (let y = 0; y <= 7; y++) {
+      const o = Math.floor(y / 2);
+      rect(4 + o, y, 6 + o, y, 'B');
+      rect(13 - o, y, 15 - o, y, 'R');
+    }
+    disc(C, 13, 5.6, lo);
+    disc(C, 13, 4.4, hi);
+    bmp(px, 8, 10, DIGITS[n], ink);
+  };
 
 const icons = {
   // Leaderboard: a gold trophy on a wooden plinth.
@@ -317,6 +340,201 @@ const icons = {
     px(17, 17, null);
     px(16, 17, 'd');
     px(15, 18, 'd');
+  },
+
+  rank1: rankMedal(1, 'Y', 'y', 'm'),
+  rank2: rankMedal(2, 'S', 's', 'N'),
+  rank3: rankMedal(3, 'e', 'E', 'E'),
+  // Locked: a steel padlock.
+  lock: ({ rect, disc, px }) => {
+    disc(C, 8, 5, 's', (x, y) => y <= 8);
+    disc(C, 8, 2.6, null, (x, y) => y <= 8);
+    rect(5, 8, 6, 9, 's');
+    rect(13, 8, 14, 9, 's');
+    rect(3, 9, 16, 18, 'S');
+    rect(13, 9, 16, 18, 's');
+    rect(3, 9, 16, 9, 'W');
+    bmp(px, 8, 11, ['.XX.', 'XXXX', 'XXXX', '.XX.', '.XX.', '.XX.'], 'N');
+  },
+  // Trade notification: rising candlesticks.
+  trade: ({ rect }) => {
+    for (const [x, a, b, w0, w1, c] of [
+      [2, 11, 15, 9, 17, 'R'],
+      [6, 9, 13, 7, 15, 'g'],
+      [10, 6, 10, 4, 12, 'g'],
+      [14, 2, 7, 1, 9, 'g'],
+    ]) {
+      rect(x + 1, w0, x + 1, w1, c === 'R' ? 'r' : 'G');
+      rect(x, a, x + 2, b, c);
+    }
+  },
+  // Announcement: a megaphone.
+  announce: ({ rect, px }) => {
+    for (let x = 6; x <= 15; x++) {
+      const h = Math.floor((x - 6) * 0.7);
+      rect(x, 8 - h, x, 11 + h, x >= 14 ? 'y' : 'Y');
+    }
+    rect(2, 7, 5, 12, 'R');
+    rect(2, 11, 5, 12, 'r');
+    rect(4, 13, 6, 17, 's');
+    for (const [x, y] of [
+      [17, 4],
+      [18, 3],
+      [17, 9],
+      [18, 9],
+      [17, 10],
+      [18, 10],
+      [17, 15],
+      [18, 16],
+    ])
+      px(x, y, 'W');
+  },
+  // Margin warning: a yellow warning sign.
+  warning: ({ rect }) => {
+    for (let y = 2; y <= 17; y++) {
+      const h = Math.floor((y - 2) / 2);
+      rect(C - 1 - h, y, C + h, y, 'Y');
+    }
+    rect(2, 17, 17, 17, 'y');
+    rect(9, 6, 10, 12, 'x');
+    rect(9, 14, 10, 15, 'x');
+  },
+  // Dividend: a money bag with a bold green dollar sign.
+  dividend: ({ disc, rect, px }) => {
+    disc(C, 12.5, 7, (x, y) => (x + y > 27 ? 'n' : 'O'));
+    rect(8, 3, 11, 6, 'O');
+    rect(8, 5, 11, 5, 'n');
+    rect(6, 1, 8, 2, 'O');
+    rect(11, 1, 13, 2, 'O');
+    bmp(px, 7, 9, ['..XX..', '.XXXXX', 'X.XX..', '.XXXX.', '..XX.X', 'XXXXX.', '..XX..'], 'G');
+  },
+  // Loyalty: a calendar of days held, a gold star on the last one.
+  loyalty: ({ rect, px }) => {
+    rect(2, 3, 17, 18, 'W');
+    rect(2, 3, 17, 6, 'R');
+    rect(5, 1, 6, 4, 's');
+    rect(13, 1, 14, 4, 's');
+    for (let r = 0; r < 3; r++)
+      for (let c = 0; c < 4; c++) {
+        const x = 4 + c * 3;
+        const y = 8 + r * 3;
+        rect(x, y, x + 1, y + 1, r === 2 && c === 3 ? 'W' : 'g');
+      }
+    bmp(px, 12, 13, ['..X..', '.XXX.', 'XXXXX', '.X.X.'], 'Y');
+  },
+  // Cash grant: a stack of bills.
+  cash: ({ rect, disc, px }) => {
+    rect(4, 3, 18, 12, 'u');
+    rect(1, 6, 16, 15, 'W');
+    rect(2, 7, 15, 14, 'G');
+    rect(3, 8, 14, 13, 'g');
+    disc(8.5, 10.5, 3.4, 'G');
+    bmp(px, 7, 7, ['.X.', 'XXX', 'X..', 'XXX', '..X', 'XXX', '.X.'], 'W');
+    px(4, 9, 'G');
+    px(13, 12, 'G');
+  },
+  // Margin danger zone: a red alert circle.
+  danger: ({ disc, rect }) => {
+    disc(C, C, 8.6, (x, y) => (x + y > 21 ? 'r' : 'R'));
+    rect(9, 4, 10, 11, 'W');
+    rect(9, 13, 10, 15, 'W');
+  },
+  // Margin call: a flashing siren.
+  margincall: ({ rect, disc, px }) => {
+    disc(
+      C,
+      13,
+      6,
+      (x, y) => (x + y > 23 ? 'r' : 'R'),
+      (x, y) => y <= 13,
+    );
+    rect(13, 9, 15, 13, 'r');
+    rect(2, 14, 17, 17, 's');
+    rect(2, 14, 17, 14, 'S');
+    rect(7, 9, 8, 11, 'q');
+    for (const [x, y] of [
+      [1, 4],
+      [2, 5],
+      [18, 4],
+      [17, 5],
+    ])
+      px(x, y, 'Y');
+    rect(9, 1, 10, 3, 'Y');
+  },
+  // Pop-ups: error and success.
+  error: ({ rect }) => {
+    rect(2, 2, 17, 17, 'R');
+    rect(2, 17, 17, 17, 'r');
+    rect(17, 2, 17, 17, 'r');
+    for (let i = 0; i < 9; i++) {
+      rect(5 + i, 5 + i, 6 + i, 5 + i, 'W');
+      rect(13 - i, 5 + i, 14 - i, 5 + i, 'W');
+    }
+  },
+  success: ({ rect }) => {
+    rect(2, 2, 17, 17, 'g');
+    rect(2, 17, 17, 17, 'G');
+    rect(17, 2, 17, 17, 'G');
+    for (const [x, y] of [
+      [5, 9],
+      [6, 10],
+      [7, 11],
+      [8, 12],
+      [9, 11],
+      [10, 10],
+      [11, 9],
+      [12, 8],
+      [13, 7],
+      [14, 6],
+    ])
+      rect(x, y, x, y + 1, 'W');
+  },
+  // Mission reroll: a die inside two circling arrows.
+  reroll: ({ rect, px }) => {
+    rect(5, 5, 14, 14, 'W');
+    rect(5, 14, 14, 14, 'S');
+    rect(14, 5, 14, 14, 'S');
+    for (const v of [6, 9, 12]) rect(v, v, v + 1, v + 1, 'R');
+    // The second arrow is an exact half-turn of the first.
+    const both = (x, y) => {
+      px(x, y, 'B');
+      px(19 - x, 19 - y, 'B');
+    };
+    for (let x = 2; x <= 11; x++) both(x, 2);
+    for (let y = 2; y <= 12; y++) both(2, y);
+    for (const [x, y] of [
+      [12, 1],
+      [12, 2],
+      [13, 2],
+      [12, 3],
+    ])
+      both(x, y);
+  },
+  // Change name: a pencil.
+  pencil: ({ px }) => {
+    for (let i = 0; i < 11; i++) {
+      const x = 4 + i;
+      const y = 15 - i;
+      px(x, y, 'Y');
+      px(x + 1, y, 'y');
+      px(x, y - 1, 'h');
+      px(x + 1, y - 1, 'Y');
+    }
+    for (const [x, y, c] of [
+      [15, 4, 'S'],
+      [16, 4, 's'],
+      [15, 3, 'S'],
+      [16, 3, 'S'],
+      [16, 2, 'q'],
+      [17, 2, 'Q'],
+      [17, 3, 'Q'],
+      [17, 1, 'q'],
+    ])
+      px(x, y, c);
+    px(3, 16, 'O');
+    px(4, 16, 'O');
+    px(3, 15, 'O');
+    px(2, 17, 'D');
   },
 };
 for (const [name, draw] of Object.entries(icons)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw, UI_PAL));

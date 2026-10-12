@@ -1,12 +1,8 @@
 // Rank badge styling and number formats for the leaderboard. Pure helpers.
 import { formatCurrency } from './formatters';
 
-export const getRankEmoji = (rank: number): string => {
-  if (rank === 1) return '🥇';
-  if (rank === 2) return '🥈';
-  if (rank === 3) return '🥉';
-  return `#${rank}`;
-};
+/** The pixel medal (public/pins/ui/) for the top 3, or null below them. */
+export const getRankMedal = (rank: number): string | null => (rank >= 1 && rank <= 3 ? `rank${rank}` : null);
 
 export const getRankStyle = (rank: number, darkMode: boolean, mutedClass: string): string => {
   if (rank === 1) return 'text-yellow-500';
