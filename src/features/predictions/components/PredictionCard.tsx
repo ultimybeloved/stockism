@@ -7,6 +7,7 @@ import { marketTimes } from '../../../utils/localTime';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import type { PredictionDoc, UserBet } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface PredictionCardProps {
   prediction: PredictionDoc;
@@ -103,7 +104,7 @@ const PredictionCard = ({
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-lg">🔮</span>
+            <PixelIcon name="crystal" className="w-5 h-5" />
             <span
               className={`text-xs font-semibold uppercase ${isActive ? 'text-orange-500' : prediction.resolved ? 'text-amber-500' : 'text-red-500'}`}
             >

@@ -10,6 +10,7 @@ import EventMarketCard from '../components/EventMarketCard';
 import { marketTimes } from '../../../utils/localTime';
 import type { EventMarketDoc } from '../../../types';
 import type { usePredictionManagement } from '../hooks/usePredictionManagement';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 type PredictionHandlers = ReturnType<typeof usePredictionManagement>;
 
@@ -79,7 +80,10 @@ const PredictionsPage = ({
   return (
     <div className={`min-h-screen ${bgClass} p-4 sm:px-6`}>
       <div>
-        <h1 className={`text-2xl font-bold mb-1 ${textClass}`}>🔮 Predictions</h1>
+        <h1 className={`text-2xl font-bold mb-1 ${textClass}`}>
+          <PixelIcon name="crystal" className="w-6 h-6 mr-2 align-[-4px]" />
+          Predictions
+        </h1>
         <p className={`text-sm mb-6 ${mutedClass}`}>Bet on what happens next in the series.</p>
 
         {isHalted && (

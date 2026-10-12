@@ -14,6 +14,7 @@ import EtfLinks from '../components/EtfLinks';
 import type { ReactNode } from 'react';
 import type { PricePoint, TradeAction } from '../../../types';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import CrewPin from '../../../shared/components/CrewPin';
 
 type ChartType = 'area' | 'bar';
 
@@ -157,7 +158,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
                       color: getReadableCrewColor(crew.color, darkMode),
                     }}
                   >
-                    <img src={crew.icon} alt="" className="w-3 h-3 object-contain" />
+                    <CrewPin crew={crew} className="w-3 h-3" />
                     {crew.name}
                   </span>
                 ))}

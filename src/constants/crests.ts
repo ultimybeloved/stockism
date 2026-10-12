@@ -17,8 +17,8 @@ const CRESTED = new Set([
 ]);
 
 /** The crew's pin image: its pixel crest, or its logo for a crew without one. */
-export const crewPinSrc = (crew: { id: string; icon?: string }): string | undefined =>
-  CRESTED.has(crew.id) ? `/pins/crests/${crew.id.toLowerCase()}.svg` : crew.icon;
+export const crewPinSrc = (crew?: { id: string; icon?: string }): string | undefined =>
+  crew && CRESTED.has(crew.id) ? `/pins/crests/${crew.id.toLowerCase()}.svg` : crew?.icon;
 
 export const CREW_HEAD_PIN = '/pins/crests/crew_head.svg';
 

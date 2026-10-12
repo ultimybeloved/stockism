@@ -14,6 +14,7 @@ import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import CrewPin from '../../../shared/components/CrewPin';
 
 interface CrewSelectionModalProps {
   onClose: () => void;
@@ -109,7 +110,7 @@ const CrewSelectionModal = ({
             <p className={`text-sm ${mutedClass} mt-1 flex items-center gap-1`}>
               Current:
               {current?.icon ? (
-                <img src={current?.icon} alt="" className="w-4 h-4 object-contain inline" />
+                <CrewPin crew={current} className="w-4 h-4 inline" />
               ) : (
                 <span style={{ color: crewColor(current?.color) }}>{current?.emblem}</span>
               )}

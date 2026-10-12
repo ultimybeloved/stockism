@@ -6,6 +6,7 @@ import { themeClasses } from '../../../utils/theme';
 import { getMaxAchievementSlots, toggleDisplayedPin } from '../../../utils/pinSlots';
 import type { PinAction } from '../hooks/usePinShop';
 import AchievementIcon from '../../../shared/components/AchievementIcon';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 const AchievementsPage = ({
   onPinAction,
@@ -76,7 +77,10 @@ const AchievementsPage = ({
     <div className="max-w-4xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden`}>
         <div className="p-4 border-b light:border-amber-200 dark:border-zinc-800">
-          <h2 className={`text-xl font-bold ${textClass}`}>🏆 Achievements</h2>
+          <h2 className={`text-xl font-bold ${textClass}`}>
+            <PixelIcon name="medal" className="w-5 h-5 mr-1.5 align-[-3px]" />
+            Achievements
+          </h2>
           <p className={`text-sm ${mutedClass}`}>
             {earnedAchievements.length} / {allAchievements.length} unlocked
           </p>

@@ -246,7 +246,7 @@ const CharacterCard = ({
                 className={`text-sm leading-none transition-colors ${mutedClass} hover:text-orange-500 opacity-40 hover:opacity-100`}
                 title="Set price alert"
               >
-                🔔
+                <PixelIcon name="bell" className="w-4 h-4 block" />
               </button>
             )}
             <button

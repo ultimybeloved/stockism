@@ -1,4 +1,5 @@
 import { CREWS } from '../../../crews';
+import CrewPin from '../../../shared/components/CrewPin';
 
 // The crew pills above the leaderboard. Lifted out of LeaderboardPage so the
 // page stays inside its size limit; no behaviour changed.
@@ -28,7 +29,7 @@ const CrewFilter = ({ crewFilter, setCrewFilter, chipClass }: CrewFilterProps) =
         style={crewFilter === crew.id ? { backgroundColor: crew.color } : {}}
       >
         {crew.icon ? (
-          <img src={crew.icon} alt="" className="w-3.5 h-3.5 object-contain shrink-0" />
+          <CrewPin crew={crew} className="w-3.5 h-3.5 shrink-0" />
         ) : (
           <span className="shrink-0">{crew.emblem}</span>
         )}

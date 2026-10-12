@@ -5,6 +5,7 @@ import { themeClasses } from '../../../utils/theme';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 const EmailVerificationModal = ({ user, userData }: { user: User; userData: UserData | null }) => {
   const [loading, setLoading] = useState(false);
@@ -67,7 +68,10 @@ const EmailVerificationModal = ({ user, userData }: { user: User; userData: User
         )}
 
         <div className="mb-6 p-4 rounded-sm light:bg-slate-100 dark:bg-slate-800">
-          <p className={`text-sm ${textClass} mb-2`}>📋 Next steps:</p>
+          <p className={`text-sm ${textClass} mb-2`}>
+            <PixelIcon name="missions" className="w-4 h-4 mr-1 align-[-3px]" />
+            Next steps:
+          </p>
           <ol className={`text-sm ${mutedClass} space-y-1 list-decimal list-inside`}>
             <li>Check your email inbox (and spam folder)</li>
             <li>Click the verification link in the email</li>

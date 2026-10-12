@@ -4,6 +4,7 @@ import { useMarket } from '../../../context/AppContext';
 import { lmsrPrices } from '../../../utils/calculations';
 import { EVENT_AMM_LIQUIDITY } from '../../../constants/economy';
 import type { EventMarketDoc, PredictionDoc, UserBet, UserData } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 /** One of the player's bets, joined to its prediction. */
 export type BetHistoryEntry = UserBet & {
@@ -54,7 +55,10 @@ const PredictionHistory = ({
       {/* Long-Term Positions */}
       {eventEntries.length > 0 && (
         <div>
-          <h3 className={`font-semibold ${textClass} mb-2`}>🔮 Long-Term Positions</h3>
+          <h3 className={`font-semibold ${textClass} mb-2`}>
+            <PixelIcon name="crystal" className="w-4 h-4 mr-1 align-[-3px]" />
+            Long-Term Positions
+          </h3>
           <div className="space-y-2">
             {eventEntries.map((entry) => {
               // The filter above dropped entries with no market.
@@ -94,7 +98,10 @@ const PredictionHistory = ({
       {/* Active Bets */}
       {activeBets.length > 0 && (
         <div>
-          <h3 className={`font-semibold ${textClass} mb-2`}>🔮 Active Bets</h3>
+          <h3 className={`font-semibold ${textClass} mb-2`}>
+            <PixelIcon name="crystal" className="w-4 h-4 mr-1 align-[-3px]" />
+            Active Bets
+          </h3>
           <div className="space-y-2">
             {activeBets.map((bet) => {
               const potentialPayout = calculatePotentialPayout(bet);

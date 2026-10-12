@@ -7,6 +7,7 @@ import { CREWS } from '../../../crews';
 import { CHARACTERS } from '../../../characters';
 import { fundsContaining } from '../../../utils/marketFilters';
 import type { Character } from '../../../characters';
+import CrewPin from '../../../shared/components/CrewPin';
 
 // The metadata under a card's name: crew badge, the funds a character belongs
 // to, the description, and (for a fund) its constituents with a show-more
@@ -41,7 +42,7 @@ const CharacterMeta = ({ character }: { character: Character }) => {
               className={`flex items-center gap-0.5 text-[10px] px-1 rounded font-semibold ${mutedClass}`}
               style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55` }}
             >
-              <img src={crew.icon} alt="" className="w-3 h-3 object-contain" />
+              <CrewPin crew={crew} className="w-3 h-3" />
               {crew.name}
             </span>
           ))}

@@ -16,6 +16,7 @@ import {
 import { formatCurrency } from '../../../utils/formatters';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import CrewPin from '../../../shared/components/CrewPin';
 
 // Contribution fields stored booleans before June 2026; treat those as
 // qualifying until the Monday reset clears them (matches the backend).
@@ -128,7 +129,7 @@ export default function CrewMissionsTab() {
       {/* Crew banner */}
       <div className="px-3 py-2 rounded-sm flex items-center gap-2 light:bg-blue-50 dark:bg-zinc-800/50">
         {crewInfo?.icon ? (
-          <img src={crewInfo.icon} alt="" className="w-4 h-4 object-contain" />
+          <CrewPin crew={crewInfo} className="w-4 h-4" />
         ) : (
           <span style={{ color: getReadableCrewColor(crewInfo?.color, darkMode) }}>{crewInfo?.emblem}</span>
         )}

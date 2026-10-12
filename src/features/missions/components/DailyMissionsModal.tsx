@@ -12,6 +12,8 @@ import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../shared/components/PixelIcon';
+import CrewPin from '../../../shared/components/CrewPin';
 
 type ClaimReward = (missionId: string, reward: number) => unknown;
 type MissionTab = 'daily' | 'weekly' | 'crew';
@@ -120,7 +122,10 @@ const DailyMissionsModal = ({
         {/* Header */}
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
-            <h2 className={`text-lg font-semibold ${textClass}`}>📋 Missions</h2>
+            <h2 className={`text-lg font-semibold ${textClass}`}>
+              <PixelIcon name="missions" className="w-5 h-5 mr-1.5 align-[-3px]" />
+              Missions
+            </h2>
             <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
               <span aria-hidden="true">×</span>
             </button>
@@ -289,7 +294,7 @@ const DailyMissionsModal = ({
               <div className="p-2 rounded-sm light:bg-amber-50 dark:bg-zinc-800/30">
                 <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
                   {CREW_MAP[userCrew]?.icon ? (
-                    <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
+                    <CrewPin crew={CREW_MAP[userCrew]} className="w-4 h-4 inline" />
                   ) : (
                     <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>
                       {CREW_MAP[userCrew]?.emblem}
@@ -366,7 +371,7 @@ const DailyMissionsModal = ({
               <div className="p-2 rounded-sm light:bg-purple-50 dark:bg-zinc-800/30">
                 <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
                   {CREW_MAP[userCrew]?.icon ? (
-                    <img src={CREW_MAP[userCrew]?.icon} alt="" className="w-4 h-4 object-contain inline" />
+                    <CrewPin crew={CREW_MAP[userCrew]} className="w-4 h-4 inline" />
                   ) : (
                     <span style={{ color: getReadableCrewColor(CREW_MAP[userCrew]?.color, darkMode) }}>
                       {CREW_MAP[userCrew]?.emblem}

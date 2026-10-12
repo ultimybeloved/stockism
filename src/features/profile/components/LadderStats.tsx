@@ -7,6 +7,7 @@ import { themeClasses } from '../../../utils/theme';
 import type { User } from 'firebase/auth';
 import type { LadderData } from '../../../utils/ladderTax';
 import type { UserData } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Lifetime ladder game record: deposited, wagered, and won vs lost.
 // Reads the user's ladderGameUsers/{uid} doc directly (it isn't in global
@@ -57,7 +58,10 @@ const LadderStats = ({ user, userData }: { user: User | null; userData: UserData
 
   return (
     <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
-      <h3 className={`font-semibold ${textClass} mb-3`}>🎰 Ladder Stats</h3>
+      <h3 className={`font-semibold ${textClass} mb-3`}>
+        <PixelIcon name="ladder" className="w-4 h-4 mr-1 align-[-3px]" />
+        Ladder Stats
+      </h3>
 
       {/* Headline net result */}
       <div className="text-center mb-4">

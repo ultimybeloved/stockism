@@ -8,6 +8,7 @@ import { useSession, useMarket } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface MarginModalProps {
   onClose: () => void;
@@ -310,7 +311,8 @@ const MarginModal = ({
                   className={`p-3 rounded-sm ${colorBlindMode ? 'light:bg-purple-50 dark:bg-purple-900/30' : 'light:bg-red-50 dark:bg-red-900/30'} border ${colorBlindMode ? 'border-purple-500' : 'border-red-500'}`}
                 >
                   <h4 className={`font-bold mb-1 ${colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}>
-                    💀 Liquidation Imminent!
+                    <PixelIcon name="dead" className="w-4 h-4 mr-1 align-[-3px]" />
+                    Liquidation Imminent!
                   </h4>
                   <p className={`text-xs ${mutedClass}`}>
                     Your positions will be automatically sold to cover margin debt. Act immediately!

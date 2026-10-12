@@ -16,6 +16,7 @@ import type { StreakSaverPlan } from '../../../rules/economy';
 import type { PinAction, GiftTarget } from '../hooks/usePinShop';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import { pixelatedIfSvg } from '../../../constants/crests';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
@@ -90,7 +91,10 @@ const PinShopModal = ({
       >
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
-            <h2 className={`text-lg font-semibold ${textClass}`}>🎨 Customization</h2>
+            <h2 className={`text-lg font-semibold ${textClass}`}>
+              <PixelIcon name="palette" className="w-5 h-5 mr-1.5 align-[-3px]" />
+              Customization
+            </h2>
             <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
               <span aria-hidden="true">×</span>
             </button>

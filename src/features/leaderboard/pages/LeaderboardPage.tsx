@@ -14,6 +14,7 @@ import { formatCurrency } from '../../../utils/formatters';
 import LeaderboardPodium from '../components/LeaderboardPodium';
 import LeaderboardRow from '../components/LeaderboardRow';
 import { themeClasses } from '../../../utils/theme';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 type BoardMode = 'value' | 'gain' | 'season';
 
@@ -80,7 +81,10 @@ const LeaderboardPage = () => {
     <div className="max-w-2xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}>
         <div className={`p-4 border-b ${cardEdgeClass}`}>
-          <h2 className={`text-lg font-semibold ${textClass} mb-3`}>🏆 Leaderboard</h2>
+          <h2 className={`text-lg font-semibold ${textClass} mb-3`}>
+            <PixelIcon name="trophy" className="w-5 h-5 mr-1.5 align-[-3px]" />
+            Leaderboard
+          </h2>
 
           {/* Crew Filter */}
           <CrewFilter crewFilter={crewFilter} setCrewFilter={setCrewFilter} chipClass={chipClass} />
@@ -118,7 +122,8 @@ const LeaderboardPage = () => {
                     : 'light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
                 }`}
               >
-                🏅 Season
+                <PixelIcon name="season" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+                Season
               </button>
             )}
             {sortMode === 'gain' && (

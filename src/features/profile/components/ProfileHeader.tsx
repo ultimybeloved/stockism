@@ -8,6 +8,7 @@ import { themeClasses } from '../../../utils/theme';
 import { errorMessage } from '../../../utils/errors';
 import type { UserData } from '../../../types';
 import { useTheme } from '../../../context/AppContext';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Profile card header: display name (with cosmetics), the customization
 // shortcut, and the name-change form. Owns the name-edit state and the 2-week
@@ -72,7 +73,7 @@ const ProfileHeader = ({
       }}
     >
       <h2 className={`text-lg font-semibold ${textClass}`}>
-        👤{' '}
+        <PixelIcon name="profile" className="w-5 h-5 mr-1.5 align-[-3px]" />
         <span className={nameClass} style={{ color: nameColor }}>
           {userData?.displayName}
         </span>
@@ -87,7 +88,8 @@ const ProfileHeader = ({
               onClick={onOpenCustomization}
               className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
             >
-              🎨 Customize
+              <PixelIcon name="palette" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+              Customize
             </button>
           )}
           {canChangeName ? (

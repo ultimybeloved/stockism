@@ -9,6 +9,8 @@
 // trade, alert, achievement, margin, system, dividend, loyalty.
 export interface NotificationMeta {
   icon: string;
+  /** Pixel icon (public/pins/ui/) shown instead of the emoji, where one exists. */
+  pixel?: string;
   colorKey: string;
   category: string;
 }
@@ -38,10 +40,10 @@ export interface StoredNotification extends AppNotification {
 
 export const NOTIFICATION_META: Record<string, NotificationMeta> = {
   trade: { icon: '📈', colorKey: 'green', category: 'Trades' },
-  alert: { icon: '🔔', colorKey: 'blue', category: 'Alerts' },
+  alert: { icon: '🔔', pixel: 'bell', colorKey: 'blue', category: 'Alerts' },
   announcement: { icon: '📢', colorKey: 'blue', category: 'Alerts' },
   margin: { icon: '⚠️', colorKey: 'amber', category: 'Alerts' },
-  achievement: { icon: '🏆', colorKey: 'gold', category: 'Rewards' },
+  achievement: { icon: '🏆', pixel: 'medal', colorKey: 'gold', category: 'Rewards' },
   dividend: { icon: '💰', colorKey: 'emerald', category: 'Rewards' },
   loyalty: { icon: '🎖️', colorKey: 'gold', category: 'Rewards' },
   system: { icon: '💵', colorKey: 'violet', category: 'Rewards' },

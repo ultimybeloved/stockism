@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { pressable } from '../../utils/a11y';
+import { pixelatedIfSvg } from '../../constants/crests';
+import PixelIcon from './PixelIcon';
 
 /** One toast on screen (App's notification queue). */
 export interface Toast {
@@ -51,13 +53,13 @@ const ToastNotification = ({ notification, onDismiss }: ToastNotificationProps) 
         return {
           bg: 'light:bg-blue-100 light:border-blue-400 dark:bg-blue-900/90 dark:border-blue-700',
           text: 'light:text-blue-800 dark:text-blue-100',
-          icon: 'ℹ️',
+          icon: <PixelIcon name="about" className="w-5 h-5 block" />,
         };
       case 'achievement':
         return {
           bg: 'light:bg-amber-100 light:border-amber-400 dark:bg-amber-900/90 dark:border-amber-500',
           text: 'light:text-amber-800 dark:text-amber-100',
-          icon: '🏆',
+          icon: <PixelIcon name="medal" className="w-5 h-5 block" />,
         };
       default: // success
         return {
@@ -78,7 +80,12 @@ const ToastNotification = ({ notification, onDismiss }: ToastNotificationProps) 
       {...pressable(handleDismiss)}
     >
       {notification.image ? (
-        <img src={notification.image} alt="" className="w-6 h-6 object-contain" />
+        <img
+          src={notification.image}
+          alt=""
+          className="w-6 h-6 object-contain"
+          style={pixelatedIfSvg(notification.image)}
+        />
       ) : (
         <span className="text-lg" aria-hidden="true">
           {styles.icon}

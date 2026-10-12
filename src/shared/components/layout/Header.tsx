@@ -201,7 +201,8 @@ const Header = ({
                   className="px-2 py-1 text-xs font-semibold rounded-sm border transition-colors light:border-orange-500 light:text-orange-500 light:hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-500/20"
                   title="My pre-market orders"
                 >
-                  📋 My Orders
+                  <PixelIcon name="missions" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+                  My Orders
                 </button>
               )}
 

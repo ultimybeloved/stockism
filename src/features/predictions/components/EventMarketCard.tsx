@@ -15,6 +15,7 @@ import { formatCountdown } from '../../../utils/marketHours';
 import { marketTimes } from '../../../utils/localTime';
 import { EVENT_AMM_LIQUIDITY } from '../../../constants/economy';
 import type { EventMarketDoc, EventPosition } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 type TradeShares = (marketId: string, outcome: string, shares: number) => Promise<unknown>;
 
@@ -127,7 +128,7 @@ const EventMarketCard = ({
       {/* Header */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-lg">🔮</span>
+          <PixelIcon name="crystal" className="w-5 h-5" />
           <span
             className={`text-xs font-semibold uppercase ${resolved ? 'text-amber-500' : notYetOpen ? 'text-blue-500' : isHalted ? 'text-red-500' : 'text-orange-500'}`}
           >

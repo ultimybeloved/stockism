@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import type { MarketFilters } from '../../../utils/marketFilters';
 import type { UserData } from '../../../types';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import CrewPin from '../../../shared/components/CrewPin';
 
 interface MarketFilterPanelProps {
   filters: MarketFilters;
@@ -80,11 +81,7 @@ const MarketFilterPanel = ({
                   : {}
               }
             >
-              {crew.icon ? (
-                <img src={crew.icon} alt="" className="w-3.5 h-3.5 rounded-full object-cover" />
-              ) : (
-                <span>{crew.emblem}</span>
-              )}
+              {crew.icon ? <CrewPin crew={crew} className="w-3.5 h-3.5" /> : <span>{crew.emblem}</span>}
               <span>{crew.name}</span>
             </button>
           ))}

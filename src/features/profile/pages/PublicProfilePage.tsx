@@ -15,6 +15,8 @@ import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import { themeClasses } from '../../../utils/theme';
 import { ADMIN_UIDS } from '../../../constants/economy';
 import AchievementIcon from '../../../shared/components/AchievementIcon';
+import PixelIcon from '../../../shared/components/PixelIcon';
+import CrewPin from '../../../shared/components/CrewPin';
 
 const PublicProfilePage = () => {
   const { username } = useParams();
@@ -53,7 +55,9 @@ const PublicProfilePage = () => {
     return (
       <div className="max-w-2xl mx-auto p-4">
         <div className={`${cardClass} border rounded-sm p-8 text-center`}>
-          <p className="text-2xl mb-2">{error === 'private' ? '🔒' : '👤'}</p>
+          <p className="text-2xl mb-2">
+            {error === 'private' ? '🔒' : <PixelIcon name="profile" className="w-8 h-8 mx-auto" />}
+          </p>
           <p className={`font-semibold ${textClass}`}>
             {error === 'private' ? 'This profile is private' : 'Profile not found'}
           </p>
@@ -122,11 +126,7 @@ const PublicProfilePage = () => {
             <TitleText title={profileTitle} className="text-sm" />
             {crew && (
               <div className="flex items-center gap-1.5 mt-1">
-                {crew.icon ? (
-                  <img src={crew.icon} alt="" className="w-4 h-4 object-contain" />
-                ) : (
-                  <span>{crew.emblem}</span>
-                )}
+                {crew.icon ? <CrewPin crew={crew} className="w-4 h-4" /> : <span>{crew.emblem}</span>}
                 <span className="text-sm font-semibold" style={{ color: crewColor }}>
                   {crew.name}
                 </span>
