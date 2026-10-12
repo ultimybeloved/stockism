@@ -114,10 +114,15 @@ const Header = ({
   const { newCount: newPredictions } = useNewPredictions();
 
   const navLinks = [
-    { path: '/leaderboard', label: 'Leaderboard', icon: <PixelIcon name="trophy" /> },
-    { path: '/predictions', label: 'Predictions', icon: <PixelIcon name="crystal" />, badge: newPredictions },
-    { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5 -my-0.5" /> },
-    { path: '/achievements', label: 'Achievements', icon: <PixelIcon name="medal" /> },
+    { path: '/leaderboard', label: 'Leaderboard', icon: <PixelIcon name="trophy" className="w-5 h-5" /> },
+    {
+      path: '/predictions',
+      label: 'Predictions',
+      icon: <PixelIcon name="crystal" className="w-5 h-5" />,
+      badge: newPredictions,
+    },
+    { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5" /> },
+    { path: '/achievements', label: 'Achievements', icon: <PixelIcon name="medal" className="w-5 h-5" /> },
   ];
 
   return (
@@ -144,13 +149,13 @@ const Header = ({
                 <button
                   key={link.path}
                   onClick={() => navigate(isActivePage(link.path) ? '/' : link.path)}
-                  className={`relative px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`relative inline-flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActivePage(link.path)
                       ? 'bg-orange-600 text-white'
                       : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
                 >
-                  <span className="mr-1 inline-flex align-[-2px]">{link.icon}</span>
+                  <span className="mr-1.5 flex">{link.icon}</span>
                   {link.label}
                   {!!link.badge && link.badge > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">

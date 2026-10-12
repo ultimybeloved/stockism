@@ -45,19 +45,19 @@ const MobileBottomNav = () => {
   const navItems = [
     {
       path: '/',
-      icon: <PixelIcon name="stockism" alt="Home" className="w-6 h-6" />,
+      icon: <PixelIcon name="stockism" alt="Home" className="w-7 h-7" />,
       label: 'Home',
     },
-    { path: '/leaderboard', icon: <PixelIcon name="trophy" className="w-6 h-6" />, label: 'Leaderboard' },
+    { path: '/leaderboard', icon: <PixelIcon name="trophy" className="w-7 h-7" />, label: 'Leaderboard' },
     {
       path: '/predictions',
-      icon: <PixelIcon name="crystal" className="w-6 h-6" />,
+      icon: <PixelIcon name="crystal" className="w-7 h-7" />,
       label: 'Predict',
       badge: newPredictions,
     },
     { path: '/ladder', icon: <PixelIcon name="ladder" className="w-7 h-7" />, label: 'Ladder' },
-    { path: '/achievements', icon: <PixelIcon name="medal" className="w-6 h-6" />, label: 'Achievements' },
-    ...(user ? [{ path: '/profile', icon: <PixelIcon name="profile" className="w-6 h-6" />, label: 'Profile' }] : []),
+    { path: '/achievements', icon: <PixelIcon name="medal" className="w-7 h-7" />, label: 'Achievements' },
+    ...(user ? [{ path: '/profile', icon: <PixelIcon name="profile" className="w-7 h-7" />, label: 'Profile' }] : []),
   ];
 
   return (
@@ -75,7 +75,7 @@ const MobileBottomNav = () => {
               isActivePage(item.path) ? 'text-orange-500' : 'light:text-zinc-600 dark:text-zinc-400'
             }`}
           >
-            <span className="mb-1 flex h-6 items-center">{item.icon}</span>
+            <span className="mb-1 flex h-7 items-center">{item.icon}</span>
             <span className="text-xs font-medium">{item.label}</span>
             {!!item.badge && item.badge > 0 && (
               <span className="absolute top-1.5 right-1/2 translate-x-4 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
