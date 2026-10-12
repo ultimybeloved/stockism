@@ -84,6 +84,7 @@ const LimitOrderControls = ({
               <span className={`ml-2 text-xs ${mutedClass}`}>(Current: {formatCurrency(price)})</span>
             </label>
             <input
+              aria-label={isStopLoss ? 'Stop price' : 'Limit price'}
               type="number"
               step="0.01"
               min="0.01"

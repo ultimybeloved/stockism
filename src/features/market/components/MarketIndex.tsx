@@ -6,6 +6,7 @@ import { useIndexHistory } from '../hooks/useIndexHistory';
 import { themeClasses } from '../../../utils/theme';
 import { nonETFCharacters, TIME_RANGES, computeIndex, buildIndexSeries } from '../../../utils/marketIndex';
 import type { PriceHistory, PriceMap } from '../../../types';
+import { pressable } from '../../../utils/a11y';
 
 interface MarketIndexProps {
   prices: PriceMap;
@@ -54,7 +55,7 @@ const MarketIndex = ({ prices, priceHistory, colorBlindMode = false }: MarketInd
       {/* Banner card */}
       <div
         className={`${cardClass} border rounded-sm p-4 mb-4 cursor-pointer hover:border-orange-600 transition-colors`}
-        onClick={() => setExpanded(true)}
+        {...pressable(() => setExpanded(true))}
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex-1 min-w-0">

@@ -208,6 +208,7 @@ const LadderTransferModal = ({
             </div>
             <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
               <input
+                aria-label="Deposit amount"
                 type="number"
                 step="1"
                 min="1"
@@ -300,6 +301,7 @@ const LadderTransferModal = ({
             )}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
               <input
+                aria-label="Withdraw amount"
                 type="number"
                 step="1"
                 min="1"

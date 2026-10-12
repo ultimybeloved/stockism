@@ -4,6 +4,7 @@ import { DIVIDEND_TIER_META, formatShares } from '../utils/shared';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PortfolioItem } from '../utils/buildPositionItems';
 import type { ShareInputs } from '../utils/shared';
+import { pressable } from '../../../utils/a11y';
 
 interface HoldingRowProps {
   item: PortfolioItem;
@@ -40,7 +41,7 @@ const HoldingRow = ({
   return (
     <div className="rounded-sm border light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50">
       {/* Main Row - Clickable */}
-      <div className="p-3 cursor-pointer hover:bg-opacity-80" onClick={() => onToggle(item.ticker)}>
+      <div className="p-3 cursor-pointer hover:bg-opacity-80" {...pressable(() => onToggle(item.ticker))}>
         <div className="flex justify-between items-center">
           <div className="flex-1">
             <div className="flex items-center gap-2">
@@ -173,6 +174,7 @@ const HoldingRow = ({
           {/* Sell Controls */}
           <div className="flex items-center gap-2">
             <input
+              aria-label="Shares to sell"
               type="number"
               min="0.01"
               step="0.01"

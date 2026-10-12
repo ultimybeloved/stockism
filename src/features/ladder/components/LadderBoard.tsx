@@ -1,5 +1,6 @@
 import { bgCard, bgCardInner, bgDark, btnGray, cornerBrown } from './ladderStyles';
 import type { useLadderGameFlow } from '../hooks/useLadderGameFlow';
+import { pressable } from '../../../utils/a11y';
 
 type LadderBoardProps = Pick<
   ReturnType<typeof useLadderGameFlow>,
@@ -294,7 +295,7 @@ const LadderBoard = ({
           {/* Result Banner */}
           {showResultBanner && (
             <div
-              onClick={dismissBanner}
+              {...pressable(dismissBanner)}
               style={{
                 position: 'absolute',
                 top: '50%',
@@ -336,10 +337,10 @@ const LadderBoard = ({
           {showInitBanner && (
             <div
               className="ladder-init-banner"
-              onClick={() => {
+              {...pressable(() => {
                 setInitBannerFading(true);
                 setTimeout(() => setShowInitBanner(false), 300);
-              }}
+              })}
               style={{
                 position: 'absolute',
                 top: '50%',

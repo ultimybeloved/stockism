@@ -230,12 +230,14 @@ const PreMarketModal = ({
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  aria-label="One fewer share"
                   onClick={() => setShares((s) => Math.max(minShares, snap(s - 1)))}
                   className="px-3 py-2 rounded-sm light:bg-slate-200 dark:bg-zinc-800"
                 >
                   −
                 </button>
                 <input
+                  aria-label="Shares"
                   type="number"
                   min={minShares}
                   max={maxShares}
@@ -248,6 +250,7 @@ const PreMarketModal = ({
                   className="flex-1 text-center py-2 rounded-sm border light:bg-white light:border-amber-200 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
                 />
                 <button
+                  aria-label="One more share"
                   onClick={() => setShares((s) => Math.min(maxShares, snap(s + 1)))}
                   className="px-3 py-2 rounded-sm light:bg-slate-200 dark:bg-zinc-800"
                 >

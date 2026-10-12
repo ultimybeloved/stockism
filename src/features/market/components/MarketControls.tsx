@@ -126,6 +126,7 @@ const MarketControls = ({
       <div className={`${cardClass} ${raisedClass} border rounded-sm p-4 mb-4`}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <select
+            aria-label="Sort by"
             value={sortBy}
             onChange={(e) => {
               setSortBy(e.target.value);
@@ -142,6 +143,7 @@ const MarketControls = ({
             ))}
           </select>
           <input
+            aria-label="Search characters"
             type="text"
             placeholder="Search..."
             value={filters.search}

@@ -8,6 +8,7 @@ import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { CHARACTER_MAP } from '../../../characters';
 import { calculateMarginStatus } from '../../../utils/calculations';
 import type { UserData } from '../../../types';
+import { pressable } from '../../../utils/a11y';
 
 interface DashboardRailProps {
   activeUserData: UserData;
@@ -96,7 +97,7 @@ const DashboardRail = ({
         </div>
         <div
           className={`${cardClass} border rounded-sm p-4 cursor-pointer hover:border-orange-600`}
-          onClick={() => !isGuest && onShowPortfolio()}
+          {...pressable(() => !isGuest && onShowPortfolio())}
         >
           <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Portfolio Value</p>
           <p className={`text-2xl font-bold ${textClass}`}>{formatCurrency(portfolioValue)}</p>

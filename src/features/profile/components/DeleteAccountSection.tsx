@@ -135,6 +135,7 @@ const DeleteAccountSection = ({
             Type your username <span className="font-bold">{userData?.displayName}</span> to confirm deletion:
           </p>
           <input
+            aria-label="Type your username to confirm"
             type="text"
             value={confirmUsername}
             onChange={(e) => setConfirmUsername(e.target.value)}

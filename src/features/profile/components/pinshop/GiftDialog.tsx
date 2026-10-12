@@ -50,6 +50,7 @@ const GiftDialog = ({ gift, cash, onSend, onClose }: GiftDialogProps) => {
           {!isBundle && 'It goes '}straight to their collection and they&apos;ll see it came from you.
         </p>
         <input
+          aria-label="Recipient username"
           autoFocus
           value={recipient}
           maxLength={40}

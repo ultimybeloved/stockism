@@ -312,6 +312,7 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
                   Type <span className="font-bold">MARGIN</span> to confirm:
                 </p>
                 <input
+                  aria-label="Type MARGIN to confirm"
                   type="text"
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}

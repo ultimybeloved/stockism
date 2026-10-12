@@ -128,12 +128,14 @@ const IPOActiveCard = ({
           <label className={`block text-sm font-semibold mb-1 ${textClass}`}>Shares</label>
           <div className="flex items-center gap-2">
             <button
+              aria-label="One fewer share"
               onClick={() => setQuantity(Math.max(1, qtyNum - 1))}
               className="px-3 py-2 rounded-sm font-bold light:bg-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:text-zinc-100"
             >
               -
             </button>
             <input
+              aria-label="Shares to buy"
               type="number"
               min="1"
               max={maxCanBuy}
@@ -153,6 +155,7 @@ const IPOActiveCard = ({
               className="flex-1 text-center py-2 rounded-sm border light:bg-white light:border-amber-200 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
             />
             <button
+              aria-label="One more share"
               onClick={() => setQuantity(Math.min(maxCanBuy, qtyNum + 1))}
               className="px-3 py-2 rounded-sm font-bold light:bg-slate-200 light:text-slate-900 dark:bg-zinc-800 dark:text-zinc-100"
             >

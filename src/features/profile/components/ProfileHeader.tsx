@@ -110,6 +110,7 @@ const ProfileHeader = ({
       ) : (
         <div className="mt-3 space-y-2">
           <input
+            aria-label="New username"
             type="text"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}

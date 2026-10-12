@@ -202,6 +202,7 @@ const LadderTutorialModal = ({
                   Type <span className="font-bold">LADDER</span> to confirm:
                 </p>
                 <input
+                  aria-label="Type LADDER to confirm"
                   type="text"
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}

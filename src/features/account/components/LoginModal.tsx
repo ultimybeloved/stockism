@@ -233,6 +233,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
         {!isForgotPassword ? (
           <form onSubmit={handleEmailSubmit} className="space-y-3">
             <input
+              aria-label="Email"
               type="email"
               placeholder="Email"
               value={email}
@@ -242,6 +243,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
               required
             />
             <input
+              aria-label="Password"
               type="password"
               placeholder="Password"
               value={password}
@@ -253,6 +255,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
             {isRegistering && (
               <>
                 <input
+                  aria-label="Confirm password"
                   type="password"
                   placeholder="Confirm Password"
                   value={confirmPassword}
@@ -303,6 +306,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
               Enter your email address and we'll send you a link to reset your password.
             </p>
             <input
+              aria-label="Email"
               type="email"
               placeholder="Email"
               value={email}

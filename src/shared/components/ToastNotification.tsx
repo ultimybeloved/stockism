@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { pressable } from '../../utils/a11y';
 
 /** One toast on screen (App's notification queue). */
 export interface Toast {
@@ -74,7 +75,7 @@ const ToastNotification = ({ notification, onDismiss }: ToastNotificationProps) 
       className={`flex items-center gap-3 px-4 py-3 rounded-sm border shadow-lg backdrop-blur-sm cursor-pointer transition-all duration-300 ${styles.bg} ${styles.text} ${
         isExiting ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'
       } ${notification.type === 'achievement' ? 'animate-pulse' : ''}`}
-      onClick={handleDismiss}
+      {...pressable(handleDismiss)}
     >
       {notification.image ? (
         <img src={notification.image} alt="" className="w-6 h-6 object-contain" />

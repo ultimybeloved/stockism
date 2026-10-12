@@ -17,6 +17,7 @@ import type { Character } from '../../../characters';
 import type { PricePoint, ShortPosition, TradeAction } from '../../../types';
 import type { LimitOrderRequest } from '../../account/hooks/useUserActions';
 import type { TradeAnimation } from '../../../shared/hooks/types';
+import { pressable } from '../../../utils/a11y';
 
 interface CharacterCardProps {
   character: Character;
@@ -266,7 +267,7 @@ const CharacterCard = ({
             </div>
           </div>
         )}
-        <div className="cursor-pointer" onClick={() => onViewChart(character, defaultChartTimeRange)}>
+        <div className="cursor-pointer" {...pressable(() => onViewChart(character, defaultChartTimeRange))}>
           {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
           <div className="flex justify-between items-start mb-2">
             <div>

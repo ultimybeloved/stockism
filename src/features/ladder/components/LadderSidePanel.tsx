@@ -88,6 +88,7 @@ const LadderSidePanel = ({
             </div>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <input
+                aria-label="Bet amount"
                 type="number"
                 step="1"
                 min="1"

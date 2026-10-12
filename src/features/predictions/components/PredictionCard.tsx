@@ -289,6 +289,7 @@ const PredictionCard = ({
                   </button>
                 </div>
                 <input
+                  aria-label="Bet amount"
                   type="number"
                   value={betAmount || ''}
                   onChange={(e) => {

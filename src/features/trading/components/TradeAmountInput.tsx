@@ -52,6 +52,7 @@ const TradeAmountInput = ({
       </div>
       <div className="flex items-center gap-2">
         <button
+          aria-label="Fewer shares"
           onClick={() =>
             partialShares
               ? setAmount(Math.round(Math.max(0, (amount || 0.1) - 0.1) * 100) / 100)
@@ -62,6 +63,7 @@ const TradeAmountInput = ({
           -
         </button>
         <input
+          aria-label="Shares"
           type="number"
           min="0"
           max={maxShares}
@@ -86,6 +88,7 @@ const TradeAmountInput = ({
           className="flex-1 text-center py-2 rounded-sm border light:bg-white light:border-amber-200 light:text-slate-900 dark:bg-zinc-950 dark:border-zinc-700 dark:text-zinc-100"
         />
         <button
+          aria-label="More shares"
           onClick={() =>
             partialShares
               ? setAmount(Math.min(maxShares, Math.round(((amount || 0) + 0.1) * 100) / 100))

@@ -17,6 +17,7 @@ const HoldingsControls = ({ search, setSearch, sortKey, sortDir, onSortChange }:
   return (
     <div className="flex flex-col sm:flex-row gap-2 mb-3">
       <input
+        aria-label="Search holdings"
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}

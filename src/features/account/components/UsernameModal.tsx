@@ -138,6 +138,7 @@ const UsernameModal = ({ onComplete, suggestedName = '' }: { onComplete: () => v
           <div>
             <label className={`block text-xs font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Username</label>
             <input
+              aria-label="Username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}

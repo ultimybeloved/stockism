@@ -5,6 +5,7 @@ import { SHORT_MARGIN_CALL_THRESHOLD, SHORT_MARGIN_WARNING_THRESHOLD } from '../
 import type { Dispatch, SetStateAction } from 'react';
 import type { buildShortItems } from '../utils/buildPositionItems';
 import type { ShareInputs } from '../utils/shared';
+import { pressable } from '../../../utils/a11y';
 
 type ShortItem = ReturnType<typeof buildShortItems>[number];
 
@@ -46,7 +47,7 @@ const ShortRow = ({
       }`}
     >
       {/* Main Row - Clickable */}
-      <div className="p-3 cursor-pointer hover:bg-opacity-80" onClick={() => onToggle(item.ticker)}>
+      <div className="p-3 cursor-pointer hover:bg-opacity-80" {...pressable(() => onToggle(item.ticker))}>
         <div className="flex justify-between items-center">
           <div className="flex-1">
             <div className="flex items-center gap-2">
@@ -140,6 +141,7 @@ const ShortRow = ({
           {/* Cover Controls */}
           <div className="flex items-center gap-2">
             <input
+              aria-label="Shares to cover"
               type="number"
               min="1"
               max={item.shares}

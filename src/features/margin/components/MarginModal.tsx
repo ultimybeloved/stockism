@@ -324,6 +324,7 @@ const MarginModal = ({
                   <h4 className={`font-semibold mb-2 ${textClass}`}>Repay Margin</h4>
                   <div className="flex gap-2 mb-2">
                     <input
+                      aria-label="Amount to repay"
                       type="number"
                       min={0}
                       max={Math.min(userData?.cash || 0, marginStatus.marginUsed)}

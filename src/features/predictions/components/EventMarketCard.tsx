@@ -301,6 +301,7 @@ const EventMarketCard = ({
               </button>
             </div>
             <input
+              aria-label="Shares"
               type="number"
               min="0"
               value={shares || ''}

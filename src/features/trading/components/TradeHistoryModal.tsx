@@ -188,6 +188,7 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
           {/* Search + Date filters */}
           <div className="flex gap-2 mt-2">
             <input
+              aria-label="Search ticker"
               type="text"
               placeholder="Search ticker..."
               value={searchTicker}
@@ -195,12 +196,14 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
               className={`flex-1 px-2 py-1 text-xs rounded-sm border ${inputClass}`}
             />
             <input
+              aria-label="From date"
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               className={`w-28 px-1 py-1 text-xs rounded-sm border ${inputClass}`}
             />
             <input
+              aria-label="To date"
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}

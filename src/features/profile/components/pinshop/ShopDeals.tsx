@@ -8,6 +8,7 @@ import { useSession } from '../../../../context/AppContext';
 import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { PendingPurchase } from '../PinShopModal';
 import type { GiftTarget } from '../../hooks/usePinShop';
+import { pressable } from '../../../../utils/a11y';
 
 // This week's featured cosmetic id. Worked out from the date (rules/shop), the
 // same way purchaseCosmetic prices it, so the shop never shows a price the
@@ -62,10 +63,10 @@ const ShopDeals = ({ show, cash, featuredId, onRequestPurchase, onRequestGift, o
           </h3>
           <div
             className={`p-3 rounded-sm border border-amber-400/60 flex items-center gap-3 cursor-pointer`}
-            onClick={() => {
+            {...pressable(() => {
               setSelectedBundle(null);
               onTryOn([featured]);
-            }}
+            })}
           >
             <Swatch cosmetic={featured} />
             <div className="min-w-0 flex-1">
@@ -111,10 +112,10 @@ const ShopDeals = ({ show, cash, featuredId, onRequestPurchase, onRequestGift, o
               return (
                 <div
                   key={bundle.id}
-                  onClick={() => {
+                  {...pressable(() => {
                     setSelectedBundle(selected ? null : bundle.id);
                     onTryOn(selected ? null : items);
-                  }}
+                  })}
                   className={`p-2 rounded-sm border flex items-center gap-3 cursor-pointer ${
                     selected ? 'border-orange-500' : borderClass
                   }`}

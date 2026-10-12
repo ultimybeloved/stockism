@@ -116,6 +116,7 @@ export default function PriceAlertModal({
         {/* Target Price Input */}
         <div className="mb-3">
           <input
+            aria-label="Target price"
             type="number"
             step="0.01"
             min="0"

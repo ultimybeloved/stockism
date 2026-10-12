@@ -126,6 +126,7 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
           <p className={`text-sm font-semibold ${textClass}`}>Title</p>
           <p className={`text-xs ${mutedClass} mb-2`}>Shown under your name.</p>
           <select
+            aria-label="Title"
             value={userData.activeTitle || ''}
             onChange={async (e) => {
               const value = e.target.value || null;
