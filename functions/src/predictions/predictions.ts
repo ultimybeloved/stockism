@@ -112,6 +112,12 @@ export const placeBet = cf().https.onCall(async (data, context) => {
     if (existingBet && existingBet.option !== option) {
       throw new functions.https.HttpsError('failed-precondition', 'Already bet on a different option.');
     }
+    // One bet per prediction unless the admin reopened it for top-ups. The card
+    // hides the bet form, but a direct call could still add late money once the
+    // final pool sizes were visible.
+    if (existingBet && !predictionsList[predictionIndex]?.allowAdditionalBets) {
+      throw new functions.https.HttpsError('failed-precondition', "You've already placed a bet on this prediction.");
+    }
 
     // Update prediction pools
     const updatedList = [...predictionsList];

@@ -31,9 +31,10 @@ import {
   assertLimitStillMet,
   assertTradeLimit,
   resolveFillShares,
+  shrinkBuyToCash,
   readActionHistory,
 } from './limitOrderGuards';
-import { computeImpact, applyBuyFill, applySellFill, markOrderFilled } from './limitOrderFill';
+import { computeImpact, applyBuyFill, applySellFill, markOrderFilled, buyAskPrice } from './limitOrderFill';
 import { notifyCanceled, notifyExpired, publishFill } from './limitOrderEffects';
 import { readOrderNetwork, networkImpactSpent, assertNetworkSlot, writeNetworkFill } from './orderNetwork';
 import type { FillCtx } from './limitOrderFill';
@@ -113,7 +114,7 @@ const fillOrder = async (
   assertWashRule(userData, order.ticker, action, now);
   assertNetworkSlot(net, order.userId, action, now);
 
-  const fillShares = resolveFillShares({ effectiveType, order, userData, freshPrice, fillShares: requestedShares });
+  let fillShares = resolveFillShares({ effectiveType, order, userData, freshPrice, fillShares: requestedShares });
 
   const { totalShares: cumVolume, count: tradeCount } = readActionHistory(
     userData.tickerTradeHistory || {},
@@ -123,16 +124,23 @@ const fillOrder = async (
   );
   assertTradeLimit(tradeCount, action, order.ticker);
 
-  const { effectiveImpact, traderImpact, impactPercent } = computeImpact({
-    userData,
-    ticker: order.ticker,
-    action,
-    freshPrice,
-    fillShares,
-    cumVolume,
-    now,
-    networkSpent: networkImpactSpent(net, order.ticker, action, now),
-  });
+  const impactFor = (shares: number) =>
+    computeImpact({
+      userData,
+      ticker: order.ticker,
+      action,
+      freshPrice,
+      fillShares: shares,
+      cumVolume,
+      now,
+      networkSpent: networkImpactSpent(net, order.ticker, action, now),
+    });
+  if (effectiveType === 'BUY' && order.allowPartialFills) {
+    fillShares = shrinkBuyToCash(userData.cash || 0, fillShares, (shares) =>
+      buyAskPrice(freshPrice, impactFor(shares).traderImpact, order.ticker),
+    );
+  }
+  const { effectiveImpact, traderImpact, impactPercent } = impactFor(fillShares);
 
   const ctx: FillCtx = {
     order,

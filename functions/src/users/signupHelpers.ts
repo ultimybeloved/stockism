@@ -3,7 +3,7 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { STARTING_CASH, UNVERIFIED_STARTING_CASH } from '../shared/constants';
-import { isDiscordBindingLocked } from '../shared/accountGuards';
+import { isDiscordBindingLocked, isDiscordRelinkBlocked } from '../shared/accountGuards';
 import { grantedValueUpdate } from '../shared/equity';
 import * as logger from 'firebase-functions/logger';
 import { recordLedger } from '../shared/ledger';
@@ -48,6 +48,10 @@ export const applyPendingDiscordLink = async (uid: string) => {
   const taken = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
   if (!taken.empty && taken.docs[0]!.id !== uid) return false;
   if (await isDiscordBindingLocked(discordId, uid)) return false;
+  // Same guard discordAuth applies before parking: a Discord from a deleted or
+  // banned account can't come back. Checked again here because a second parked
+  // signup could otherwise outlive the first account's deletion or ban.
+  if (await isDiscordRelinkBlocked(discordId)) return false;
 
   const batch = db.batch();
   batch.update(db.collection('users').doc(uid), {

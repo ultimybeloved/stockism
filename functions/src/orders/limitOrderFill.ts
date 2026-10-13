@@ -19,6 +19,7 @@ import {
   getAccountAgeImpactFactor,
   sumDirectionalImpact,
   impactDirectionOf,
+  heavySellStamps,
 } from '../shared/impact';
 import type { ImpactEntry } from '../shared/impact';
 import { appendPriceHistory } from '../shared/marketData';
@@ -183,6 +184,10 @@ const applyPriceUpdates = (
  * Returns { executedPrice, tradeValue, historyEntry, trailingEntries }; the last
  * two go to the connection's shared history too.
  */
+/** What a buyer pays per share: their own impact on top of mid, plus half the spread. */
+export const buyAskPrice = (freshPrice: number, traderImpact: number, ticker: string) =>
+  round2(freshPrice + traderImpact) * (1 + spreadFor(ticker) / 2);
+
 export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: FillCtx): FillResult => {
   const {
     order,
@@ -203,7 +208,7 @@ export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: Fill
 
   const newMarketPrice = round2(freshPrice + effectiveImpact);
   // Buyer pays their own impact, market moves the capped one.
-  const askPrice = round2(freshPrice + traderImpact) * (1 + spreadFor(ticker) / 2);
+  const askPrice = buyAskPrice(freshPrice, traderImpact, ticker);
   const executedPrice = round2(askPrice);
 
   // Limit semantics: never fill above the user's limit price. The trigger
@@ -374,6 +379,7 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
     // it the sold lots stayed on the books and discounted the NEXT sell.
     ...cohortRemoveUpdate(userData, ticker, fillShares),
     ...creditUpdates,
+    ...heavySellStamps(updatedHistory, ticker, 'sell', now, FieldValue.serverTimestamp()),
   };
   if (!newHoldings) {
     updates[`holdings.${ticker}`] = FieldValue.delete();

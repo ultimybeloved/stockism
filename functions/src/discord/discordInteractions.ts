@@ -15,7 +15,7 @@ import {
   DROP_CLAIM_WINDOW_MS,
   DISCORD_EPOCH_MS,
 } from '../shared/constants';
-import { liquidityFor } from '../shared/impact';
+import { liquidityFor, isTickerPaused } from '../shared/impact';
 import { writeNotification } from '../shared/notifications';
 import { appendPriceHistory, isPriceProtected, priceHistoryRef } from '../shared/marketData';
 import { reportError } from '../shared/sentry';
@@ -217,6 +217,12 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         // Atomically reserve this claim to prevent double-claim race conditions
         // (user can click the button twice while it's buffering — without a transaction,
         // both requests pass the "already claimed" check and award separate rolls)
+        // Banned accounts had their holdings wiped; free shares would rebuild them.
+        if (userDoc.data().isBanned) {
+          await editOriginal({ content: '❌ This account is banned from Stockism.' });
+          return;
+        }
+
         if (messageId) {
           let alreadyClaimed = false;
           try {
@@ -363,35 +369,43 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         // moving prices through the whole 2026-08-20 chapter review — around 40
         // stocks across 15 claims — and nothing said so, because these points
         // carry no source tag and read on the chart exactly like trades.
-        const halted = isWeeklyTradingHalt() || marketDoc.data()?.marketHalted === true;
-
         const histSnap = await priceHistoryRef().get();
         const liveHistory = histSnap.exists ? histSnap.data() || {} : {};
         const timestamp = Date.now();
-        const newPrices = { ...prices };
-        const marketUpdates: Record<string, number> = {};
         const historyPoints: Record<string, PricePoint> = {};
 
-        for (const pick of picks) {
-          if (halted) break;
-          const currentPrice = newPrices[pick.ticker];
-          if (!currentPrice || currentPrice <= 0) continue;
-          if (isPriceProtected(liveHistory, pick.ticker, ADMIN_PRICE_PROTECTION_MS)) continue;
+        // Priced from a fresh read inside a transaction. The market read above is
+        // seconds old by now, and writing `old price + impact` from it erased any
+        // trade on the same stock that landed in between.
+        const newPrices: Record<string, number> = await db.runTransaction(async (tx) => {
+          const freshMarket = await tx.get(marketRef);
+          const market = freshMarket.data() || {};
+          const livePrices: Record<string, number> = { ...(market.prices || {}) };
+          const halted = isWeeklyTradingHalt() || market.marketHalted === true;
+          const marketUpdates: Record<string, number> = {};
+          for (const pick of picks) {
+            if (halted) break;
+            const currentPrice = livePrices[pick.ticker];
+            if (!currentPrice || currentPrice <= 0) continue;
+            if (isPriceProtected(liveHistory, pick.ticker, ADMIN_PRICE_PROTECTION_MS)) continue;
+            // A circuit-breaker pause freezes the stock for every mover.
+            if (isTickerPaused(market.haltedTickers, pick.ticker, timestamp)) continue;
 
-          let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(pick.shares / liquidityFor(pick.ticker));
-          const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
-          priceImpact = Math.min(priceImpact, maxImpact);
+            let priceImpact = currentPrice * BASE_IMPACT * Math.sqrt(pick.shares / liquidityFor(pick.ticker));
+            const maxImpact = currentPrice * MAX_PRICE_CHANGE_PERCENT;
+            priceImpact = Math.min(priceImpact, maxImpact);
 
-          newPrices[pick.ticker] = Math.round((currentPrice + priceImpact) * 100) / 100;
+            livePrices[pick.ticker] = Math.round((currentPrice + priceImpact) * 100) / 100;
+            // Field-path write per ticker (never rewrite the whole prices map —
+            // a concurrent trade on another ticker would be clobbered)
+            marketUpdates[`prices.${pick.ticker}`] = livePrices[pick.ticker]!;
+            historyPoints[pick.ticker] = { timestamp, price: livePrices[pick.ticker]!, source: 'daily_drop' };
+          }
+          if (Object.keys(marketUpdates).length > 0) tx.update(marketRef, marketUpdates);
+          return livePrices;
+        });
 
-          // Field-path write per ticker (never rewrite the whole prices map —
-          // a concurrent trade on another ticker would be clobbered)
-          marketUpdates[`prices.${pick.ticker}`] = newPrices[pick.ticker];
-          historyPoints[pick.ticker] = { timestamp, price: newPrices[pick.ticker], source: 'daily_drop' };
-        }
-
-        if (Object.keys(marketUpdates).length > 0) {
-          await marketRef.update(marketUpdates);
+        if (Object.keys(historyPoints).length > 0) {
           await appendPriceHistory(null, historyPoints);
         }
 

@@ -128,12 +128,18 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
       // Existing user found by discordId
       firebaseUid = discordSnap.docs[0]!.id;
     } else if (boundUid) {
-      // Unlinked earlier — re-attach it to the account that owns it.
+      // Unlinked earlier — log in to the account that owns it, and re-attach it
+      // unless that account has linked a different Discord since. Overwriting
+      // would free the other Discord with no binding, letting it verify an alt.
       firebaseUid = boundUid;
-      await db.collection('users').doc(boundUid).update({
-        discordId: discordId,
-        discordUsername: username,
-      });
+      const boundDoc = await db.collection('users').doc(boundUid).get();
+      const current = boundDoc.data()?.discordId;
+      if (!current || current === discordId) {
+        await db.collection('users').doc(boundUid).update({
+          discordId: discordId,
+          discordUsername: username,
+        });
+      }
     } else if (await isDiscordRelinkBlocked(discordId)) {
       // No live account for this Discord, and it was on a recently-deleted one.
       // Block creating a fresh account (anti recycle / troll-account loop).

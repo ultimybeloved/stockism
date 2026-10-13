@@ -206,6 +206,7 @@ export function buildUserUpdates({
   // so the clock runs from the LAST push rather than the first — otherwise a
   // long grind would unlock itself while the grinder was still selling.
   // Enforced in tradeGuards.assertCooldowns.
+  // Other sell lanes use heavySellStamps (shared/impact) on the same trigger.
   if ((action === 'sell' || action === 'short') && downImpactAfter >= WASH_RULE_IMPACT_TRIGGER) {
     updates[`lastHeavySell.${ticker}`] = Timestamp.now();
     // A heavy SELL also blocks shorting the stock (shortAfterDumpRemainingMs).

@@ -8,6 +8,7 @@ import {
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
   CIRCUIT_BREAKER_MAX_PER_DAY,
+  WASH_RULE_IMPACT_TRIGGER,
 } from './constants';
 import { dayIdOf } from './marketData';
 import type { Timestamp } from 'firebase-admin/firestore';
@@ -248,6 +249,29 @@ export const sumDirectionalImpact = (actionsForTicker: ActionHistory | null | un
     totals[impactDirectionOf(action)] += totalImpact;
   }
   return totals;
+};
+
+/**
+ * Wash-rule stamps for a sell or short, from the player's 24h history AFTER this
+ * fill was appended. Every lane that sells must call this: when only executeTrade
+ * stamped, dumping through a limit order or stop loss left the buy-back and
+ * short-after-dump blocks unarmed. Stamped on each further push, so the clock runs
+ * from the LAST one. Enforced in tradeGuards.assertCooldowns.
+ */
+export const heavySellStamps = (
+  historyAfter: Record<string, ActionHistory> | null | undefined,
+  ticker: string,
+  action: 'sell' | 'short',
+  now: number,
+  stamp: unknown,
+): Record<string, unknown> => {
+  if (sumDirectionalImpact(historyAfter?.[ticker], now).down < WASH_RULE_IMPACT_TRIGGER) return {};
+  return {
+    [`lastHeavySell.${ticker}`]: stamp,
+    // A heavy SELL also blocks shorting the stock; a short doesn't, so an
+    // existing short can still be added to.
+    ...(action === 'sell' ? { [`lastHeavyExit.${ticker}`]: stamp } : {}),
+  };
 };
 
 // What one action may still move a ticker's price, as a fraction, given the

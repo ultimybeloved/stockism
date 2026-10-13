@@ -750,6 +750,60 @@ async function main() {
     exitRefused = err.message;
   }
   check('a sell order from that connection is still allowed', exitRefused === null, String(exitRefused));
+
+  // ── 19. Cash-limited partial BUY, and the wash rule on a limit SELL ─────
+  // A partial BUY sized to the player's cash at MID used to come out a little
+  // short at the ask and be cancelled as "Insufficient cash" every cycle.
+  // A heavy SELL through a limit order used to leave the buy-back block unarmed.
+  const [T_CASH, T_WASH] = usable.slice(10, 12);
+  if (!T_WASH) throw new Error('Not enough usable tickers for scenario 19 — re-seed the emulator');
+  const stamp = Date.now();
+  await db
+    .collection('users')
+    .doc('lo_cashshort')
+    .set({ displayName: 'lo_cashshort', cash: round2(prices[T_CASH] * 5), holdings: {} });
+  await db
+    .collection('users')
+    .doc('lo_dumper')
+    .set({
+      displayName: 'lo_dumper',
+      cash: 0,
+      holdings: { [T_WASH]: 5 },
+      // Already 3.9% of down-pressure today; this sale tips it past the 4% trigger.
+      tickerTradeHistory: { [T_WASH]: { sell: [{ ts: stamp - 60000, shares: 1, impact: 0.039 }] } },
+    });
+  const plainOrder = (id: string, uid: string, ticker: string, type: string, shares: number, limit: number) =>
+    db
+      .collection('limitOrders')
+      .doc(id)
+      .set({
+        userId: uid,
+        ticker,
+        type,
+        shares,
+        limitPrice: round2(limit),
+        allowPartialFills: true,
+        status: 'PENDING',
+        filledShares: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+  await plainOrder('lo_v_cash', 'lo_cashshort', T_CASH, 'BUY', 10, prices[T_CASH] * 1.5);
+  await plainOrder('lo_w_wash', 'lo_dumper', T_WASH, 'SELL', 5, prices[T_WASH] * 0.5);
+  await runLimitOrderCheck();
+
+  const cashOrder = (await db.collection('limitOrders').doc('lo_v_cash').get()).data();
+  const cashUser = await getUser('lo_cashshort');
+  check(
+    'a cash-limited partial BUY partly fills instead of being cancelled',
+    cashOrder.status !== 'CANCELED' && cashOrder.filledShares > 0 && cashUser.cash >= 0,
+    JSON.stringify({ status: cashOrder.status, filled: cashOrder.filledShares, cash: cashUser.cash }),
+  );
+  const dumper = await getUser('lo_dumper');
+  check(
+    'a heavy limit SELL arms the buy-back and short-after-dump blocks',
+    !!dumper.lastHeavySell?.[T_WASH] && !!dumper.lastHeavyExit?.[T_WASH],
+    JSON.stringify({ sell: dumper.lastHeavySell, exit: dumper.lastHeavyExit }),
+  );
 }
 
 it('limit orders', main);

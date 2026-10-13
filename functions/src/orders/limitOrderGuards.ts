@@ -206,6 +206,28 @@ export const resolveFillShares = ({
   return fillShares;
 };
 
+/**
+ * Shrink a partial-fill BUY until the player can pay the ask. resolveFillShares
+ * sizes against the mid price, but the fill charges mid plus impact plus half the
+ * spread, so a cash-limited order came out a little short and was cancelled as
+ * "Insufficient cash" every time instead of partly filling. Impact falls as the
+ * size falls, so a few passes settle it.
+ */
+export const shrinkBuyToCash = (cash: number, shares: number, askFor: (shares: number) => number): number => {
+  let n = shares;
+  for (let i = 0; i < 8; i++) {
+    const ask = askFor(n);
+    if (ask * n <= cash) return n;
+    const next = Math.min(
+      ask > 0 ? Math.floor((cash / ask) * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP : 0,
+      n - 1 / ENTRY_SHARE_STEP,
+    );
+    if (next < MIN_TRADE_SHARES) throw new Error('Insufficient cash');
+    n = Math.round(next * ENTRY_SHARE_STEP) / ENTRY_SHARE_STEP;
+  }
+  return n;
+};
+
 /** 24h cumulative volume and fill count for one action on one ticker. */
 export const readActionHistory = (
   tickerTradeHistory: Record<string, ActionHistory | undefined>,

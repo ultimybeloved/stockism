@@ -7,8 +7,8 @@
 // per-order liquidation triggered by the price the auction landed on.
 //
 // A stop loss that fills through the regular 15-minute sweep goes through
-// limitOrderFill instead. Both must stay in step — see the exit-loyalty note on
-// executeSweepFill.
+// limitOrderFill instead. Both must stay in step: the seller is priced the
+// same way in both (see executeSweepFill).
 //
 // npm run test:premarket covers this path.
 
@@ -21,9 +21,11 @@ import { MAX_TRADES_PER_TICKER_24H, MAX_DAILY_IMPACT, MIN_EXIT_SHARES } from '..
 import {
   liquidityFor,
   calculateMarginalImpact,
+  traderMarginalImpact,
   getAccountAgeImpactFactor,
   pruneAndSumTradeHistory,
   sumDirectionalImpact,
+  heavySellStamps,
 } from '../shared/impact';
 import { writeNotification, writeFeedEntry } from '../shared/notifications';
 import { appendPriceHistory } from '../shared/marketData';
@@ -31,6 +33,7 @@ import { lockedShares, floorExitShares, remainingShares, cohortRemoveUpdate } fr
 import { buildTradeCreditUpdates, recordTrade } from '../shared/tradeRecords';
 import { round2 } from '../shared/money';
 import { spreadFor } from '../shared/roster';
+import { exitLoyaltyDiscount } from '../shared/characters';
 import type { LimitOrder, PricePoint, UserData } from '../shared/types';
 import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 import { computePriceUpdates, buildTrailingEntries } from '../trading/tradePricing';
@@ -41,11 +44,11 @@ import { readOrderNetwork, networkImpactSpent, writeNetworkFill } from './orderN
  * Fill one stop loss inside a transaction. Returns what the post-commit
  * notifications need. Throws to skip the order.
  *
- * NOTE: unlike limitOrderFill.applySellFill, this does NOT apply the exit
- * loyalty discount, so a long-held position pays full impact when its stop
- * triggers at the open but a reduced one when it triggers mid-week. That
- * difference predates the split and is left as-is deliberately — changing it
- * changes what players are paid.
+ * The seller is priced exactly as limitOrderFill.applySellFill prices them:
+ * their own uncapped impact, less the exit-loyalty discount. This used to price
+ * them at the capped market move, so once the day's allowance was spent a stop
+ * loss at the open sold with no impact at all, the one exit cheaper than every
+ * other lane (changed 2026-10-13).
  */
 const executeSweepFill = async (
   transaction: admin.firestore.Transaction,
@@ -79,6 +82,7 @@ const executeSweepFill = async (
   const freshPrice = freshPrices[order.ticker] || openingPrice;
 
   if (userData.isBankrupt || (userData.cash || 0) < 0) throw new Error('User is bankrupt');
+  if (userData.isBanned) throw new Error('User is banned');
   if (userData.requiresDiscordLink && !userData.discordId) throw new Error('Discord verification required');
 
   // Locks re-checked at fill time: shares locked after the stop loss was placed
@@ -115,9 +119,16 @@ const executeSweepFill = async (
     freshPrice * Math.max(0, MAX_DAILY_IMPACT - spentDown),
   );
   const impactPercent = freshPrice > 0 ? effectiveImpact / freshPrice : 0;
+  const traderImpact =
+    traderMarginalImpact(freshPrice, fillShares, cumVol, liquidityFor(order.ticker)) *
+    getAccountAgeImpactFactor(userData);
 
   const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact));
-  const bidPrice = newMarketPrice * (1 - spreadFor(order.ticker) / 2);
+  // Seller pays their own impact, reduced by exit loyalty; the market moves only
+  // the capped amount. Same split as every other sell lane.
+  const loyalty = exitLoyaltyDiscount(userData.holdingCohorts?.[order.ticker], fillShares, now);
+  const sellerMid = Math.max(0.01, round2(freshPrice - traderImpact * (1 - loyalty)));
+  const bidPrice = sellerMid * (1 - spreadFor(order.ticker) / 2);
   const executedPrice = round2(bidPrice);
 
   // Trailing effects + parent-ETF propagation, same as every other fill lane.
@@ -175,6 +186,7 @@ const executeSweepFill = async (
     // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
     ...cohortRemoveUpdate(userData, order.ticker, fillShares),
     ...creditUpdates,
+    ...heavySellStamps(updatedHistory, order.ticker, 'sell', now, FieldValue.serverTimestamp()),
   };
   if (!newHoldings) {
     updates[`holdings.${order.ticker}`] = FieldValue.delete();

@@ -37,6 +37,11 @@ export const adminCancelPrediction = cf({ timeoutSeconds: 300 }).https.onCall(
           'Event markets are cancelled with cancelEventMarket',
         );
       }
+      // Winners of a resolved prediction were paid from a pool that included the
+      // losers' stakes. Refunding those losers afterwards would mint money.
+      if (prediction.resolved) {
+        throw new functions.https.HttpsError('failed-precondition', 'This prediction is already resolved.');
+      }
       if (!prediction.cancelled) {
         list[idx] = { ...prediction, cancelled: true, cancelledAt: Date.now() };
         tx.update(predictionsRef, { list });
