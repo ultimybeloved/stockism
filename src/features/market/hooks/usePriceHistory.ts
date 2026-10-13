@@ -25,14 +25,23 @@ export const usePriceHistory = (
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // The stock page stays mounted when moving between tickers, so drop the last
+    // stock's archive first and ignore a slow fetch that lands after a newer one.
+    setArchivedHistory([]);
     if (!ticker) return;
+    let cancelled = false;
     setLoading(true);
     getDoc(doc(db, 'market', 'current', 'price_history', ticker))
       .then((snap) => {
-        if (snap.exists()) setArchivedHistory(snap.data().history || []);
+        if (!cancelled && snap.exists()) setArchivedHistory(snap.data().history || []);
       })
       .catch((e) => Sentry.captureException(e))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [ticker]);
 
   useEffect(() => {

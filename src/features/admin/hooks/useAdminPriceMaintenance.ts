@@ -26,6 +26,7 @@ export function useAdminPriceMaintenance({
 
       if (!histSnap.exists()) {
         showMessage('error', 'Price history document not found');
+        setLoading(false);
         return;
       }
 
@@ -77,6 +78,7 @@ export function useAdminPriceMaintenance({
 
       if (!histSnap.exists()) {
         showMessage('error', 'Price history document not found');
+        setLoading(false);
         return;
       }
 
@@ -93,18 +95,20 @@ export function useAdminPriceMaintenance({
 
       const oldPrices: Record<string, number> = (await getDoc(marketRef)).data()?.prices || {};
 
-      // Update all prices at once
-      await updateDoc(marketRef, {
-        prices: updatedPrices,
-      });
+      // Write only the prices that differ, one field each. Replacing the whole map
+      // dropped every ticker with no history entry, and re-wrote untouched prices
+      // over any trade that landed in between.
       const changed = Object.keys(updatedPrices).filter((t) => oldPrices[t] !== updatedPrices[t]);
+      if (changed.length > 0) {
+        await updateDoc(marketRef, Object.fromEntries(changed.map((t) => [`prices.${t}`, updatedPrices[t]])));
+      }
       await logPanelAction({
         action: 'sync_prices_to_history',
         before: Object.fromEntries(changed.map((t) => [t, oldPrices[t] ?? null])),
         after: Object.fromEntries(changed.map((t) => [t, updatedPrices[t]])),
       });
 
-      showMessage('success', `✅ Synced ${Object.keys(updatedPrices).length} prices to match latest history!`);
+      showMessage('success', `✅ Synced ${changed.length} prices to match latest history!`);
     } catch (err) {
       console.error(err);
       showMessage('error', 'Failed to sync prices: ' + errorMessage(err));

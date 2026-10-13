@@ -66,18 +66,23 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     const range = TIME_RANGES.find((r) => r.key === timeRange) ?? TIME_RANGES[0]!;
     const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
 
-    let data: ChartPoint[] = fullHistory
-      .filter((p) => p.timestamp >= cutoff)
-      .map((p) => ({
-        ...p,
-        fullDate: new Date(p.timestamp).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      }));
+    let inRange = fullHistory.filter((p) => p.timestamp >= cutoff);
+    // Start the line at the price when the period opened, so it agrees with the
+    // period change shown above the chart.
+    const opening = fullHistory.findLast((p) => p.timestamp < cutoff);
+    if (inRange.length >= 2 && range.hours !== Infinity && opening) {
+      inRange = [{ ...opening, timestamp: cutoff }, ...inRange];
+    }
+    let data: ChartPoint[] = inRange.map((p) => ({
+      ...p,
+      fullDate: new Date(p.timestamp).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    }));
 
     if (data.length < 2) {
       const now = Date.now();

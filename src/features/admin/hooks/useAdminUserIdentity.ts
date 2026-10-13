@@ -7,8 +7,9 @@ import {
   adminChangeDisplayNameFunction,
 } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
+import { withUserDefaults } from '../utils/adminShared';
+import type { UserData } from '../../../types';
 import { errorMessage } from '../../../utils/errors';
-import type { AdminUser } from '../utils/adminShared';
 
 // Who a user is, as far as the site is concerned: their Discord link, the
 // suspected-alt wall, and their display name. Composed into useAdminUserOps.
@@ -86,7 +87,11 @@ export function useAdminUserIdentity({
       // Refresh selected user data
       const updatedSnap = await getDoc(doc(db, 'users', userId));
       if (updatedSnap.exists()) {
-        setSelectedUser({ id: updatedSnap.id, ...updatedSnap.data() } as AdminUser);
+        setSelectedUser({
+          ...updatedSnap.data(),
+          id: updatedSnap.id,
+          ...withUserDefaults(updatedSnap.data() as UserData),
+        });
       }
     } catch (err) {
       console.error(err);

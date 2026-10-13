@@ -29,7 +29,7 @@ const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: Trade
     <div className={`${overlayClass} z-[60]`} onClick={onCancel}>
       <div ref={dialogRef} className={`${modalShellClass} max-w-sm p-5`} onClick={(e) => e.stopPropagation()}>
         <h3 className="text-lg font-semibold mb-4 light:text-slate-900 dark:text-zinc-100">
-          Confirm {action === 'buy' ? 'Purchase' : action === 'sell' ? 'Sale' : 'Short'}
+          Confirm {action === 'buy' ? 'Purchase' : action === 'sell' ? 'Sale' : action === 'cover' ? 'Cover' : 'Short'}
         </h3>
         <div className="space-y-2 mb-5 light:text-slate-700 dark:text-zinc-300">
           <div className="flex justify-between">

@@ -48,16 +48,25 @@ export function useAdminSpikeRepair({ showMessage }: Pick<AdminHookDeps, 'showMe
     setRepairingSpike(false);
   };
 
+  // Only rows the scan worked out a fix for. The rest have no corrected cash, and
+  // sending them would set their cash to $0 (the per-row Fix button is hidden for them too).
+  const fixableSpikeVictims = spikeVictims.filter((v) => v.correctedCash != null);
+
   const handleRepairAllSpikeVictims = async () => {
-    if (spikeVictims.length === 0) return;
-    if (!confirm(`Repair ALL ${spikeVictims.length} spike victims? This will restore their cash and clear bankruptcy.`))
+    if (fixableSpikeVictims.length === 0) return;
+    if (
+      !confirm(
+        `Repair ${fixableSpikeVictims.length} spike victims with a suggested fix? This sets their cash to the suggested amount and clears bankruptcy. Accounts without a suggested fix are left alone.`,
+      )
+    )
       return;
     setRepairingSpike(true);
     try {
-      const result = await repairSpikeVictimsFunction({ mode: 'repairAll', victims: spikeVictims });
+      const result = await repairSpikeVictimsFunction({ mode: 'repairAll', victims: fixableSpikeVictims });
       const successes = (result.data.results || []).filter((r) => r.success).length;
       const failures = (result.data.results || []).filter((r) => !r.success).length;
-      setSpikeVictims([]);
+      const repaired = new Set(fixableSpikeVictims.map((v) => v.userId));
+      setSpikeVictims((prev) => prev.filter((v) => !repaired.has(v.userId)));
       showMessage('success', `Repaired ${successes} users${failures > 0 ? `, ${failures} failed` : ''}`);
     } catch (err) {
       console.error(err);

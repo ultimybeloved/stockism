@@ -6,6 +6,7 @@ import { useSession } from '../../../context/AppContext';
 
 import PriceChart, { TIME_RANGES } from './PriceChart';
 import { usePriceHistory } from '../hooks/usePriceHistory';
+import { priceAt } from '../../../utils/marketStats';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { Character } from '../../../characters';
 import type { PricePoint } from '../../../types';
@@ -41,7 +42,8 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
   const range = TIME_RANGES.find((r) => r.key === timeRange)!;
   const cutoff = range.hours === Infinity ? 0 : Date.now() - range.hours * 3600000;
   const filtered = fullHistory.filter((p) => p.timestamp >= cutoff);
-  const firstPrice = filtered[0]?.price || (fullHistory.length > 0 ? fullHistory[0]!.price : currentPrice);
+  const firstPrice =
+    range.hours === Infinity ? (fullHistory[0]?.price ?? currentPrice) : priceAt(fullHistory, cutoff, currentPrice);
   const lastPrice = filtered.length > 0 ? filtered[filtered.length - 1]!.price : currentPrice;
   const periodChange = firstPrice > 0 ? ((lastPrice - firstPrice) / firstPrice) * 100 : 0;
   const isUp = lastPrice >= firstPrice;

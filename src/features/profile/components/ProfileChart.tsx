@@ -61,7 +61,12 @@ const ProfileChart = ({
       fullDate: formatChartDate(point.timestamp),
     }));
     data = sampleSeries(data);
-    if (data.length === 1) data = [...data, { timestamp: Date.now(), value: portfolioValue, fullDate: 'Now' }];
+    // End at the live value shown in the header, not the last stored snapshot,
+    // which can be days old. Same as the portfolio modal's chart.
+    const last = data[data.length - 1];
+    if (!last || Date.now() - last.timestamp > 60000) {
+      data = [...data, { timestamp: Date.now(), value: portfolioValue, fullDate: 'Now' }];
+    }
     if (data.length === 0) {
       const now = Date.now();
       data = [

@@ -7,6 +7,7 @@ import { useSession, useMarket } from '../../../context/AppContext';
 import { DIVIDEND_RATES, dividendWeightedShares, BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from '../../../constants/economy';
 import { TIME_RANGES } from '../components/PriceChart';
 import { usePriceHistory } from './usePriceHistory';
+import { priceAt } from '../../../utils/marketStats';
 import { fundsContaining } from '../../../utils/marketFilters';
 import type { PricePoint } from '../../../types';
 
@@ -18,7 +19,7 @@ import type { PricePoint } from '../../../types';
 // the stats when it changes.
 export const useStockPageData = (ticker: string, timeRange: string) => {
   const { user, userData, holdings, shorts, costBasis } = useSession();
-  const { prices, rarityTiers } = useMarket();
+  const { prices, rarityTiers, dividendTierOverrides } = useMarket();
   const { fullHistory } = usePriceHistory(ticker);
 
   const character = CHARACTER_MAP[ticker];
@@ -47,18 +48,18 @@ export const useStockPageData = (ticker: string, timeRange: string) => {
     const ago7d = Date.now() - 7 * 86400000;
     const ago52w = Date.now() - 365 * 86400000;
     const f30d = fullHistory.filter((p) => p.timestamp >= ago30d);
-    const f7d = fullHistory.filter((p) => p.timestamp >= ago7d);
     const f52w = fullHistory.filter((p) => p.timestamp >= ago52w);
 
     const px = (arr: PricePoint[]) => arr.map((p) => p.price);
     const hi = (arr: PricePoint[]) => (arr.length ? Math.max(...px(arr)) : currentPrice);
     const lo = (arr: PricePoint[]) => (arr.length ? Math.min(...px(arr)) : currentPrice);
 
-    const first = filtered[0]?.price || currentPrice;
+    const first =
+      range.hours === Infinity ? (fullHistory[0]?.price ?? currentPrice) : priceAt(fullHistory, cutoff, currentPrice);
     const change = first > 0 ? ((currentPrice - first) / first) * 100 : 0;
-    const price7dAgo = f7d[0]?.price || currentPrice;
+    const price7dAgo = priceAt(fullHistory, ago7d, currentPrice);
     const change7d = price7dAgo > 0 ? ((currentPrice - price7dAgo) / price7dAgo) * 100 : 0;
-    const price30dAgo = f30d[0]?.price || currentPrice;
+    const price30dAgo = priceAt(fullHistory, ago30d, currentPrice);
     const change30d = price30dAgo > 0 ? ((currentPrice - price30dAgo) / price30dAgo) * 100 : 0;
 
     return {
@@ -75,7 +76,7 @@ export const useStockPageData = (ticker: string, timeRange: string) => {
     };
   }, [fullHistory, timeRange, currentPrice]);
 
-  const dividendTier = character ? getDividendTier(ticker, rarityTiers) : 'none';
+  const dividendTier = character ? getDividendTier(ticker, rarityTiers, dividendTierOverrides) : 'none';
   const dividendRate = DIVIDEND_RATES[dividendTier] || 0;
   const cohort = userData?.holdingCohorts?.[ticker];
   // Loyalty-weighted estimate: matured shares at the top multiplier, each

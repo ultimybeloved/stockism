@@ -192,7 +192,7 @@ const TradeActionModal = ({
           disabled: maxShares === 0,
         };
       case 'cover': {
-        const isV2 = shortPosition?.system === 'v2';
+        const isV2 = (shortPosition?.system ?? 'v2') === 'v2';
         const coverShares = amountNum || 1;
         let coverTotal: number;
         let coverLabel: string;

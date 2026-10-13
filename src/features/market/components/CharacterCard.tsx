@@ -46,7 +46,12 @@ interface CharacterCardProps {
  */
 const chartSince = (data: PricePoint[], since: number, basePrice: number, price: number): PricePoint[] => {
   const filtered = data.filter((p) => p.timestamp >= since);
-  if (filtered.length >= 2) return filtered;
+  if (filtered.length >= 2) {
+    // Open the line at the price when the period began, so the card's % includes
+    // the period's first trade.
+    const opening = data.findLast((p) => p.timestamp < since);
+    return opening ? [{ ...opening, timestamp: since }, ...filtered] : filtered;
+  }
 
   let startPrice = basePrice;
   for (let i = data.length - 1; i >= 0; i--) {

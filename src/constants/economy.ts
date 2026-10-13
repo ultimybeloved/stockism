@@ -70,6 +70,9 @@ export {
 
 // Shorting constants (realistic NYSE-style)
 export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for-dollar collateral)
+// One stock's total short value can't pass this share of net worth. Mirrors
+// functions/src/shared/constants/halt.ts SHORT_CONCENTRATION_CAP.
+export const SHORT_CONCENTRATION_CAP = 0.5;
 export const SHORT_MARGIN_WARNING_THRESHOLD = 0.35; // Show a force-cover warning once equity dips below 35%
 export const SHORT_RATE_LIMIT_HOURS = 8; // 8-hour cooldown after 3rd short on same ticker
 

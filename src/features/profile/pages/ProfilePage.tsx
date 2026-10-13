@@ -51,7 +51,9 @@ const ProfilePage = ({
     const currentPrice = prices[ticker] || entryPrice;
     const collateral = Number(position.margin) || 0;
     const value =
-      position.system === 'v2' ? collateral + (entryPrice - currentPrice) * shares : collateral - currentPrice * shares;
+      (position.system ?? 'v2') === 'v2'
+        ? collateral + (entryPrice - currentPrice) * shares
+        : collateral - currentPrice * shares;
     return sum + (isNaN(value) ? 0 : value);
   }, 0);
   const portfolioValue = (userData?.cash || 0) + holdingsValue + shortsValue;

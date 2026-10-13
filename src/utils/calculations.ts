@@ -29,7 +29,7 @@ import {
   liquidityFor,
   maxTradeSharesFor,
 } from '../rules/impact';
-import { exitEquityAt, getTotalInvested as sharedTotalInvested } from '../rules/equity';
+import { exitEquityAt, getTotalInvested as sharedTotalInvested, shortsEquity } from '../rules/equity';
 
 /**
  * Get current price from priceHistory (source of truth) or fall back to prices/basePrice
@@ -166,7 +166,7 @@ export const estimateTradeTotal = ({
   }
   if (action === 'cover') {
     const { ask } = getBidAskPrices(price + priceImpact, isETF);
-    if (shortPosition?.system === 'v2') {
+    if (shortPosition && (shortPosition.system ?? 'v2') === 'v2') {
       const costBasis = shortPosition.costBasis || 0;
       const totalMargin = shortPosition.margin || 0;
       const marginBack = shortPosition.shares > 0 ? (totalMargin / shortPosition.shares) * amount : 0;
@@ -254,7 +254,7 @@ export const calculatePortfolioValue = (
     const currentPrice = Number(prices[ticker]) || Number(entryPrice) || 0;
     const collateral = Number(position.margin) || 0;
     let value: number;
-    if (position.system === 'v2') {
+    if ((position.system ?? 'v2') === 'v2') {
       // v2: margin + unrealized P&L (no proceeds in cash)
       value = collateral + (entryPrice - currentPrice) * shares;
     } else {
@@ -368,7 +368,10 @@ export const calculateMarginStatus = (
     }
   });
 
-  const grossValue = cash + holdingsValue;
+  // Open shorts count, exactly as the server's liquidation scan counts them
+  // (marginScanners checkMarginLending). Leaving them out showed false margin
+  // calls to players with healthy shorts, and "safe" to ones about to be liquidated.
+  const grossValue = cash + holdingsValue + shortsEquity(userData.shorts, prices ?? {});
   const portfolioValue = grossValue - marginUsed;
   const equityRatio = grossValue > 0 ? portfolioValue / grossValue : 0;
 

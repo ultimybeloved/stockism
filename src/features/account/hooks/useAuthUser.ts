@@ -39,13 +39,14 @@ export function useAuthUser({
 
     if (discordToken) {
       // Sign in with custom token from Discord OAuth
-      signInWithCustomToken(auth, discordToken)
-        .then(() => {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        })
-        .catch((error) => {
-          console.error('Discord sign-in error:', error);
-        });
+      // Take the one-time sign-in token out of the address bar either way, so it
+      // never sits in browser history.
+      const token = discordToken;
+      window.history.replaceState({}, document.title, window.location.pathname);
+      signInWithCustomToken(auth, token).catch((error) => {
+        Sentry.captureException(error);
+        showNotification('error', 'Discord sign-in failed. Please try again.');
+      });
     } else if (discordError) {
       showNotification('error', 'Discord sign-in failed. Please try again or use a different sign-in method.');
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -79,7 +80,16 @@ export function useAuthUser({
 
         // Listen to user data
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userDocRef);
+        let userSnap;
+        try {
+          userSnap = await getDoc(userDocRef);
+        } catch (error) {
+          // Without this the app would sit on the loading screen forever.
+          Sentry.captureException(error);
+          showNotification('error', 'Could not load your account. Check your connection and refresh.');
+          setLoading(false);
+          return;
+        }
 
         if (!userSnap.exists()) {
           // New user - prompt for username (don't auto-create yet)
@@ -142,10 +152,14 @@ export function useAuthUser({
         })
         .catch((error) => {
           console.error('Email verification failed:', error);
-          // Could show error to user - link expired or already used
+          window.history.replaceState({}, '', window.location.pathname);
+          showNotification(
+            'error',
+            'That verification link has expired or was already used. Sign in to get a new one.',
+          );
         });
     }
-  }, []);
+  }, [showNotification]);
 
   // After the UsernameModal creates the user doc: fetch it, adopt it, and
   // (re)subscribe to changes. Used as the modal's onComplete.

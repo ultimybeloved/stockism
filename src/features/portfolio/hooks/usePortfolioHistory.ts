@@ -60,8 +60,10 @@ export function usePortfolioHistory(user: User | null, rangeKey: string) {
         const mainSnap = await getDocs(mainQ);
         let points = mainSnap.docs.map((d) => d.data() as PortfolioPoint);
 
-        if (anchorQ && points.length > 0) {
-          let anchorValue = points[0]!.value; // fallback: first in-window value
+        // Anchor even when the window is empty: a player who hasn't synced inside
+        // it still moved from that value to now, rather than sitting flat at 0%.
+        if (anchorQ) {
+          let anchorValue: number | null = points[0]?.value ?? null; // fallback: first in-window value
           try {
             const anchorSnap = await getDocs(anchorQ);
             if (!anchorSnap.empty) {
@@ -70,7 +72,7 @@ export function usePortfolioHistory(user: User | null, rangeKey: string) {
           } catch (_) {
             /* use fallback */
           }
-          points = [{ timestamp: cutoff, value: anchorValue }, ...points];
+          if (anchorValue != null) points = [{ timestamp: cutoff, value: anchorValue }, ...points];
         }
 
         if (!cancelled) setHistory(points);

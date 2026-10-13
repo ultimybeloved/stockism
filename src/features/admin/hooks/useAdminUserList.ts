@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { withUserDefaults } from '../utils/adminShared';
@@ -49,14 +49,19 @@ export function useAdminUserList({
   // table needs, so the detail panel would otherwise be missing anything not on
   // that list — achievements, crew head status, pins. Show the trimmed row
   // straight away so the card opens instantly, then swap in the real document.
+  const selectingRef = useRef<string | null>(null);
   const selectUser = async (user: AdminUser | null) => {
     if (!user) {
+      selectingRef.current = null;
       setSelectedUser(null);
       return;
     }
     setSelectedUser(user);
+    selectingRef.current = user.id;
     try {
       const snap = await getDoc(doc(db, 'users', user.id));
+      // A quicker click on another user wins; don't swap this one back in.
+      if (selectingRef.current !== user.id) return;
       // Raw document first so fields the list never loaded (achievements,
       // isCrewHead, pins) come through, then the defaults fill the blanks.
       if (snap.exists()) {
@@ -93,7 +98,7 @@ export function useAdminUserList({
       const entryPrice = position.costBasis || position.entryPrice || 0;
       const currentPrice = prices[ticker] || entryPrice;
       const collateral = position.margin || 0;
-      if (position.system === 'v2') {
+      if ((position.system ?? 'v2') === 'v2') {
         // v2: margin + unrealized P&L (no proceeds in cash)
         shortsValue += collateral + (entryPrice - currentPrice) * shares;
       } else {
@@ -107,9 +112,10 @@ export function useAdminUserList({
 
   // Filter users by search query
   // Apply sorting to users
-  const sortUsers = (users: AdminUser[]) => {
+  // sortBy is passed in on a sort change, because the state hasn't updated yet.
+  const sortUsers = (users: AdminUser[], sortBy = userSortBy) => {
     const sorted = [...users];
-    switch (userSortBy) {
+    switch (sortBy) {
       case 'portfolio-high':
         return sorted.sort((a, b) => (b.portfolioValue || 0) - (a.portfolioValue || 0));
       case 'portfolio-low':
@@ -123,10 +129,10 @@ export function useAdminUserList({
     }
   };
 
-  const handleUserSearch = (query: string) => {
+  const handleUserSearch = (query: string, sortBy = userSortBy) => {
     setUserSearchQuery(query);
     if (!query.trim()) {
-      setUserSearchResults(sortUsers(allUsers));
+      setUserSearchResults(sortUsers(allUsers, sortBy));
       return;
     }
 
@@ -142,14 +148,14 @@ export function useAdminUserList({
           .toLowerCase()
           .includes(q),
     );
-    setUserSearchResults(sortUsers(filtered));
+    setUserSearchResults(sortUsers(filtered, sortBy));
   };
 
   // Handle sort change
   const handleUserSortChange = (newSort: string) => {
     setUserSortBy(newSort);
     // Re-apply current search with new sort
-    handleUserSearch(userSearchQuery);
+    handleUserSearch(userSearchQuery, newSort);
   };
 
   return {

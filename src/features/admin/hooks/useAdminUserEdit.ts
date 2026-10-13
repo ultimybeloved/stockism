@@ -8,9 +8,10 @@ import {
   adminSetHoldingFunction,
 } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
+import { withUserDefaults } from '../utils/adminShared';
+import type { UserData } from '../../../types';
 import { errorMessage } from '../../../utils/errors';
 import type { HttpsCallableResult } from 'firebase/functions';
-import type { AdminUser } from '../utils/adminShared';
 
 // Direct edits to one user's game state — the fixes that used to mean opening
 // the Firebase console. Backed by functions/src/admin/adminUserEdit.js.
@@ -27,7 +28,7 @@ export function useAdminUserEdit({
   // doc rather than guessing at the new shape in local state.
   const refreshSelectedUser = async (userId: string) => {
     const snap = await getDoc(doc(db, 'users', userId));
-    if (snap.exists()) setSelectedUser({ id: snap.id, ...snap.data() } as AdminUser);
+    if (snap.exists()) setSelectedUser({ ...snap.data(), id: snap.id, ...withUserDefaults(snap.data() as UserData) });
   };
 
   const run = async <T>(

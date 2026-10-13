@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { doc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { toMillis } from '../../../utils/date';
 import { logPanelAction } from '../utils/panelLog';
 import { ADMIN_UIDS } from '../../../constants';
 import type { AdminHookDeps } from '../utils/adminShared';
@@ -60,7 +61,11 @@ export function useAdminOrphans({ showMessage, setLoading }: Pick<AdminHookDeps,
         const isInactive = totalTrades === 0 && totalCheckins === 0 && holdingsCount === 0;
         const hasDefaultCash = cash === 1000 || (cash >= 999 && cash <= 1001);
 
-        if (isInactive && hasDefaultCash) {
+        // Brand-new players look exactly like this until they link Discord and trade,
+        // so only flag accounts older than a day.
+        const oldEnough = Date.now() - toMillis(createdAt) > 24 * 60 * 60 * 1000;
+
+        if (isInactive && hasDefaultCash && oldEnough) {
           suspicious.push({
             id,
             displayName: data.displayName || 'Unknown',

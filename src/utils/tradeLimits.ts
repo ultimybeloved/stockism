@@ -1,7 +1,13 @@
 // Pure trade-form math: rolling 24h per-ticker limits, dynamic bid/ask under
 // impact, buying power, and max-shares for each action. Mirrors the backend.
 
-import { MIN_PRICE, MIN_EXIT_SHARES, SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../constants';
+import {
+  MIN_PRICE,
+  MIN_EXIT_SHARES,
+  SHORT_MARGIN_REQUIREMENT,
+  SHORT_CONCENTRATION_CAP,
+  MAX_TRADES_PER_TICKER_24H,
+} from '../constants';
 import {
   calculatePortfolioValue,
   calculateTraderImpactDollars,
@@ -193,7 +199,13 @@ const maxSharesForAction = ({
     const maxByEquity = marginPerShare > 0 ? Math.floor((availableForShorts / marginPerShare) * 100) / 100 : 0;
     // v2: must also have enough cash for the margin deposit
     const maxByCash = marginPerShare > 0 ? Math.floor((userCash / marginPerShare) * 100) / 100 : 0;
-    return Math.max(0, Math.min(maxByEquity, maxByCash));
+    // Per-stock cap, same check as the server's computeShort.
+    const existingTickerShares = shortPosition && shortPosition.shares > 0 ? shortPosition.shares : 0;
+    const maxByConcentration =
+      price > 0
+        ? Math.floor(((portfolioEquity * SHORT_CONCENTRATION_CAP) / price - existingTickerShares) * 100) / 100
+        : 0;
+    return Math.max(0, Math.min(maxByEquity, maxByCash, maxByConcentration));
   }
   if (action === 'cover') {
     if (getTradeCount(userData, ticker, 'cover') >= MAX_TRADES_PER_TICKER_24H) return 0;

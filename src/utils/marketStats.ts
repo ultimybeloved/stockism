@@ -4,8 +4,10 @@
 import { CHARACTER_MAP } from '../characters';
 import type { PriceHistory, PriceMap, PricePoint, Ticker } from '../types';
 
-// Price at-or-before a timestamp, falling back to the oldest point.
-const priceAt = (history: PricePoint[], cutoff: number, fallback: number): number => {
+// Price at-or-before a timestamp, falling back to the oldest point. This is a
+// period's opening price: the first point INSIDE the window is already after the
+// period's first trade, so measuring from it leaves that trade's move out.
+export const priceAt = (history: PricePoint[], cutoff: number, fallback: number): number => {
   for (let i = history.length - 1; i >= 0; i--) {
     const point = history[i]!;
     if (point.timestamp <= cutoff) return point.price;

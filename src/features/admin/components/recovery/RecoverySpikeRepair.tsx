@@ -34,13 +34,15 @@ const RecoverySpikeRepair = ({
         >
           {scanningSpike ? 'Scanning...' : spikeScanned ? 'Re-Scan' : 'Scan'}
         </button>
-        {spikeVictims.length > 0 && (
+        {spikeVictims.some((v) => v.correctedCash != null) && (
           <button
             onClick={handleRepairAllSpikeVictims}
             disabled={repairingSpike}
             className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-sm disabled:opacity-50"
           >
-            {repairingSpike ? 'Repairing...' : `Fix All (${spikeVictims.length})`}
+            {repairingSpike
+              ? 'Repairing...'
+              : `Fix All (${spikeVictims.filter((v) => v.correctedCash != null).length})`}
           </button>
         )}
       </div>

@@ -28,17 +28,27 @@ const PublicProfilePage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // The page stays mounted when following a link to another profile, so start
+    // clean and ignore an answer that arrives for the previous name.
+    let cancelled = false;
+    setProfile(null);
+    setError(null);
+    setLoading(true);
     const fetch = async () => {
       try {
         const result = await getPublicProfileFunction({ username });
-        setProfile(result.data);
+        if (!cancelled) setProfile(result.data);
       } catch (err) {
-        setError((err as { code?: string })?.code === 'functions/permission-denied' ? 'private' : 'notfound');
+        if (!cancelled)
+          setError((err as { code?: string })?.code === 'functions/permission-denied' ? 'private' : 'notfound');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetch();
+    return () => {
+      cancelled = true;
+    };
   }, [username]);
 
   const { cardClass, textClass, mutedClass } = themeClasses;

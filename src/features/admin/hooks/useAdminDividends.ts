@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { logPanelAction } from '../utils/panelLog';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, deleteField } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { runDividendPayoutNowFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
@@ -64,7 +64,9 @@ export function useAdminDividends({ showMessage }: Pick<AdminHookDeps, 'showMess
       } else {
         next[ticker] = tier;
       }
-      await setDoc(ref, { tiers: next }, { merge: true });
+      // A merge write keeps map keys that are missing from the new map, so a reset
+      // to default has to delete its key explicitly or the override never goes away.
+      await setDoc(ref, { tiers: { [ticker]: next[ticker] ?? deleteField() } }, { merge: true });
       await logPanelAction({
         action: 'set_dividend_tier',
         before: { ticker, tier: dividendOverrides[ticker] || 'default' },

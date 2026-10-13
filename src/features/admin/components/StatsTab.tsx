@@ -51,7 +51,10 @@ const StatsTab = ({
               {loading ? '...' : '📉 Fix Chart Cliffs'}
             </button>
             <button
-              onClick={handleSyncPricesToHistory}
+              onClick={() => {
+                if (window.confirm('Set every live price to its last chart point? Only prices that differ change.'))
+                  void handleSyncPricesToHistory();
+              }}
               disabled={loading}
               className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
               title="Sync current prices to match latest price history"

@@ -133,6 +133,11 @@ export function useLeaderboard(
         };
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
+        // Don't leave the previous sort's ranking on screen under the new heading.
+        if (!cancelled) {
+          setLeaders([]);
+          setUserRank(null);
+        }
       }
       if (!cancelled) setLoading(false);
     };
