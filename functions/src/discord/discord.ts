@@ -94,7 +94,10 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
     const discordUser = userResponse.data;
     const discordId = discordUser.id;
     const username = discordUser.username;
-    const email = discordUser.email;
+    // Only an email Discord has verified may match an existing account. Discord
+    // lets anyone put any address on an unverified account, so trusting it would
+    // sign the caller into whichever Stockism account owns that address.
+    const email = discordUser.verified === true ? discordUser.email : null;
     const avatarURL = discordUser.avatar
       ? `https://cdn.discordapp.com/avatars/${discordId}/${discordUser.avatar}.png`
       : null;
