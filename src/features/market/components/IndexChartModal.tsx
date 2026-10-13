@@ -89,6 +89,16 @@ const IndexChartModal = ({
 
   const rangeLabel = TIME_RANGES.find((t) => t.key === timeRange)?.label;
 
+  // Header follows the cursor like a normal chart: hovered value, change since range start, hovered date.
+  const headerVal = hoveredPoint ? hoveredPoint.price : currentIndex;
+  const headerChange = hoveredPoint
+    ? firstVal > 0
+      ? ((hoveredPoint.price - firstVal) / firstVal) * 100
+      : 0
+    : periodChange;
+  const headerUp = hoveredPoint ? hoveredPoint.price >= firstVal : isUp;
+  const headerLabel = hoveredPoint ? hoveredPoint.fullDate : rangeLabel;
+
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
       <div
@@ -103,13 +113,13 @@ const IndexChartModal = ({
               <div className={`text-xs font-semibold tracking-wider mb-1 ${mutedClass}`}>STOCKISM MARKET INDEX</div>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className={`text-2xl font-bold ${textClass}`}>
-                  {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {headerVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span
-                  className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : isUp ? 'text-green-500' : 'text-red-500'}`}
+                  className={`text-sm font-semibold ${colorBlindMode ? (headerUp ? 'text-teal-500' : 'text-purple-500') : headerUp ? 'text-green-500' : 'text-red-500'}`}
                 >
-                  {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}
-                  {periodChange.toFixed(2)}% ({rangeLabel})
+                  {headerUp ? '\u25B2' : '\u25BC'} {headerUp ? '+' : ''}
+                  {headerChange.toFixed(2)}% ({headerLabel})
                 </span>
               </div>
             </div>
