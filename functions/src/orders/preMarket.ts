@@ -33,6 +33,7 @@ export interface PreMarketOrder {
   [field: string]: unknown;
 }
 import { claimNetworkForOrder } from './orderNetwork';
+import { readBook, orderSession } from './preMarketBook';
 
 // Placement closes at the lock (20:55), not at market open — the auction
 // settles opening prices at 20:56 while the market is still halted.
@@ -229,17 +230,30 @@ export const createPreMarketOrder = cf().https.onCall(
 
     const sessionDate = new Date().toISOString().slice(0, 10);
     const orderId = `${uid}_${sessionDate}_${ticker}_${action}`;
-    await db.collection('preMarketOrders').doc(orderId).set({
-      userId: uid,
-      ticker,
-      action,
-      shares,
-      allowPartialFills,
-      status: 'PENDING',
-      createdAt: FieldValue.serverTimestamp(),
-      executedAt: null,
-      executedPrice: null,
-      filledShares: null,
+    const orderRef = db.collection('preMarketOrders').doc(orderId);
+    // One transaction with the public totals, so a double submit can't count twice.
+    await db.runTransaction(async (tx) => {
+      const existing = await tx.get(orderRef);
+      const writeBook = await readBook(tx);
+      if (existing.exists && existing.data()!.status === 'PENDING') {
+        throw new functions.https.HttpsError(
+          'already-exists',
+          `You already have a pending ${action} order for $${ticker}. Cancel it first to replace it.`,
+        );
+      }
+      tx.set(orderRef, {
+        userId: uid,
+        ticker,
+        action,
+        shares,
+        allowPartialFills,
+        status: 'PENDING',
+        createdAt: FieldValue.serverTimestamp(),
+        executedAt: null,
+        executedPrice: null,
+        filledShares: null,
+      });
+      writeBook([{ ticker, action: action as 'buy' | 'sell', shares, sign: 1, session: sessionDate }]);
     });
 
     return { success: true };
@@ -272,22 +286,39 @@ export const cancelPreMarketOrder = cf().https.onCall(async (data: { orderId?: u
     throw new functions.https.HttpsError('invalid-argument', 'Order ID required.');
   }
 
-  const orderDoc = await db.collection('preMarketOrders').doc(orderId).get();
-  if (!orderDoc.exists) {
-    throw new functions.https.HttpsError('not-found', 'Order not found.');
+  if (typeof orderId !== 'string' || orderId.includes('/')) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid order ID.');
   }
 
-  const order = orderDoc.data() as PreMarketOrder;
-  if (order.userId !== uid) {
-    throw new functions.https.HttpsError('permission-denied', "Cannot cancel another user's order.");
-  }
-  if (order.status !== 'PENDING') {
-    throw new functions.https.HttpsError('failed-precondition', 'Order is not pending and cannot be cancelled.');
-  }
+  const orderRef = db.collection('preMarketOrders').doc(orderId);
+  await db.runTransaction(async (tx) => {
+    const orderDoc = await tx.get(orderRef);
+    const writeBook = await readBook(tx);
+    if (!orderDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Order not found.');
+    }
 
-  await db.collection('preMarketOrders').doc(orderId).update({
-    status: 'CANCELED',
-    updatedAt: FieldValue.serverTimestamp(),
+    const order = orderDoc.data() as PreMarketOrder & { createdAt?: Timestamp };
+    if (order.userId !== uid) {
+      throw new functions.https.HttpsError('permission-denied', "Cannot cancel another user's order.");
+    }
+    if (order.status !== 'PENDING') {
+      throw new functions.https.HttpsError('failed-precondition', 'Order is not pending and cannot be cancelled.');
+    }
+
+    tx.update(orderRef, {
+      status: 'CANCELED',
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    writeBook([
+      {
+        ticker: order.ticker,
+        action: order.action,
+        shares: order.shares,
+        sign: -1,
+        session: orderSession(order.createdAt),
+      },
+    ]);
   });
 
   return { success: true };

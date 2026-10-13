@@ -257,8 +257,11 @@ service cloud.firestore {
     // ============================================
 
     match /preMarketOrders/{orderId} {
-      // All authenticated users can read — needed to compute the live indicative opening price
-      allow read: if isAuthenticated();
+      // Owner and admin only. Until 2026-10-13 any signed-in player could read
+      // every order, user IDs included. The indicative opening price reads the
+      // per-ticker totals in market/preMarketBook instead.
+      allow read: if isAuthenticated() &&
+                     (resource.data.userId == request.auth.uid || isAdmin());
       // All writes go through Cloud Functions (Admin SDK bypasses rules)
       allow create, update, delete: if false;
     }

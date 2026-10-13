@@ -44,6 +44,7 @@ Stocks can also be **split** (for example 3-for-1): the price divides, every hol
 - **Limit orders** (buy or sell) sit on the book and fill when the price hits your target. Swept every 15 minutes, 90-day expiry, optional partial fills. A partial-fill buy short on cash fills as many shares as the cash covers at the ask. Pending and partly filled orders can be cancelled.
 - **Stop-loss orders** sell automatically if a price drops to your trigger. One that triggers at the Thursday open is priced like every other sale (own impact, exit-loyalty discount).
 - **Pre-market orders** queue during the Thursday halt and fill in the reopening auction.
+  Queued orders are private. Other players only see each stock's total queued buys and sells (the indicative opening price), never who queued them.
 
 ### Crews
 

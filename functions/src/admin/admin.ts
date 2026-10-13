@@ -5,6 +5,7 @@ import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import type { Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -12,6 +13,8 @@ import { sendDiscordMessage } from '../shared/discordApi';
 import { priceHistoryRef } from '../shared/marketData';
 import { recordLedger } from '../shared/ledger';
 import { logAdminAction } from '../shared/adminLog';
+import { readBook, orderSession, type BookChange } from '../orders/preMarketBook';
+import type { PreMarketOrder } from '../orders/preMarket';
 
 /**
  * Cancel every open order a banned user left on the books.
@@ -45,11 +48,31 @@ const cancelOpenOrders = async (userId: string) => {
     batch.update(doc.ref, { status: 'CANCELED', cancelReason: 'Account is banned', updatedAt: stamp });
     counts.limit++;
   });
-  preMarketSnap.docs.forEach((doc) => {
-    batch.update(doc.ref, { status: 'CANCELED', cancelReason: 'Account is banned', updatedAt: stamp });
-    counts.preMarket++;
-  });
   await batch.commit();
+
+  // Pre-market orders also leave the public queue totals, so they're cancelled
+  // in a transaction with market/preMarketBook.
+  if (!preMarketSnap.empty) {
+    counts.preMarket = await db.runTransaction(async (tx) => {
+      const fresh = await Promise.all(preMarketSnap.docs.map((d) => tx.get(d.ref)));
+      const writeBook = await readBook(tx);
+      const changes: BookChange[] = [];
+      for (const snap of fresh) {
+        const order = snap.data() as PreMarketOrder & { createdAt?: Timestamp };
+        if (!order || order.status !== 'PENDING') continue;
+        tx.update(snap.ref, { status: 'CANCELED', cancelReason: 'Account is banned', updatedAt: stamp });
+        changes.push({
+          ticker: order.ticker,
+          action: order.action,
+          shares: order.shares,
+          sign: -1,
+          session: orderSession(order.createdAt),
+        });
+      }
+      writeBook(changes);
+      return changes.length;
+    });
+  }
 
   return counts;
 };

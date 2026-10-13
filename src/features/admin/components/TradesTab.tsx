@@ -1,5 +1,32 @@
 import type { AdminCommonProps } from './types';
-import type { useAdminTrades } from '../hooks/useAdminTrades';
+import { TRADE_LOAD_CAP, type useAdminTrades } from '../hooks/useAdminTrades';
+import type { AdminTradeType } from '../utils/adminTradeRows';
+
+const TYPE_BADGE: Record<AdminTradeType, string> = {
+  BUY: 'BUY',
+  SELL: 'SELL',
+  SHORT_OPEN: 'SHORT',
+  SHORT_CLOSE: 'COVER',
+  LIQUIDATION: 'LIQUIDATED',
+};
+const TYPE_VERB: Record<AdminTradeType, string> = {
+  BUY: 'bought',
+  SELL: 'sold',
+  SHORT_OPEN: 'shorted',
+  SHORT_CLOSE: 'covered',
+  LIQUIDATION: 'was liquidated',
+};
+// How the trade happened.
+const SOURCE_LABEL: Record<string, string> = {
+  manual: 'Manual',
+  limit: 'Limit order',
+  stop_loss: 'Stop loss',
+  premarket: 'Pre-market auction',
+  admin: 'Admin act-as',
+  margin_call: 'Margin call',
+  ipo: 'IPO',
+  bot: 'Bot',
+};
 
 const TradesTab = ({
   textClass,
@@ -13,6 +40,7 @@ const TradesTab = ({
   tradeBotFilter,
   setTradeBotFilter,
   tradesLoading,
+  tradesCapped,
   recentTrades,
   loadRecentTrades,
 }: Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & ReturnType<typeof useAdminTrades>) => {
@@ -20,7 +48,8 @@ const TradesTab = ({
     <div className="space-y-4">
       <div className="p-3 rounded-sm light:bg-yellow-50 dark:bg-yellow-900/20">
         <p className={`text-sm ${mutedClass}`}>
-          💹 View trade history across all users. Filter by time period, trade type, or ticker.
+          💹 Every trade across all users: manual trades, limit and stop-loss fills, pre-market auction fills, IPO buys,
+          forced margin closes and bot trades. Filter by time period, trade type, or ticker.
         </p>
       </div>
 
@@ -57,6 +86,7 @@ const TradesTab = ({
               <option value="SELL">Sell</option>
               <option value="SHORT_OPEN">Short Open</option>
               <option value="SHORT_CLOSE">Short Close</option>
+              <option value="LIQUIDATION">Margin Liquidation</option>
             </select>
           </div>
 
@@ -134,6 +164,12 @@ const TradesTab = ({
       {/* Trades Feed */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <h3 className={`font-semibold mb-3 ${textClass}`}>Trade Feed</h3>
+        {tradesCapped && (
+          <p className={`text-xs mb-2 ${mutedClass}`}>
+            Showing the newest {TRADE_LOAD_CAP.toLocaleString()} player trades. Pick a shorter time period or a ticker
+            to see older ones.
+          </p>
+        )}
 
         {tradesLoading ? (
           <p className={`text-center ${mutedClass} py-8`}>Loading trades...</p>
@@ -141,9 +177,9 @@ const TradesTab = ({
           <p className={`text-center ${mutedClass} py-8`}>No trades found. Click "Load Trades" to fetch.</p>
         ) : (
           <div className="space-y-2 max-h-[500px] overflow-y-auto">
-            {recentTrades.map((trade, i) => (
+            {recentTrades.map((trade) => (
               <div
-                key={`${trade.userId}-${trade.timestamp}-${i}`}
+                key={trade.id}
                 className="p-3 rounded-sm light:bg-slate-50 dark:bg-slate-700/50 flex justify-between items-center"
               >
                 <div className="flex items-center gap-3">
@@ -156,10 +192,12 @@ const TradesTab = ({
                           ? 'bg-red-500/20 text-red-400'
                           : trade.type === 'SHORT_OPEN'
                             ? 'bg-orange-500/20 text-orange-500'
-                            : 'bg-purple-500/20 text-purple-500'
+                            : trade.type === 'LIQUIDATION'
+                              ? 'bg-rose-700/30 text-rose-400'
+                              : 'bg-purple-500/20 text-purple-500'
                     }`}
                   >
-                    {trade.type === 'SHORT_OPEN' ? 'SHORT' : trade.type === 'SHORT_CLOSE' ? 'COVER' : trade.type}
+                    {TYPE_BADGE[trade.type]}
                   </span>
 
                   {/* Trade Details */}
@@ -169,27 +207,23 @@ const TradesTab = ({
                       {trade.isBot && (
                         <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-purple-600 text-white">🤖</span>
                       )}
-                      <span className={mutedClass}>
-                        {' '}
-                        {trade.type === 'BUY'
-                          ? 'bought'
-                          : trade.type === 'SELL'
-                            ? 'sold'
-                            : trade.type === 'SHORT_OPEN'
-                              ? 'shorted'
-                              : 'covered'}{' '}
-                      </span>
-                      <span className="font-bold text-cyan-500">{trade.shares}</span>
-                      <span className={mutedClass}> shares of </span>
-                      <span className="font-bold">${trade.ticker}</span>
+                      {trade.type === 'LIQUIDATION' ? (
+                        <span className={mutedClass}> was liquidated by a margin call</span>
+                      ) : (
+                        <>
+                          <span className={mutedClass}> {TYPE_VERB[trade.type]} </span>
+                          <span className="font-bold text-cyan-500">{trade.shares}</span>
+                          <span className={mutedClass}> shares of </span>
+                          <span className="font-bold">${trade.ticker}</span>
+                        </>
+                      )}
                     </p>
                     <p className={`text-xs ${mutedClass}`}>
-                      @ ${trade.price?.toFixed(2)} • Total: ${trade.total?.toFixed(2)}
-                      {trade.profit !== null && trade.profit !== undefined && (
-                        <span className={trade.profit >= 0 ? 'text-green-500 ml-2' : 'text-red-400 ml-2'}>
-                          P/L: {trade.profit >= 0 ? '+' : ''}${trade.profit.toFixed(2)}
-                        </span>
-                      )}
+                      {trade.type !== 'LIQUIDATION' && <>@ ${trade.price.toFixed(2)} • </>}
+                      Total: ${trade.total.toFixed(2)}
+                      <span className="ml-2 px-1.5 py-0.5 rounded light:bg-slate-200 dark:bg-slate-600">
+                        {SOURCE_LABEL[trade.source] || trade.source}
+                      </span>
                     </p>
                   </div>
                 </div>

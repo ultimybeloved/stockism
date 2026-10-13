@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { collection, doc, query, where, onSnapshot, type Timestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '../../../api/callables';
 import { formatCurrency } from '../../../utils/formatters';
@@ -20,11 +20,19 @@ type PreMarketAction = 'buy' | 'sell';
 
 interface PreMarketOrder {
   id: string;
-  userId: string;
   ticker: string;
   action: PreMarketAction;
   shares: number;
+  createdAt?: Timestamp;
 }
+
+/** One ticker's totals in market/preMarketBook. */
+interface BookSide {
+  buy: number;
+  sell: number;
+  orders: number;
+}
+const EMPTY_SIDE: BookSide = { buy: 0, sell: 0, orders: 0 };
 
 interface PreMarketModalProps {
   character: Character;
@@ -50,7 +58,8 @@ const PreMarketModal = ({
   const [shares, setShares] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
-  const [allOrders, setAllOrders] = useState<PreMarketOrder[]>([]);
+  const [queue, setQueue] = useState<BookSide>(EMPTY_SIDE);
+  const [myOrders, setMyOrders] = useState<PreMarketOrder[]>([]);
   const [countdown, setCountdown] = useState('');
 
   const { textClass, mutedClass, overlayClass, modalShellClass } = themeClasses;
@@ -70,27 +79,40 @@ const PreMarketModal = ({
     return () => clearInterval(interval);
   }, [onClose]);
 
-  // Live listener — all PENDING pre-market orders for this ticker today
+  // Live queue totals for this ticker. Other players' orders are private; the
+  // server keeps a public per-ticker summary for this preview.
   useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'market', 'preMarketBook'), (snap) => {
+      const book = snap.data() as { session?: string; tickers?: Record<string, BookSide> } | undefined;
+      const today = new Date().toISOString().slice(0, 10);
+      setQueue(book?.session === today ? book.tickers?.[character.ticker] || EMPTY_SIDE : EMPTY_SIDE);
+    });
+    return unsub;
+  }, [character.ticker]);
+
+  // Live listener: this player's own PENDING orders for this ticker today
+  useEffect(() => {
+    if (!user) return;
     const preMarketStart = new Date();
     preMarketStart.setUTCHours(20, 30, 0, 0);
     const q = query(
       collection(db, 'preMarketOrders'),
-      where('ticker', '==', character.ticker),
+      where('userId', '==', user.uid),
       where('status', '==', 'PENDING'),
-      where('createdAt', '>=', Timestamp.fromDate(preMarketStart)),
     );
     const unsub = onSnapshot(q, (snap) =>
-      setAllOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PreMarketOrder)),
+      setMyOrders(
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }) as PreMarketOrder)
+          .filter((o) => o.ticker === character.ticker && (o.createdAt?.toMillis() ?? 0) >= preMarketStart.getTime()),
+      ),
     );
     return unsub;
-  }, [character.ticker]);
+  }, [character.ticker, user]);
 
   // Compute indicative opening price from all currently queued orders
   const getIndicativePrice = () => {
-    const totalBuy = allOrders.filter((o) => o.action === 'buy').reduce((s, o) => s + o.shares, 0);
-    const totalSell = allOrders.filter((o) => o.action === 'sell').reduce((s, o) => s + o.shares, 0);
-    const net = totalBuy - totalSell;
+    const net = queue.buy - queue.sell;
     if (Math.abs(net) < 0.01) return price;
     const impactDollars = calculatePriceImpactDollars(price, Math.abs(net), liquidityFor(character.ticker));
     return net > 0
@@ -101,7 +123,6 @@ const PreMarketModal = ({
   const indicativePrice = getIndicativePrice();
   const { bid, ask } = getBidAskPrices(indicativePrice, character.isETF);
   const locked = isPreMarketLockout();
-  const myOrders = allOrders.filter((o) => o.userId === user?.uid);
   const myActionOrder = myOrders.find((o) => o.action === action);
   // Buys leave headroom for the opening price to move up (impact cap + spread),
   // so a max order can't become unaffordable at the opening ask.
@@ -194,7 +215,7 @@ const PreMarketModal = ({
             </span>
           </div>
           <p className={`text-xs mt-1 ${mutedClass}`}>
-            Based on {allOrders.length} queued order{allOrders.length !== 1 ? 's' : ''} (updates live)
+            Based on {queue.orders} queued order{queue.orders !== 1 ? 's' : ''} (updates live)
           </p>
         </div>
 

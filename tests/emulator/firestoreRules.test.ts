@@ -180,6 +180,23 @@ async function main() {
     setDoc(doc(clientDb, 'ledger', 'forged'), { uid, type: 'admin_set_cash', amount: 1e6 }),
   );
 
+  // Pre-market orders carry the player's ID; only the owner (and admin) may
+  // read them. Everyone reads the public totals doc instead.
+  await adminDb.collection('preMarketOrders').doc('pm_mine').set({ userId: uid, ticker: 'JAY', status: 'PENDING' });
+  await adminDb
+    .collection('preMarketOrders')
+    .doc('pm_theirs')
+    .set({ userId: 'someone_else', ticker: 'JAY', status: 'PENDING' });
+  await adminDb.collection('market').doc('preMarketBook').set({ session: '2026-10-15', tickers: {} });
+  await checkAccess('read own pre-market order', 'allowed', () => getDoc(doc(clientDb, 'preMarketOrders', 'pm_mine')));
+  await checkAccess("read another player's pre-market order", 'blocked', () =>
+    getDoc(doc(clientDb, 'preMarketOrders', 'pm_theirs')),
+  );
+  await checkAccess('read the pre-market totals', 'allowed', () => getDoc(doc(clientDb, 'market', 'preMarketBook')));
+  await checkAccess('forge the pre-market totals', 'blocked', () =>
+    setDoc(doc(clientDb, 'market', 'preMarketBook'), { session: '2026-10-15', tickers: { JAY: { buy: 1e6 } } }),
+  );
+
   console.log('\n── Admin history ─────────────────────────────────────────────');
   // Limit orders: a live order (pending or partly filled) can be cancelled, and
   // nothing else about it may change.

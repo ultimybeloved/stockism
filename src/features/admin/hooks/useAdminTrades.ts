@@ -1,105 +1,106 @@
 import { useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import {
+  collection,
+  documentId,
+  getDocs,
+  limitToLast,
+  orderBy,
+  query,
+  where,
+  Timestamp,
+  type QueryConstraint,
+} from 'firebase/firestore';
 import { db } from '../../../firebase';
 import type { AdminHookDeps } from '../utils/adminShared';
+import {
+  botLogToRows,
+  ipoLedgerToRow,
+  matchesFilters,
+  tradeRecordToRow,
+  type AdminTradeRow,
+} from '../utils/adminTradeRows';
 
-import type { UserData } from '../../../types';
+export type { AdminTradeRow } from '../utils/adminTradeRows';
 
-export interface AdminTradeRow {
-  userId: string;
-  userName: string;
-  isBot: boolean;
-  type: string;
-  ticker: string;
-  shares: number;
-  price: number;
-  total: number;
-  timestamp: number;
-  priceImpact: number;
-  newPrice: number;
-  profit: number | null;
+/** Newest player fills fetched per load; keeps "All Time" from reading the whole collection. */
+export const TRADE_LOAD_CAP = 3000;
+
+const PERIOD_MS: Record<string, number> = {
+  '24h': 24 * 60 * 60 * 1000,
+  week: 7 * 24 * 60 * 60 * 1000,
+  month: 30 * 24 * 60 * 60 * 1000,
+};
+
+// Display names for the players in the feed, 30 per read (the `in` limit).
+async function loadNames(uids: string[]) {
+  const names = new Map<string, string>();
+  for (let i = 0; i < uids.length; i += 30) {
+    const chunk = uids.slice(i, i + 30);
+    const snap = await getDocs(query(collection(db, 'users'), where(documentId(), 'in', chunk)));
+    snap.forEach((d) => names.set(d.id, (d.data().displayName as string) || 'Unknown'));
+  }
+  return names;
 }
 
-// Trades tab: recent-trade feed with time/type/ticker/bot filters.
+// Trades tab: every fill (manual, limit, stop loss, pre-market, IPO, forced
+// margin closes, bots) with time/type/ticker/bot filters.
 export function useAdminTrades({ showMessage }: Pick<AdminHookDeps, 'showMessage'>) {
-  // Trade investigation state
   const [recentTrades, setRecentTrades] = useState<AdminTradeRow[]>([]);
   const [tradesLoading, setTradesLoading] = useState(false);
+  const [tradesCapped, setTradesCapped] = useState(false);
   const [tradeFilterTicker, setTradeFilterTicker] = useState('');
-  const [tradeTimePeriod, setTradeTimePeriod] = useState('24h'); // '24h', 'week', 'all'
-  const [tradeTypeFilter, setTradeTypeFilter] = useState('all'); // 'all', 'BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'
+  const [tradeTimePeriod, setTradeTimePeriod] = useState('24h'); // '24h', 'week', 'month', 'all'
+  const [tradeTypeFilter, setTradeTypeFilter] = useState('all'); // 'all' or an AdminTradeType
   const [tradeBotFilter, setTradeBotFilter] = useState('real'); // 'real', 'bots', 'all'
 
-  // Load all recent trades from transaction logs
   const loadRecentTrades = async (timePeriod = '24h', typeFilter = 'all', tickerFilter = '', botFilter = 'real') => {
     setTradesLoading(true);
     try {
-      const usersRef = collection(db, 'users');
-      const snapshot = await getDocs(usersRef);
+      const cutoff = PERIOD_MS[timePeriod] ? Date.now() - PERIOD_MS[timePeriod] : 0;
+      const ticker = tickerFilter.trim().toUpperCase();
+      const rows: AdminTradeRow[] = [];
+      let capped = false;
 
-      // Calculate time cutoff
-      const now = Date.now();
-      let cutoffTime = 0;
-      if (timePeriod === '24h') {
-        cutoffTime = now - 24 * 60 * 60 * 1000;
-      } else if (timePeriod === 'week') {
-        cutoffTime = now - 7 * 24 * 60 * 60 * 1000;
-      } else if (timePeriod === 'month') {
-        cutoffTime = now - 30 * 24 * 60 * 60 * 1000;
+      if (botFilter !== 'bots') {
+        // Ticker + time range uses the (ticker, timestamp) index; ordering
+        // ascending and keeping the last N gives the newest N.
+        const constraints: QueryConstraint[] = [];
+        if (ticker) constraints.push(where('ticker', '==', ticker));
+        if (cutoff) constraints.push(where('timestamp', '>=', Timestamp.fromMillis(cutoff)));
+        constraints.push(orderBy('timestamp', 'asc'), limitToLast(TRADE_LOAD_CAP));
+        const [tradeSnap, ipoSnap] = await Promise.all([
+          getDocs(query(collection(db, 'trades'), ...constraints)),
+          getDocs(query(collection(db, 'ledger'), where('type', '==', 'ipo_buy'))),
+        ]);
+        capped = tradeSnap.size >= TRADE_LOAD_CAP;
+
+        const partial = [
+          ...tradeSnap.docs.map((d) => tradeRecordToRow(d.id, d.data())),
+          ...ipoSnap.docs.map((d) => ipoLedgerToRow(d.id, d.data())),
+        ].filter((r): r is Omit<AdminTradeRow, 'userName' | 'isBot'> => r !== null);
+        const kept = partial.filter((r) =>
+          matchesFilters({ ...r, userName: '', isBot: false }, cutoff, typeFilter, ticker),
+        );
+        const names = await loadNames([...new Set(kept.map((r) => r.userId))]);
+        for (const r of kept) {
+          rows.push({ ...r, userName: names.get(r.userId) || 'Deleted account', isBot: false });
+        }
       }
-      // 'all' means cutoffTime = 0
 
-      const trades: AdminTradeRow[] = [];
-
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data() as UserData;
-        const userId = docSnap.id;
-        const userName = data.displayName || 'Unknown';
-        const isBot = data.isBot || false;
-        const transactionLog = data.transactionLog || [];
-
-        // Filter by bot status
-        if (botFilter === 'real' && isBot) return;
-        if (botFilter === 'bots' && !isBot) return;
-        // 'all' shows both
-
-        // Get trades from transaction log
-        transactionLog.forEach((tx) => {
-          if (!['BUY', 'SELL', 'SHORT_OPEN', 'SHORT_CLOSE'].includes(tx.type)) return;
-          if (tx.timestamp < cutoffTime) return;
-          if (typeFilter !== 'all' && tx.type !== typeFilter) return;
-          if (tickerFilter && tx.ticker !== tickerFilter.toUpperCase()) return;
-
-          trades.push({
-            userId,
-            userName,
-            isBot,
-            type: tx.type,
-            ticker: tx.ticker || '',
-            shares: tx.shares || tx.amount || 0,
-            price: tx.pricePerShare || tx.price || tx.entryPrice || 0,
-            // A cover logs no total of its own; the cash it moved is the total.
-            total:
-              tx.totalCost ||
-              tx.totalRevenue ||
-              tx.marginRequired ||
-              (typeof tx.cashAfter === 'number' && typeof tx.cashBefore === 'number'
-                ? Math.abs(tx.cashAfter - tx.cashBefore)
-                : 0),
-            timestamp: tx.timestamp,
-            priceImpact: tx.priceImpact || 0,
-            newPrice: tx.newPrice || 0,
-            // The log stores totalProfit on covers; there was never a `profit` field.
-            profit: typeof tx.totalProfit === 'number' ? tx.totalProfit : null,
-          });
+      if (botFilter !== 'real') {
+        const botSnap = await getDocs(query(collection(db, 'users'), where('isBot', '==', true)));
+        botSnap.forEach((d) => {
+          const data = d.data();
+          for (const r of botLogToRows(d.id, (data.displayName as string) || 'Bot', data.transactionLog || [])) {
+            if (matchesFilters(r, cutoff, typeFilter, ticker)) rows.push(r);
+          }
         });
-      });
+      }
 
-      // Sort by most recent first
-      trades.sort((a, b) => b.timestamp - a.timestamp);
-
-      setRecentTrades(trades);
-      showMessage('success', `Found ${trades.length} trades`);
+      rows.sort((a, b) => b.timestamp - a.timestamp);
+      setRecentTrades(rows);
+      setTradesCapped(capped);
+      showMessage('success', `Found ${rows.length} trades`);
     } catch (err) {
       console.error('Failed to load trades:', err);
       showMessage('error', 'Failed to load trades');
@@ -117,6 +118,7 @@ export function useAdminTrades({ showMessage }: Pick<AdminHookDeps, 'showMessage
     tradeBotFilter,
     setTradeBotFilter,
     tradesLoading,
+    tradesCapped,
     recentTrades,
     loadRecentTrades,
   };
