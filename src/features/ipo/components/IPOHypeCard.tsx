@@ -4,6 +4,7 @@ import { formatCurrency, formatTimeRemaining } from '../../../utils/formatters';
 import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../../../constants';
 import { useSession } from '../../../context/AppContext';
 import type { IPO } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 const IPOHypeCard = ({ ipo }: { ipo: IPO }) => {
   const { userData } = useSession();
@@ -20,7 +21,7 @@ const IPOHypeCard = ({ ipo }: { ipo: IPO }) => {
 
       <div className="relative">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">🚀</span>
+          <PixelIcon name="rocket" className="w-5 h-5 block" />
           <span className="text-xs font-bold uppercase text-orange-500 tracking-wider">IPO Coming Soon</span>
         </div>
 

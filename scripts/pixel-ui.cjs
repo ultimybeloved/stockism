@@ -599,6 +599,32 @@ const icons = {
     rect(6, 5, 8, 14, 'W');
     rect(11, 5, 13, 14, 'W');
   },
+  // Launch time (tutorial finale, IPO coming soon): a red-nosed rocket.
+  rocket: ({ rect, disc, px }) => {
+    for (let y = 1; y <= 13; y++) {
+      const w = y < 5 ? Math.round((y - 0.5) * 0.9) : 3;
+      rect(C - w, y, C - 1 + w, y, y < 4 ? 'R' : 'W');
+    }
+    rect(10, 5, 12, 13, 'S');
+    disc(C, 8, 1.6, 'B');
+    px(9, 7, 'c');
+    rect(4, 10, 6, 14, 'R');
+    rect(13, 10, 15, 14, 'r');
+    rect(5, 9, 6, 9, 'R');
+    rect(13, 9, 14, 9, 'r');
+    rect(8, 14, 11, 14, 's');
+    rect(8, 15, 11, 16, 'Y');
+    rect(9, 17, 10, 18, 'y');
+  },
+  // IPO sold out: a red no-sign.
+  sold_out: ({ disc, line }) => {
+    disc(C, C, 8.6, 'R');
+    disc(C, C, 6.4, null);
+    for (const o of [0, 1]) {
+      line(5 + o, 5, 15, 15 - o, 'R');
+      line(5, 5 + o, 15 - o, 15, 'R');
+    }
+  },
 };
 for (const [name, draw] of Object.entries(icons)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw, UI_PAL));
 console.log('wrote', Object.keys(icons).length);

@@ -8,43 +8,41 @@ import { pixelatedIfSvg } from '../../../constants/crests';
 const STEPS = [
   {
     title: 'Welcome to Stockism!',
-    emoji: '📈',
+    image: '/pins/ui/stockism.svg',
     description:
       'You start with $1,000 in cash, raised to $3,000 when you link Discord. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.',
     spotlight: false,
   },
   {
     title: 'Join a Crew',
-    emoji: null,
-    emojiImg: '/crews/wtjc.png',
+    image: '/pins/ui/crews.svg',
     description:
       'Pick a crew to join! Each crew gives you unique missions and bonus rewards. Work together with your crewmates to climb the leaderboard and earn extra cash.',
     spotlight: 'down',
   },
   {
     title: 'Start Trading',
-    emoji: '💰',
+    image: '/pins/ui/trade.svg',
     description:
       'Tap any character card to see their price chart. Hit the Trade button, choose Buy or Sell, and pick how many shares you want. Prices go up when people buy and down when they sell. Timing is everything.',
     spotlight: false,
   },
   {
     title: 'Complete Missions',
-    emoji: '🎯',
+    image: '/pins/ui/missions.svg',
     description:
       "Check your missions daily! You'll get daily and weekly challenges that earn you bonus cash when completed. Missions reset on a timer so keep coming back.",
     spotlight: false,
   },
   {
     title: 'Thursday Halt & Pre-Market',
-    emoji: '⏸️',
-    emojiImg: '/pins/ui/pause.svg',
+    image: '/pins/ui/pause.svg',
     description: `Every week the market closes (${marketTimes().halt}) while new chapter events get priced in. Near the end (${marketTimes().preMarket}) you can queue pre-market buy and sell orders. They all execute together the moment the market reopens.`,
     spotlight: false,
   },
   {
     title: "You're Ready!",
-    emoji: '🚀',
+    image: '/pins/ui/rocket.svg',
     description:
       'Explore the leaderboard to see top traders, unlock achievements as you play, try the ladder game, and bet on what happens next in the story. Good luck out there!',
     spotlight: false,
@@ -111,18 +109,14 @@ export default function OnboardingTutorial({ onComplete }: { onComplete: () => v
           ))}
         </div>
 
-        {/* Illustration emoji */}
-        <div className="text-5xl text-center mb-4">
-          {current.emojiImg ? (
-            <img
-              src={current.emojiImg}
-              alt=""
-              className="w-12 h-12 mx-auto object-contain"
-              style={pixelatedIfSvg(current.emojiImg)}
-            />
-          ) : (
-            current.emoji
-          )}
+        {/* Illustration */}
+        <div className="mb-4">
+          <img
+            src={current.image}
+            alt=""
+            className="w-12 h-12 mx-auto object-contain"
+            style={pixelatedIfSvg(current.image)}
+          />
         </div>
 
         {/* Title */}

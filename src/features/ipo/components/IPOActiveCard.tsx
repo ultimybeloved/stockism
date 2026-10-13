@@ -6,6 +6,7 @@ import { IPO_TOTAL_SHARES, IPO_MAX_PER_USER } from '../../../constants';
 import { useSession } from '../../../context/AppContext';
 
 import type { IPO } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 const IPOActiveCard = ({
   ipo,
@@ -66,7 +67,7 @@ const IPOActiveCard = ({
       </div>
 
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-xl">📈</span>
+        <PixelIcon name="trade" className="w-5 h-5 block" />
         <span
           className={`text-xs font-bold uppercase ${colorBlindMode ? 'text-teal-500' : 'text-green-500'} tracking-wider`}
         >
@@ -115,7 +116,10 @@ const IPOActiveCard = ({
         <p className={`text-center text-sm ${mutedClass} mt-3`}>Sign in to participate in IPO</p>
       ) : soldOut ? (
         <div className="mt-3 text-center">
-          <p className={`${colorBlindMode ? 'text-purple-500' : 'text-red-500'} font-bold`}>🚫 SOLD OUT</p>
+          <p className={`${colorBlindMode ? 'text-purple-500' : 'text-red-500'} font-bold`}>
+            <PixelIcon name="sold_out" className="w-4 h-4 mr-1 align-[-3px]" />
+            SOLD OUT
+          </p>
           <p className={`text-xs ${mutedClass}`}>Normal trading begins soon with 15% price increase</p>
         </div>
       ) : userMaxedOut ? (
