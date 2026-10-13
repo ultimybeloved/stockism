@@ -47,6 +47,18 @@ export function networkKey(ip: unknown): string | null {
 }
 
 /**
+ * The ipTracking doc id for a connection: the networkKey with the separators
+ * Firestore ids can't take swapped out. Every per-connection rule (accounts per
+ * connection, the shared daily impact allowance, the signup cap) keys off this.
+ * They used the raw address until 2026-10-13, so one IPv6 home whose devices
+ * each had their own rotating address counted as many connections.
+ */
+export function ipTrackingKey(ip: unknown): string | null {
+  const key = networkKey(ip);
+  return key ? key.replace(/[.:/]/g, '_') : null;
+}
+
+/**
  * True if this Discord ID was linked to a Stockism account that was deleted
  * within the relink cooldown. Shared by discordAuth and discordLink so the two
  * can't drift. Blocks the create → grab the verified $3k → gamble → delete →

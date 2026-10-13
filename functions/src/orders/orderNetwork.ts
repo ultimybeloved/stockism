@@ -36,13 +36,12 @@ export interface OrderNetwork {
   recentTraders: Record<string, number>;
 }
 import { assertIpAccountCap } from '../trading/tradeGuards';
+import { ipTrackingKey } from '../shared/accountGuards';
 import { buildIpTrackingUpdate } from '../trading/tradeState';
 
 /** The ipTracking doc id for this request's connection, or null. Same key executeTrade uses. */
-export const networkKeyOf = (context: CallableContext | null | undefined): string | null => {
-  const ip = context?.rawRequest?.ip;
-  return ip ? ip.replace(/[.:/]/g, '_') : null;
-};
+export const networkKeyOf = (context: CallableContext | null | undefined): string | null =>
+  ipTrackingKey(context?.rawRequest?.ip);
 
 const ipRef = (key: string) => db.collection('ipTracking').doc(key);
 const originRef = (orderId: string) => db.collection('orderOrigins').doc(orderId);

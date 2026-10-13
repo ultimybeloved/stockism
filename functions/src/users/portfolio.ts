@@ -259,6 +259,16 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   if (!weeklyData || weeklyData.startGrantedValue === undefined) {
     updateData[`weeklyMissions.${syncWeekId}.startGrantedValue`] = userData.grantedValue || 0;
   }
+  // Debt at the start of the week, so the growth missions measure net worth.
+  if (!weeklyData || weeklyData.startMarginUsed === undefined) {
+    updateData[`weeklyMissions.${syncWeekId}.startMarginUsed`] = userData.marginUsed || 0;
+  }
+
+  // What the player is actually worth: portfolioValue counts stock bought with
+  // borrowed money but not the loan. Peak value (which sets the margin tier) and
+  // the value achievements use this, so borrowing can't unlock more borrowing or
+  // award "broke $10K" on someone else's money (2026-10-13).
+  const netWorth = Math.round((portfolioValue - (userData.marginUsed || 0)) * 100) / 100;
 
   // Track lowest price while holding for Diamond Hands achievement
   const holdings: Record<string, number> = userData.holdings || {};
@@ -274,7 +284,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   }
 
   // Update peak portfolio value
-  const peakPortfolioValue = Math.max(userData.peakPortfolioValue || 0, portfolioValue);
+  const peakPortfolioValue = Math.max(userData.peakPortfolioValue || 0, netWorth);
   if (peakPortfolioValue > (userData.peakPortfolioValue || 0)) {
     updateData.peakPortfolioValue = peakPortfolioValue;
   }
@@ -365,15 +375,15 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   if (totalTrades >= 1 && !currentAchievements.includes('FIRST_BLOOD')) newAchievements.push('FIRST_BLOOD');
   if (totalTrades >= 20 && !currentAchievements.includes('TRADER_20')) newAchievements.push('TRADER_20');
   if (totalTrades >= 100 && !currentAchievements.includes('TRADER_100')) newAchievements.push('TRADER_100');
-  if (portfolioValue >= 2500 && !currentAchievements.includes('BROKE_2K')) newAchievements.push('BROKE_2K');
-  if (portfolioValue >= 5000 && !currentAchievements.includes('BROKE_5K')) newAchievements.push('BROKE_5K');
-  if (portfolioValue >= 10000 && !currentAchievements.includes('BROKE_10K')) newAchievements.push('BROKE_10K');
-  if (portfolioValue >= 25000 && !currentAchievements.includes('BROKE_25K')) newAchievements.push('BROKE_25K');
-  if (portfolioValue >= 50000 && !currentAchievements.includes('BROKE_50K')) newAchievements.push('BROKE_50K');
-  if (portfolioValue >= 100000 && !currentAchievements.includes('BROKE_100K')) newAchievements.push('BROKE_100K');
-  if (portfolioValue >= 250000 && !currentAchievements.includes('BROKE_250K')) newAchievements.push('BROKE_250K');
-  if (portfolioValue >= 500000 && !currentAchievements.includes('BROKE_500K')) newAchievements.push('BROKE_500K');
-  if (portfolioValue >= 1000000 && !currentAchievements.includes('BROKE_1M')) newAchievements.push('BROKE_1M');
+  if (netWorth >= 2500 && !currentAchievements.includes('BROKE_2K')) newAchievements.push('BROKE_2K');
+  if (netWorth >= 5000 && !currentAchievements.includes('BROKE_5K')) newAchievements.push('BROKE_5K');
+  if (netWorth >= 10000 && !currentAchievements.includes('BROKE_10K')) newAchievements.push('BROKE_10K');
+  if (netWorth >= 25000 && !currentAchievements.includes('BROKE_25K')) newAchievements.push('BROKE_25K');
+  if (netWorth >= 50000 && !currentAchievements.includes('BROKE_50K')) newAchievements.push('BROKE_50K');
+  if (netWorth >= 100000 && !currentAchievements.includes('BROKE_100K')) newAchievements.push('BROKE_100K');
+  if (netWorth >= 250000 && !currentAchievements.includes('BROKE_250K')) newAchievements.push('BROKE_250K');
+  if (netWorth >= 500000 && !currentAchievements.includes('BROKE_500K')) newAchievements.push('BROKE_500K');
+  if (netWorth >= 1000000 && !currentAchievements.includes('BROKE_1M')) newAchievements.push('BROKE_1M');
   // Diversified: hold 5+ tickers. Auto-revoked if user drops below 5.
   if (holdingsCount >= 5 && !currentAchievements.includes('DIVERSIFIED')) {
     newAchievements.push('DIVERSIFIED');
@@ -410,7 +420,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
 
   // Check leaderboard achievements (server-side, no client trust needed)
   const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;
-  if (portfolioValue >= MIN_PORTFOLIO_FOR_LEADERBOARD && !currentAchievements.includes('TOP_1')) {
+  if (netWorth >= MIN_PORTFOLIO_FOR_LEADERBOARD && !currentAchievements.includes('TOP_1')) {
     try {
       const topSnap = await db.collection('users').orderBy('portfolioValue', 'desc').limit(10).get();
 

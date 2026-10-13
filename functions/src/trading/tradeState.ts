@@ -15,6 +15,7 @@ import type { ShortPosition, UserData } from '../shared/types';
 /** { ticker: { action: entries } }, on the user doc and on ipTracking docs. */
 export type HistoryMap = Record<string, ActionHistory>;
 import { seasonMarginUpdate } from '../season/seasonTiers';
+import { ipTrackingKey } from '../shared/accountGuards';
 
 // ANTI-MANIPULATION: Read IP-level trade history (shared across all accounts
 // on the same IP). Must run before any transaction writes.
@@ -40,7 +41,8 @@ export async function readIpTradeData(
   };
   if (ip === 'unknown') return result;
 
-  result.sanitizedIp = ip.replace(/[.:/]/g, '_');
+  result.sanitizedIp = ipTrackingKey(ip);
+  if (!result.sanitizedIp) return result;
   result.ipTrackingRef = db.collection('ipTracking').doc(result.sanitizedIp);
   const ipDoc = await transaction.get(result.ipTrackingRef);
   if (ipDoc.exists) {

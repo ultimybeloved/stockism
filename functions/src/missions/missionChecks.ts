@@ -32,6 +32,7 @@ export interface WeeklyProgress {
   checkinDays?: Record<string, boolean>;
   startPortfolioValue?: number;
   startGrantedValue?: number;
+  startMarginUsed?: number;
 }
 
 // A mission's target. A mission with none can never be met (x >= undefined was false before).
@@ -101,9 +102,14 @@ export const WEEKLY_MISSION_CHECKS: Record<string, MissionCheck<WeeklyProgress>>
  * Mirrored in src/utils/missionProgress.ts.
  */
 function earnedGrowthPct(wp: WeeklyProgress, userData: UserData) {
-  const startValue = wp.startPortfolioValue || 0;
+  // Net of margin debt at both ends. Borrowing adds the bought stock to
+  // portfolioValue without subtracting the loan, so a margin buy read as 25-75%
+  // growth and completed both missions with nothing earned (fixed 2026-10-13).
+  // A week recorded before startMarginUsed existed counts no debt at the start.
+  const startValue = (wp.startPortfolioValue || 0) - (wp.startMarginUsed || 0);
   if (startValue <= 0) return -Infinity;
   const granted = userData.grantedValue || 0;
   const grantedThisWeek = granted - (wp.startGrantedValue ?? granted);
-  return (((userData.portfolioValue || 0) - grantedThisWeek - startValue) / startValue) * 100;
+  const nowValue = (userData.portfolioValue || 0) - (userData.marginUsed || 0);
+  return ((nowValue - grantedThisWeek - startValue) / startValue) * 100;
 }

@@ -97,6 +97,7 @@ const DailyMissionsModal = ({
       crewMembers,
       portfolioValue,
       grantedValue: userData?.grantedValue || 0,
+      marginUsed: userData?.marginUsed || 0,
     }),
     claimed: weeklyProgress.claimed?.[mission.id] || false,
   }));

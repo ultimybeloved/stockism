@@ -183,7 +183,9 @@ const maxSharesForAction = ({
     if (getTradeCount(userData, ticker, 'short') >= MAX_TRADES_PER_TICKER_24H) return 0;
 
     // Max short is capped by portfolio equity (prevents leverage spiral)
-    const portfolioEquity = userData && prices ? calculatePortfolioValue(userData, prices) : userCash;
+    // Net worth: margin debt comes off, same as the server's computeShort.
+    const portfolioEquity =
+      userData && prices ? calculatePortfolioValue(userData, prices) - (userData.marginUsed || 0) : userCash;
     if (portfolioEquity <= 0) return 0;
 
     // Total short margin (existing + new) can't exceed portfolio equity

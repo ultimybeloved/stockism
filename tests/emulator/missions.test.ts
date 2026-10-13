@@ -450,6 +450,28 @@ async function main() {
   const earned = await claimMissionReward.run({ missionId: 'PORTFOLIO_BUILDER', type: 'weekly' }, ctx('w_earned'));
   check('the same growth from trading does complete it', earned.success === true, earned);
 
+  // Borrowing is not growth: a margin buy adds the stock to portfolioValue
+  // without subtracting the loan.
+  await seedMissionUser('w_margin', {
+    seed: growthSeed,
+    extra: { portfolioValue: start + freeRise, grantedValue: 0, marginUsed: freeRise },
+  });
+  await db
+    .collection('users')
+    .doc('w_margin')
+    .update({
+      [`weeklyMissions.${weekId()}.startPortfolioValue`]: start,
+      [`weeklyMissions.${weekId()}.startGrantedValue`]: 0,
+      [`weeklyMissions.${weekId()}.startMarginUsed`]: 0,
+    });
+  check(
+    'growth that is all borrowed money does not complete a growth mission',
+    (await rejects(
+      () => claimMissionReward.run({ missionId: 'PORTFOLIO_BUILDER', type: 'weekly' }, ctx('w_margin')),
+      /not completed/i,
+    )) === true,
+  );
+
   // ── G. Reroll ─────────────────────────────────────────────────────────────
   console.log('\nG. Reroll');
 

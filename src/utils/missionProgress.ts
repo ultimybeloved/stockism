@@ -30,6 +30,7 @@ export interface WeeklyProgress {
   checkinDays?: Record<string, unknown>;
   startPortfolioValue?: number;
   startGrantedValue?: number;
+  startMarginUsed?: number;
 }
 
 export const getDailyMissionProgress = (
@@ -104,6 +105,7 @@ export const getWeeklyMissionProgress = (
     crewMembers,
     portfolioValue,
     grantedValue = 0,
+    marginUsed = 0,
   }: {
     holdings: ShareMap;
     weeklyProgress: WeeklyProgress;
@@ -111,6 +113,7 @@ export const getWeeklyMissionProgress = (
     crewMembers: string[];
     portfolioValue: number;
     grantedValue?: number;
+    marginUsed?: number;
   },
 ): MissionProgress => {
   // Every check type that compares against `requirement` defines one.
@@ -196,9 +199,11 @@ export const getWeeklyMissionProgress = (
       // requirement is percent growth from the week's starting value, with free
       // money received this week taken out. Mirror of earnedGrowthPct in
       // functions/src/missions/missionChecks.js.
-      const startValue = wp.startPortfolioValue || portfolioValue;
+      // Margin debt comes off both ends, so borrowing isn't growth.
+      const startValue = (wp.startPortfolioValue || portfolioValue) - (wp.startMarginUsed || 0);
       const grantedThisWeek = grantedValue - (wp.startGrantedValue ?? grantedValue);
-      const growthPct = startValue > 0 ? ((portfolioValue - grantedThisWeek - startValue) / startValue) * 100 : 0;
+      const nowValue = portfolioValue - marginUsed;
+      const growthPct = startValue > 0 ? ((nowValue - grantedThisWeek - startValue) / startValue) * 100 : 0;
       return {
         complete: growthPct >= req,
         progress: Math.max(0, Math.floor(growthPct)),

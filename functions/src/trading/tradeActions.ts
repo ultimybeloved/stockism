@@ -301,6 +301,9 @@ export function computeShort({
     if (s > 0) portfolioEquity += (prices[t] || 0) * s;
   });
   portfolioEquity += shortsEquity(shorts, prices);
+  // Net worth, as the rule says: stock bought on margin is not the player's own
+  // money, so the loan comes off before sizing either short cap.
+  portfolioEquity -= (userData.marginUsed as number) || 0;
 
   const existingShortMargin = Object.values(shorts).reduce(
     (sum, pos) => sum + (pos && pos.shares > 0 ? pos.margin || 0 : 0),

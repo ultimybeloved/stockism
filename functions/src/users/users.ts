@@ -19,7 +19,7 @@ import {
   IP_SLOT_RELEASE_MS,
 } from '../shared/constants';
 import { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat } from '../shared/usernames';
-import { checkBanned, networkKey } from '../shared/accountGuards';
+import { checkBanned, networkKey, ipTrackingKey } from '../shared/accountGuards';
 import { readIndexNow } from '../shared/marketData';
 import { buildSeasonBaseline } from '../season/seasonTiers';
 import { isDisposableEmailLive } from './disposableEmail';
@@ -113,6 +113,9 @@ export const createUser = cf().https.onCall(async (data, context) => {
   let autoLinkData = null;
   const signupIp = context.rawRequest?.ip || 'unknown';
   const sanitizedSignupIp = signupIp !== 'unknown' ? signupIp.replace(/[.:/]/g, '_') : null;
+  // The per-connection signup cap counts the whole connection (IPv6 /64), same
+  // key the trade path uses.
+  const signupTrackingKey = ipTrackingKey(signupIp);
 
   // Per-IP signup controls (admin exempt) are enforced INSIDE the create
   // transaction below, not here. The old version read the IP count before the
@@ -233,7 +236,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
       // part of the same transaction as the user doc, so concurrent burst
       // signups on one IP serialize and the cap holds exactly.
       const ipTrackingRef =
-        uid !== ADMIN_UID && sanitizedSignupIp ? db.collection('ipTracking').doc(sanitizedSignupIp) : null;
+        uid !== ADMIN_UID && signupTrackingKey ? db.collection('ipTracking').doc(signupTrackingKey) : null;
       if (ipTrackingRef) {
         const ipTrackDoc = await transaction.get(ipTrackingRef);
         const ipTrackData = ipTrackDoc.exists ? ipTrackDoc.data() : {};
