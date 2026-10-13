@@ -25,6 +25,12 @@ interface IndexHistoryPoint {
 
 type IndexHistory = Record<string, IndexHistoryPoint[]>;
 
+/** One daily close the backend records on market/indexHistory. */
+export interface RecordedIndexPoint {
+  t: number;
+  v: number;
+}
+
 const valueFrom = (sum: number, count: number, divisor: number | null | undefined): number => {
   if (divisor && divisor > 0) return sum / divisor;
   return count > 0 ? INDEX_BASE_VALUE * (sum / count) : INDEX_BASE_VALUE;
@@ -80,7 +86,10 @@ export const computeIndexAtTime = (
       count++;
       continue;
     }
-    let nearest: number | null = null;
+    // Before a stock's oldest kept point, its oldest known price is the best guess.
+    // Base price is not: busy stocks only keep a couple of days of points, and
+    // assuming base before that drew a fake jump into the chart.
+    let nearest = history[0]!.price;
     for (let j = history.length - 1; j >= 0; j--) {
       const point = history[j]!;
       const ts = getTimestamp(point);
@@ -89,10 +98,24 @@ export const computeIndexAtTime = (
         break;
       }
     }
-    sum += (nearest != null ? nearest : base) / base;
+    sum += nearest / base;
     count++;
   }
   return valueFrom(sum, count, divisor);
+};
+
+// The live price history keeps only the last ~60 points per stock, so it can
+// rebuild the index only back to when the busiest stock's points begin. Older
+// than that, the chart uses the daily values the backend recorded.
+const fullCoverageStart = (priceHistory: IndexHistory): number => {
+  let latestFirst = 0;
+  for (const char of nonETFCharacters) {
+    const history = priceHistory[char.ticker];
+    if (!history || history.length === 0) continue;
+    const ts = getTimestamp(history[0]!);
+    if (ts != null && ts > latestFirst) latestFirst = ts;
+  }
+  return latestFirst;
 };
 
 export const buildIndexSeries = (
@@ -100,6 +123,7 @@ export const buildIndexSeries = (
   currentIndex: number,
   hours: number,
   divisor: number | null | undefined,
+  recorded: RecordedIndexPoint[] = [],
 ): { timestamp: number; price: number }[] => {
   if (!priceHistory || Object.keys(priceHistory).length === 0) return [];
 
@@ -128,12 +152,21 @@ export const buildIndexSeries = (
         if (ts && ts < start) start = ts;
       }
     }
+    if (recorded.length > 0 && recorded[0]!.t < start) start = recorded[0]!.t;
   } else {
     start = cutoff;
   }
 
   const points: { timestamp: number; price: number }[] = [];
-  for (let t = start; t <= now; t += interval) {
+  let rebuildFrom = start;
+  if (recorded.length > 0) {
+    const coverage = fullCoverageStart(priceHistory);
+    for (const r of recorded) {
+      if (r.t >= start && r.t < coverage) points.push({ timestamp: r.t, price: r.v });
+    }
+    if (coverage > start) rebuildFrom = coverage;
+  }
+  for (let t = rebuildFrom; t <= now; t += interval) {
     points.push({ timestamp: t, price: computeIndexAtTime(priceHistory, t, divisor) });
   }
   // Always include current

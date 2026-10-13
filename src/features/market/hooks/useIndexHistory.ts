@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import type { RecordedIndexPoint } from '../../../utils/marketIndex';
 
 /**
- * One read of market/indexHistory supplies both the 30-day reference point and
- * the divisor. Without the divisor the live number would drift away from the
+ * One read of market/indexHistory supplies the 30-day reference point, the
+ * recorded daily values the chart uses for older dates, and the divisor. Without the divisor the live number would drift away from the
  * recorded series the moment a character joins the roster.
  */
 export const useIndexHistory = () => {
   const [index30dAgo, setIndex30dAgo] = useState<number | null>(null);
   const [divisor, setDivisor] = useState<number | null>(null);
+  const [recorded, setRecorded] = useState<RecordedIndexPoint[]>([]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -18,8 +20,9 @@ export const useIndexHistory = () => {
         if (cancelled || !snap.exists()) return;
         const data = snap.data();
         if (data.divisor > 0) setDivisor(data.divisor);
-        const hist: { t: number; v: number }[] = data.history || [];
+        const hist: RecordedIndexPoint[] = data.history || [];
         if (hist.length === 0) return;
+        setRecorded(hist);
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
         let ref = hist[0]!;
         for (let i = hist.length - 1; i >= 0; i--) {
@@ -38,5 +41,5 @@ export const useIndexHistory = () => {
     };
   }, []);
 
-  return { index30dAgo, divisor };
+  return { index30dAgo, divisor, recorded };
 };

@@ -20,26 +20,26 @@ const MarketIndex = ({ prices, priceHistory, colorBlindMode = false }: MarketInd
   const [hoveredPoint, setHoveredPoint] = useState<IndexHoverPoint | null>(null);
 
   const { cardClass } = themeClasses;
-  const { index30dAgo, divisor } = useIndexHistory();
+  const { index30dAgo, divisor, recorded } = useIndexHistory();
 
   const currentIndex = useMemo(() => computeIndex(prices, nonETFCharacters, divisor), [prices, divisor]);
 
   // 24h sparkline data
   const { change24h, changePct24h, sparklineData } = useMemo(() => {
-    const points = buildIndexSeries(priceHistory, currentIndex, 24, divisor);
+    const points = buildIndexSeries(priceHistory, currentIndex, 24, divisor, recorded);
     if (points.length === 0) return { change24h: 0, changePct24h: 0, sparklineData: [] };
     const idx24hAgo = points[0]!.price;
     const change = currentIndex - idx24hAgo;
     const pct = idx24hAgo !== 0 ? (change / idx24hAgo) * 100 : 0;
     return { change24h: change, changePct24h: pct, sparklineData: points };
-  }, [priceHistory, currentIndex, divisor]);
+  }, [priceHistory, currentIndex, divisor, recorded]);
 
   // Expanded chart data
   const chartData = useMemo(() => {
     if (!expanded) return [];
     const range = TIME_RANGES.find((r) => r.key === timeRange) ?? TIME_RANGES[0]!;
-    return buildIndexSeries(priceHistory, currentIndex, range.hours, divisor);
-  }, [expanded, timeRange, priceHistory, currentIndex, divisor]);
+    return buildIndexSeries(priceHistory, currentIndex, range.hours, divisor, recorded);
+  }, [expanded, timeRange, priceHistory, currentIndex, divisor, recorded]);
 
   const isUp = change24h >= 0;
   const upColor = colorBlindMode ? 'text-teal-400' : 'text-green-500';
