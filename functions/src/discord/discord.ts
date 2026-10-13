@@ -1,4 +1,5 @@
 import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import { withAdminLog } from '../shared/adminLog';
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -521,17 +522,19 @@ export const dailyFreeStock = cf()
  * linked player another full claim. That is the point (event drops), but it
  * doubles the day's payout — the admin button warns before firing.
  */
-export const triggerDailyFreeStock = cf().https.onCall(async (data, context) => {
-  requireAdmin(context);
+export const triggerDailyFreeStock = cf().https.onCall(
+  withAdminLog('trigger_daily_free_stock', async (data, context) => {
+    requireAdmin(context);
 
-  try {
-    await postDailyDrop();
-    return { success: true };
-  } catch (error) {
-    logger.error('Error in triggerDailyFreeStock:', error);
-    return { success: false, error: (error as Error).message };
-  }
-});
+    try {
+      await postDailyDrop();
+      return { success: true };
+    } catch (error) {
+      logger.error('Error in triggerDailyFreeStock:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  }),
+);
 
 /**
  * Discord Interactions Webhook — handles button clicks for daily stock claim.

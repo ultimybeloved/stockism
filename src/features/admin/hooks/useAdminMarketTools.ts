@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, arrayUnion, writeBatch } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { setMarketHaltFunction } from '../../../api/callables';
 import { priceHistoryDocRef } from '../utils/adminShared';
@@ -81,17 +81,19 @@ export function useAdminMarketTools({
           now = lastTimestamp + 1;
         }
 
-        const updatedHistory = [...currentHistory, { timestamp: now, price: targetPrice, source: 'admin_adjust' }];
-
-        console.log(`Adding price point for ${character.ticker}:`, { timestamp: now, price: targetPrice });
-        console.log(`History length: ${currentHistory.length} → ${updatedHistory.length}`);
+        // Appended, not written back whole: a trade's point landing after the read
+        // above would otherwise be dropped from the chart.
+        const newPoints: PricePoint[] = [
+          ...(histData[character.ticker]?.length ? [] : currentHistory),
+          { timestamp: now, price: targetPrice, source: 'admin_adjust' },
+        ];
 
         // Build market updates with trailing effects
         const marketUpdates: Record<string, number> = {
           [`prices.${character.ticker}`]: targetPrice,
         };
         const historyUpdates: Record<string, PricePoint[] | FieldValue> = {
-          [character.ticker]: updatedHistory,
+          [character.ticker]: arrayUnion(...newPoints),
         };
 
         // Ripple the adjustment out through the linked stocks.
@@ -107,8 +109,14 @@ export function useAdminMarketTools({
         }
         console.log(`[ADMIN TRAILING] ${character.ticker} dragged ${trailingMoves.length} linked stocks`);
 
-        await updateDoc(marketRef, marketUpdates);
-        await setDoc(priceHistoryDocRef(), historyUpdates, { merge: true });
+        // One batch: the price and its admin_adjust point land together or not at
+        // all. As two writes, a failed second one left the new price with no point,
+        // so no protection from the bots and no Review tab entry, and the admin's
+        // retry applied the percent a second time.
+        const batch = writeBatch(db);
+        batch.update(marketRef, marketUpdates);
+        batch.set(priceHistoryDocRef(), historyUpdates, { merge: true });
+        await batch.commit();
         await logPanelAction({
           action: 'adjust_price',
           before: { ticker: character.ticker, price: currentPrice },

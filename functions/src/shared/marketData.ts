@@ -225,7 +225,8 @@ export const applyDueIPOJumps = async () => {
       if ((now >= ipo.ipoEndsAt || soldOut) && !ipo.priceJumped) {
         const newPrice = round2(ipo.basePrice * (1 + IPO_PRICE_JUMP));
         marketUpdates[`prices.${ipo.ticker}`] = newPrice;
-        historyPoints[ipo.ticker] = { timestamp: now, price: newPrice };
+        // Tagged so the halt audit and the Review tab don't read the launch jump as trading.
+        historyPoints[ipo.ticker] = { timestamp: now, price: newPrice, source: 'ipo_launch' };
         tickersToLaunch.push(ipo.ticker);
         updatedList[i] = { ...ipo, priceJumped: true };
 

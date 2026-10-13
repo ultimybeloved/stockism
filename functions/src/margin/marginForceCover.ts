@@ -27,6 +27,7 @@ import {
 } from '../shared/constants';
 import { appendPriceHistory, isPriceProtected } from '../shared/marketData';
 import { liquidityFor } from '../shared/impact';
+import { computePriceUpdates } from '../trading/tradePricing';
 import type { PricePoint, ShortPosition, UserData } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
 
@@ -146,13 +147,20 @@ export const forceCoverShort = async ({
     // price is admin-pinned — newPrice equals freshPrice there, and
     // writing it back would stamp a fresh history point over an
     // adjustment that is meant to stand.
+    //
+    // Linked stocks and parent ETFs follow, as on every other lane that moves a
+    // price (computePriceUpdates). This lane used to move only the stock itself.
     if (!pricePinned) {
-      transaction.update(marketRef, {
-        [`prices.${ticker}`]: newPrice,
-      });
-      appendPriceHistory(transaction, {
-        [ticker]: { timestamp: Date.now(), price: newPrice },
-      });
+      const priceUpdates = computePriceUpdates({ ticker, currentPrice: freshPrice, newPrice, prices: freshPrices });
+      const marketUpdates: Record<string, number> = {};
+      const points: Record<string, PricePoint> = {};
+      const at = Date.now();
+      for (const [t, p] of Object.entries(priceUpdates)) {
+        marketUpdates[`prices.${t}`] = p;
+        points[t] = { timestamp: at, price: p };
+      }
+      transaction.update(marketRef, marketUpdates);
+      appendPriceHistory(transaction, points);
     }
 
     // Log the liquidation trade

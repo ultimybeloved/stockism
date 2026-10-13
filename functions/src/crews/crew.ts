@@ -15,6 +15,7 @@ import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import type { UserData } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
+import { cohortRemoveUpdate } from '../shared/cohorts';
 
 /**
  * The crew-change penalty: CREW_SWITCH_PENALTY of cash (floored to whole
@@ -27,16 +28,29 @@ const crewPenalty = (userData: UserData, prices: Record<string, number>) => {
   const cashTaken = (userData.cash || 0) - newCash;
   const newHoldings: Record<string, number> = {};
   let holdingsValueTaken = 0;
+  // Shares taken leave the lot ledger too, as a sale would; left on the books
+  // they kept earning the exit-loyalty discount on the next sell.
+  const cohortUpdates: Record<string, unknown> = {};
   Object.entries(userData.holdings || {}).forEach(([ticker, shares]) => {
     if (shares > 0) {
       const sharesToTake = Math.min(shares, Math.round(shares * penaltyRate * 100) / 100);
       const sharesToKeep = Math.round((shares - sharesToTake) * 10000) / 10000;
       newHoldings[ticker] = sharesToKeep;
       holdingsValueTaken += sharesToTake * (prices[ticker] || 0);
+      if (sharesToTake > 0) Object.assign(cohortUpdates, cohortRemoveUpdate(userData, ticker, sharesToTake));
     }
   });
-  return { newCash, newHoldings, totalTaken: cashTaken + holdingsValueTaken };
+  return { newCash, newHoldings, cohortUpdates, holdingsValueTaken, totalTaken: cashTaken + holdingsValueTaken };
 };
+
+// The share half of the penalty, in the ledger's shares account like every
+// other share movement that isn't a trade.
+const recordSharePenalty = (
+  transaction: admin.firestore.Transaction,
+  uid: string,
+  type: string,
+  holdingsValueTaken: number,
+) => recordLedger(transaction, { uid, type, account: 'shares', amount: -holdingsValueTaken });
 
 /**
  * Switch Crew - Callable function
@@ -147,12 +161,13 @@ export const switchCrew = cf().https.onCall(async (data: { crewId?: unknown }, c
         const penalty = crewPenalty(userData, prices);
         const { newCash, newHoldings } = penalty;
         totalTaken = penalty.totalTaken;
+        Object.assign(updateData, penalty.cohortUpdates);
+        recordSharePenalty(transaction, uid, 'crew_switch_penalty', penalty.holdingsValueTaken);
         const newPortfolioValue = Math.max(0, (userData.portfolioValue || 0) - totalTaken);
 
         updateData.cash = newCash;
         updateData.holdings = newHoldings;
         updateData.portfolioValue = newPortfolioValue;
-        // Shares taken are noted in detail; the ledger tracks the cash part.
         recordLedger(transaction, {
           uid,
           type: 'crew_switch_penalty',
@@ -211,7 +226,8 @@ export const leaveCrew = cf().https.onCall(async (_data: unknown, context) => {
     }
 
     const prices = marketDoc.exists ? marketDoc.data()!.prices || {} : {};
-    const { newCash, newHoldings, totalTaken } = crewPenalty(userData, prices);
+    const { newCash, newHoldings, totalTaken, cohortUpdates, holdingsValueTaken } = crewPenalty(userData, prices);
+    recordSharePenalty(transaction, uid, 'crew_leave_penalty', holdingsValueTaken);
     const newPortfolioValue = (userData.portfolioValue || 0) - totalTaken;
 
     transaction.update(userRef, {
@@ -225,6 +241,7 @@ export const leaveCrew = cf().https.onCall(async (_data: unknown, context) => {
       lastCrewChange: Date.now(),
       // Lock the crew being left for 30 days.
       [`crewLockouts.${userData.crew}`]: Date.now() + CREW_REJOIN_LOCKOUT_MS,
+      ...cohortUpdates,
     });
     recordLedger(transaction, {
       uid,

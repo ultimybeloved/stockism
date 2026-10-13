@@ -44,7 +44,7 @@ import { seasonRef, BATCH_LIMIT, readLadderCash, runSeasonCheckpoint } from './s
 import { seasonRewardIds } from '../shared/rules/seasons';
 import { COSMETIC_CATALOG } from '../shared/constants/cosmetics';
 import { recordLedger } from '../shared/ledger';
-import { logAdminAction } from '../shared/adminLog';
+import { logAdminAction, withAdminLog } from '../shared/adminLog';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 // Rows kept per size division on the live board and in the filed results.
@@ -208,11 +208,13 @@ export const seasonCheckpoint = cf({ timeoutSeconds: 540 })
     return null;
   });
 
-export const triggerSeasonCheckpoint = cf({ timeoutSeconds: 540 }).https.onCall(async (data, context) => {
-  requireAdmin(context);
-  await assertPricesFrozen('Run the checkpoint');
-  return runSeasonCheckpoint();
-});
+export const triggerSeasonCheckpoint = cf({ timeoutSeconds: 540 }).https.onCall(
+  withAdminLog('trigger_season_checkpoint', async (data, context) => {
+    requireAdmin(context);
+    await assertPricesFrozen('Run the checkpoint');
+    return runSeasonCheckpoint();
+  }),
+);
 
 // ── Admin: end a season ──────────────────────────────────────────────────────
 

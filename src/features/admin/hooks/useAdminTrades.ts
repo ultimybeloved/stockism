@@ -78,11 +78,19 @@ export function useAdminTrades({ showMessage }: Pick<AdminHookDeps, 'showMessage
             ticker: tx.ticker || '',
             shares: tx.shares || tx.amount || 0,
             price: tx.pricePerShare || tx.price || tx.entryPrice || 0,
-            total: tx.totalCost || tx.totalRevenue || tx.marginRequired || 0,
+            // A cover logs no total of its own; the cash it moved is the total.
+            total:
+              tx.totalCost ||
+              tx.totalRevenue ||
+              tx.marginRequired ||
+              (typeof tx.cashAfter === 'number' && typeof tx.cashBefore === 'number'
+                ? Math.abs(tx.cashAfter - tx.cashBefore)
+                : 0),
             timestamp: tx.timestamp,
             priceImpact: tx.priceImpact || 0,
             newPrice: tx.newPrice || 0,
-            profit: tx.profit || null,
+            // The log stores totalProfit on covers; there was never a `profit` field.
+            profit: typeof tx.totalProfit === 'number' ? tx.totalProfit : null,
           });
         });
       });

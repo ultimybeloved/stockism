@@ -238,6 +238,11 @@ export async function syncCrewHeadRoles({
     // longer act on. Drop them rather than firing DELETEs into the void.
     const stale = prev.guildId && prev.guildId !== DISCORD_GUILD_ID;
     const prevHolders: Record<string, Holder | null> = stale ? {} : prev.holders || {};
+    // Old heads whose role removal failed on an earlier run. The bot only removes
+    // roles it has on record, so without this list a failed removal followed by a
+    // successful add for the new head left the old head with the crown forever.
+    const prevStale: { crewId: string; discordId: string; roleId: string }[] = stale ? [] : prev.staleRemovals || [];
+    const staleRemovals: { crewId: string; discordId: string; roleId: string }[] = [];
 
     const holders: Record<string, Holder | null> = {};
     const pending: Record<string, { uid: string; reason: string }> = {};
@@ -256,6 +261,9 @@ export async function syncCrewHeadRoles({
       stoppedEarly = false;
 
     // Plan first, so a dry run reports exactly what a real run would do.
+    for (const leftover of prevStale) {
+      plan.push({ crewId: leftover.crewId, op: 'delete', discordId: leftover.discordId, roleId: leftover.roleId });
+    }
     for (const crewId of crewIds()) {
       const roleId = ROLE_IDS[crewId];
       const held = prevHolders[crewId] || null;
@@ -326,6 +334,8 @@ export async function syncCrewHeadRoles({
         } else {
           failed++;
           problems.push(`${crewName(step.crewId)}: could not remove old role (${result.detail})`);
+          // Retried on the next run, whatever happens to holders below.
+          staleRemovals.push({ crewId: step.crewId, discordId: step.discordId, roleId: step.roleId });
         }
         continue;
       }
@@ -359,6 +369,7 @@ export async function syncCrewHeadRoles({
       updatedAt: Date.now(),
       holders,
       pending,
+      staleRemovals,
       lastRun,
     });
 

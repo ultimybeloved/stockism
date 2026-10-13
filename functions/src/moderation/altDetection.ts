@@ -17,6 +17,7 @@
 // Cost: one scheduled pass reads ALT_SCAN_WINDOW_DAYS of trades (a few thousand
 // reads) and writes one state doc. It adds nothing to the trade path itself.
 
+import { withAdminLog } from '../shared/adminLog';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
@@ -307,15 +308,17 @@ export const triggerAltScan = cf({ timeoutSeconds: 540, memory: '1GB' }).https.o
 /**
  * Marks an alert as dealt with so it stops counting toward the admin badge.
  */
-export const reviewWatchlistAlert = cf().https.onCall(async (data: { alertId?: unknown } | null, context) => {
-  requireAdmin(context, 'Admin only.');
-  const { alertId } = data || {};
-  if (!alertId || typeof alertId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'alertId required');
-  }
-  await db.collection('watchlist_alerts').doc(alertId).update({
-    reviewed: true,
-    reviewedAt: Date.now(),
-  });
-  return { success: true };
-});
+export const reviewWatchlistAlert = cf().https.onCall(
+  withAdminLog('review_watchlist_alert', async (data: { alertId?: unknown } | null, context) => {
+    requireAdmin(context, 'Admin only.');
+    const { alertId } = data || {};
+    if (!alertId || typeof alertId !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'alertId required');
+    }
+    await db.collection('watchlist_alerts').doc(alertId).update({
+      reviewed: true,
+      reviewedAt: Date.now(),
+    });
+    return { success: true };
+  }),
+);

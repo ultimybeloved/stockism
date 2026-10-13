@@ -28,7 +28,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 const db = admin.firestore();
 
-import { RENAME_TIME_BUDGET_MS } from '../shared/constants';
+import { RENAME_TIME_BUDGET_MS, SPLIT_HISTORY_DOC } from '../shared/constants';
 import { priceHistoryRef } from '../shared/marketData';
 import type { DocumentData, DocumentReference } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
@@ -175,6 +175,10 @@ export const PHASES: { name: string; label: string; run: (args: PhaseArgs) => Pr
         return updates;
       });
       await move(m.doc('reviewChanges'), (d) => mapMoveUpdates('changes', d.changes, old, nw));
+      // Split record, keyed by ticker at the top level. Left under the old name,
+      // the stock's split factor read 1 after a rename and the next split's
+      // preflight demanded the wrong factor.
+      await move(m.doc(SPLIT_HISTORY_DOC), (d) => (d[old] !== undefined ? { [nw]: d[old], [old]: DELETE() } : {}));
       await move(m.doc('reviewDetail'), (d) => mapMoveUpdates('detail', d.detail, old, nw));
 
       // The index compares its stored constituent list against the deployed

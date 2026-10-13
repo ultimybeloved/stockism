@@ -57,6 +57,8 @@ export interface FillResult {
   tradeValue: number;
   historyEntry: ImpactEntry;
   trailingEntries: TrailingEntries;
+  /** Every price this fill moved, for the circuit breaker check. */
+  priceUpdates: Record<string, number>;
 }
 
 /**
@@ -298,6 +300,7 @@ export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: Fill
     tradeValue: totalCost,
     historyEntry: { ts: now, shares: fillShares, impact: impactPercent },
     trailingEntries,
+    priceUpdates,
   };
 };
 
@@ -412,6 +415,7 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
     tradeValue: totalRevenue,
     historyEntry: { ts: now, shares: fillShares, impact: impactPercent },
     trailingEntries,
+    priceUpdates,
   };
 };
 

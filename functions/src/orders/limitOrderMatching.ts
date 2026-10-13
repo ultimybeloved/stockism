@@ -19,7 +19,9 @@ import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
-import { ORDERS_PER_TICKER_PER_CYCLE } from '../shared/constants';
+import { ORDERS_PER_TICKER_PER_CYCLE, isWeeklyTradingHalt } from '../shared/constants';
+import { isTickerPaused, evaluateCircuitBreaker, breakerCountUpdate } from '../shared/impact';
+import { priceHistoryRef } from '../shared/marketData';
 import {
   screenOrder,
   screenUser,
@@ -38,7 +40,7 @@ import { computeImpact, applyBuyFill, applySellFill, markOrderFilled, buyAskPric
 import { notifyCanceled, notifyExpired, publishFill } from './limitOrderEffects';
 import { readOrderNetwork, networkImpactSpent, assertNetworkSlot, writeNetworkFill } from './orderNetwork';
 import type { FillCtx } from './limitOrderFill';
-import type { LimitOrder, UserData } from '../shared/types';
+import type { LimitOrder, PricePoint, UserData } from '../shared/types';
 
 // A failure inside the transaction either kills the order or defers it to the
 // next cycle. These are the ones the user cannot recover from by waiting;
@@ -74,12 +76,14 @@ const fillOrder = async (
     marketRef,
     now,
     currentPrice,
+    priceHistory,
   }: {
     order: LimitOrder;
     orderId: string;
     marketRef: admin.firestore.DocumentReference;
     now: number;
     currentPrice: number;
+    priceHistory: Record<string, PricePoint[] | undefined>;
   },
 ) => {
   const orderRef = db.collection('limitOrders').doc(orderId);
@@ -102,6 +106,18 @@ const fillOrder = async (
   // characters and parent ETFs, and needs their prices to do it.
   const freshPrices: Record<string, number> = freshMarketSnap.data()!.prices || {};
   const freshPrice = freshPrices[order.ticker] || currentPrice;
+
+  // Re-checked per fill: a sweep takes a while, and a halt, the 13:00 Thursday
+  // close or a breaker pause that starts during it used to be ignored for the
+  // rest of the sweep. Not in CANCEL_ON, so the order waits for the next one.
+  const freshMarket = freshMarketSnap.data()!;
+  if (
+    freshMarket.marketHalted ||
+    isWeeklyTradingHalt() ||
+    isTickerPaused(freshMarket.haltedTickers, order.ticker, now)
+  ) {
+    throw new Error('Market halted, order deferred');
+  }
 
   assertLimitStillMet(order, freshPrice);
   assertUserEligible(userData);
@@ -157,8 +173,28 @@ const fillOrder = async (
     impactPercent,
     fillSource,
   };
-  const { executedPrice, tradeValue, historyEntry, trailingEntries } =
+  const { executedPrice, tradeValue, historyEntry, trailingEntries, priceUpdates } =
     effectiveType === 'BUY' ? applyBuyFill(transaction, ctx) : applySellFill(transaction, ctx);
+
+  // Circuit breaker, same check executeTrade runs on every price it moves. Only
+  // the player-trade lane used to trip it, so a run of limit fills could take a
+  // stock down more than 10% with no pause. The fill itself still completes.
+  const breakerCounts = freshMarket.breakerCounts || {};
+  const breakerUpdates: Record<string, unknown> = {};
+  for (const [movedTicker, movedPrice] of Object.entries(priceUpdates)) {
+    const halt = evaluateCircuitBreaker({
+      priceHistory,
+      ticker: movedTicker,
+      newPrice: movedPrice,
+      breakerCounts,
+      now,
+    });
+    if (!halt) continue;
+    breakerUpdates[`haltedTickers.${movedTicker}`] = halt;
+    breakerUpdates[`breakerCounts.${movedTicker}`] = breakerCountUpdate(breakerCounts, movedTicker, now);
+    logger.warn(`Circuit breaker tripped on ${movedTicker} by a limit fill: ${halt.reason}`);
+  }
+  if (Object.keys(breakerUpdates).length) transaction.update(marketRef, breakerUpdates);
 
   writeNetworkFill(transaction, net, {
     ticker: order.ticker,
@@ -210,6 +246,11 @@ export const runLimitOrderCheck = async () => {
 
     const prices: Record<string, number> = marketData.prices || {};
     const haltedTickersMap = marketData.haltedTickers || {};
+    // Read once per sweep for the circuit-breaker check. The breaker compares
+    // against the last price before its 5-minute window, which this sweep's own
+    // fills don't change.
+    const histSnap = await priceHistoryRef().get();
+    const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
     const launchedTickers = marketData.launchedTickers || [];
 
     const ordersSnapshot = await db
@@ -281,7 +322,7 @@ export const runLimitOrderCheck = async () => {
         let fill;
         try {
           fill = await db.runTransaction((transaction) =>
-            fillOrder(transaction, { order, orderId, marketRef, now, currentPrice }),
+            fillOrder(transaction, { order, orderId, marketRef, now, currentPrice, priceHistory }),
           );
         } catch (transactionError) {
           const msg = (transactionError as Error).message || '';

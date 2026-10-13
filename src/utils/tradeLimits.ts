@@ -15,7 +15,9 @@ import {
   maxTradeSharesFor,
   getBidAskPrices,
   calculateMarginStatus,
+  getAccountAgeImpactFactor,
 } from './calculations';
+import { exitLoyaltyDiscount } from '../characters';
 import type { Character } from '../characters';
 import type {
   PriceHistory,
@@ -74,12 +76,17 @@ export const getDynamicPrices = (
 ) => {
   const liquidity = liquidityFor(character.ticker);
   const cumVol = getCumulativeVolume(userData, character.ticker, act);
-  const impact = calculateTraderImpactDollars(price, amt, liquidity, cumVol);
+  // New accounts move less, and long-held lots sell against a reduced impact:
+  // the same two factors estimateTradeTotal and the server apply. Without them
+  // this quote disagreed with the confirm screen one click later.
+  const impact = calculateTraderImpactDollars(price, amt, liquidity, cumVol) * getAccountAgeImpactFactor(userData);
 
   if (act === 'buy' || act === 'cover') {
     return getBidAskPrices(price + impact, character.isETF);
   }
-  return getBidAskPrices(Math.max(MIN_PRICE, price - impact), character.isETF);
+  const loyalty =
+    act === 'sell' ? exitLoyaltyDiscount(userData?.holdingCohorts?.[character.ticker], amt, Date.now()) : 0;
+  return getBidAskPrices(Math.max(MIN_PRICE, price - impact * (1 - loyalty)), character.isETF);
 };
 
 // Cash plus any available margin (margin only when includeMargin is true —

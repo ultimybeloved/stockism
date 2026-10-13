@@ -1,4 +1,5 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
+import { withAdminLog } from '../shared/adminLog';
 import * as admin from 'firebase-admin';
 import { FieldValue, type DocumentData, type DocumentReference } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
@@ -365,10 +366,12 @@ export const payDividends = cf({ timeoutSeconds: 540, memory: '512MB' })
  * Admin-only manual trigger for dividend payouts. Safe to re-run if the
  * scheduled run failed: players already paid this week are skipped.
  */
-export const runDividendPayoutNow = cf({ timeoutSeconds: 540, memory: '512MB' }).https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
-  return runDividendPayout({ source: 'manual-admin' });
-});
+export const runDividendPayoutNow = cf({ timeoutSeconds: 540, memory: '512MB' }).https.onCall(
+  withAdminLog('run_dividend_payout_now', async (data, context) => {
+    requireAdmin(context, 'Admin only.');
+    return runDividendPayout({ source: 'manual-admin' });
+  }),
+);
 
 /**
  * One-time backfill: initialize `holdingCohorts` for every existing user.

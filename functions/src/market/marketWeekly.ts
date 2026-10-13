@@ -1,4 +1,5 @@
 import { cf, requireAdmin } from '../shared/fnConfig';
+import { withAdminLog } from '../shared/adminLog';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
@@ -315,11 +316,13 @@ export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
  * Pass { rolesOnly: true } to only re-sync the crew head Discord roles, or
  * { rolesOnly: true, dryRun: true } to just check the Discord setup.
  */
-export const triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
-  if (data && data.rolesOnly) return runCrewRoleSyncOnly({ dryRun: !!data.dryRun });
-  return runWeeklyCrewRankings({ postToDiscord: !(data && data.skipDiscord) });
-});
+export const triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCall(
+  withAdminLog('trigger_weekly_crew_rankings', async (data, context) => {
+    requireAdmin(context, 'Admin only.');
+    if (data && data.rolesOnly) return runCrewRoleSyncOnly({ dryRun: !!data.dryRun });
+    return runWeeklyCrewRankings({ postToDiscord: !(data && data.skipDiscord) });
+  }),
+);
 
 // Exposed for tests/emulator/crewRoles.test.ts. Not a Cloud Function —
 // serviceLoader only copies exports carrying a trigger, so this never reaches

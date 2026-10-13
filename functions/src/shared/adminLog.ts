@@ -48,3 +48,24 @@ export const logAdminAction = async (context: functions.https.CallableContext, i
     logger.error(`logAdminAction(${input.action}) failed:`, (err as Error).message);
   }
 };
+
+/**
+ * Wrap an admin callable so it writes the history entry once it succeeds, with
+ * what was asked for. For the triggers and moderation tools whose effect is a
+ * whole run rather than one before/after value. A large request is recorded by
+ * its field names only.
+ */
+export const withAdminLog =
+  <D, R>(action: string, handler: (data: D, context: functions.https.CallableContext) => Promise<R>) =>
+  async (data: D, context: functions.https.CallableContext): Promise<R> => {
+    const result = await handler(data, context);
+    const request = plain(data ?? null);
+    const small = JSON.stringify(request ?? null).length <= 2000;
+    const uid = (data as { userId?: unknown; uid?: unknown } | null)?.userId ?? (data as { uid?: unknown } | null)?.uid;
+    await logAdminAction(context, {
+      action,
+      uid: typeof uid === 'string' ? uid : null,
+      detail: { request: small ? request : Object.keys((request as Record<string, unknown>) || {}) },
+    });
+    return result;
+  };

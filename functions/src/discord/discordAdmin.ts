@@ -433,9 +433,12 @@ export const recoverTicker = cf().https.onCall(async (data, context) => {
     }
   }
   // Add flat line anchors
+  // Tagged admin_adjust: this is an admin price set, and isPriceProtected keys
+  // off that tag. Untagged, the bots and market maker moved the reset price
+  // straight back.
   const newHistoryEntries = [
     { timestamp: rollbackToTimestamp, price: targetPrice },
-    { timestamp: Date.now(), price: targetPrice },
+    { timestamp: Date.now(), price: targetPrice, source: 'admin_adjust' },
   ];
   const newHistory = [...keptHistory, ...newHistoryEntries];
 
@@ -466,32 +469,47 @@ export const recoverTicker = cf().https.onCall(async (data, context) => {
   });
   batch.set(priceHistoryRef(), { [ticker]: newHistory }, { merge: true });
 
-  // Claw back cash from profiteers
+  await batch.commit();
+
+  // Claw back cash, one transaction per player from their balance NOW. The
+  // amounts above came from a read taken earlier, and writing those absolute
+  // balances erased any trade or payout in between.
   for (const cb of clawbacks) {
     const userRef = db.collection('users').doc(cb.uid);
-    batch.update(userRef, {
-      cash: cb.newCash,
-      _repairLog: FieldValue.arrayUnion({
-        recoveryId,
-        type: 'ticker_recovery',
-        ticker,
-        clawbackAmount: cb.actualClawback,
-        previousCash: cb.previousCash,
-        newCash: cb.newCash,
-        timestamp: new Date().toISOString(),
-      }),
-    });
-    recordLedger(batch, {
-      uid: cb.uid,
-      type: 'admin_ticker_recovery_clawback',
-      amount: cb.newCash - cb.previousCash,
-      cashAfter: cb.newCash,
-      ref: ticker,
-      detail: { recoveryId },
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(userRef);
+      if (!snap.exists) return;
+      const fresh = snap.data()!;
+      const log = fresh._repairLog || [];
+      if (log.some((entry: { recoveryId?: string }) => entry.recoveryId === recoveryId)) return;
+      const previousCash = Math.round((fresh.cash || 0) * 100) / 100;
+      const newCash = Math.max(0, Math.round((previousCash - cb.clawbackAmount) * 100) / 100);
+      cb.previousCash = previousCash;
+      cb.newCash = newCash;
+      cb.actualClawback = Math.round((previousCash - newCash) * 100) / 100;
+      tx.update(userRef, {
+        cash: newCash,
+        _repairLog: FieldValue.arrayUnion({
+          recoveryId,
+          type: 'ticker_recovery',
+          ticker,
+          clawbackAmount: cb.actualClawback,
+          previousCash,
+          newCash,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+      recordLedger(tx, {
+        uid: cb.uid,
+        type: 'admin_ticker_recovery_clawback',
+        amount: newCash - previousCash,
+        cashAfter: newCash,
+        ref: ticker,
+        detail: { recoveryId },
+      });
     });
   }
 
-  await batch.commit();
   await logAdminAction(context, { action: 'recover_ticker', detail: { ticker, startTimestamp, rollbackToTimestamp } });
 
   return result;

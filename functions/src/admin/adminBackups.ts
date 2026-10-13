@@ -16,7 +16,7 @@ import { priceHistoryRef } from '../shared/marketData';
 import { remapAliasedKeys } from '../shared/roster';
 import { recordHeartbeat } from '../shared/activity';
 import { reportError } from '../shared/sentry';
-import { logAdminAction } from '../shared/adminLog';
+import { logAdminAction, withAdminLog } from '../shared/adminLog';
 
 /**
  * The top players' portfolios, for the leaderboard backups.
@@ -156,59 +156,61 @@ export const backupMarketData = cf()
 /**
  * Manual Backup - Admin can trigger this from Admin Panel
  */
-export const triggerManualBackup = cf().https.onCall(async (data, context) => {
-  requireAdmin(context, 'Only admin can trigger manual backups.');
+export const triggerManualBackup = cf().https.onCall(
+  withAdminLog('trigger_manual_backup', async (data, context) => {
+    requireAdmin(context, 'Only admin can trigger manual backups.');
 
-  try {
-    const bucket = admin.storage().bucket();
-    const timestamp = new Date().toISOString();
-    const dateStr = timestamp.split('T')[0];
-    const timeStr = timestamp.split('T')[1]!.split('.')[0]!.replace(/:/g, '-');
+    try {
+      const bucket = admin.storage().bucket();
+      const timestamp = new Date().toISOString();
+      const dateStr = timestamp.split('T')[0];
+      const timeStr = timestamp.split('T')[1]!.split('.')[0]!.replace(/:/g, '-');
 
-    // Backup market data
-    const marketRef = db.collection('market').doc('current');
-    const marketSnap = await marketRef.get();
+      // Backup market data
+      const marketRef = db.collection('market').doc('current');
+      const marketSnap = await marketRef.get();
 
-    if (!marketSnap.exists) {
-      throw new Error('Market data not found');
-    }
+      if (!marketSnap.exists) {
+        throw new Error('Market data not found');
+      }
 
-    const marketData = marketSnap.data()!;
-    const histSnap = await priceHistoryRef().get();
-    const marketBackup = {
-      timestamp,
-      manual: true,
-      prices: marketData.prices || {},
-      priceHistory: histSnap.exists ? histSnap.data() || {} : {},
-      liquidity: marketData.liquidity || {},
-      metadata: {
-        backupDate: timestamp,
-        totalTickers: Object.keys(marketData.prices || {}).length,
-        triggeredBy: context.auth!.uid,
-      },
-    };
-
-    const marketFile = bucket.file(`backups/manual/${dateStr}_${timeStr}_manual_market.json`);
-    await marketFile.save(JSON.stringify(marketBackup, null, 2), {
-      contentType: 'application/json',
-      metadata: {
-        backupType: 'manual_market',
+      const marketData = marketSnap.data()!;
+      const histSnap = await priceHistoryRef().get();
+      const marketBackup = {
         timestamp,
-        triggeredBy: context.auth!.uid,
-      },
-    });
+        manual: true,
+        prices: marketData.prices || {},
+        priceHistory: histSnap.exists ? histSnap.data() || {} : {},
+        liquidity: marketData.liquidity || {},
+        metadata: {
+          backupDate: timestamp,
+          totalTickers: Object.keys(marketData.prices || {}).length,
+          triggeredBy: context.auth!.uid,
+        },
+      };
 
-    return {
-      success: true,
-      message: 'Manual backup created successfully',
-      timestamp,
-      filename: `${dateStr}_${timeStr}_manual_market.json`,
-    };
-  } catch (error) {
-    logger.error('Error in manual backup:', error);
-    throw new functions.https.HttpsError('internal', 'Failed to create manual backup: ' + (error as Error).message);
-  }
-});
+      const marketFile = bucket.file(`backups/manual/${dateStr}_${timeStr}_manual_market.json`);
+      await marketFile.save(JSON.stringify(marketBackup, null, 2), {
+        contentType: 'application/json',
+        metadata: {
+          backupType: 'manual_market',
+          timestamp,
+          triggeredBy: context.auth!.uid,
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Manual backup created successfully',
+        timestamp,
+        filename: `${dateStr}_${timeStr}_manual_market.json`,
+      };
+    } catch (error) {
+      logger.error('Error in manual backup:', error);
+      throw new functions.https.HttpsError('internal', 'Failed to create manual backup: ' + (error as Error).message);
+    }
+  }),
+);
 
 /**
  * List Available Backups - Admin can see all available backups

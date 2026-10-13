@@ -15,6 +15,13 @@ export function useAdminDiagnostics({ setMessage }: Pick<AdminHookDeps, 'setMess
   // Ticker rollback diagnostic state
   const [diagTicker, setDiagTicker] = useState('SHRO');
   const [diagStartDate, setDiagStartDate] = useState('2026-03-18');
+  // What the last preview ran on. Execute sends exactly this, never whatever is
+  // typed in the boxes now, so the clawback is the one the admin looked at.
+  const [previewedRecovery, setPreviewedRecovery] = useState<{
+    ticker: string;
+    startTimestamp: number;
+    rollbackToTimestamp: number;
+  } | null>(null);
   const [diagRunning, setDiagRunning] = useState(false);
   const [diagResult, setDiagResult] = useState<TickerDiagnosticResponse | null>(null);
   const [diagUserSort, setDiagUserSort] = useState('net'); // 'net', 'bought', 'sold'
@@ -77,6 +84,7 @@ export function useAdminDiagnostics({ setMessage }: Pick<AdminHookDeps, 'setMess
         dryRun: true,
       });
       setRecoveryPreview(result.data);
+      setPreviewedRecovery({ ticker: diagTicker, startTimestamp, rollbackToTimestamp });
     } catch (err) {
       setMessage({ type: 'error', text: `Recovery preview failed: ${errorMessage(err)}` });
     }
@@ -84,22 +92,27 @@ export function useAdminDiagnostics({ setMessage }: Pick<AdminHookDeps, 'setMess
   };
 
   const handleRecoveryExecute = async () => {
+    const previewed = previewedRecovery;
+    const startNow = new Date(diagStartDate + 'T00:00:00Z').getTime();
+    const rollbackNow = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
+    if (
+      !previewed ||
+      previewed.ticker !== diagTicker ||
+      previewed.startTimestamp !== startNow ||
+      previewed.rollbackToTimestamp !== rollbackNow
+    ) {
+      setMessage({ type: 'error', text: 'The ticker or dates changed since the preview. Preview again first.' });
+      return;
+    }
     if (
       !window.confirm(
-        `EXECUTE RECOVERY on ${diagTicker}? This will claw back cash, reset the price, and rewrite price history. This cannot be undone.`,
+        `EXECUTE RECOVERY on ${previewed.ticker}? This will claw back cash, reset the price, and rewrite price history. This cannot be undone.`,
       )
     )
       return;
     setRecoveryExecuting(true);
     try {
-      const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
-      const rollbackToTimestamp = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
-      const result = await recoverTickerFunction({
-        ticker: diagTicker,
-        startTimestamp,
-        rollbackToTimestamp,
-        dryRun: false,
-      });
+      const result = await recoverTickerFunction({ ...previewed, dryRun: false });
       setRecoveryPreview(result.data);
       setRecoveryDone(true);
       setMessage({

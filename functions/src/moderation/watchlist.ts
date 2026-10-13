@@ -1,4 +1,5 @@
 import * as functions from 'firebase-functions/v1';
+import { withAdminLog } from '../shared/adminLog';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -8,214 +9,224 @@ const db = admin.firestore();
 import { THIRTY_DAYS_MS } from '../shared/constants';
 import { normalizeEmail, clusterBy } from '../users/signupCluster';
 
-export const addWatchedUser = cf().https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
+export const addWatchedUser = cf().https.onCall(
+  withAdminLog('add_watched_user', async (data, context) => {
+    requireAdmin(context, 'Admin only.');
 
-  const { userId, reason, maxAccountsPerIP } = data;
+    const { userId, reason, maxAccountsPerIP } = data;
 
-  if (!userId || typeof userId !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'User ID required.');
-  }
-
-  const maxAccounts = Number(maxAccountsPerIP) || 1;
-
-  // Fetch user info
-  const userDoc = await db.collection('users').doc(userId).get();
-  const displayName = userDoc.exists ? userDoc.data()!.displayName : 'Unknown';
-
-  // Collect known IPs from ipTracking
-  const knownIPs: Record<string, unknown> = {};
-  const ipTrackingSnap = await db.collection('ipTracking').get();
-  for (const ipDoc of ipTrackingSnap.docs) {
-    const accounts = ipDoc.data()!.accounts || {};
-    if (accounts[userId]) {
-      const rawIp = ipDoc.id;
-      knownIPs[rawIp] = {
-        firstSeen: Date.now(),
-        lastSeen: Date.now(),
-        accounts: [userId],
-      };
-
-      // Create reverse lookup
-      await db.collection('watchedIPs').doc(rawIp).set({
-        watchedUserId: userId,
-        maxAccountsPerIP: maxAccounts,
-        addedAt: FieldValue.serverTimestamp(),
-      });
+    if (!userId || typeof userId !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'User ID required.');
     }
-  }
 
-  await db
-    .collection('watchedUsers')
-    .doc(userId)
-    .set({
-      displayName,
-      reason: reason || '',
-      maxAccountsPerIP: maxAccounts,
-      linkedAccounts: [],
-      knownIPs,
-      addedAt: FieldValue.serverTimestamp(),
-      addedBy: context.auth!.uid,
-      isActive: true,
+    const maxAccounts = Number(maxAccountsPerIP) || 1;
+
+    // Fetch user info
+    const userDoc = await db.collection('users').doc(userId).get();
+    const displayName = userDoc.exists ? userDoc.data()!.displayName : 'Unknown';
+
+    // Collect known IPs from ipTracking
+    const knownIPs: Record<string, unknown> = {};
+    const ipTrackingSnap = await db.collection('ipTracking').get();
+    for (const ipDoc of ipTrackingSnap.docs) {
+      const accounts = ipDoc.data()!.accounts || {};
+      if (accounts[userId]) {
+        const rawIp = ipDoc.id;
+        knownIPs[rawIp] = {
+          firstSeen: Date.now(),
+          lastSeen: Date.now(),
+          accounts: [userId],
+        };
+
+        // Create reverse lookup
+        await db.collection('watchedIPs').doc(rawIp).set({
+          watchedUserId: userId,
+          maxAccountsPerIP: maxAccounts,
+          addedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    await db
+      .collection('watchedUsers')
+      .doc(userId)
+      .set({
+        displayName,
+        reason: reason || '',
+        maxAccountsPerIP: maxAccounts,
+        linkedAccounts: [],
+        knownIPs,
+        addedAt: FieldValue.serverTimestamp(),
+        addedBy: context.auth!.uid,
+        isActive: true,
+      });
+
+    await db.collection('watchlist_alerts').add({
+      type: 'user_added',
+      watchedUID: userId,
+      relatedUID: null,
+      ip: null,
+      action: 'flagged',
+      details: `Added "${displayName}" to watchlist. Reason: ${reason || 'None'}. Found ${Object.keys(knownIPs).length} known IPs.`,
+      timestamp: FieldValue.serverTimestamp(),
     });
 
-  await db.collection('watchlist_alerts').add({
-    type: 'user_added',
-    watchedUID: userId,
-    relatedUID: null,
-    ip: null,
-    action: 'flagged',
-    details: `Added "${displayName}" to watchlist. Reason: ${reason || 'None'}. Found ${Object.keys(knownIPs).length} known IPs.`,
-    timestamp: FieldValue.serverTimestamp(),
-  });
-
-  return { success: true, displayName, knownIPCount: Object.keys(knownIPs).length };
-});
+    return { success: true, displayName, knownIPCount: Object.keys(knownIPs).length };
+  }),
+);
 
 /**
  * Remove (deactivate) a user from the watchlist
  */
-export const removeWatchedUser = cf().https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
+export const removeWatchedUser = cf().https.onCall(
+  withAdminLog('remove_watched_user', async (data, context) => {
+    requireAdmin(context, 'Admin only.');
 
-  const { userId } = data;
-  if (!userId) throw new functions.https.HttpsError('invalid-argument', 'User ID required.');
+    const { userId } = data;
+    if (!userId) throw new functions.https.HttpsError('invalid-argument', 'User ID required.');
 
-  const watchedDoc = await db.collection('watchedUsers').doc(userId).get();
-  if (!watchedDoc.exists) {
-    throw new functions.https.HttpsError('not-found', 'User not on watchlist.');
-  }
-
-  await db.collection('watchedUsers').doc(userId).update({ isActive: false });
-
-  // Remove reverse IP lookups
-  const knownIPs = watchedDoc.data()!.knownIPs || {};
-  for (const ipId of Object.keys(knownIPs)) {
-    const watchedIpDoc = await db.collection('watchedIPs').doc(ipId).get();
-    if (watchedIpDoc.exists && watchedIpDoc.data()!.watchedUserId === userId) {
-      await db.collection('watchedIPs').doc(ipId).delete();
+    const watchedDoc = await db.collection('watchedUsers').doc(userId).get();
+    if (!watchedDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not on watchlist.');
     }
-  }
 
-  await db.collection('watchlist_alerts').add({
-    type: 'user_removed',
-    watchedUID: userId,
-    relatedUID: null,
-    ip: null,
-    action: 'flagged',
-    details: `Removed "${watchedDoc.data()!.displayName}" from watchlist`,
-    timestamp: FieldValue.serverTimestamp(),
-  });
+    await db.collection('watchedUsers').doc(userId).update({ isActive: false });
 
-  return { success: true };
-});
+    // Remove reverse IP lookups
+    const knownIPs = watchedDoc.data()!.knownIPs || {};
+    for (const ipId of Object.keys(knownIPs)) {
+      const watchedIpDoc = await db.collection('watchedIPs').doc(ipId).get();
+      if (watchedIpDoc.exists && watchedIpDoc.data()!.watchedUserId === userId) {
+        await db.collection('watchedIPs').doc(ipId).delete();
+      }
+    }
+
+    await db.collection('watchlist_alerts').add({
+      type: 'user_removed',
+      watchedUID: userId,
+      relatedUID: null,
+      ip: null,
+      action: 'flagged',
+      details: `Removed "${watchedDoc.data()!.displayName}" from watchlist`,
+      timestamp: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  }),
+);
 
 /**
  * Manually link an alt account to a watched user
  */
-export const linkAltAccount = cf().https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
+export const linkAltAccount = cf().https.onCall(
+  withAdminLog('link_alt_account', async (data, context) => {
+    requireAdmin(context, 'Admin only.');
 
-  const { watchedUserId, altAccountId } = data;
-  if (!watchedUserId || !altAccountId) {
-    throw new functions.https.HttpsError('invalid-argument', 'Both user IDs required.');
-  }
+    const { watchedUserId, altAccountId } = data;
+    if (!watchedUserId || !altAccountId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Both user IDs required.');
+    }
 
-  const watchedDoc = await db.collection('watchedUsers').doc(watchedUserId).get();
-  if (!watchedDoc.exists) {
-    throw new functions.https.HttpsError('not-found', 'Watched user not found.');
-  }
+    const watchedDoc = await db.collection('watchedUsers').doc(watchedUserId).get();
+    if (!watchedDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Watched user not found.');
+    }
 
-  const altDoc = await db.collection('users').doc(altAccountId).get();
-  const altName = altDoc.exists ? altDoc.data()!.displayName : 'Unknown';
+    const altDoc = await db.collection('users').doc(altAccountId).get();
+    const altName = altDoc.exists ? altDoc.data()!.displayName : 'Unknown';
 
-  // Check if already linked
-  const alreadyLinked = (watchedDoc.data()!.linkedAccounts || []).some((a: { uid: string }) => a.uid === altAccountId);
-  if (alreadyLinked) {
-    throw new functions.https.HttpsError('already-exists', 'This account is already linked.');
-  }
+    // Check if already linked
+    const alreadyLinked = (watchedDoc.data()!.linkedAccounts || []).some(
+      (a: { uid: string }) => a.uid === altAccountId,
+    );
+    if (alreadyLinked) {
+      throw new functions.https.HttpsError('already-exists', 'This account is already linked.');
+    }
 
-  const newLinked = {
-    uid: altAccountId,
-    displayName: altName,
-    linkedVia: 'manual',
-    ip: null,
-    linkedAt: Date.now(),
-  };
+    const newLinked = {
+      uid: altAccountId,
+      displayName: altName,
+      linkedVia: 'manual',
+      ip: null,
+      linkedAt: Date.now(),
+    };
 
-  await db
-    .collection('watchedUsers')
-    .doc(watchedUserId)
-    .update({
-      linkedAccounts: FieldValue.arrayUnion(newLinked),
+    await db
+      .collection('watchedUsers')
+      .doc(watchedUserId)
+      .update({
+        linkedAccounts: FieldValue.arrayUnion(newLinked),
+      });
+
+    await db.collection('watchlist_alerts').add({
+      type: 'account_linked',
+      watchedUID: watchedUserId,
+      relatedUID: altAccountId,
+      ip: null,
+      action: 'linked',
+      details: `Manually linked "${altName}" as alt of "${watchedDoc.data()!.displayName}"`,
+      timestamp: FieldValue.serverTimestamp(),
     });
 
-  await db.collection('watchlist_alerts').add({
-    type: 'account_linked',
-    watchedUID: watchedUserId,
-    relatedUID: altAccountId,
-    ip: null,
-    action: 'linked',
-    details: `Manually linked "${altName}" as alt of "${watchedDoc.data()!.displayName}"`,
-    timestamp: FieldValue.serverTimestamp(),
-  });
-
-  return { success: true, altName };
-});
+    return { success: true, altName };
+  }),
+);
 
 /**
  * Add an IP address to a watched user
  */
-export const addWatchedIP = cf().https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
+export const addWatchedIP = cf().https.onCall(
+  withAdminLog('add_watched_i_p', async (data, context) => {
+    requireAdmin(context, 'Admin only.');
 
-  const { userId, ip } = data;
-  if (!userId || !ip) {
-    throw new functions.https.HttpsError('invalid-argument', 'User ID and IP required.');
-  }
+    const { userId, ip } = data;
+    if (!userId || !ip) {
+      throw new functions.https.HttpsError('invalid-argument', 'User ID and IP required.');
+    }
 
-  const watchedDoc = await db.collection('watchedUsers').doc(userId).get();
-  if (!watchedDoc.exists) {
-    throw new functions.https.HttpsError('not-found', 'Watched user not found.');
-  }
+    const watchedDoc = await db.collection('watchedUsers').doc(userId).get();
+    if (!watchedDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Watched user not found.');
+    }
 
-  const sanitizedIp = ip.replace(/[.:/]/g, '_');
-  const watchedData = watchedDoc.data()!;
+    const sanitizedIp = ip.replace(/[.:/]/g, '_');
+    const watchedData = watchedDoc.data()!;
 
-  // Add to watched user's knownIPs
-  await db
-    .collection('watchedUsers')
-    .doc(userId)
-    .update({
-      [`knownIPs.${sanitizedIp}`]: {
-        firstSeen: Date.now(),
-        lastSeen: Date.now(),
-        accounts: [userId],
-      },
+    // Add to watched user's knownIPs
+    await db
+      .collection('watchedUsers')
+      .doc(userId)
+      .update({
+        [`knownIPs.${sanitizedIp}`]: {
+          firstSeen: Date.now(),
+          lastSeen: Date.now(),
+          accounts: [userId],
+        },
+      });
+
+    // Create reverse lookup
+    await db
+      .collection('watchedIPs')
+      .doc(sanitizedIp)
+      .set({
+        watchedUserId: userId,
+        maxAccountsPerIP: watchedData.maxAccountsPerIP || 1,
+        addedAt: FieldValue.serverTimestamp(),
+      });
+
+    await db.collection('watchlist_alerts').add({
+      type: 'ip_added',
+      watchedUID: userId,
+      relatedUID: null,
+      ip,
+      action: 'flagged',
+      details: `Manually added IP ${ip} to "${watchedData.displayName}"`,
+      timestamp: FieldValue.serverTimestamp(),
     });
 
-  // Create reverse lookup
-  await db
-    .collection('watchedIPs')
-    .doc(sanitizedIp)
-    .set({
-      watchedUserId: userId,
-      maxAccountsPerIP: watchedData.maxAccountsPerIP || 1,
-      addedAt: FieldValue.serverTimestamp(),
-    });
-
-  await db.collection('watchlist_alerts').add({
-    type: 'ip_added',
-    watchedUID: userId,
-    relatedUID: null,
-    ip,
-    action: 'flagged',
-    details: `Manually added IP ${ip} to "${watchedData.displayName}"`,
-    timestamp: FieldValue.serverTimestamp(),
-  });
-
-  return { success: true };
-});
+    return { success: true };
+  }),
+);
 
 /**
  * Get all active watched users (admin panel)

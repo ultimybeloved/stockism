@@ -20,7 +20,7 @@ import { touchLastActive, recordHeartbeat } from '../shared/activity';
 import { round2 } from '../shared/money';
 import { reportError } from '../shared/sentry';
 import { recordEventTrade } from '../shared/eventTradeRecords';
-import { logAdminAction } from '../shared/adminLog';
+import { logAdminAction, withAdminLog } from '../shared/adminLog';
 import { sideGameRoom } from '../shared/rules/equity';
 import { getLadderWithdrawable } from '../shared/ladderMath';
 
@@ -399,10 +399,12 @@ export const processEventSettlements = cf()
 /**
  * Admin: settle resolved markets immediately instead of waiting for the cron.
  */
-export const triggerEventSettlements = cf().https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
-  return await settleResolvedEventMarkets();
-});
+export const triggerEventSettlements = cf().https.onCall(
+  withAdminLog('trigger_event_settlements', async (data, context) => {
+    requireAdmin(context, 'Admin only.');
+    return await settleResolvedEventMarkets();
+  }),
+);
 
 /**
  * Admin: cancel an unresolved event market and refund every holder their net

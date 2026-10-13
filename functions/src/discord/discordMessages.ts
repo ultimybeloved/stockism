@@ -12,6 +12,7 @@
 //
 // Payload building lives in discordMessagePayload.js (internal module, not in
 // servicePaths.js).
+import { withAdminLog } from '../shared/adminLog';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
@@ -189,36 +190,39 @@ export const adminListDiscordMessages = cf().https.onCall(async (_data: unknown,
  * Admin-only: post a new message as the bot and record it so it stays editable.
  */
 export const adminSendDiscordMessage = cf().https.onCall(
-  async (data: Fields & { channelId?: unknown; channelName?: unknown }, context) => {
-    requireAdmin(context);
+  withAdminLog(
+    'admin_send_discord_message',
+    async (data: Fields & { channelId?: unknown; channelName?: unknown }, context) => {
+      requireAdmin(context);
 
-    const channelId = String(data?.channelId || '').trim();
-    if (!/^\d{5,25}$/.test(channelId)) {
-      throw new functions.https.HttpsError('invalid-argument', 'Pick a channel first.');
-    }
+      const channelId = String(data?.channelId || '').trim();
+      if (!/^\d{5,25}$/.test(channelId)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Pick a channel first.');
+      }
 
-    const stored = normalize(data);
-    const payload = buildDiscordPayload(stored);
+      const stored = normalize(data);
+      const payload = buildDiscordPayload(stored);
 
-    const sent = assertOk<DiscordMessage>(
-      await discordApi('post', `/channels/${channelId}/messages`, { body: payload }),
-      'Sending the message',
-    );
+      const sent = assertOk<DiscordMessage>(
+        await discordApi('post', `/channels/${channelId}/messages`, { body: payload }),
+        'Sending the message',
+      );
 
-    const now = Timestamp.now();
-    const ref = await db.collection(COLLECTION).add({
-      ...stored,
-      channelId,
-      channelName: String(data?.channelName || '').slice(0, 100),
-      messageId: sent.id,
-      createdAt: now,
-      updatedAt: now,
-      createdBy: context.auth!.uid,
-    });
+      const now = Timestamp.now();
+      const ref = await db.collection(COLLECTION).add({
+        ...stored,
+        channelId,
+        channelName: String(data?.channelName || '').slice(0, 100),
+        messageId: sent.id,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: context.auth!.uid,
+      });
 
-    const doc = await ref.get();
-    return { success: true, message: docToClient(doc) };
-  },
+      const doc = await ref.get();
+      return { success: true, message: docToClient(doc) };
+    },
+  ),
 );
 
 /**
@@ -228,30 +232,32 @@ export const adminSendDiscordMessage = cf().https.onCall(
  * from the saved record every time. Clearing the embed in the panel therefore
  * actually clears it on Discord rather than leaving the old one behind.
  */
-export const adminUpdateDiscordMessage = cf().https.onCall(async (data: Fields & { id?: unknown }, context) => {
-  requireAdmin(context);
+export const adminUpdateDiscordMessage = cf().https.onCall(
+  withAdminLog('admin_update_discord_message', async (data: Fields & { id?: unknown }, context) => {
+    requireAdmin(context);
 
-  const id = String(data?.id || '').trim();
-  if (!id) throw new functions.https.HttpsError('invalid-argument', 'id required');
+    const id = String(data?.id || '').trim();
+    if (!id) throw new functions.https.HttpsError('invalid-argument', 'id required');
 
-  const ref = db.collection(COLLECTION).doc(id);
-  const snap = await ref.get();
-  if (!snap.exists) throw new functions.https.HttpsError('not-found', 'That message is not tracked here.');
+    const ref = db.collection(COLLECTION).doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) throw new functions.https.HttpsError('not-found', 'That message is not tracked here.');
 
-  const existing = snap.data()!;
-  const stored = normalize(data);
-  const payload = buildDiscordPayload(stored);
+    const existing = snap.data()!;
+    const stored = normalize(data);
+    const payload = buildDiscordPayload(stored);
 
-  assertOk(
-    await discordApi('patch', `/channels/${existing.channelId}/messages/${existing.messageId}`, { body: payload }),
-    'Editing the message',
-  );
+    assertOk(
+      await discordApi('patch', `/channels/${existing.channelId}/messages/${existing.messageId}`, { body: payload }),
+      'Editing the message',
+    );
 
-  await ref.update({ ...stored, updatedAt: Timestamp.now(), updatedBy: context.auth!.uid });
+    await ref.update({ ...stored, updatedAt: Timestamp.now(), updatedBy: context.auth!.uid });
 
-  const updated = await ref.get();
-  return { success: true, message: docToClient(updated) };
-});
+    const updated = await ref.get();
+    return { success: true, message: docToClient(updated) };
+  }),
+);
 
 /**
  * Admin-only: delete the message from Discord, or just stop tracking it.
@@ -261,7 +267,7 @@ export const adminUpdateDiscordMessage = cf().https.onCall(async (data: Fields &
  * without being removed from the server.
  */
 export const adminDeleteDiscordMessage = cf().https.onCall(
-  async (data: { id?: unknown; forget?: unknown } | null, context) => {
+  withAdminLog('admin_delete_discord_message', async (data: { id?: unknown; forget?: unknown } | null, context) => {
     requireAdmin(context);
 
     const id = String(data?.id || '').trim();
@@ -282,7 +288,7 @@ export const adminDeleteDiscordMessage = cf().https.onCall(
 
     await ref.delete();
     return { success: true, deletedFromDiscord: !forget };
-  },
+  }),
 );
 
 /**
@@ -294,75 +300,78 @@ export const adminDeleteDiscordMessage = cf().https.onCall(
  * on save.
  */
 export const adminImportDiscordMessage = cf().https.onCall(
-  async (
-    data: {
-      channelId?: unknown;
-      messageId?: unknown;
-      label?: unknown;
-      channelName?: unknown;
-      scriptManaged?: unknown;
-    } | null,
-    context,
-  ) => {
-    requireAdmin(context);
+  withAdminLog(
+    'admin_import_discord_message',
+    async (
+      data: {
+        channelId?: unknown;
+        messageId?: unknown;
+        label?: unknown;
+        channelName?: unknown;
+        scriptManaged?: unknown;
+      } | null,
+      context,
+    ) => {
+      requireAdmin(context);
 
-    const channelId = String(data?.channelId || '').trim();
-    const messageId = String(data?.messageId || '').trim();
-    if (!/^\d{5,25}$/.test(channelId) || !/^\d{5,25}$/.test(messageId)) {
-      throw new functions.https.HttpsError('invalid-argument', 'Need a channel id and a message id.');
-    }
+      const channelId = String(data?.channelId || '').trim();
+      const messageId = String(data?.messageId || '').trim();
+      if (!/^\d{5,25}$/.test(channelId) || !/^\d{5,25}$/.test(messageId)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Need a channel id and a message id.');
+      }
 
-    const dupe = await db.collection(COLLECTION).where('messageId', '==', messageId).limit(1).get();
-    if (!dupe.empty) {
-      return { success: true, alreadyTracked: true, message: docToClient(dupe.docs[0]!) };
-    }
+      const dupe = await db.collection(COLLECTION).where('messageId', '==', messageId).limit(1).get();
+      if (!dupe.empty) {
+        return { success: true, alreadyTracked: true, message: docToClient(dupe.docs[0]!) };
+      }
 
-    const msg = assertOk<DiscordMessage>(
-      await discordApi('get', `/channels/${channelId}/messages/${messageId}`),
-      'Reading the message',
-    );
-
-    const me = assertOk<{ id: string }>(await discordApi('get', '/users/@me'), 'Identifying the bot');
-    if (msg.author?.id !== me.id) {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        'That message was not posted by the bot, so the bot cannot edit it. Discord only lets a bot edit its own messages.',
+      const msg = assertOk<DiscordMessage>(
+        await discordApi('get', `/channels/${channelId}/messages/${messageId}`),
+        'Reading the message',
       );
-    }
 
-    const embed = msg.embeds?.[0] || null;
-    const buttons = (msg.components || [])
-      .flatMap((row) => row.components || [])
-      .filter((c) => c.type === 2 && c.url)
-      .map((c) => ({ label: c.label || '', url: c.url, emoji: c.emoji?.name || '' }));
+      const me = assertOk<{ id: string }>(await discordApi('get', '/users/@me'), 'Identifying the bot');
+      if (msg.author?.id !== me.id) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'That message was not posted by the bot, so the bot cannot edit it. Discord only lets a bot edit its own messages.',
+        );
+      }
 
-    const stored = normalize({
-      label: data?.label,
-      content: msg.content || '',
-      embed: embed && {
-        title: embed.title || '',
-        description: embed.description || '',
-        color: typeof embed.color === 'number' ? embed.color : null,
-        imageUrl: embed.image?.url || '',
-        footer: embed.footer?.text || '',
-      },
-      buttons,
-    });
+      const embed = msg.embeds?.[0] || null;
+      const buttons = (msg.components || [])
+        .flatMap((row) => row.components || [])
+        .filter((c) => c.type === 2 && c.url)
+        .map((c) => ({ label: c.label || '', url: c.url, emoji: c.emoji?.name || '' }));
 
-    const now = Timestamp.now();
-    const ref = await db.collection(COLLECTION).add({
-      ...stored,
-      channelId,
-      channelName: String(data?.channelName || '').slice(0, 100),
-      messageId,
-      imported: true,
-      scriptManaged: data?.scriptManaged === true,
-      createdAt: now,
-      updatedAt: now,
-      createdBy: context.auth!.uid,
-    });
+      const stored = normalize({
+        label: data?.label,
+        content: msg.content || '',
+        embed: embed && {
+          title: embed.title || '',
+          description: embed.description || '',
+          color: typeof embed.color === 'number' ? embed.color : null,
+          imageUrl: embed.image?.url || '',
+          footer: embed.footer?.text || '',
+        },
+        buttons,
+      });
 
-    const doc = await ref.get();
-    return { success: true, message: docToClient(doc) };
-  },
+      const now = Timestamp.now();
+      const ref = await db.collection(COLLECTION).add({
+        ...stored,
+        channelId,
+        channelName: String(data?.channelName || '').slice(0, 100),
+        messageId,
+        imported: true,
+        scriptManaged: data?.scriptManaged === true,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: context.auth!.uid,
+      });
+
+      const doc = await ref.get();
+      return { success: true, message: docToClient(doc) };
+    },
+  ),
 );

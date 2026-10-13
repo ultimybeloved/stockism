@@ -20,7 +20,7 @@ import { getLastActiveMs, sumMarketActivity, recordHeartbeat } from '../shared/a
 import { isRosterTicker } from '../shared/roster';
 import { reportError } from '../shared/sentry';
 import { writeReviewChanges } from './reviewChanges';
-import { indexConstituents, reconcileDivisor, computeIndexValue } from '../shared/indexMaintenance';
+import { indexConstituents, reconcileDivisor, computeIndexValue, indexFromStored } from '../shared/indexMaintenance';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
 import { logAdminAction } from '../shared/adminLog';
@@ -361,11 +361,12 @@ export const chapterReviewRecap = cf()
       // gave the right percentage change but absolute numbers that have not
       // matched the site's index since the divisor was introduced. Same
       // function as the real one now, so the recap and the site agree.
+      // The stored constituents and divisor are a pair; today's roster with the
+      // stored divisor disagreed with the site whenever characters were added.
       const idxSnap = await db.collection('market').doc('indexHistory').get();
-      const idxDivisor = idxSnap.exists ? idxSnap.data()!.divisor || 0 : 0;
-      const idxConstituents = indexConstituents();
-      const smiBefore = computeIndexValue(beforePrices, idxConstituents, idxDivisor);
-      const smiAfter = computeIndexValue(afterPrices, idxConstituents, idxDivisor);
+      const storedIndex = idxSnap.exists ? idxSnap.data() : null;
+      const smiBefore = indexFromStored(beforePrices, storedIndex);
+      const smiAfter = indexFromStored(afterPrices, storedIndex);
       const smiChange = smiBefore > 0 ? ((smiAfter - smiBefore) / smiBefore) * 100 : 0;
 
       // Build Discord embed
