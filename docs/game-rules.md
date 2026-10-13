@@ -34,15 +34,15 @@ Stocks can also be **split** (for example 3-for-1): the price divides, every hol
 ### Trading
 
 - **Buy and sell** with per-share cost basis tracking and per-lot purchase ages.
-- **Short selling.** Fully collateralized: you post the position value dollar for dollar. Shorts on any one ticker are capped at 50% of your portfolio equity, and your total short value cannot exceed your net worth. Positions are force-covered when equity falls under 25%.
-- **Margin.** Unlocks after 10 daily check-ins, 35 trades, a $7,500 peak portfolio, and $2,000 in cash. Your borrow limit is a share of your collateral, scaled by your peak portfolio value (25% under $7,500, up to 75% over $30,000). Holdings count as collateral at the lower of cost basis or market price, so pumping a stock you own does not raise your limit. Interest is 0.5% per day. A margin call fires at 30% equity and forced liquidation at 25%, selling 5% below market.
+- **Short selling.** Fully collateralized: you post the position value dollar for dollar. Shorts on any one ticker are capped at 50% of your portfolio equity, and your total short value cannot exceed your net worth. Both caps use net worth, so margin debt is subtracted first. Positions are force-covered when equity falls under 25%.
+- **Margin.** Unlocks after 10 daily check-ins, 35 trades, a $7,500 peak portfolio, and $2,000 in cash. Your borrow limit is a share of your collateral, scaled by your peak portfolio value (25% under $7,500, up to 75% over $30,000). Peak value is net of margin debt, so borrowing never raises it. Holdings count as collateral at the lower of cost basis or market price, so pumping a stock you own does not raise your limit. Interest is 0.5% per day. A margin call fires at 30% equity and forced liquidation at 25%, selling 5% below market.
 - **Exit loyalty.** Holding a lot longer makes it cheaper to sell. Sell-side price impact is discounted 10% at 10 days, 25% at 4 weeks, and 40% at 8 weeks. The market still takes the full impact, only your cost is reduced.
 
 ### Order Types
 
 - **Market orders** execute instantly at the bid or ask.
-- **Limit orders** (buy or sell) sit on the book and fill when the price hits your target. Swept every 15 minutes, 90-day expiry, optional partial fills.
-- **Stop-loss orders** sell automatically if a price drops to your trigger.
+- **Limit orders** (buy or sell) sit on the book and fill when the price hits your target. Swept every 15 minutes, 90-day expiry, optional partial fills. A partial-fill buy short on cash fills as many shares as the cash covers at the ask. Pending and partly filled orders can be cancelled.
+- **Stop-loss orders** sell automatically if a price drops to your trigger. One that triggers at the Thursday open is priced like every other sale (own impact, exit-loyalty discount).
 - **Pre-market orders** queue during the Thursday halt and fill in the reopening auction.
 
 ### Crews
@@ -59,11 +59,11 @@ There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel
 - **Daily:** 3 missions per crew per day, $75 to $150 each.
 - **Weekly:** 2 missions per week, $400 to $1,000 each. Rerollable once per week before you claim anything.
 
-Every mission rewards an action you take or a portfolio balance you actively maintain. Missions that paid out for simply owning something were removed, because they were free income for no effort.
+Growth missions measure net worth: free money received that week and margin debt are both taken out. Every mission rewards an action you take or a portfolio balance you actively maintain. Missions that paid out for simply owning something were removed, because they were free income for no effort.
 
 ### Dividends
 
-Every stock pays a weekly dividend on Thursday at 12:58 UTC, calculated against the frozen pre-halt price snapshot so payout prices cannot be gamed.
+Every stock pays a weekly dividend on Thursday at 12:58 UTC, calculated against the frozen pre-halt price snapshot so payout prices cannot be gamed. Each player is paid at most once per week (a re-run skips anyone already paid). Bots and banned accounts are not paid.
 
 The base rate is the stock's rarity tier, which is ranked by live price and updates itself as the market moves:
 
@@ -92,7 +92,7 @@ IPO shares are locked from selling for 24 hours after the window closes, so the 
 
 Two formats run side by side:
 
-- **Weekly bets.** Cash pool betting on chapter outcomes. Winners split the pot in proportion to their stake.
+- **Weekly bets.** Cash pool betting on chapter outcomes. Winners split the pot in proportion to their stake. One bet per question, unless the admin reopens it for top-ups.
 - **Event markets.** Long-term markets where each outcome is a share that pays $1 if it happens and $0 if it does not. Prices come from a house-run LMSR market maker, so you can buy or sell at any time instead of waiting for resolution. Admin sets the opening odds. The house takes the other side and can lose. The card shows what you put in, what your shares are worth now, and what they pay if the outcome wins.
 
 **One shared limit** (src/rules/equity.ts `sideGameRoom`, since 2026-10-11): open weekly bets, long-term market positions (at what you paid) and your own money in the ladder (not the free check-in chips) together can't exceed what you've invested in stocks. Before, each game had its own limit, so the same stock let you put the full amount into all three.
@@ -215,12 +215,12 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 - After 3 shorts on one ticker, further shorts wait for the oldest to age out of an 8-hour window.
 - Forced short covers are capped at 3 per ticker per scan so a crowded short cannot cascade into a squeeze.
 - Margin-bought shares lock for 36 hours, so borrowed money cannot spike a stock and bail.
-- **Wash rule.** Pushing a stock down 4% or more in 24 hours with sells or shorts blocks buying it back for 48 hours. A heavy sell also blocks shorting that stock for 48 hours. Exits are never blocked.
+- **Wash rule.** Pushing a stock down 4% or more in 24 hours with sells or shorts blocks buying it back for 48 hours. A heavy sell also blocks shorting that stock for 48 hours. Sells through limit orders and stop losses count too. Exits are never blocked.
 - **Circuit breaker.** A stock that moves 10% in 5 minutes pauses for 3 minutes, at most twice a day. This binds bots and the market maker too, and catches groups that each stay inside their own limits.
 - **Coordination scan.** An hourly scan flags groups trading one stock together. Tight downward clusters get the 48-hour buy-back and short block. Admins can review what a flagged push made each player, remove it, and keep repeat offenders out of Platinum and Diamond for the season.
 
 **Alt accounts**
-- Hard cap of 2 accounts per IP, enforced at signup and at trade time inside the same transaction.
+- Hard cap of 2 accounts per IP, enforced at signup and at trade time inside the same transaction. An IPv6 connection counts as one (its /64 network), since each device on it gets its own changing address. Since 2026-10-13.
 - A deleted account holds its IP slot for 30 days, which kills the pump, delete, remake loop.
 - One Discord account maps to one Stockism account permanently. Relinking is admin-only, and a Discord ID tied to a deleted account is blocked for 30 days.
 - Three layers of disposable-email blocking at signup: a hand list, an npm package, and a live daily list, all fail-soft.
