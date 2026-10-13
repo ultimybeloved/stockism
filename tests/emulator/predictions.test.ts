@@ -104,7 +104,8 @@ async function main() {
   await marketRef.set({ prices: { JAY: 20 } });
   await setPredictions([
     prediction('p_main'),
-    prediction('p_limits'),
+    // Open for top-ups, so the cap checks below can stack bets on it.
+    prediction('p_limits', { allowAdditionalBets: true }),
     prediction('p_shared_a'),
     prediction('p_shared_b'),
     prediction('p_ended', { endsAt: Date.now() - 1000 }),
@@ -134,9 +135,24 @@ async function main() {
   );
   check('the daily mission flag is set', firstUser.dailyMissions?.[today()]?.placedBet === true);
 
+  // One bet per prediction, as the bet card enforces, unless the admin reopened
+  // it for top-ups. Before 2026-10-13 only the card enforced it, so a direct
+  // call could add late money once the final pools were visible.
+  check(
+    'a second bet on the same prediction is refused',
+    (await rejects(() => bet('b_first', 'p_main', 'Yes', 200), /already placed a bet/i)) === true,
+  );
+  const listNow = (await predictionsRef.get()).data()!.list;
+  await predictionsRef.update({
+    list: listNow.map((p: Loose) => (p.id === 'p_main' ? { ...p, allowAdditionalBets: true } : p)),
+  });
+
   const more = await bet('b_first', 'p_main', 'Yes', 200);
   const moreUser = await getUser('b_first');
-  check('adding to the same side stacks the bet', more.newBetAmount === 500 && moreUser.bets.p_main.amount === 500);
+  check(
+    'once reopened for top-ups, adding to the same side stacks the bet',
+    more.newBetAmount === 500 && moreUser.bets.p_main.amount === 500,
+  );
   check('and the booking with it', moreUser.predictionFlowValue === -500 && moreUser.grantedValue === -500);
   check(
     'switching sides is refused',

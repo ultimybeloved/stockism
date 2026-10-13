@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import {
   triggerEventSettlementsFunction,
@@ -37,22 +37,19 @@ export function useAdminPredictionManage({
     setLoading(true);
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
-      const snap = await getDoc(predictionsRef);
-      const currentList: PredictionDoc[] = snap.exists() ? snap.data().list || [] : [];
-
-      const updatedList = currentList.map((p) => {
-        if (p.id === selectedPrediction.id) {
-          return {
-            ...p,
-            resolved: true,
-            outcomes: selectedOutcomes,
-            outcome: selectedOutcomes[0],
-          };
-        }
-        return p;
+      // Read and write in one transaction: players' bets and long-term market
+      // trades update this same list, and rewriting it from an earlier read
+      // erased any that landed in between (charged, but missing from the pool).
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(predictionsRef);
+        const currentList: PredictionDoc[] = snap.exists() ? snap.data().list || [] : [];
+        const updatedList = currentList.map((p) =>
+          p.id === selectedPrediction.id
+            ? { ...p, resolved: true, outcomes: selectedOutcomes, outcome: selectedOutcomes[0] }
+            : p,
+        );
+        tx.update(predictionsRef, { list: updatedList });
       });
-
-      await updateDoc(predictionsRef, { list: updatedList });
       await logPanelAction({
         action: 'resolve_prediction',
         after: { id: selectedPrediction.id, question: selectedPrediction.question, outcomes: selectedOutcomes },
@@ -64,7 +61,9 @@ export function useAdminPredictionManage({
         try {
           await triggerEventSettlementsFunction();
         } catch (e) {
+          // Resolved, but not paid out yet: say so instead of reporting success.
           console.error('Settlement trigger failed', e);
+          showMessage('error', 'Resolved, but paying out failed just now. It retries on its own within 30 minutes.');
         }
       }
       setSelectedPrediction(null);
@@ -83,12 +82,32 @@ export function useAdminPredictionManage({
     setLoading(true);
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
-      const snap = await getDoc(predictionsRef);
-      const currentList: PredictionDoc[] = snap.exists() ? snap.data().list || [] : [];
+      // One transaction, so a bet landing mid-delete can't slip past the check
+      // below or be erased by the rewrite.
+      const { blocked, currentList } = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(predictionsRef);
+        const list: PredictionDoc[] = snap.exists() ? snap.data().list || [] : [];
 
-      const updatedList = currentList.filter((p) => p.id !== predictionId);
-
-      await updateDoc(predictionsRef, { list: updatedList });
+        // Deleting takes the prediction away from everyone who put money in: their
+        // stakes were taken when they bet, and claiming then fails with "not found".
+        // Only allow it once nobody's money is in it, or after Cancel has refunded them.
+        const target = list.find((p) => p.id === predictionId);
+        if (target && !target.cancelled) {
+          const staked =
+            Object.values(target.pools || {}).reduce((sum, v) => sum + (Number(v) || 0), 0) +
+            (target.yesPool || 0) +
+            (target.noPool || 0) -
+            (target.seedTotal || 0);
+          if (target.type === 'event' || staked > 0.005) return { blocked: true, currentList: list };
+        }
+        tx.update(predictionsRef, { list: list.filter((p) => p.id !== predictionId) });
+        return { blocked: false, currentList: list };
+      });
+      if (blocked) {
+        showMessage('error', 'Players have money in this one. Cancel it first (that refunds them), then delete.');
+        setLoading(false);
+        return;
+      }
       await logPanelAction({
         action: 'delete_prediction',
         before: currentList.find((p) => p.id === predictionId) || { id: predictionId },
@@ -153,22 +172,18 @@ export function useAdminPredictionManage({
     setLoading(true);
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
-      const snap = await getDoc(predictionsRef);
-      const currentList: PredictionDoc[] = snap.exists() ? snap.data().list || [] : [];
-
-      const updatedList = currentList.map((p) => {
-        if (p.id === extendPredictionId) {
-          return {
-            ...p,
-            endsAt: getEndTime(extendDays),
-            allowAdditionalBets: allowAdditionalBets,
-            reopened: true,
-          };
-        }
-        return p;
+      // One transaction, for the same reason as resolve above.
+      const currentList = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(predictionsRef);
+        const list: PredictionDoc[] = snap.exists() ? snap.data().list || [] : [];
+        const updatedList = list.map((p) =>
+          p.id === extendPredictionId
+            ? { ...p, endsAt: getEndTime(extendDays), allowAdditionalBets: allowAdditionalBets, reopened: true }
+            : p,
+        );
+        tx.update(predictionsRef, { list: updatedList });
+        return list;
       });
-
-      await updateDoc(predictionsRef, { list: updatedList });
 
       const pred = currentList.find((p) => p.id === extendPredictionId);
       await logPanelAction({

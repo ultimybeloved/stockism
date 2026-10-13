@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
-import { logPanelAction } from '../utils/panelLog';
 import {
   listBackupsFunction,
   restoreBackupFunction,
   triggerManualBackupFunction,
   reconstructPortfolioHistoryFunction,
+  adminTransferAccountFunction,
 } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
 import type { BackupFile, ReconstructHistoryResponse } from '../../../api/types';
@@ -169,41 +169,34 @@ export function useAdminBackups({
       const oldData = oldUserSnap.data();
       const newData = newUserSnap.data();
 
-      // Confirm the transfer
+      // One confirmation up front. The server copies everything, moves the name
+      // and ladder balance, and then always removes the old account, so money and
+      // shares can never end up on both.
       if (
         !confirm(
-          `⚠️ TRANSFER USER DATA ⚠️\n\nCopy ALL data from old user to new user?\n\nOLD USER: ${oldData.displayName || 'Unknown'}\nPortfolio: $${(oldData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${oldData.totalCheckins || 0}\n\nNEW USER: ${newData.displayName || 'Unknown'}\nPortfolio: $${(newData.portfolioValue || 0).toLocaleString()}\nCheck-ins: ${newData.totalCheckins || 0}\n\nThe NEW user's data will be COMPLETELY OVERWRITTEN with the OLD user's data.\n\nContinue?`,
+          `⚠️ TRANSFER ACCOUNT ⚠️
+
+Move ALL data from the old account to the new one?
+
+OLD USER: ${oldData.displayName || 'Unknown'}
+Portfolio: $${(oldData.portfolioValue || 0).toLocaleString()}
+Check-ins: ${oldData.totalCheckins || 0}
+
+NEW USER: ${newData.displayName || 'Unknown'}
+Portfolio: $${(newData.portfolioValue || 0).toLocaleString()}
+Check-ins: ${newData.totalCheckins || 0}
+
+The new account is REPLACED by the old one, and the old account is then DELETED.
+
+This cannot be undone. Continue?`,
         )
       ) {
         setTransferring(false);
         return;
       }
 
-      // Copy ALL data from old to new (except the user ID itself)
-      const dataToTransfer = { ...oldData };
-
-      // Update the new user with all old user's data
-      await updateDoc(newUserRef, dataToTransfer);
-      await logPanelAction({
-        action: 'transfer_account',
-        uid: newUserId.trim(),
-        name: newData.displayName,
-        before: { cash: newData.cash, portfolioValue: newData.portfolioValue, holdings: newData.holdings },
-        detail: { fromUid: oldUserId.trim(), fromName: oldData.displayName },
-      });
-
-      showMessage('success', `Successfully transferred data from ${oldData.displayName} to new account!`);
-
-      // Ask if they want to delete the old account
-      if (
-        confirm(
-          `Transfer complete!\n\nDo you want to DELETE the old user account?\n\nOld User: ${oldData.displayName}\nID: ${oldUserId}\n\nThis cannot be undone!`,
-        )
-      ) {
-        await deleteDoc(oldUserRef);
-        await logPanelAction({ action: 'delete_user', uid: oldUserId.trim(), name: oldData.displayName });
-        showMessage('success', `Old user account deleted.`);
-      }
+      await adminTransferAccountFunction({ fromUserId: oldUserId.trim(), toUserId: newUserId.trim() });
+      showMessage('success', `Moved ${oldData.displayName} to the new account. The old account was removed.`);
 
       setOldUserId('');
       setNewUserId('');

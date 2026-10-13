@@ -237,20 +237,18 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Limit order updates: users can only change status to CANCELED
+    // Limit order updates: users can only cancel a live order. A partly filled
+    // order is still live (the sweep keeps filling it), so it can be cancelled
+    // too; before 2026-10-13 it couldn't, and its remainder sat on the book for
+    // up to 90 days blocking shorts and new sell orders on that stock.
     function validateLimitOrderUpdate() {
       let oldData = resource.data;
       let newData = request.resource.data;
       return (
-        // Only allow status change to CANCELED
         newData.status == 'CANCELED' &&
-        oldData.status == 'PENDING' &&
-        // All other fields must remain unchanged
-        newData.userId == oldData.userId &&
-        newData.ticker == oldData.ticker &&
-        newData.type == oldData.type &&
-        newData.shares == oldData.shares &&
-        newData.limitPrice == oldData.limitPrice
+        oldData.status in ['PENDING', 'PARTIALLY_FILLED'] &&
+        // Nothing but the status and its timestamp may change
+        newData.diff(oldData).affectedKeys().hasOnly(['status', 'updatedAt'])
       );
     }
 

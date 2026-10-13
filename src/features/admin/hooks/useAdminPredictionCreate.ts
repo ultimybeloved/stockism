@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { logPanelAction } from '../utils/panelLog';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { broadcastNotificationFunction } from '../../../api/callables';
 import { EVENT_AMM_LIQUIDITY, MS_PER_HOUR, WEEKLY_PREDICTION_SEED_MAX } from '../../../constants/economy';
@@ -84,8 +84,8 @@ export function useAdminPredictionCreate({
     setLoading(true);
     try {
       const predictionsRef = doc(db, 'predictions', 'current');
-      const snap = await getDoc(predictionsRef);
-      const currentList = snap.exists() ? snap.data().list || [] : [];
+      // New entries are appended with arrayUnion rather than by rewriting the
+      // list read a moment ago, which erased any bet or trade landing in between.
 
       if (predictionType === 'event') {
         const cleanOptions = validOptions.map((o) => o.trim());
@@ -110,7 +110,7 @@ export function useAdminPredictionCreate({
           settled: false,
           ...(opensAt && { opensAt }), // announced-but-locked until this time
         };
-        await updateDoc(predictionsRef, { list: [...currentList, eventMarket] });
+        await updateDoc(predictionsRef, { list: arrayUnion(eventMarket) });
         await logPanelAction({ action: 'create_event_market', after: eventMarket });
         showMessage(
           'success',
@@ -158,9 +158,7 @@ export function useAdminPredictionCreate({
         ...(seedTotal > 0 && { seedTotal, seedPerOption }),
       };
 
-      await updateDoc(predictionsRef, {
-        list: [...currentList, newPrediction],
-      });
+      await updateDoc(predictionsRef, { list: arrayUnion(newPrediction) });
       await logPanelAction({ action: 'create_prediction', after: newPrediction });
 
       showMessage('success', `Created prediction: "${question.trim()}"`);

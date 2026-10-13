@@ -181,6 +181,26 @@ async function main() {
   );
 
   console.log('\n── Admin history ─────────────────────────────────────────────');
+  // Limit orders: a live order (pending or partly filled) can be cancelled, and
+  // nothing else about it may change.
+  const seedOrder = (id: string, status: string) =>
+    adminDb
+      .collection('limitOrders')
+      .doc(id)
+      .set({ userId: uid, ticker: 'TEST', type: 'SELL', shares: 10, limitPrice: 5, status, filledShares: 4 });
+  await seedOrder('rules_partial', 'PARTIALLY_FILLED');
+  await seedOrder('rules_filled', 'FILLED');
+  await seedOrder('rules_pending', 'PENDING');
+  await checkAccess('player cancels a partly filled order', 'allowed', () =>
+    updateDoc(doc(clientDb, 'limitOrders', 'rules_partial'), { status: 'CANCELED', updatedAt: serverTimestamp() }),
+  );
+  await checkAccess('player cancels a filled order', 'blocked', () =>
+    updateDoc(doc(clientDb, 'limitOrders', 'rules_filled'), { status: 'CANCELED' }),
+  );
+  await checkAccess('player changes filled shares while cancelling', 'blocked', () =>
+    updateDoc(doc(clientDb, 'limitOrders', 'rules_pending'), { status: 'CANCELED', filledShares: 0 }),
+  );
+
   const panelEntry = (by: string) => ({ action: 'adjust_price', by, source: 'panel', at: serverTimestamp() });
   await checkAccess('player writes an admin history entry', 'blocked', () =>
     setDoc(doc(clientDb, 'adminLog', 'player'), panelEntry(uid)),

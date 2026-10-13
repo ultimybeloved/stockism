@@ -121,7 +121,10 @@ export const applyNeglectDecay = cf()
       }
 
       if (!moved.length) {
+        // Nothing to decay is a successful run. (A stale short-interest reading
+        // above still skips the heartbeat on purpose: that one should page.)
         logger.info('applyNeglectDecay: nothing neglected');
+        await recordHeartbeat('applyNeglectDecay');
         return null;
       }
 

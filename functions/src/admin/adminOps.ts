@@ -138,43 +138,46 @@ export const adminSetCash = cf().https.onCall(async (data, context) => {
   }
 
   const userRef = db.collection('users').doc(userId);
-  const userSnap = await userRef.get();
-  if (!userSnap.exists) {
-    throw new functions.https.HttpsError('not-found', 'User not found');
-  }
-
-  const userData = userSnap.data()!;
-  const prevCash = userData.cash || 0;
   const rounded = Math.round(magnitude * 100) / 100;
-  const rawNew = mode === 'set' ? rounded : mode === 'add' ? prevCash + rounded : prevCash - rounded;
-  const newCash = Math.round(rawNew * 100) / 100;
+  // One transaction from read to write. 'add' and 'subtract' used to write an
+  // absolute balance worked out from a read taken earlier, so a sale or
+  // dividend landing in between was erased and the ledger entry was wrong.
+  const { userData, prevCash, newCash } = await db.runTransaction(async (tx) => {
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) {
+      throw new functions.https.HttpsError('not-found', 'User not found');
+    }
+    const userData = userSnap.data()!;
+    const prevCash: number = userData.cash || 0;
+    const rawNew = mode === 'set' ? rounded : mode === 'add' ? prevCash + rounded : prevCash - rounded;
+    const newCash = Math.round(rawNew * 100) / 100;
 
-  // Refuse rather than clamp. Silently landing on $0 looks like it worked and
-  // destroys however much the admin did not mean to take.
-  if (newCash < 0) {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      `That would leave $${newCash.toFixed(2)}. They only have $${prevCash.toFixed(2)}.`,
-    );
-  }
+    // Refuse rather than clamp. Silently landing on $0 looks like it worked and
+    // destroys however much the admin did not mean to take.
+    if (newCash < 0) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `That would leave $${newCash.toFixed(2)}. They only have $${prevCash.toFixed(2)}.`,
+      );
+    }
 
-  // Giveaways are the most visible source of fake leaderboard returns — the top
-  // of the percent board on 2026-08-13 was one. Only a raise counts as granted;
-  // taking cash away is a correction, not a gift, and must not go negative.
-  const batch = db.batch();
-  batch.update(userRef, {
-    cash: newCash,
-    ...grantedValueUpdate(newCash - prevCash),
+    // Giveaways are the most visible source of fake leaderboard returns — the top
+    // of the percent board on 2026-08-13 was one. Only a raise counts as granted;
+    // taking cash away is a correction, not a gift, and must not go negative.
+    tx.update(userRef, {
+      cash: newCash,
+      ...grantedValueUpdate(newCash - prevCash),
+    });
+    // The memo stays in adminCashLog only; the ledger notes who and how.
+    recordLedger(tx, {
+      uid: userId,
+      type: 'admin_set_cash',
+      amount: newCash - prevCash,
+      cashAfter: newCash,
+      detail: { by: context.auth!.uid, mode },
+    });
+    return { userData, prevCash, newCash };
   });
-  // The memo stays in adminCashLog only; the ledger notes who and how.
-  recordLedger(batch, {
-    uid: userId,
-    type: 'admin_set_cash',
-    amount: newCash - prevCash,
-    cashAfter: newCash,
-    detail: { by: context.auth!.uid, mode },
-  });
-  await batch.commit();
 
   // Written after the balance lands, so the log never claims a change that
   // failed. Best-effort: a logging failure must not fail the adjustment itself.

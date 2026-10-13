@@ -208,8 +208,14 @@ export const weeklyMarketSummary = cf()
   .pubsub.schedule('0 0 * * 1')
   .timeZone('UTC')
   .onRun(async () => {
-    await runWeeklyMarketSummary();
-    await recordHeartbeat('weeklyMarketSummary');
+    const result = await runWeeklyMarketSummary();
+    // Only a summary that actually posted counts. A failure is caught inside and
+    // returned as posted: false, so beating unconditionally hid every failure.
+    if (result.posted) await recordHeartbeat('weeklyMarketSummary');
+    else
+      reportError(new Error(`weeklyMarketSummary did not post: ${result.error ?? 'no reason given'}`), {
+        where: 'weeklyMarketSummary',
+      });
     return null;
   });
 

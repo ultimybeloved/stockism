@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { logPanelAction } from '../utils/panelLog';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, runTransaction, arrayUnion } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { ipoAnnouncementAlertFunction } from '../../../api/callables';
 import { CHARACTERS } from '../../../characters';
@@ -72,8 +72,6 @@ export function useAdminIpo({ showMessage, setLoading }: Pick<AdminHookDeps, 'sh
     setLoading(true);
     try {
       const ipoRef = doc(db, 'market', 'ipos');
-      const snap = await getDoc(ipoRef);
-      const currentList = snap.exists() ? snap.data().list || [] : [];
 
       const ipoEndsAt = ipoStartsAt + ipoDurationHours * 60 * 60 * 1000;
 
@@ -89,15 +87,9 @@ export function useAdminIpo({ showMessage, setLoading }: Pick<AdminHookDeps, 'sh
         createdAt: now,
       };
 
-      if (snap.exists()) {
-        await updateDoc(ipoRef, {
-          list: [...currentList, newIPO],
-        });
-      } else {
-        await setDoc(ipoRef, {
-          list: [newIPO],
-        });
-      }
+      // Appended, not rewritten from an earlier read: IPO buys update this list
+      // too, and a rewrite put back sharesRemaining from before them (oversold).
+      await setDoc(ipoRef, { list: arrayUnion(newIPO) }, { merge: true });
 
       await logPanelAction({ action: 'create_ipo', after: newIPO });
 
@@ -138,15 +130,24 @@ export function useAdminIpo({ showMessage, setLoading }: Pick<AdminHookDeps, 'sh
     setLoading(true);
     try {
       const ipoRef = doc(db, 'market', 'ipos');
-      const snap = await getDoc(ipoRef);
-      if (snap.exists()) {
+      // One transaction: an IPO buy landing mid-cancel must be seen by the check
+      // below, and must not be erased by the rewrite.
+      const outcome = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ipoRef);
+        if (!snap.exists()) return { sold: 0, before: null as IPO | null, done: false };
         const currentList: IPO[] = snap.data().list || [];
-        const updatedList = currentList.filter((ipo) => ipo.ticker !== ticker);
-        await updateDoc(ipoRef, { list: updatedList });
-        await logPanelAction({
-          action: 'cancel_ipo',
-          before: currentList.find((ipo) => ipo.ticker === ticker) || { ticker },
-        });
+        // Once anyone has bought in, cancelling strands them: they paid, their
+        // shares are locked, and the launch never comes. There is no refund path.
+        const ipo = currentList.find((i) => i.ticker === ticker) || null;
+        const sold = ipo && ipo.totalShares != null ? ipo.totalShares - (ipo.sharesRemaining ?? ipo.totalShares) : 0;
+        if (sold > 0) return { sold, before: ipo, done: false };
+        tx.update(ipoRef, { list: currentList.filter((i) => i.ticker !== ticker) });
+        return { sold: 0, before: ipo, done: true };
+      });
+      if (outcome.sold > 0) {
+        showMessage('error', `${outcome.sold} shares of $${ticker} are already sold, so this IPO can't be cancelled.`);
+      } else if (outcome.done) {
+        await logPanelAction({ action: 'cancel_ipo', before: outcome.before || { ticker } });
         showMessage('success', `Cancelled IPO for $${ticker}`);
         loadIPOs();
       }

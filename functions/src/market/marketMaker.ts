@@ -108,7 +108,6 @@ export const marketMakerCycle = cf()
         return null;
       }
 
-      const prices: Record<string, number> = marketData.prices || {};
       const historySnap = await priceHistoryRef().get();
       const priceHistory = historySnap.exists ? historySnap.data() || {} : {};
 
@@ -122,94 +121,105 @@ export const marketMakerCycle = cf()
         return null;
       }
 
-      const updates: Record<string, number> = {};
-      const historyPoints: Record<string, PricePoint> = {};
-      let interventionCount = 0;
+      // Priced and written in one transaction from a fresh read of the prices.
+      // Computing from the read at the top and writing later erased any player
+      // trade on the same stock that landed in between: they paid for a move
+      // that then vanished.
+      const interventionCount = await db.runTransaction(async (tx) => {
+        const freshSnap = await tx.get(marketRef);
+        const fresh = freshSnap.data() || {};
+        if (fresh.marketHalted) return 0;
+        const freshPrices: Record<string, number> = fresh.prices || {};
+        const updates: Record<string, number> = {};
+        const historyPoints: Record<string, PricePoint> = {};
+        let count = 0;
 
-      for (const ticker of NON_ETF_TICKERS) {
-        const currentPrice = prices[ticker];
-        if (!currentPrice || currentPrice <= 0) continue;
+        for (const ticker of NON_ETF_TICKERS) {
+          const currentPrice = freshPrices[ticker];
+          if (!currentPrice || currentPrice <= 0) continue;
 
-        // Respect the circuit breaker — a paused ticker is closed to everyone
-        // else, and stabilising it mid-pause moves the very price the pause is
-        // meant to hold still. The next cycle picks it up.
-        if (isTickerPaused(marketData.haltedTickers, ticker, now)) {
-          continue;
+          // Respect the circuit breaker — a paused ticker is closed to everyone
+          // else, and stabilising it mid-pause moves the very price the pause is
+          // meant to hold still. The next cycle picks it up.
+          if (isTickerPaused(fresh.haltedTickers, ticker, now)) {
+            continue;
+          }
+
+          // Don't claw back a recent admin price adjustment
+          if (isPriceProtected(priceHistory, ticker, ADMIN_PRICE_PROTECTION_MS, now)) {
+            continue;
+          }
+
+          const avgPrice = referencePrices[ticker];
+          if (!avgPrice || avgPrice <= 0) continue; // no trustworthy baseline yet
+
+          const deviation = (currentPrice - avgPrice) / avgPrice;
+
+          if (Math.abs(deviation) < DEVIATION_THRESHOLD) continue; // within normal range
+
+          // Positive deviation → price too high → market maker sells (pushes price down)
+          // Negative deviation → price too low → market maker buys (pushes price up)
+          const isSell = deviation > 0;
+
+          const impact = calculateMarginalImpact(
+            currentPrice,
+            INTERVENTION_SHARES * splitFactorOf(ticker),
+            0,
+            liquidityFor(ticker),
+          );
+          const clampedImpact = Math.min(impact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
+
+          let newPrice: number;
+          if (isSell) {
+            newPrice = Math.max(MIN_PRICE, currentPrice - clampedImpact);
+          } else {
+            newPrice = currentPrice + clampedImpact;
+          }
+
+          // Safety: never overshoot the average on a single intervention
+          if (isSell) {
+            newPrice = Math.max(newPrice, avgPrice);
+          } else {
+            newPrice = Math.min(newPrice, avgPrice);
+          }
+
+          // To the cent, like every other price writer. This was the one that
+          // did not, and it left values such as 75.83813448773768 sitting in the
+          // price map and on the chart — every downstream portfolio value and
+          // leaderboard position was then computed on a sub-cent price until the
+          // next real trade rounded it off.
+          newPrice = round2(newPrice);
+
+          // Only write if the price actually changed
+          if (newPrice === currentPrice) continue;
+
+          updates[`prices.${ticker}`] = newPrice;
+          historyPoints[ticker] = {
+            timestamp: now,
+            price: newPrice,
+            source: 'market_maker',
+          };
+
+          count++;
+          logger.info(
+            `marketMakerCycle: ${ticker} ${isSell ? 'SELL' : 'BUY'} ` +
+              `avg=${avgPrice.toFixed(2)} cur=${currentPrice.toFixed(2)} ` +
+              `dev=${(deviation * 100).toFixed(1)}% new=${newPrice.toFixed(2)}`,
+          );
         }
 
-        // Don't claw back a recent admin price adjustment
-        if (isPriceProtected(priceHistory, ticker, ADMIN_PRICE_PROTECTION_MS, now)) {
-          continue;
+        if (count > 0) {
+          tx.update(marketRef, updates);
+          const histUpdates: Record<string, FieldValue> = {};
+          for (const [t, p] of Object.entries(historyPoints)) {
+            histUpdates[t] = FieldValue.arrayUnion(p);
+          }
+          tx.set(priceHistoryRef(), histUpdates, { merge: true });
         }
-
-        const avgPrice = referencePrices[ticker];
-        if (!avgPrice || avgPrice <= 0) continue; // no trustworthy baseline yet
-
-        const deviation = (currentPrice - avgPrice) / avgPrice;
-
-        if (Math.abs(deviation) < DEVIATION_THRESHOLD) continue; // within normal range
-
-        // Positive deviation → price too high → market maker sells (pushes price down)
-        // Negative deviation → price too low → market maker buys (pushes price up)
-        const isSell = deviation > 0;
-
-        const impact = calculateMarginalImpact(
-          currentPrice,
-          INTERVENTION_SHARES * splitFactorOf(ticker),
-          0,
-          liquidityFor(ticker),
-        );
-        const clampedImpact = Math.min(impact, currentPrice * MAX_PRICE_CHANGE_PERCENT);
-
-        let newPrice: number;
-        if (isSell) {
-          newPrice = Math.max(MIN_PRICE, currentPrice - clampedImpact);
-        } else {
-          newPrice = currentPrice + clampedImpact;
-        }
-
-        // Safety: never overshoot the average on a single intervention
-        if (isSell) {
-          newPrice = Math.max(newPrice, avgPrice);
-        } else {
-          newPrice = Math.min(newPrice, avgPrice);
-        }
-
-        // To the cent, like every other price writer. This was the one that
-        // did not, and it left values such as 75.83813448773768 sitting in the
-        // price map and on the chart — every downstream portfolio value and
-        // leaderboard position was then computed on a sub-cent price until the
-        // next real trade rounded it off.
-        newPrice = round2(newPrice);
-
-        // Only write if the price actually changed
-        if (newPrice === currentPrice) continue;
-
-        updates[`prices.${ticker}`] = newPrice;
-        historyPoints[ticker] = {
-          timestamp: now,
-          price: newPrice,
-          source: 'market_maker',
-        };
-
-        interventionCount++;
-        logger.info(
-          `marketMakerCycle: ${ticker} ${isSell ? 'SELL' : 'BUY'} ` +
-            `avg=${avgPrice.toFixed(2)} cur=${currentPrice.toFixed(2)} ` +
-            `dev=${(deviation * 100).toFixed(1)}% new=${newPrice.toFixed(2)}`,
-        );
-      }
+        return count;
+      });
 
       if (interventionCount > 0) {
-        // Batch so the price change and its history point land atomically
-        const batch = db.batch();
-        batch.update(marketRef, updates);
-        const histUpdates: Record<string, FieldValue> = {};
-        for (const [t, p] of Object.entries(historyPoints)) {
-          histUpdates[t] = FieldValue.arrayUnion(p);
-        }
-        batch.set(priceHistoryRef(), histUpdates, { merge: true });
-        await batch.commit();
         logger.info(`marketMakerCycle: ${interventionCount} interventions applied`);
       } else {
         logger.info('marketMakerCycle: no interventions needed');

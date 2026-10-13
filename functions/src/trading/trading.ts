@@ -28,6 +28,7 @@ import {
   TRADE_TXN_MAX_ATTEMPTS,
   CIRCUIT_BREAKER_PAUSE_MS,
   ADMIN_UID,
+  MIN_EXIT_SHARES,
 } from '../shared/constants';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { buildTradeCreditUpdates, recordTrade } from '../shared/tradeRecords';
@@ -190,11 +191,14 @@ export const executeTrade = cf().https.onCall(
           assertIpAccountCap({ ip, uid, action, ipRecentTraders, now });
           assertCooldowns(userData, ticker, action, now);
 
-          // Working copies of positions (sanitized: dust holdings dropped, short
-          // fields defaulted so undefined values can't crash Firestore writes)
+          // Working copies of positions (sanitized: unsellable float specks dropped,
+          // short fields defaulted so undefined values can't crash Firestore writes).
+          // The cut is the smallest sellable size: this map is written back whole,
+          // and the old 0.001 cut silently deleted small sellable positions in
+          // OTHER stocks (a dividend remainder, say) whenever the player traded.
           const newHoldings: Record<string, number> = {};
           for (const [t, s] of Object.entries(holdings)) {
-            if (s > 0.001) newHoldings[t] = s;
+            if (s >= MIN_EXIT_SHARES) newHoldings[t] = s;
           }
           const newShorts: Record<string, ShortPosition> = {};
           for (const [t, pos] of Object.entries(shorts)) {

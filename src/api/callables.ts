@@ -207,6 +207,15 @@ export const adminSetHoldingFunction = callable<
   { userId: string; ticker: string; shares: number; costBasis: number | null },
   { previousShares: number; shares: number }
 >('adminSetHolding');
+// Admin: delete an account with the full clean-up (archive, tombstones, sign-in)
+export const adminDeleteUserFunction = callable<{ userId: string }, { success: boolean; userId: string }>(
+  'adminDeleteUser',
+);
+// Admin: move an account onto another uid; the old account is removed
+export const adminTransferAccountFunction = callable<
+  { fromUserId: string; toUserId: string },
+  { success: boolean; fromName: string | null }
+>('adminTransferAccount');
 // Admin: repair spike victim accounts
 export const repairSpikeVictimsFunction = callable<Api.SpikeRepairRequest, Api.SpikeRepairResponse>(
   'repairSpikeVictims',

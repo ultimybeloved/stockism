@@ -265,6 +265,9 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
     if (!victim) {
       throw new functions.https.HttpsError('invalid-argument', 'victim data required');
     }
+    if (typeof victim.correctedCash !== 'number' || !isFinite(victim.correctedCash) || victim.correctedCash < 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'No suggested fix for this account.');
+    }
 
     const userRef = db.collection('users').doc(userId);
     const userSnap = await userRef.get();
@@ -330,6 +333,12 @@ export const repairSpikeVictims = cf().https.onCall(async (data, context) => {
 
     const results = [];
     for (const victim of victimsInput) {
+      // No worked-out fix means nothing to apply. Math.round(null) is 0, so a
+      // row without one used to have its cash wiped to $0.
+      if (typeof victim?.correctedCash !== 'number' || !isFinite(victim.correctedCash) || victim.correctedCash < 0) {
+        results.push({ userId: victim?.userId, success: false, error: 'no suggested fix' });
+        continue;
+      }
       try {
         const userRef = db.collection('users').doc(victim.userId);
         const userSnap = await userRef.get();

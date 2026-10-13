@@ -40,7 +40,10 @@ export const recordPriceExtremes = cf()
 
       const moved = Object.keys(updates).length;
       if (!moved) {
+        // A quiet hour is a successful run, not a missed one: without the
+        // heartbeat here the watchdog paged after any 12 hours with no new highs.
         logger.info('recordPriceExtremes: no new records');
+        await recordHeartbeat('recordPriceExtremes');
         return null;
       }
 

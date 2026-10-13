@@ -6,12 +6,14 @@
 // penalty, rejoin lockout, margin eligibility) — an admin correcting a mistake
 // shouldn't be charged for it. They still keep the derived state consistent, so
 // nothing here can leave an account in a shape the game can't read.
+import { grantedValueUpdate } from '../shared/equity';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
-import { CREW_MEMBERS } from '../shared/constants';
+import { CREW_MEMBERS, ADMIN_UID } from '../shared/constants';
+import { purgeAccount } from '../shared/accountDeletion';
 import { CHARACTERS } from '../shared/characters';
 import { validateUsernameFormat } from '../shared/usernames';
 import { cohortRemoveUpdate } from '../shared/cohorts';
@@ -292,6 +294,10 @@ export const adminSetHolding = cf().https.onCall(
 
     // Valued at the current price so a share edit shows up in the money trail.
     const price = ((await db.collection('market').doc('current').get()).data()?.prices || {})[ticker] || 0;
+    // Shares handed out are free money, like a cash grant: booked as granted so a
+    // giveaway doesn't read as a real gain on the percent boards. Taking shares
+    // away books nothing (grantedValueUpdate ignores a negative).
+    Object.assign(update, grantedValueUpdate((rounded - previousShares) * price));
     const batch = db.batch();
     batch.update(ref, update);
     recordLedger(batch, {
@@ -315,5 +321,103 @@ export const adminSetHolding = cf().https.onCall(
       },
     });
     return { success: true, ticker, previousShares, shares: rounded, cleared: rounded <= 0 };
+  },
+);
+
+/**
+ * Delete an account from the admin panel with the same full clean-up a player's
+ * own deletion gets (see purgeAccount). The panel used to delete the user doc
+ * straight from the browser.
+ */
+export const adminDeleteUser = cf({ timeoutSeconds: 120 }).https.onCall(
+  async (data: { userId?: unknown } | null, context) => {
+    requireAdmin(context);
+    const { ref, data: userData } = await getUserRef(data?.userId);
+    if (ref.id === ADMIN_UID) {
+      throw new functions.https.HttpsError('failed-precondition', "The admin account can't be deleted here.");
+    }
+    await purgeAccount(ref.id, userData as Record<string, unknown>, `admin:${context.auth!.uid}`);
+    await logAdminAction(context, {
+      action: 'delete_user',
+      uid: ref.id,
+      name: userData.displayName,
+      before: { cash: userData.cash ?? 0, portfolioValue: userData.portfolioValue ?? 0, isBot: !!userData.isBot },
+    });
+    return { success: true, userId: ref.id };
+  },
+);
+
+/**
+ * Move one account onto another uid (a player who lost access and signed up
+ * again). The panel used to copy the doc from the browser and then ASK whether to
+ * delete the old one: answering no left the cash, shares and Discord on two
+ * accounts at once, and the copy booked nothing in the ledger. Now the copy, the
+ * name reservation and the ladder balance move in one transaction, and the old
+ * account is always removed afterwards.
+ */
+export const adminTransferAccount = cf({ timeoutSeconds: 120 }).https.onCall(
+  async (data: { fromUserId?: unknown; toUserId?: unknown } | null, context) => {
+    requireAdmin(context);
+    const fromId = typeof data?.fromUserId === 'string' ? data.fromUserId.trim() : '';
+    const toId = typeof data?.toUserId === 'string' ? data.toUserId.trim() : '';
+    if (!fromId || !toId || fromId === toId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Two different user IDs are required.');
+    }
+    if (fromId === ADMIN_UID || toId === ADMIN_UID) {
+      throw new functions.https.HttpsError('failed-precondition', "The admin account can't be transferred.");
+    }
+
+    const fromRef = db.collection('users').doc(fromId);
+    const toRef = db.collection('users').doc(toId);
+    const fromLadder = db.collection('ladderGameUsers').doc(fromId);
+    const toLadder = db.collection('ladderGameUsers').doc(toId);
+
+    const { oldData, newData } = await db.runTransaction(async (tx) => {
+      const [fromSnap, toSnap, ladderSnap] = await Promise.all([tx.get(fromRef), tx.get(toRef), tx.get(fromLadder)]);
+      if (!fromSnap.exists) throw new functions.https.HttpsError('not-found', `Old user not found: ${fromId}`);
+      if (!toSnap.exists) throw new functions.https.HttpsError('not-found', `New user not found: ${toId}`);
+      const oldData = fromSnap.data()!;
+      const newData = toSnap.data()!;
+
+      // The new account becomes the old one, wholesale (not merged: fields only
+      // the new account had would otherwise survive).
+      tx.set(toRef, oldData);
+      if (ladderSnap.exists) tx.set(toLadder, ladderSnap.data()!);
+
+      // The old name now belongs to the new uid; the new account's own name is freed.
+      const oldLower = oldData.displayNameLower as string | undefined;
+      const newLower = newData.displayNameLower as string | undefined;
+      if (oldLower)
+        tx.set(db.collection('usernames').doc(oldLower), { uid: toId, createdAt: FieldValue.serverTimestamp() });
+      if (newLower && newLower !== oldLower) tx.delete(db.collection('usernames').doc(newLower));
+
+      recordLedger(tx, {
+        uid: toId,
+        type: 'admin_transfer_in',
+        amount: (oldData.cash || 0) - (newData.cash || 0),
+        cashAfter: oldData.cash || 0,
+        detail: { by: context.auth!.uid, fromUid: fromId },
+      });
+      recordLedger(tx, {
+        uid: fromId,
+        type: 'admin_transfer_out',
+        amount: -(oldData.cash || 0),
+        cashAfter: 0,
+        detail: { by: context.auth!.uid, toUid: toId },
+      });
+      return { oldData, newData };
+    });
+
+    // The old account is gone either way; its name and Discord moved with it.
+    await purgeAccount(fromId, oldData, `admin_transfer:${context.auth!.uid}`, { keepIdentity: true });
+    await logAdminAction(context, {
+      action: 'transfer_account',
+      uid: toId,
+      name: newData.displayName,
+      before: { cash: newData.cash ?? 0, portfolioValue: newData.portfolioValue ?? 0 },
+      after: { cash: oldData.cash ?? 0, portfolioValue: oldData.portfolioValue ?? 0 },
+      detail: { fromUid: fromId, fromName: oldData.displayName },
+    });
+    return { success: true, fromName: oldData.displayName || null };
   },
 );

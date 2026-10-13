@@ -25,7 +25,7 @@ import { buildSeasonBaseline } from '../season/seasonTiers';
 import { isDisposableEmailLive } from './disposableEmail';
 import { countIpAccounts } from './ipCap';
 import { cleanupBlockedAuthUser, applyPendingDiscordLink } from './signupHelpers';
-import { archiveAccount } from '../shared/accountArchive';
+import { purgeAccount } from '../shared/accountDeletion';
 import { recordLedger } from '../shared/ledger';
 
 /** Why the per-network cap refused a signup, for the admin alert. */
@@ -306,6 +306,9 @@ export const createUser = cf().https.onCall(async (data, context) => {
         onboardingComplete: false,
         startingCashUnlocked: false,
         signupIp: sanitizedSignupIp || null,
+        // The ipTracking doc holding this account's signup slot (the whole
+        // connection for IPv6), so deletion releases the right one.
+        signupTrackingKey: signupTrackingKey || null,
         requiresDiscordLink,
         ...(activeSeason
           ? {
@@ -475,85 +478,15 @@ export const deleteAccount = cf().https.onCall(async (data, context) => {
     checkBanned(userData);
 
     const displayName = userData.displayName;
-    const displayNameLower = userData.displayNameLower;
 
     // Verify the confirmation username matches (case-insensitive)
     if (confirmUsername.toLowerCase() !== displayName.toLowerCase()) {
       throw new functions.https.HttpsError('invalid-argument', 'Username confirmation does not match.');
     }
 
-    // Keep a copy first: if it can't be saved, nothing is deleted.
-    await archiveAccount(uid, userData, 'self');
-
-    // Mark username as deleted (but keep reserved) first, so the name stays
-    // claimed even if a later step fails.
-    if (displayNameLower) {
-      const usernameRef = db.collection('usernames').doc(displayNameLower);
-      await usernameRef.set(
-        {
-          deleted: true,
-          deletedAt: FieldValue.serverTimestamp(),
-          deletedUid: uid,
-        },
-        { merge: true },
-      );
-    }
-
-    // Recursively delete the user document AND its subcollections
-    // (notifications, portfolioHistory, etc.). Firestore does not cascade, so a
-    // plain doc delete would orphan that data forever.
-    await db.recursiveDelete(userRef);
-
-    // The ladder account is a TOP-LEVEL doc keyed by uid, so recursiveDelete
-    // above does not reach it. Left behind it becomes a ghost: the collection is
-    // world-readable for the ladder leaderboard, and an orphan with no user doc
-    // renders there as "Anonymous" holding a real balance and occupying a
-    // top-50 slot. Best-effort — a failure here must not block the deletion.
-    try {
-      await db.collection('ladderGameUsers').doc(uid).delete();
-    } catch (e) {
-      /* nothing to remove, or already gone */
-    }
-
-    // Release this account's per-IP slot, but only after IP_SLOT_RELEASE_MS. We drop
-    // it from the live `accounts` map and tombstone it in `deletedAccounts` with the
-    // deletion time; the signup cap counts recent tombstones, so the slot stays held
-    // for ~a month. This kills the pump → delete → remake loop without permanently
-    // locking out genuine deleters.
-    if (userData.signupIp) {
-      try {
-        await db
-          .collection('ipTracking')
-          .doc(userData.signupIp)
-          .update({
-            [`accounts.${uid}`]: FieldValue.delete(),
-            [`deletedAccounts.${uid}`]: Date.now(),
-          });
-      } catch (e) {
-        /* IP tracking doc may not exist */
-      }
-    }
-
-    // Tombstone the linked Discord account so it can't immediately verify a fresh
-    // account and re-claim the $3k starting cash (the create → gamble → delete →
-    // remake loop). The slot frees up after DISCORD_RELINK_COOLDOWN_MS; deleting
-    // again later just resets the clock (merge overwrites deletedAt).
-    if (userData.discordId) {
-      try {
-        await db.collection('discordTombstones').doc(String(userData.discordId)).set(
-          {
-            deletedAt: Date.now(),
-            lastUid: uid,
-          },
-          { merge: true },
-        );
-      } catch (e) {
-        /* best-effort — never block deletion on this */
-      }
-    }
-
-    // Delete the Firebase Auth account
-    await admin.auth().deleteUser(uid);
+    // Archive, name reservation, data, IP slot and Discord tombstone, then the
+    // sign-in. Shared with the admin panel's delete so both clean up the same way.
+    await purgeAccount(uid, userData, 'self');
 
     return { success: true };
   } catch (error) {

@@ -3,7 +3,13 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
-import { ONE_WEEK_MS, TWENTY_FOUR_HOURS_MS, MARGIN_INTEREST_RATE, PRICE_HISTORY_LIVE_MAX } from '../shared/constants';
+import {
+  ONE_WEEK_MS,
+  TWENTY_FOUR_HOURS_MS,
+  MARGIN_INTEREST_RATE,
+  PRICE_HISTORY_LIVE_MAX,
+  ADMIN_PRICE_PROTECTION_MS,
+} from '../shared/constants';
 import { priceHistoryRef } from '../shared/marketData';
 import { writeNotification } from '../shared/notifications';
 import { recordHeartbeat } from '../shared/activity';
@@ -126,8 +132,15 @@ async function doArchivePriceHistory(ticker: string | null = null) {
     const history: PricePoint[] = priceHistory[t] || [];
 
     if (history.length > MAX_HISTORY_SIZE) {
-      const toArchive = history.slice(0, history.length - MAX_HISTORY_SIZE);
+      // A recent admin price set stays live however busy the stock gets:
+      // isPriceProtected only reads this doc, so archiving the point ended the
+      // 7-day protection early on busy stocks and let the bots move it.
+      const protectedSince = Date.now() - ADMIN_PRICE_PROTECTION_MS;
+      const toArchive = history
+        .slice(0, history.length - MAX_HISTORY_SIZE)
+        .filter((p) => !(p.source === 'admin_adjust' && p.timestamp >= protectedSince));
       const toKeep = history.slice(history.length - MAX_HISTORY_SIZE);
+      if (toArchive.length === 0) continue;
 
       const archiveRef = marketRef.collection('price_history').doc(t);
       const archiveSnap = await archiveRef.get();
@@ -275,6 +288,7 @@ export const syncAllPortfolios = cf()
       let errorCount = 0;
       let loyaltyNotified = 0;
       const loyaltyWrites = [];
+      const interestDue: string[] = [];
       let batch = db.batch();
       let batchCount = 0;
 
@@ -341,11 +355,8 @@ export const syncAllPortfolios = cf()
               portfolioValue: portfolioValue,
               lastSyncedAt: FieldValue.serverTimestamp(),
             };
-            if (marginInterest > 0) {
-              updateFields.marginUsed = marginUsed + marginInterest;
-              updateFields.lastMarginInterestCharge = startTime;
-              Object.assign(updateFields, seasonMarginUpdate(userData, marginUsed + marginInterest, startTime));
-            }
+            // Interest is charged separately below, from a fresh read.
+            if (marginInterest > 0) interestDue.push(userId);
             if (loyalty.changed) {
               updateFields.loyaltyTierNotified = loyalty.current;
             }
@@ -385,6 +396,34 @@ export const syncAllPortfolios = cf()
         await batch.commit();
         logger.info(`Committed final batch of ${batchCount} updates`);
       }
+
+      // Margin interest, one transaction per borrower. It used to ride the batch
+      // as `marginUsed = <value read at the start> + interest`, so a repayment or
+      // liquidation landing during the run was overwritten and the debt came back.
+      let interestCharged = 0;
+      for (const userId of interestDue) {
+        try {
+          await db.runTransaction(async (tx) => {
+            const ref = db.collection('users').doc(userId);
+            const snap = await tx.get(ref);
+            const fresh = (snap.data() || {}) as UserData;
+            const owed = fresh.marginUsed || 0;
+            const lastCharge = (fresh.lastMarginInterestCharge as number) || 0;
+            if (!fresh.marginEnabled || owed <= 0 || startTime - lastCharge < TWENTY_FOUR_HOURS_MS) return;
+            const after = owed + owed * MARGIN_INTEREST_RATE;
+            tx.update(ref, {
+              marginUsed: after,
+              lastMarginInterestCharge: startTime,
+              ...seasonMarginUpdate(fresh, after, startTime),
+            });
+          });
+          interestCharged++;
+        } catch (error) {
+          logger.error(`Margin interest failed for ${userId}:`, error);
+          errorCount++;
+        }
+      }
+      if (interestDue.length) logger.info(`Charged margin interest to ${interestCharged} borrower(s)`);
 
       if (loyaltyWrites.length > 0) {
         await Promise.all(loyaltyWrites);

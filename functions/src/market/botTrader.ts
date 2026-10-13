@@ -8,6 +8,7 @@ import {
   ADMIN_PRICE_PROTECTION_MS,
   MAX_DAILY_IMPACT,
   CREW_MEMBERS,
+  isWeeklyTradingHalt,
 } from '../shared/constants';
 import { CHARACTER_MAP, splitFactorOf } from '../shared/characters';
 import { liquidityFor, calculateMarginalImpact, isTickerPaused } from '../shared/impact';
@@ -389,7 +390,18 @@ export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
           // can be minutes old (bots sleep between trades), and writing from
           // it used to clobber concurrent player trades.
           const marketTxnSnap = await transaction.get(marketRef);
-          const freshPrices = (marketTxnSnap.data() || {}).prices || {};
+          const freshMarket = marketTxnSnap.data() || {};
+          const freshPrices = freshMarket.prices || {};
+          // Re-checked per trade: a round runs for minutes, so one started just
+          // before 13:00 Thursday, or before an emergency halt or a breaker
+          // pause, kept trading through it when this was checked only up front.
+          if (
+            isWeeklyTradingHalt() ||
+            freshMarket.marketHalted ||
+            isTickerPaused(freshMarket.haltedTickers, decision.ticker)
+          ) {
+            return;
+          }
 
           const currentPrice = freshPrices[decision.ticker];
           if (!currentPrice) return;
