@@ -23,6 +23,7 @@ import type { TradeAction, UserData } from '../../../types';
 import type { ChartHoverPoint, ShareInputs } from '../utils/shared';
 import type { IpoHoldingItem } from './IpoHoldingsList';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import { headerChange } from '../../../shared/components/charts/valueSeries';
 
 type RowProps = ComponentProps<typeof HoldingRow>;
 
@@ -177,8 +178,9 @@ const PortfolioModal = ({
     setExpandedShortTicker(expandedShortTicker === ticker ? null : ticker);
   };
 
-  const { chartData, hasChartData, minValue, maxValue, valueRange, firstValue, lastValue, periodChange, isUp } =
+  const { chartData, hasChartData, minValue, maxValue, valueRange, firstValue, lastValue, isUp } =
     usePortfolioChartData(portfolioHistory, currentValue);
+  const header = headerChange(firstValue, lastValue, hoveredPoint);
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
@@ -197,9 +199,9 @@ const PortfolioModal = ({
                 </span>
                 {hasChartData && (
                   <span
-                    className={`text-sm font-semibold ${colorBlindMode ? (isUp ? 'text-teal-500' : 'text-purple-500') : isUp ? 'text-green-500' : 'text-red-500'}`}
+                    className={`text-sm font-semibold ${colorBlindMode ? (header.isUp ? 'text-teal-500' : 'text-purple-500') : header.isUp ? 'text-green-500' : 'text-red-500'}`}
                   >
-                    {isUp ? '▲' : '▼'} {formatCurrency(Math.abs(lastValue - firstValue))} ({formatChange(periodChange)})
+                    {header.isUp ? '▲' : '▼'} {formatCurrency(Math.abs(header.change))} ({formatChange(header.pct)})
                   </span>
                 )}
               </div>

@@ -1,3 +1,4 @@
+import type { MouseEvent, TouchEvent } from 'react';
 import { themeClasses } from '../../../utils/theme';
 import { TIME_RANGES } from '../../../utils/marketIndex';
 import { useTheme } from '../../../context/AppContext';
@@ -98,6 +99,48 @@ const IndexChartModal = ({
     : periodChange;
   const headerUp = hoveredPoint ? hoveredPoint.price >= firstVal : isUp;
   const headerLabel = hoveredPoint ? hoveredPoint.fullDate : rangeLabel;
+
+  // Mouse hover on desktop, finger drag on phones.
+  const handleMove = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
+    const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
+    if (clientX === undefined) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = ((clientX - rect.left) / rect.width) * svgWidth;
+
+    let leftPoint: IndexPoint | null = null;
+    let rightPoint: IndexPoint | null = null;
+    for (let i = 0; i < chartData.length - 1; i++) {
+      const left = chartData[i]!;
+      const right = chartData[i + 1]!;
+      if (mouseX >= getX(left.timestamp) && mouseX <= getX(right.timestamp)) {
+        leftPoint = left;
+        rightPoint = right;
+        break;
+      }
+    }
+
+    if (leftPoint && rightPoint) {
+      const x1 = getX(leftPoint.timestamp);
+      const x2 = getX(rightPoint.timestamp);
+      const ratio = (mouseX - x1) / (x2 - x1);
+      const interpolated = leftPoint.price + ratio * (rightPoint.price - leftPoint.price);
+      const closerPoint = ratio < 0.5 ? leftPoint : rightPoint;
+      setHoveredPoint({
+        price: interpolated,
+        x: mouseX,
+        y: getY(interpolated),
+        fullDate: new Date(closerPoint.timestamp).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      });
+    } else {
+      setHoveredPoint(null);
+    }
+  };
 
   return (
     <div className={`${overlayClass} z-50`} onClick={onClose}>
@@ -251,45 +294,12 @@ const IndexChartModal = ({
             {/* Hover overlay */}
             <div
               className="absolute inset-0 cursor-pointer"
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const mouseX = ((e.clientX - rect.left) / rect.width) * svgWidth;
-
-                let leftPoint: IndexPoint | null = null;
-                let rightPoint: IndexPoint | null = null;
-                for (let i = 0; i < chartData.length - 1; i++) {
-                  const left = chartData[i]!;
-                  const right = chartData[i + 1]!;
-                  if (mouseX >= getX(left.timestamp) && mouseX <= getX(right.timestamp)) {
-                    leftPoint = left;
-                    rightPoint = right;
-                    break;
-                  }
-                }
-
-                if (leftPoint && rightPoint) {
-                  const x1 = getX(leftPoint.timestamp);
-                  const x2 = getX(rightPoint.timestamp);
-                  const ratio = (mouseX - x1) / (x2 - x1);
-                  const interpolated = leftPoint.price + ratio * (rightPoint.price - leftPoint.price);
-                  const closerPoint = ratio < 0.5 ? leftPoint : rightPoint;
-                  setHoveredPoint({
-                    price: interpolated,
-                    x: mouseX,
-                    y: getY(interpolated),
-                    fullDate: new Date(closerPoint.timestamp).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }),
-                  });
-                } else {
-                  setHoveredPoint(null);
-                }
-              }}
+              style={{ touchAction: 'none' }}
               onMouseLeave={() => setHoveredPoint(null)}
+              onTouchStart={handleMove}
+              onTouchMove={handleMove}
+              onTouchEnd={() => setHoveredPoint(null)}
+              onMouseMove={handleMove}
             />
 
             {/* Tooltip */}

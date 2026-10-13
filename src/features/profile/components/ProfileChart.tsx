@@ -7,6 +7,7 @@ import {
   formatChartDate,
   sampleSeries,
   summarizeSeries,
+  headerChange,
   type ChartHoverPoint,
 } from '../../../shared/components/charts/valueSeries';
 
@@ -72,7 +73,15 @@ const ProfileChart = ({
     // chartTimeRange isn't read here — the parent refetches portfolioHistory per range.
   }, [portfolioHistory, portfolioValue]);
 
-  const { minValue, maxValue, valueRange, periodChange, isUp: chartIsUp } = summarizeSeries(chartData, portfolioValue);
+  const {
+    minValue,
+    maxValue,
+    valueRange,
+    firstValue,
+    lastValue,
+    isUp: chartIsUp,
+  } = summarizeSeries(chartData, portfolioValue);
+  const header = headerChange(firstValue, lastValue, hoveredPoint);
 
   return (
     <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
@@ -84,9 +93,9 @@ const ProfileChart = ({
               {formatCurrency(hoveredPoint?.value ?? portfolioValue)}
             </span>
             <span
-              className={`text-sm font-semibold ${colorBlindMode ? (chartIsUp ? 'text-teal-500' : 'text-purple-500') : chartIsUp ? 'text-green-500' : 'text-red-500'}`}
+              className={`text-sm font-semibold ${colorBlindMode ? (header.isUp ? 'text-teal-500' : 'text-purple-500') : header.isUp ? 'text-green-500' : 'text-red-500'}`}
             >
-              {chartIsUp ? '▲' : '▼'} {formatChange(periodChange)}
+              {header.isUp ? '▲' : '▼'} {formatChange(header.pct)}
             </span>
           </div>
         </div>

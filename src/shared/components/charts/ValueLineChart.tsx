@@ -1,4 +1,4 @@
-import { useRef, type MouseEvent } from 'react';
+import { useRef, type MouseEvent, type TouchEvent } from 'react';
 import { formatCurrency, formatAxisLabels } from '../../../utils/formatters';
 import { useTheme } from '../../../context/AppContext';
 import { formatChartDate, type ChartHoverPoint, type ValuePoint } from './valueSeries';
@@ -65,9 +65,12 @@ const ValueLineChart = ({
     { kilo: true },
   );
 
-  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+  // Mouse hover on desktop, finger drag on phones.
+  const handleMove = (e: MouseEvent<HTMLDivElement> | TouchEvent<HTMLDivElement>) => {
+    const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
+    if (clientX === undefined) return;
     const rect = svgRef.current ? svgRef.current.getBoundingClientRect() : e.currentTarget.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * SVG_WIDTH;
+    const mouseX = ((clientX - rect.left) / rect.width) * SVG_WIDTH;
     if (mouseX < PAD_X || mouseX > SVG_WIDTH - PAD_X) {
       setHoveredPoint(null);
       return;
@@ -157,8 +160,12 @@ const ValueLineChart = ({
 
       <div
         className="absolute inset-0 cursor-crosshair"
-        onMouseMove={handleMouseMove}
+        style={{ touchAction: 'none' }}
+        onMouseMove={handleMove}
         onMouseLeave={() => setHoveredPoint(null)}
+        onTouchStart={handleMove}
+        onTouchMove={handleMove}
+        onTouchEnd={() => setHoveredPoint(null)}
       />
 
       {hoveredPoint !== null && (

@@ -42,3 +42,12 @@ export function summarizeSeries(data: ValuePoint[], fallback: number) {
   const isUp = lastValue >= firstValue;
   return { minValue, maxValue, valueRange, firstValue, lastValue, periodChange, isUp };
 }
+
+// Change from the series start to the hovered point, or to the series end when nothing is hovered.
+// Chart headers use this so the number and the percentage both follow the cursor.
+export function headerChange(firstValue: number, lastValue: number, hovered: ChartHoverPoint | null) {
+  const value = hovered ? hovered.value : lastValue;
+  const change = value - firstValue;
+  const pct = firstValue > 0 ? (change / firstValue) * 100 : 0;
+  return { change, pct, isUp: value >= firstValue };
+}
