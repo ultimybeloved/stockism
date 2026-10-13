@@ -404,13 +404,34 @@ async function main() {
     `granted=${dripGranted}, added=${dripSharesAdded * PRICE + dripCashPart}`,
   );
 
+  // A run that died halfway gets re-run by hand. Nobody already paid this week
+  // may be paid again.
+  const cashBeforeRerun = await cashOf('div_grant_cash');
+  await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
+  check(
+    'a second run in the same week pays nobody twice',
+    (await cashOf('div_grant_cash')) === cashBeforeRerun,
+    `before=${cashBeforeRerun}, after=${await cashOf('div_grant_cash')}`,
+  );
+
+  // Next week's run: clear the week stamp as if a week had passed.
   const grantedBefore = grantCashUser.grantedValue || 0;
+  await db.collection('users').doc('div_grant_cash').update({ lastDividendWeek: 'last-week' });
   await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
   check(
     'and it accumulates across runs rather than overwriting',
     ((await getUser('div_grant_cash')).grantedValue || 0) > grantedBefore,
     `before=${grantedBefore}`,
   );
+
+  // ── Banned ────────────────────────────────────────────────────────────────
+  await seed('div_banned', {
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 100, pending: [] } },
+    extra: { isBanned: true },
+  });
+  await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
+  check('a banned account is not paid', (await cashOf('div_banned')) === 1000);
 }
 
 it('dividends', main);
