@@ -52,7 +52,7 @@ There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel
 
 - Joining is free. Switching costs 5% of your portfolio and locks you out of the crew you left for 30 days.
 - **Underdog bonus.** Crews with fewer active players earn a reward multiplier of up to 2x on all mission payouts, recalculated every Monday from last week's activity.
-- **Crew head.** Every Monday the biggest portfolio among a crew's active members is crowned. Four straight weeks earns a dynasty, and taking the crown off a long-reigning head is tracked separately. The crown is cosmetic and pays nothing.
+- **Crew head.** Every Monday the biggest net worth (portfolio minus margin debt, since 2026-10-14) among a crew's active members is crowned. Crew totals and weekly gains in the Monday report are net of margin debt too. Four straight weeks earns a dynasty, and taking the crown off a long-reigning head is tracked separately. The crown is cosmetic and pays nothing.
 - **Crew missions.** Collective goals (buy, sell, and volume targets on the crew's own stocks) that scale with roster size. You need a minimum personal contribution to claim the payout, so one share does not earn you a share of the reward.
 
 ### Missions

@@ -10,6 +10,7 @@ import { getLastActiveMs, sumMarketActivity, recordHeartbeat } from '../shared/a
 import { priceHistoryRef } from '../shared/marketData';
 import { reportError } from '../shared/sentry';
 import { isRosterTicker } from '../shared/roster';
+import { netWorthOf } from '../shared/equity';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
 import { runWeeklyCrewRankings, runCrewRoleSyncOnly } from './crewRankings';
@@ -251,11 +252,12 @@ export const weeklyLeaderboard = cf()
       usersSnapshot.forEach((doc) => {
         const user = doc.data()!;
         if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
-        // Bots are excluded from all user-facing rankings
-        if (!user.isBankrupt && !user.isBot) {
+        // Bots and banned accounts are excluded from all user-facing rankings.
+        // Ranked on net worth (margin debt off), matching the site's board.
+        if (!user.isBankrupt && !user.isBot && !user.isBanned) {
           traders.push({
             username: user.displayName,
-            portfolioValue: user.portfolioValue || user.cash || 0,
+            portfolioValue: user.portfolioValue != null ? netWorthOf(user) : user.cash || 0,
           });
         }
       });

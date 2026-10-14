@@ -7,6 +7,7 @@ import { TWENTY_FOUR_HOURS_MS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_DYNASTY_
 import { writeNotification } from '../shared/notifications';
 import { sendDiscordMessage, crewEmoji } from '../shared/discordApi';
 import { getWeekId } from '../shared/tradeRecords';
+import { netWorthOf, snapshotNetWorth } from '../shared/equity';
 import { reportError } from '../shared/sentry';
 import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
 import type { DocumentData } from 'firebase-admin/firestore';
@@ -106,12 +107,16 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
 
     // Bots and banned accounts are excluded from all user-facing rankings
     if (!user.isBot && !user.isBanned && crew && crews[crew]) {
-      const portfolioValue = user.portfolioValue || user.cash || 0;
+      // Net worth (margin debt taken off), like every leaderboard since
+      // 2026-10-14: the crown and the crew totals went to whoever borrowed most.
+      const marginUsed = user.marginUsed || 0;
+      const portfolioValue = user.portfolioValue != null ? netWorthOf(user) : user.cash || 0;
       // Weekly gain from the rolling 7-day reference snapshot
-      // (portfolio history lives in a subcollection now, not on the doc)
+      // (portfolio history lives in a subcollection now, not on the doc),
+      // net of the debt at both ends so a margin buy isn't a gain.
       const snap7d = user.portfolioSnapshot7d;
-      const baseline = snap7d && snap7d.value > 0 ? snap7d.value : 0;
-      const gain = baseline > 0 ? portfolioValue - baseline : 0;
+      const baseline = snap7d && snap7d.value > 0 ? snapshotNetWorth(snap7d, marginUsed) : 0;
+      const gain = snap7d && snap7d.value > 0 ? portfolioValue - baseline : 0;
       const active = wasActiveLastWeek(user);
 
       const c = crews[crew]!;

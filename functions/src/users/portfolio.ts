@@ -24,6 +24,7 @@ import {
   LEGACY_SHORT_MARGIN_RATIO,
 } from '../shared/constants';
 import { stampMs } from '../shared/impact';
+import { grantedSince, snapshotNetWorth } from '../shared/equity';
 import { touchLastActive } from '../shared/activity';
 import { lockedShares } from '../shared/cohorts';
 import { reportError } from '../shared/sentry';
@@ -485,9 +486,14 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
     }
   }
 
-  // Compute and store weekly gain for Profit Champion
-  const valueSevenDaysAgo = (userData.portfolioSnapshot7d || updateData.portfolioSnapshot7d)?.value ?? portfolioValue;
-  const weeklyGain = Math.round((portfolioValue - valueSevenDaysAgo) * 100) / 100;
+  // Compute and store weekly gain for Profit Champion. Measured like the Top
+  // Gainers board: net worth at both ends (margin debt off) and free money
+  // received this week taken out. Until 2026-10-14 it was gross, so a margin
+  // buy or a week of grants could win it without a single profitable trade.
+  const snap7dRef = (userData.portfolioSnapshot7d || updateData.portfolioSnapshot7d) as
+    { value?: number; marginUsed?: number } | undefined;
+  const valueSevenDaysAgo = snap7dRef ? snapshotNetWorth(snap7dRef, userData.marginUsed || 0) : netWorth;
+  const weeklyGain = Math.round((netWorth - grantedSince(userData, ONE_WEEK_MS) - valueSevenDaysAgo) * 100) / 100;
   updateData.weeklyGain = weeklyGain;
 
   // Check Profit Champion: #1 in weekly gains
