@@ -13,6 +13,7 @@ import {
   WEEKLY_HALT_END_MINUTE,
 } from './constants';
 import * as logger from 'firebase-functions/logger';
+import { PIXEL_EMOJIS, type PixelEmoji } from './constants/pixelEmojis';
 
 /** A Discord embed object, passed through to the API as is. */
 type Embed = Record<string, unknown>;
@@ -37,6 +38,23 @@ export function crewEmoji(crewId: string): string {
   const crew = (CREWS as Record<string, { emblem?: string }>)[crewId];
   return (crew && crew.emblem) || '';
 }
+
+/**
+ * The bot's pixel emoji for `icon` (application emojis uploaded by
+ * scripts/sync-pixel-emojis.cjs), as message markup. Every standard emoji the
+ * bot used is mapped in scripts/discord-emoji-map.cjs; crews keep crewEmoji().
+ *
+ * Works in message text, DMs, embed descriptions and field names/values. NOT in
+ * embed titles, author names or footers: Discord prints the raw `<:name:id>`
+ * there, so titles stay plain and the icon opens the description instead.
+ */
+export const pxe = (icon: PixelEmoji): string => PIXEL_EMOJIS[icon];
+
+/** The same emoji for a button's `emoji` field (buttons can't take markup). */
+export const pxButton = (icon: PixelEmoji) => {
+  const [, name, id] = PIXEL_EMOJIS[icon].match(/^<:(\w+):(\d+)>$/)!;
+  return { name: name!, id: id! };
+};
 
 /**
  * One raw call to the Discord REST API as the bot.
@@ -201,21 +219,21 @@ export async function sendMarketStatusAlert(kind: string, reason = '') {
   const presets: Record<string, { color: number; title: string; description: string }> = {
     closed: {
       color: 0xe74c3c,
-      title: '🔴 Market Closed',
-      description: `Trading is paused for chapter review. Pre-market orders open at ${discordTime(Date.now() + msUntilWeekly(PRE_MARKET_START_MINUTE), 't')}. Trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
+      title: 'Market Closed',
+      description: `${pxe('dot_red')} Trading is paused for chapter review. Pre-market orders open at ${discordTime(Date.now() + msUntilWeekly(PRE_MARKET_START_MINUTE), 't')}. Trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
     },
     premarket: {
       color: 0xf1c40f,
-      title: '🟡 Pre-Market Queue Open',
-      description: `You can now place pre-market orders. They fill when trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
+      title: 'Pre-Market Queue Open',
+      description: `${pxe('dot_yellow')} You can now place pre-market orders. They fill when trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
     },
-    open: { color: 0x2ecc71, title: '🟢 Market Open', description: 'Trading has resumed.' },
+    open: { color: 0x2ecc71, title: 'Market Open', description: `${pxe('dot_green')} Trading has resumed.` },
     halted: {
       color: 0xe74c3c,
-      title: '🔴 Trading Halted',
-      description: reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.',
+      title: 'Trading Halted',
+      description: `${pxe('dot_red')} ${reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.'}`,
     },
-    resumed: { color: 0x2ecc71, title: '🟢 Trading Resumed', description: 'Trading has resumed.' },
+    resumed: { color: 0x2ecc71, title: 'Trading Resumed', description: `${pxe('dot_green')} Trading has resumed.` },
   };
   const preset = presets[kind];
   if (!preset) {

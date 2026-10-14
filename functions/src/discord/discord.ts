@@ -14,7 +14,7 @@ import {
   DISCORD_DAILY_DROP_CHANNEL,
   DISCORD_LINK_NONCE_TTL_MS,
 } from '../shared/constants';
-import { sendDiscordMessage } from '../shared/discordApi';
+import { sendDiscordMessage, pxe, pxButton } from '../shared/discordApi';
 import {
   isDiscordRelinkBlocked,
   getDiscordBinding,
@@ -461,9 +461,9 @@ export const unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
 const buildDailyDropMessage = () => ({
   embeds: [
     {
-      title: '🎁 Daily Free Stock Drop!',
+      title: 'Daily Free Stock Drop!',
       description:
-        'Click the button below to claim your free daily stock(s)!\n\n' +
+        `${pxe('gift')} Click the button below to claim your free daily stock(s)!\n\n` +
         '**How it works:**\n' +
         '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
         '• On top of that you get **bonus shares** of cheaper characters\n' +
@@ -481,13 +481,15 @@ const buildDailyDropMessage = () => ({
         {
           type: 2, // Button
           style: 1, // Primary (blurple)
-          label: '🎲 Claim Free Stock',
+          label: 'Claim Free Stock',
+          emoji: pxButton('reroll'),
           custom_id: 'claim_daily_stock',
         },
         {
           type: 2, // Button
           style: 2, // Secondary (gray)
-          label: '📋 View Last Claim',
+          label: 'View Last Claim',
+          emoji: pxButton('missions'),
           custom_id: 'view_last_claim',
         },
       ],

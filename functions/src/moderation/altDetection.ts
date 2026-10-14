@@ -35,7 +35,7 @@ import {
   ADMIN_DISCORD_USER_ID,
   TWENTY_FOUR_HOURS_MS,
 } from '../shared/constants';
-import { sendDiscordDM } from '../shared/discordApi';
+import { sendDiscordDM, pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import { networkKey } from '../shared/accountGuards';
 import { recordHeartbeat } from '../shared/activity';
@@ -253,7 +253,7 @@ async function runAltScan({ dryRun = false } = {}) {
     try {
       await sendDiscordDM(
         ADMIN_DISCORD_USER_ID,
-        `🕵️ **Possible alt accounts** (private — nobody else can see this)\n` +
+        `${pxe('inspect')} **Possible alt accounts** (private — nobody else can see this)\n` +
           high
             .slice(0, 5)
             .map(

@@ -30,7 +30,7 @@ import {
 import { grantedValueUpdate } from '../shared/equity';
 import { recordLedger } from '../shared/ledger';
 import { round2 } from '../shared/money';
-import { sendDiscordMessage } from '../shared/discordApi';
+import { sendDiscordMessage, pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import {
   findUserByDiscordId,
@@ -70,7 +70,7 @@ export const cmdWelcome = async (interaction: Interaction) => {
     return reply(
       'Only in the Stockism server',
       `Your welcome week is in the official Stockism Discord. Join, then run \`/welcome\` there for up to ${money(WELCOME_STREAK_TOTAL)}.`,
-      [buttonRow(linkButton('Join the Stockism Discord', DISCORD_INVITE_URL))],
+      [buttonRow(linkButton('Join the Stockism Discord', DISCORD_INVITE_URL, 'link'))],
     );
   }
   if (!discordId) return reply('Something went wrong', 'Try again in a moment.');
@@ -179,7 +179,7 @@ export const cmdWelcome = async (interaction: Interaction) => {
           {
             color: WELCOME_COLOR,
             title: 'Welcome week complete',
-            description: `<@${discordId}> just finished their welcome week and collected ${money(WELCOME_STREAK_TOTAL)}. New here? Run \`/welcome\`.`,
+            description: `${pxe('party')} <@${discordId}> just finished their welcome week and collected ${money(WELCOME_STREAK_TOTAL)}. New here? Run \`/welcome\`.`,
           },
         ],
         interaction.channel_id,
@@ -187,18 +187,18 @@ export const cmdWelcome = async (interaction: Interaction) => {
     }
     return reply(
       `Day 7 of 7: ${money(result.reward)}!`,
-      `${welcomeTrack(WELCOME_STREAK_DAYS)}\n\nThat's the full week: **${money(WELCOME_STREAK_TOTAL)}** on top of your starting cash. ` +
+      `${pxe('party')} ${welcomeTrack(WELCOME_STREAK_DAYS)}\n\nThat's the full week: **${money(WELCOME_STREAK_TOTAL)}** on top of your starting cash. ` +
         `Cash now: ${money(result.cashAfter)}.`,
-      [buttonRow(linkButton('Start trading', SITE_URL))],
+      [buttonRow(linkButton('Start trading', SITE_URL, 'rocket'))],
     );
   }
 
   return reply(
     `Day ${result.day} of ${WELCOME_STREAK_DAYS}: +${money(result.reward)}`,
-    `${welcomeTrack(result.day)}\n\n` +
+    `${pxe('gift')} ${welcomeTrack(result.day)}\n\n` +
       `${result.day === 1 ? 'Welcome to Stockism! ' : ''}Come back ${nextUtcMidnight(now)} for day ${result.day + 1} ` +
       `(**${money(WELCOME_STREAK_REWARDS[result.day])}**). Missing a day only pauses your week, it never resets it.\n\n` +
       `${schedule(result.day)}\n\nCash now: ${money(result.cashAfter)}.`,
-    [buttonRow(linkButton('Open Stockism', SITE_URL))],
+    [buttonRow(linkButton('Open Stockism', SITE_URL, 'trade'))],
   );
 };

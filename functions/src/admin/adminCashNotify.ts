@@ -15,7 +15,7 @@
 // an internal note ("comp for my mistake", "alt refund") and must never be shown
 // to the player, so the amount is the only thing that crosses over.
 import { writeNotification } from '../shared/notifications';
-import { sendDiscordDM } from '../shared/discordApi';
+import { sendDiscordDM, pxe } from '../shared/discordApi';
 import type { UserData } from '../shared/types';
 
 // Two decimals with thousands separators, so $12500 reads as $12,500.00.
@@ -56,7 +56,7 @@ export async function notifyCashGrant(
   let dmSent = false;
   if (userData?.discordId) {
     try {
-      dmSent = await sendDiscordDM(userData.discordId, `💰 ${text}`);
+      dmSent = await sendDiscordDM(userData.discordId, `${pxe('cash')} ${text}`);
     } catch {
       // sendDiscordDM already fails soft on Discord errors; this only catches a
       // network throw. Closed DMs are normal and not worth surfacing.
@@ -86,7 +86,7 @@ export async function notifyCosmeticGrant(
       message: text,
       data: { cosmeticId },
     });
-    if (discordId) await sendDiscordDM(discordId, `🎁 ${text}`);
+    if (discordId) await sendDiscordDM(discordId, `${pxe('gift')} ${text}`);
   } catch {
     // The grant stands either way; closed DMs are normal.
   }

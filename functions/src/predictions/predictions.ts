@@ -7,7 +7,7 @@ const db = admin.firestore();
 import { CHARACTERS } from '../shared/characters';
 import { isWeeklyTradingHalt, chapterReviewHaltMsg, IPO_PRICE_JUMP, IPO_SELL_LOCKUP_MS } from '../shared/constants';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
-import { sendDiscordMessage } from '../shared/discordApi';
+import { sendDiscordMessage, pxe } from '../shared/discordApi';
 import { getTotalInvested, predictionFlowUpdate } from '../shared/equity';
 import { writeNotification } from '../shared/notifications';
 import { reportError } from '../shared/sentry';
@@ -468,8 +468,8 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
       const newPrice = Math.round(result.basePrice * (1 + IPO_PRICE_JUMP) * 100) / 100;
       await sendDiscordMessage(null, [
         {
-          title: '🎉 IPO Sold Out!',
-          description: `**${result.ticker}** IPO sold out! Price jumped to $${newPrice.toFixed(2)} — now trading normally.`,
+          title: 'IPO Sold Out!',
+          description: `${pxe('party')} **${result.ticker}** IPO sold out! Price jumped to $${newPrice.toFixed(2)} — now trading normally.`,
           color: 0x00ff00,
           fields: [
             { name: 'Shares Sold', value: `${result.ipoTotalShares}/${result.ipoTotalShares}`, inline: true },
@@ -519,8 +519,8 @@ export const processIPOPriceJumps = cf()
         try {
           await sendDiscordMessage(null, [
             {
-              title: '🎉 IPO Closed',
-              description: `**${n.ticker}** IPO has ended! Price jumped to $${n.newPrice.toFixed(2)}`,
+              title: 'IPO Closed',
+              description: `${pxe('party')} **${n.ticker}** IPO has ended! Price jumped to $${n.newPrice.toFixed(2)}`,
               color: 0x00ff00,
               fields: [
                 { name: 'Shares Sold', value: `${n.sharesSold}/${n.ipoTotalShares}`, inline: true },

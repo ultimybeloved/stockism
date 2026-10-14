@@ -32,7 +32,7 @@ import {
   FIRESTORE_BATCH_SIZE,
 } from '../shared/constants';
 import { writeNotification } from '../shared/notifications';
-import { sendDiscordMessage } from '../shared/discordApi';
+import { sendDiscordMessage, pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import { recordHeartbeat } from '../shared/activity';
 import { shortsEquity } from '../shared/equity';
@@ -453,8 +453,8 @@ export const checkMarginLending = cf()
               try {
                 await sendDiscordMessage(null, [
                   {
-                    title: '💥 Margin Liquidation',
-                    description: 'A trader was just **LIQUIDATED** by the margin system',
+                    title: 'Margin Liquidation',
+                    description: `${pxe('boom')} A trader was just **LIQUIDATED** by the margin system`,
                     color: 0xff0000,
                     timestamp: new Date().toISOString(),
                   },

@@ -41,7 +41,7 @@ import {
   discordTime,
   TWENTY_FOUR_HOURS_MS,
 } from '../shared/constants';
-import { sendDiscordDM } from '../shared/discordApi';
+import { sendDiscordDM, pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import { recordHeartbeat } from '../shared/activity';
 import type { CoordRow } from './coordClustering';
@@ -205,7 +205,7 @@ async function runCoordScan({ dryRun = false } = {}) {
     try {
       await sendDiscordDM(
         ADMIN_DISCORD_USER_ID,
-        `📊 **Coordinated pressure** (private — nobody else can see this)\n` +
+        `${pxe('chart')} **Coordinated pressure** (private — nobody else can see this)\n` +
           high
             .slice(0, 5)
             .map(

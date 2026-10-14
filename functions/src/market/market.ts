@@ -14,7 +14,7 @@ import {
   ACTIVE_USER_WINDOW_MS,
   ACTIVE_USER_WINDOW_DAYS,
 } from '../shared/constants';
-import { sendDiscordMessage, sendMarketStatusAlert } from '../shared/discordApi';
+import { sendDiscordMessage, sendMarketStatusAlert, pxe } from '../shared/discordApi';
 import { priceHistoryRef, getReviewWindowChanges, recordDailyCloses } from '../shared/marketData';
 import { getLastActiveMs, sumMarketActivity, recordHeartbeat } from '../shared/activity';
 import { isRosterTicker } from '../shared/roster';
@@ -156,17 +156,17 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
 
   // Build Discord embed
   const embed = {
-    title: '📊 Daily Market Summary',
-    description: `Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
+    title: 'Daily Market Summary',
+    description: `${pxe('chart')} Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
     color: 0xff6b35,
     fields: [
       {
-        name: '📈 Market Activity',
+        name: `${pxe('trade')} Market Activity`,
         value: `${tradeCount} trades • $${totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })} volume`,
         inline: false,
       },
       {
-        name: '🔥 Top Gainers (24h)',
+        name: `${pxe('fire')} Top Gainers (24h)`,
         value:
           gainers
             .slice(0, 3)
@@ -175,7 +175,7 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
         inline: true,
       },
       {
-        name: '📉 Top Losers (24h)',
+        name: `${pxe('chart_down')} Top Losers (24h)`,
         value:
           losers
             .slice(0, 3)
@@ -189,7 +189,7 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
 
   if (athStocks.length > 0) {
     embed.fields.push({
-      name: '🎯 New All-Time Highs',
+      name: `${pxe('star')} New All-Time Highs`,
       value: athStocks.slice(0, 5).join(', '),
       inline: false,
     });
@@ -197,7 +197,7 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
 
   if (topTraders.length > 0) {
     embed.fields.push({
-      name: '⚡ Most Active Traders',
+      name: `${pxe('bolt')} Most Active Traders`,
       value: topTraders
         .map(([uid, count], i) => `${i + 1}. ${nameByUid.get(uid)} - ${count} ${count === 1 ? 'trade' : 'trades'}`)
         .join('\n'),
@@ -206,7 +206,7 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
   }
 
   embed.fields.push({
-    name: '💰 Market Stats',
+    name: `${pxe('cash')} Market Stats`,
     value: [
       `Total Cash: $${Math.round(users.reduce((sum, u) => sum + (u.isBot ? 0 : u.cash || 0), 0)).toLocaleString()}`,
       `Traded today: ${tradedToday}`,
@@ -392,7 +392,7 @@ export const chapterReviewRecap = cf()
 
       if (gainers.length > 0) {
         fields.push({
-          name: '📈 Price Increases',
+          name: `${pxe('trade')} Price Increases`,
           value: formatList(gainers),
           inline: false,
         });
@@ -400,7 +400,7 @@ export const chapterReviewRecap = cf()
 
       if (losers.length > 0) {
         fields.push({
-          name: '📉 Price Decreases',
+          name: `${pxe('chart_down')} Price Decreases`,
           value: formatList(losers),
           inline: false,
         });
@@ -408,13 +408,13 @@ export const chapterReviewRecap = cf()
 
       if (gainers.length === 0 && losers.length === 0 && etfMovements.length === 0) {
         fields.push({
-          name: '➖ No Changes',
+          name: `${pxe('flat')} No Changes`,
           value: 'No price adjustments were made this week.',
           inline: false,
         });
       } else if (unchangedCount > 0) {
         fields.push({
-          name: '➖ Unchanged',
+          name: `${pxe('flat')} Unchanged`,
           value: `${unchangedCount} stock${unchangedCount !== 1 ? 's' : ''}`,
           inline: false,
         });
@@ -422,7 +422,7 @@ export const chapterReviewRecap = cf()
 
       if (etfMovements.length > 0) {
         fields.push({
-          name: '🧺 ETF Movements',
+          name: `${pxe('basket')} ETF Movements`,
           value: formatList(etfMovements.sort((a, b) => b.change - a.change)),
           inline: false,
         });
@@ -430,7 +430,7 @@ export const chapterReviewRecap = cf()
 
       if (knockOnOnlyCount > 0) {
         fields.push({
-          name: '🔗 Moved On Their Own',
+          name: `${pxe('link')} Moved On Their Own`,
           value:
             `${knockOnOnlyCount} stock${knockOnOnlyCount !== 1 ? 's' : ''} moved without being adjusted, ` +
             'because a stock they follow was.',
@@ -440,14 +440,14 @@ export const chapterReviewRecap = cf()
 
       const smiSign = smiChange >= 0 ? '+' : '';
       fields.push({
-        name: '📊 Stockism Market Index',
+        name: `${pxe('chart')} Stockism Market Index`,
         value: `${Math.round(smiBefore).toLocaleString()} → ${Math.round(smiAfter).toLocaleString()} (${smiSign}${smiChange.toFixed(1)}%)`,
         inline: false,
       });
 
       const embed = {
-        title: '📖 Chapter Review Recap',
-        description: dateStr,
+        title: 'Chapter Review Recap',
+        description: `${pxe('book')} ${dateStr}`,
         color: 0x9b59b6,
         fields,
         timestamp: new Date().toISOString(),

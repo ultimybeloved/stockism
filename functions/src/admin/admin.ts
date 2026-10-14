@@ -9,7 +9,7 @@ import type { Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
-import { sendDiscordMessage } from '../shared/discordApi';
+import { sendDiscordMessage, pxe } from '../shared/discordApi';
 import { priceHistoryRef } from '../shared/marketData';
 import { recordLedger } from '../shared/ledger';
 import { logAdminAction } from '../shared/adminLog';
@@ -177,7 +177,7 @@ export const banUser = cf().https.onCall(async (data, context) => {
           ? `\nCancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`
           : '';
       await sendDiscordMessage(
-        `🔨 **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
+        `${pxe('hammer')} **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
       );
     } catch (err) {
       logger.error('Failed to send Discord alert:', err);

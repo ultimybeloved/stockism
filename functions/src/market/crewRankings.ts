@@ -5,7 +5,7 @@ import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { TWENTY_FOUR_HOURS_MS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_DYNASTY_WEEKS } from '../shared/constants';
 import { writeNotification } from '../shared/notifications';
-import { sendDiscordMessage, crewEmoji } from '../shared/discordApi';
+import { sendDiscordMessage, crewEmoji, pxe } from '../shared/discordApi';
 import { getWeekId } from '../shared/tradeRecords';
 import { netWorthOf, tradingNetWorthOf, snapshotNetWorth } from '../shared/equity';
 import { reportError } from '../shared/sentry';
@@ -288,7 +288,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     const mult = multipliers[crew.id];
     const head = heads[crew.id];
     const headText = head
-      ? `🔱 ${head.displayName} ($${head.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })})`
+      ? `${pxe('crew_head')} ${head.displayName} ($${head.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })})`
       : 'Vacant';
 
     return {
@@ -299,7 +299,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         `**Avg Gain per Active Member:** ${avgText}\n` +
         `**Crew Weekly Gain:** ${fmtMoney(crew.weeklyGain)}\n` +
         `**Total Value:** $${crew.totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}\n` +
-        `**Reward Bonus This Week:** x${mult}${mult! > 1 ? ' 🔥' : ''}\n\n` +
+        `**Reward Bonus This Week:** x${mult}${mult! > 1 ? ` ${pxe('fire')}` : ''}\n\n` +
         `**Top Gainers:**\n${gainersText}`,
       inline: false,
     };
@@ -307,8 +307,9 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
 
   const embed = {
     color: 0x5865f2, // Discord blurple
-    title: '⚔️ Weekly Crew Rankings',
+    title: 'Weekly Crew Rankings',
     description:
+      `${pxe('swords')} ` +
       '*Crews ranked by average weekly gain per active member. Less active crews get a mission reward bonus this week. Join one and cash in. The biggest active portfolio in each crew takes the crown.*',
     fields: fields,
     footer: {

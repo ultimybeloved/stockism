@@ -1,5 +1,5 @@
 import { cf } from '../shared/fnConfig';
-import { sendDiscordMessage, discordApi } from '../shared/discordApi';
+import { sendDiscordMessage, discordApi, pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import { HEARTBEAT_DOC } from '../shared/activity';
 import { DISCORD_DAILY_DROP_CHANNEL, WATCHED_SCHEDULED_JOBS } from '../shared/constants';
@@ -79,8 +79,8 @@ export const discordHealthCheck = cf()
         null,
         [
           {
-            title: '⚠️ Discord config health check failed',
-            description: problems.map((p) => `• ${p}`).join('\n'),
+            title: 'Discord config health check failed',
+            description: `${pxe('warning')} ` + problems.map((p) => `• ${p}`).join('\n'),
             color: 0xe74c3c,
             footer: { text: 'Automated self-check • fix functions/.env and redeploy' },
             timestamp: new Date().toISOString(),
@@ -164,8 +164,8 @@ export const scheduledJobWatchdog = cf()
 
     await sendDiscordMessage(null, [
       {
-        title: '⚠️ Scheduled job watchdog',
-        description: problems.map((p) => `• ${p}`).join('\n'),
+        title: 'Scheduled job watchdog',
+        description: `${pxe('warning')} ` + problems.map((p) => `• ${p}`).join('\n'),
         color: 0xe74c3c,
         footer: { text: 'A stale job means it failed or never ran' },
         timestamp: new Date().toISOString(),

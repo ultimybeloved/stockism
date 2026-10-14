@@ -33,7 +33,8 @@ import type { UserData } from '../shared/types';
 import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from '../missions/missionChecks';
 import { countRankAbove, netWorthOf } from '../shared/equity';
 import { getWeekId } from '../shared/tradeRecords';
-import { crewEmoji } from '../shared/discordApi';
+import { crewEmoji, pxe, pxButton } from '../shared/discordApi';
+import type { PixelEmoji } from '../shared/constants/pixelEmojis';
 // Circular on purpose: discordWelcome reuses this file's helpers. Safe because
 // neither module touches the other's exports until a command actually runs.
 import { cmdWelcome } from './discordWelcome';
@@ -73,7 +74,7 @@ const safeEcho = (input: unknown, max = 60) => {
   return text.replace(/[\\`*_~|<>[\]()#@:-]/g, (ch) => `\\${ch}`);
 };
 
-const MEDALS = ['🥇', '🥈', '🥉'];
+const MEDALS = [pxe('rank1'), pxe('rank2'), pxe('rank3')];
 const rankLabel = (i: number) => MEDALS[i] || `\`#${i + 1}\``;
 
 const CHAR_BY_TICKER = new Map(CHARACTERS.map((c) => [c.ticker.toUpperCase(), c]));
@@ -93,12 +94,12 @@ const resolveTicker = (input: unknown) => {
   );
 };
 
-export const linkButton = (label: string, url: string, emoji?: string) => ({
+export const linkButton = (label: string, url: string, icon?: PixelEmoji) => ({
   type: 2,
   style: 5,
   label,
   url,
-  ...(emoji ? { emoji: { name: emoji } } : {}),
+  ...(icon ? { emoji: pxButton(icon) } : {}),
 });
 
 export const buttonRow = (...buttons: (object | null | false | undefined)[]) => ({
@@ -117,9 +118,9 @@ const signupPitch = (what: string) => ({
   embeds: [
     {
       color: BRAND_COLOR,
-      title: '📈 You are not on Stockism yet',
+      title: 'You are not on Stockism yet',
       description:
-        `${what}\n\n` +
+        `${pxe('trade')} ${what}\n\n` +
         'Stockism is a stock market for characters. You start with cash, buy who you ' +
         'think is going up, and climb the leaderboard.\n\n' +
         'Already have an account? Link your Discord and this command will work here.',
@@ -127,8 +128,8 @@ const signupPitch = (what: string) => ({
   ],
   components: [
     buttonRow(
-      linkButton('Create an account', SITE_URL, '🚀'),
-      linkButton('Link my Discord', `${SITE_URL}/link-discord`, '🔗'),
+      linkButton('Create an account', SITE_URL, 'rocket'),
+      linkButton('Link my Discord', `${SITE_URL}/link-discord`, 'link'),
     ),
   ],
 });
@@ -179,11 +180,11 @@ const cmdLeaderboard = async () => {
       embeds: [
         {
           color: BRAND_COLOR,
-          title: '🏆 Leaderboard',
-          description: 'The leaderboard is still being built. Try again in a few minutes.',
+          title: 'Leaderboard',
+          description: `${pxe('trophy')} The leaderboard is still being built. Try again in a few minutes.`,
         },
       ],
-      components: [buttonRow(linkButton('Open Stockism', `${SITE_URL}/leaderboard`, '📈'))],
+      components: [buttonRow(linkButton('Open Stockism', `${SITE_URL}/leaderboard`, 'trade'))],
     };
   }
 
@@ -204,12 +205,12 @@ const cmdLeaderboard = async () => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: '🏆 Top Traders',
+        title: 'Top Traders',
         description: rows.join('\n'),
         footer: { text: stale ? 'Updates every few minutes' : 'Live' },
       },
     ],
-    components: [buttonRow(linkButton('Full leaderboard', `${SITE_URL}/leaderboard`, '🏆'))],
+    components: [buttonRow(linkButton('Full leaderboard', `${SITE_URL}/leaderboard`, 'trophy'))],
   };
 };
 
@@ -235,7 +236,7 @@ const cmdProfile = async (interaction: Interaction) => {
               description: 'That person has not linked a Stockism account yet.',
             },
           ],
-          components: [buttonRow(linkButton('Create an account', SITE_URL, '🚀'))],
+          components: [buttonRow(linkButton('Create an account', SITE_URL, 'rocket'))],
         };
   }
 
@@ -268,7 +269,10 @@ const cmdProfile = async (interaction: Interaction) => {
   // custom Discord emoji instead (crewEmoji falls back to the Unicode emblem).
   const crew = CREWS[data.crew];
   if (crew) {
-    fields.push({ name: 'Crew', value: `${crewEmoji(data.crew)} ${crew.name}`.trim(), inline: true });
+    // The crew head mark can't go in the title (Discord prints custom emoji
+    // markup raw there), so it sits with the crew.
+    const head = data.isCrewHead ? ` ${pxe('crew_head')} Head` : '';
+    fields.push({ name: 'Crew', value: `${crewEmoji(data.crew)} ${crew.name}${head}`.trim(), inline: true });
   } else if (data.crew) {
     fields.push({ name: 'Crew', value: safeEcho(data.crew, 32), inline: true });
   }
@@ -281,7 +285,7 @@ const cmdProfile = async (interaction: Interaction) => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: `${data.isCrewHead ? '👑 ' : ''}${name}`,
+        title: name,
         fields,
       },
     ],
@@ -305,7 +309,7 @@ const cmdPrice = async (interaction: Interaction) => {
           description: `No stock matches **${safeEcho(raw && raw.value)}**. Try a ticker like \`DG\`, or a character name.`,
         },
       ],
-      components: [buttonRow(linkButton('Browse all stocks', SITE_URL, '📈'))],
+      components: [buttonRow(linkButton('Browse all stocks', SITE_URL, 'trade'))],
     };
   }
 
@@ -324,13 +328,13 @@ const cmdPrice = async (interaction: Interaction) => {
             : 'No price available right now.',
         },
       ],
-      components: [buttonRow(linkButton('Open Stockism', SITE_URL, '📈'))],
+      components: [buttonRow(linkButton('Open Stockism', SITE_URL, 'trade'))],
     };
   }
 
   const previous = previousPrices[character.ticker];
   const change = previous > 0 ? ((price - previous) / previous) * 100 : null;
-  const arrow = change == null ? '' : change > 0 ? '🟢' : change < 0 ? '🔴' : '⚪';
+  const arrow = change == null ? '' : pxe(change > 0 ? 'dot_green' : change < 0 ? 'dot_red' : 'dot_grey');
 
   const fields = [{ name: 'Price', value: money(price), inline: true }];
   if (change != null) {
@@ -346,7 +350,7 @@ const cmdPrice = async (interaction: Interaction) => {
         footer: marketHalted ? { text: 'Market is halted for chapter review' } : undefined,
       },
     ],
-    components: [buttonRow(linkButton('Trade on Stockism', `${SITE_URL}/stock/${character.ticker}`, '💸'))],
+    components: [buttonRow(linkButton('Trade on Stockism', `${SITE_URL}/stock/${character.ticker}`, 'trade'))],
   };
 };
 
@@ -396,7 +400,7 @@ const cmdPortfolio = async (interaction: Interaction) => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: '💼 Your Portfolio',
+        title: 'Your Portfolio',
         description,
         fields: [
           { name: 'Holdings value', value: money(holdingsValue), inline: true },
@@ -404,7 +408,7 @@ const cmdPortfolio = async (interaction: Interaction) => {
         ],
       },
     ],
-    components: [buttonRow(linkButton('Manage portfolio', SITE_URL, '💼'))],
+    components: [buttonRow(linkButton('Manage portfolio', SITE_URL, 'briefcase'))],
   };
 };
 
@@ -422,11 +426,11 @@ const cmdMissions = async (interaction: Interaction) => {
       embeds: [
         {
           color: BRAND_COLOR,
-          title: '🎯 Missions',
-          description: 'Pick a crew on the website to start getting missions.',
+          title: 'Missions',
+          description: `${pxe('missions')} Pick a crew on the website to start getting missions.`,
         },
       ],
-      components: [buttonRow(linkButton('Choose a crew', `${SITE_URL}/profile`, '🏴'))],
+      components: [buttonRow(linkButton('Choose a crew', `${SITE_URL}/profile`, 'crews'))],
     };
   }
 
@@ -449,7 +453,7 @@ const cmdMissions = async (interaction: Interaction) => {
         const claimed = !!(claimedMap || {})[m.id];
         const check = checks[m.id];
         const done = check ? check(progress as never, data as UserData, prices) : false;
-        const icon = claimed ? '✅' : done ? '🎁' : '⬜';
+        const icon = pxe(claimed ? 'success' : done ? 'gift' : 'todo');
         const suffix = claimed ? '' : done ? ' — **ready to claim**' : '';
         return `${icon} ${m.name || m.id}${suffix}`;
       })
@@ -462,7 +466,7 @@ const cmdMissions = async (interaction: Interaction) => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: '🎯 Your Missions',
+        title: 'Your Missions',
         fields: [
           { name: 'Daily', value: render(daily, dailyProgress, DAILY_MISSION_CHECKS, dailyProgress.claimed) },
           { name: 'Weekly', value: render(weekly, weeklyProgress, WEEKLY_MISSION_CHECKS, weeklyProgress.claimed) },
@@ -470,7 +474,7 @@ const cmdMissions = async (interaction: Interaction) => {
         footer: { text: 'Claim rewards on the website' },
       },
     ],
-    components: [buttonRow(linkButton('Claim rewards', SITE_URL, '🎁'))],
+    components: [buttonRow(linkButton('Claim rewards', SITE_URL, 'gift'))],
   };
 };
 
@@ -491,7 +495,7 @@ const cmdBuy = async (interaction: Interaction) => {
           description: `No stock matches **${safeEcho(raw && raw.value)}**. Try a ticker like \`DG\`, or a character name.`,
         },
       ],
-      components: [buttonRow(linkButton('Browse all stocks', SITE_URL, '📈'))],
+      components: [buttonRow(linkButton('Browse all stocks', SITE_URL, 'trade'))],
     };
   }
 
@@ -511,7 +515,7 @@ const cmdBuy = async (interaction: Interaction) => {
         },
       },
     ],
-    components: [buttonRow(linkButton('Open trade page', `${SITE_URL}/stock/${character.ticker}`, '💸'))],
+    components: [buttonRow(linkButton('Open trade page', `${SITE_URL}/stock/${character.ticker}`, 'trade'))],
   };
 };
 

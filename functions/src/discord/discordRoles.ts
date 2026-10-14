@@ -12,7 +12,7 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
-import { discordApi, sendDiscordMessage } from '../shared/discordApi';
+import { discordApi, sendDiscordMessage, pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import {
   CREWS,
@@ -391,8 +391,8 @@ export async function syncCrewHeadRoles({
     if (stoppedEarly) {
       await sendDiscordMessage(null, [
         {
-          title: '⚠️ Crew head roles did not finish',
-          description: problems.join('\n').slice(0, 3000),
+          title: 'Crew head roles did not finish',
+          description: `${pxe('warning')} ` + problems.join('\n').slice(0, 3000),
           color: 0xed4245,
         },
       ]);

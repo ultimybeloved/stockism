@@ -4,7 +4,7 @@ import { cf } from '../shared/fnConfig';
 import { reportError } from '../shared/sentry';
 import { recordHeartbeat } from '../shared/activity';
 import { writeNotification } from '../shared/notifications';
-import { sendDiscordDM } from '../shared/discordApi';
+import { sendDiscordDM, pxe } from '../shared/discordApi';
 import { ADMIN_UID } from '../shared/constants';
 import { auditHaltWindow, haltWindowOn } from './haltAuditCore';
 
@@ -48,7 +48,7 @@ export const haltPriceAudit = cf()
         });
         await writeNotification(ADMIN_UID, { type: 'system', title: '⚠️ Halt price audit', message });
         const adminDoc = await db.collection('users').doc(ADMIN_UID).get();
-        await sendDiscordDM(adminDoc.data()?.discordId, `⚠️ **Halt price audit**\n${message}`);
+        await sendDiscordDM(adminDoc.data()?.discordId, `${pxe('warning')} **Halt price audit**\n${message}`);
       }
       await recordHeartbeat('haltPriceAudit');
     } catch (err) {

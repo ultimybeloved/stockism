@@ -23,6 +23,7 @@ import { grantedValueUpdate } from '../shared/equity';
 import { cohortAddUpdate } from '../shared/cohorts';
 import { CHARACTER_MAP } from '../shared/characters';
 import { handleSlashCommand, isPrivate, EPHEMERAL } from './discordCommands';
+import { pxe } from '../shared/discordApi';
 import { rollDailyStock } from './dailyDropRoll';
 import type { DropPick } from './dailyDropRoll';
 import type { PricePoint } from '../shared/types';
@@ -46,7 +47,7 @@ let servedARequest = false;
 // Headings for each drop table, in the order they read best.
 const DROP_SECTIONS = [
   { group: 'main', label: 'Main pull' },
-  { group: 'legendary', label: '⭐ Legendary bonus' },
+  { group: 'legendary', label: `${pxe('star')} Legendary bonus` },
   { group: 'bonus', label: 'Bonus shares' },
 ];
 
@@ -176,7 +177,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: '❌ Could not identify your Discord account.',
+            content: `${pxe('error')} Could not identify your Discord account.`,
             flags: 64, // Ephemeral
           },
         });
@@ -194,7 +195,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         if (usersSnap.empty) {
           await editOriginal({
             content:
-              "🔗 Your Discord isn't linked to a Stockism account yet!\n\n" +
+              `${pxe('link')} Your Discord isn't linked to a Stockism account yet!\n\n` +
               '**Link now:** https://stockism.app/link-discord\n\n' +
               "Once linked, come back and click the button again — this doesn't count as your daily claim!",
           });
@@ -209,7 +210,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
           const messageTimestamp = Number(BigInt(messageId) >> 22n) + DISCORD_EPOCH_MS;
           if (Date.now() - messageTimestamp > DROP_CLAIM_WINDOW_MS) {
             await editOriginal({
-              content: `⏰ This drop has expired! Daily drops are only claimable for ${Math.round(DROP_CLAIM_WINDOW_MS / 3600000)} hours.`,
+              content: `${pxe('hourglass')} This drop has expired! Daily drops are only claimable for ${Math.round(DROP_CLAIM_WINDOW_MS / 3600000)} hours.`,
             });
             return;
           }
@@ -220,7 +221,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         // both requests pass the "already claimed" check and award separate rolls)
         // Banned accounts had their holdings wiped; free shares would rebuild them.
         if (userDoc.data().isBanned) {
-          await editOriginal({ content: '❌ This account is banned from Stockism.' });
+          await editOriginal({ content: `${pxe('error')} This account is banned from Stockism.` });
           return;
         }
 
@@ -254,14 +255,14 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
           } catch (txErr) {
             logger.error('Daily stock claim reservation failed:', txErr);
             await editOriginal({
-              content: '❌ Something went wrong reserving your claim. Try again in a moment!',
+              content: `${pxe('error')} Something went wrong reserving your claim. Try again in a moment!`,
             });
             return;
           }
 
           if (alreadyClaimed) {
             await editOriginal({
-              content: '⏰ You already claimed from this drop! Wait for the next one.',
+              content: `${pxe('hourglass')} You already claimed from this drop! Wait for the next one.`,
             });
             return;
           }
@@ -279,7 +280,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
 
         if (picks.length === 0) {
           await editOriginal({
-            content: '❌ No stocks available right now. Try again later!',
+            content: `${pxe('error')} No stocks available right now. Try again later!`,
           });
           return;
         }
@@ -426,14 +427,14 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
 
         const embed = isJackpot
           ? {
-              title: '🎰💰 JACKPOT!! 💰🎰',
-              description: `You hit the **JACKPOT**! Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
+              title: 'JACKPOT!!',
+              description: `${pxe('slot')} You hit the **JACKPOT**! Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
               color: 0xffd700,
-              footer: { text: 'Incredible luck! 🍀' },
+              footer: { text: 'Incredible luck!' },
             }
           : {
-              title: '🎁 Daily Stock Claimed!',
-              description: `Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
+              title: 'Daily Stock Claimed!',
+              description: `${pxe('gift')} Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
               color: 0x00d166,
               footer: { text: 'Come back tomorrow for more!' },
             };
@@ -443,7 +444,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         logger.error('Daily stock claim error:', err);
         try {
           await editOriginal({
-            content: '❌ Something went wrong. Try again in a moment!',
+            content: `${pxe('error')} Something went wrong. Try again in a moment!`,
           });
         } catch (followUpErr) {
           logger.error('Failed to send error follow-up:', (followUpErr as Error).message);
@@ -459,7 +460,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: '❌ Could not identify your Discord account.',
+            content: `${pxe('error')} Could not identify your Discord account.`,
             flags: 64,
           },
         });
@@ -473,7 +474,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content:
-                "🔗 Your Discord isn't linked to a Stockism account yet!\n\n" +
+                `${pxe('link')} Your Discord isn't linked to a Stockism account yet!\n\n` +
                 '**Link now:** https://stockism.app/link-discord',
               flags: 64,
             },
@@ -487,7 +488,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
           return void res.json({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-              content: '📋 No daily stock claims on record yet. Click **Claim Free Stock** to get your first!',
+              content: `${pxe('missions')} No daily stock claims on record yet. Click **Claim Free Stock** to get your first!`,
               flags: 64,
             },
           });
@@ -508,12 +509,12 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
 
         const embed = lastResult.isJackpot
           ? {
-              title: '🎰💰 Last Claim — JACKPOT! 💰🎰',
+              title: 'Last Claim: JACKPOT!',
               description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}**`,
               color: 0xffd700,
             }
           : {
-              title: '📋 Your Last Daily Claim',
+              title: 'Your Last Daily Claim',
               description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
               color: 0x5865f2,
             };
@@ -530,7 +531,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         return void res.json({
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: {
-            content: '❌ Something went wrong. Try again in a moment!',
+            content: `${pxe('error')} Something went wrong. Try again in a moment!`,
             flags: 64,
           },
         });

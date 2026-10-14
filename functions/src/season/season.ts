@@ -32,7 +32,7 @@ import {
 } from './seasonTiers';
 import { ONE_WEEK_MS, LEADERBOARD_CACHE_TTL, isWeeklyTradingHalt } from '../shared/constants';
 import { writeNotification } from '../shared/notifications';
-import { sendDiscordDM } from '../shared/discordApi';
+import { sendDiscordDM, pxe } from '../shared/discordApi';
 import { recordHeartbeat } from '../shared/activity';
 import { exitEquityAt } from '../shared/equity';
 import { readIndexNow } from '../shared/marketData';
@@ -440,7 +440,7 @@ const notifyRewards = async (seasonLabel: string, rewarded: RewardNotice[]) => {
         const message = rewardMessage(seasonLabel, notice);
         try {
           await writeNotification(notice.uid, { type: 'season_end', title: 'Season rewards', message });
-          if (notice.discordId) await sendDiscordDM(notice.discordId, `🏆 ${message}`);
+          if (notice.discordId) await sendDiscordDM(notice.discordId, `${pxe('trophy')} ${message}`);
         } catch {
           /* never block the close on a notification; closed DMs are normal */
         }

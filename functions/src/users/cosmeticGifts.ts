@@ -25,7 +25,7 @@ import { networkKey } from '../shared/accountGuards';
 import { recordLedger } from '../shared/ledger';
 import { touchLastActive } from '../shared/activity';
 import { writeNotification } from '../shared/notifications';
-import { sendDiscordDM } from '../shared/discordApi';
+import { sendDiscordDM, pxe } from '../shared/discordApi';
 import type { UserData } from '../shared/types';
 
 const db = admin.firestore();
@@ -174,7 +174,7 @@ export const giftCosmetic = cf().https.onCall(
         message: text,
         data: { ...(bundle ? { bundleId } : { cosmeticId }), from: result.giverName },
       });
-      if (result.recipientDiscordId) await sendDiscordDM(result.recipientDiscordId, `🎁 ${text}`);
+      if (result.recipientDiscordId) await sendDiscordDM(result.recipientDiscordId, `${pxe('gift')} ${text}`);
     } catch (err) {
       logger.warn('giftCosmetic: notification failed:', (err as Error).message);
     }

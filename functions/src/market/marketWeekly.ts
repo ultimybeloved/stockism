@@ -5,7 +5,7 @@ import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } from '../shared/constants';
-import { sendDiscordMessage } from '../shared/discordApi';
+import { sendDiscordMessage, pxe } from '../shared/discordApi';
 import { getLastActiveMs, sumMarketActivity, recordHeartbeat } from '../shared/activity';
 import { priceHistoryRef } from '../shared/marketData';
 import { reportError } from '../shared/sentry';
@@ -148,31 +148,31 @@ async function runWeeklyMarketSummary() {
 
     // Build comprehensive embed
     const embed = {
-      title: '📈 Weekly Market Report',
-      description: `Week ending ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      title: 'Weekly Market Report',
+      description: `${pxe('trade')} Week ending ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
       color: 0x4ecdc4,
       fields: [
         {
-          name: '📊 Weekly Activity',
+          name: `${pxe('chart')} Weekly Activity`,
           value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })} total volume\n${activeUsers} active users (last ${ACTIVE_USER_WINDOW_DAYS} days)`,
           inline: false,
         },
         {
-          name: '🚀 Biggest Mover (Up)',
+          name: `${pxe('rocket')} Biggest Mover (Up)`,
           value: topGainer
             ? `**${topGainer.ticker}**\n$${topGainer.priceWeekAgo.toFixed(2)} → $${topGainer.price.toFixed(2)}\n+${topGainer.change.toFixed(1)}%`
             : 'None',
           inline: true,
         },
         {
-          name: '📉 Biggest Mover (Down)',
+          name: `${pxe('chart_down')} Biggest Mover (Down)`,
           value: topLoser
             ? `**${topLoser.ticker}**\n$${topLoser.priceWeekAgo.toFixed(2)} → $${topLoser.price.toFixed(2)}\n${topLoser.change.toFixed(1)}%`
             : 'None',
           inline: true,
         },
         {
-          name: '🏆 Top 5 Portfolios',
+          name: `${pxe('trophy')} Top 5 Portfolios`,
           value:
             topPortfolios
               .map(
@@ -185,7 +185,7 @@ async function runWeeklyMarketSummary() {
         ...(featured
           ? [
               {
-                name: '🛍️ Featured in the Shop This Week',
+                name: `${pxe('shop')} Featured in the Shop This Week`,
                 value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until next Monday.`,
                 inline: false,
               },
@@ -267,14 +267,14 @@ export const weeklyLeaderboard = cf()
 
       const leaderboardText = top5
         .map((trader, idx) => {
-          const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][idx];
+          const medal = pxe((['rank1', 'rank2', 'rank3', 'rank4', 'rank5'] as const)[idx]!);
           return `${medal} **${trader.username}** - $${trader.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
         })
         .join('\n');
 
       const embed = {
         color: 0xffd700, // Gold
-        title: '🏆 Weekly Leaderboard',
+        title: 'Weekly Leaderboard',
         description: leaderboardText,
         footer: {
           text: `Total Active Users (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`,
