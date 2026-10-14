@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
+import { doc, runTransaction, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { deleteAccountFunction } from '../../../api/callables';
 import { ADMIN_UIDS } from '../../../constants';
@@ -64,15 +64,19 @@ export function useUserActions({
 
       try {
         const predictionsRef = doc(db, 'predictions', 'current');
-        const snap = await getDoc(predictionsRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          const updatedList = ((data.list as LooseDoc[] | undefined) || []).map((p) =>
+        // Read and write in one transaction: bets and long-term market trades
+        // update this same list, and rewriting it from an earlier read erased any
+        // that landed in between (charged, but missing from the pool).
+        const hidden = await runTransaction(db, async (tx) => {
+          const snap = await tx.get(predictionsRef);
+          if (!snap.exists()) return false;
+          const updatedList = ((snap.data().list as LooseDoc[] | undefined) || []).map((p) =>
             p.id === predictionId ? { ...p, hidden: true } : p,
           );
-          await updateDoc(predictionsRef, { list: updatedList });
-          showNotification('success', 'Prediction hidden from feed');
-        }
+          tx.update(predictionsRef, { list: updatedList });
+          return true;
+        });
+        if (hidden) showNotification('success', 'Prediction hidden from feed');
       } catch (err) {
         console.error('Failed to hide prediction:', err);
         showNotification('error', 'Failed to hide prediction');

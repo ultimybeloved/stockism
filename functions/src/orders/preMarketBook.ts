@@ -54,7 +54,7 @@ export function applyBookChanges(
   const tickers: Record<string, BookSide> = current?.session === session ? { ...(current.tickers || {}) } : {};
   for (const c of changes) {
     if (c.session !== session) continue;
-    const side = { buy: 0, sell: 0, orders: 0, ...(tickers[c.ticker] || {}) };
+    const side: BookSide = { ...(tickers[c.ticker] ?? { buy: 0, sell: 0, orders: 0 }) };
     side[c.action] = Math.max(0, round6(side[c.action] + c.sign * c.shares));
     side.orders = Math.max(0, side.orders + c.sign);
     tickers[c.ticker] = side;

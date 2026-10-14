@@ -41,7 +41,7 @@ describe('computeDividend', () => {
       rateFor,
     );
     expect(r.totalPaid).toBe(0);
-    expect(r.cohortUpdates.AAA!.pending[0]!.shares).toBe(10);
+    expect(r.cohortUpdates.AAA!.pending![0]!.shares).toBe(10);
   });
 
   it('puts unaccounted shares into a fresh pending lot rather than paying on them', () => {

@@ -43,10 +43,16 @@ export function useAdminPredictionManage({
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(predictionsRef);
         const currentList: PredictionDoc[] = snap.exists() ? snap.data().list || [] : [];
+        // On a long-term market `outcomes` is the list of every outcome, lined up
+        // with the AMM's share counts, so it must not be replaced with the winner
+        // (that left resolved cards and positions showing only the winning side).
+        // Weekly bets use `outcomes` for the winners.
         const updatedList = currentList.map((p) =>
-          p.id === selectedPrediction.id
-            ? { ...p, resolved: true, outcomes: selectedOutcomes, outcome: selectedOutcomes[0] }
-            : p,
+          p.id !== selectedPrediction.id
+            ? p
+            : p.type === 'event'
+              ? { ...p, resolved: true, outcome: selectedOutcomes[0] }
+              : { ...p, resolved: true, outcomes: selectedOutcomes, outcome: selectedOutcomes[0] },
         );
         tx.update(predictionsRef, { list: updatedList });
       });

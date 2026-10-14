@@ -181,18 +181,29 @@ export const achievementAlert = cf().https.onCall(async (data, context) => {
     return { success: true, alerted: false };
   }
 
+  // Once per player per achievement. Owning it used to be the only check, so
+  // anyone holding one could call this in a loop and flood the public channel.
+  // achievementsAnnounced is server-only (not on the user-doc rules allowlist).
+  const userRef = db.collection('users').doc(context.auth.uid);
+  let shouldAnnounce = false;
   try {
-    const userDoc = await db.collection('users').doc(context.auth.uid).get();
-    if (!userDoc.exists) return { success: true, alerted: false };
-    const achievements = userDoc.data()!.achievements || [];
-    if (!achievements.includes(achievementId)) {
-      logger.info(`Achievement alert rejected: ${context.auth.uid} doesn't have ${achievementId}`);
-      return { success: true, alerted: false };
-    }
+    shouldAnnounce = await db.runTransaction(async (tx) => {
+      const userDoc = await tx.get(userRef);
+      if (!userDoc.exists) return false;
+      const userData = userDoc.data()!;
+      if (!(userData.achievements || []).includes(achievementId)) {
+        logger.info(`Achievement alert rejected: ${context.auth!.uid} doesn't have ${achievementId}`);
+        return false;
+      }
+      if ((userData.achievementsAnnounced || []).includes(achievementId)) return false;
+      tx.update(userRef, { achievementsAnnounced: FieldValue.arrayUnion(achievementId) });
+      return true;
+    });
   } catch (e) {
     logger.error('Achievement validation failed:', e);
     return { success: true, alerted: false };
   }
+  if (!shouldAnnounce) return { success: true, alerted: false };
 
   const embed = {
     title: '🏆 Achievement Unlocked',

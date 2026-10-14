@@ -7,6 +7,7 @@ import {
   ONE_WEEK_MS,
   TWENTY_FOUR_HOURS_MS,
   MARGIN_INTEREST_RATE,
+  MARGIN_INTEREST_SCHEDULE_SLACK_MS,
   PRICE_HISTORY_LIVE_MAX,
   ADMIN_PRICE_PROTECTION_MS,
 } from '../shared/constants';
@@ -333,7 +334,7 @@ export const syncAllPortfolios = cf()
           const marginUsed = userData.marginUsed || 0;
           if (userData.marginEnabled && marginUsed > 0) {
             const lastCharge = (userData.lastMarginInterestCharge as number) || 0;
-            if (startTime - lastCharge >= TWENTY_FOUR_HOURS_MS) {
+            if (startTime - lastCharge >= TWENTY_FOUR_HOURS_MS - MARGIN_INTEREST_SCHEDULE_SLACK_MS) {
               marginInterest = marginUsed * MARGIN_INTEREST_RATE;
             }
           }
@@ -409,7 +410,12 @@ export const syncAllPortfolios = cf()
             const fresh = (snap.data() || {}) as UserData;
             const owed = fresh.marginUsed || 0;
             const lastCharge = (fresh.lastMarginInterestCharge as number) || 0;
-            if (!fresh.marginEnabled || owed <= 0 || startTime - lastCharge < TWENTY_FOUR_HOURS_MS) return;
+            if (
+              !fresh.marginEnabled ||
+              owed <= 0 ||
+              startTime - lastCharge < TWENTY_FOUR_HOURS_MS - MARGIN_INTEREST_SCHEDULE_SLACK_MS
+            )
+              return;
             const after = owed + owed * MARGIN_INTEREST_RATE;
             tx.update(ref, {
               marginUsed: after,

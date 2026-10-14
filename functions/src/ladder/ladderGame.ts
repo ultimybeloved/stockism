@@ -98,10 +98,16 @@ export const playLadderGame = cf().https.onCall(
               lastPlayed: null,
             };
 
-        const mainUser = mainUserDoc.data() as UserData | undefined;
+        // A sign-in with no account behind it (signup abandoned before a name
+        // was picked, or the account deleted) used to get a fresh $500 ladder
+        // doc here, which then sat on as a ghost with nobody to own it.
+        if (!mainUserDoc.exists) {
+          throw new functions.https.HttpsError('not-found', 'User not found.');
+        }
+        const mainUser = mainUserDoc.data() as UserData;
         checkBanned(mainUser);
         checkDiscordWall(mainUser);
-        const username = mainUser?.displayName || 'Anonymous';
+        const username = mainUser.displayName || 'Anonymous';
 
         // Check balance
         if (userData.balance < amount) {
@@ -223,7 +229,7 @@ export const playLadderGame = cf().https.onCall(
         );
 
         // Check ladder game achievements
-        const currentAchievements = mainUser?.achievements || [];
+        const currentAchievements = mainUser.achievements || [];
         const ladderNewAchievements: string[] = [];
         const netProfit = userData.totalWon - userData.totalLost;
         if (netProfit >= LADDER_ACHIEVEMENT_PROFIT && !currentAchievements.includes('COMPULSIVE_GAMBLER'))

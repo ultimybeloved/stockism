@@ -19,6 +19,11 @@ export {
 export const CREW_REJOIN_LOCKOUT_MS = CREW_REJOIN_LOCKOUT_DAYS * TWENTY_FOUR_HOURS_MS; // rejoin lockout after leaving a crew (from crews.ts)
 export const MAX_SHORT_EXPOSURE_RATIO = 1.0; // total short value ≤ net worth (1:1 cap)
 export const MARKET_OPEN_GRACE_PERIOD_MINUTES = 30; // pause auto-liquidations after halt end
+// The nightly sync charges interest when the last charge is at least a day old,
+// but it stamps the time its own run started, and that start drifts by seconds
+// from night to night. Requiring a full 24h skipped every night that started a
+// moment earlier than the one before. The hour of slack absorbs that drift.
+export const MARGIN_INTEREST_SCHEDULE_SLACK_MS = 60 * 60 * 1000;
 // New accounts ramp up to the full ladder caps over their first week, mirroring
 // the NEW_ACCOUNT_* price-impact ramp above. The invested-in-stocks cap doesn't
 // stop a fresh alt — it buys stock with the cash it was handed at signup and

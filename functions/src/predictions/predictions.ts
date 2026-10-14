@@ -14,6 +14,7 @@ import { reportError } from '../shared/sentry';
 import { applyDueIPOJumps, appendPriceHistory } from '../shared/marketData';
 import { touchLastActive, recordHeartbeat } from '../shared/activity';
 import { recordLedger } from '../shared/ledger';
+import { cohortAddUpdate } from '../shared/cohorts';
 import { sideGameRoom } from '../shared/rules/equity';
 import { getLadderWithdrawable } from '../shared/ladderMath';
 
@@ -331,6 +332,15 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
     const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
+    // The admin emergency halt, which the weekly-halt check above can't see. A
+    // sell-out applies the launch jump straight away, so without this an IPO
+    // could move a price while everything else was frozen.
+    if (marketDoc.exists && marketDoc.data()!.marketHalted) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        marketDoc.data()!.haltReason || 'Market is currently halted.',
+      );
+    }
     const ipoData = ipoDoc.data()!;
     const ipoList = ipoData.list || [];
 
@@ -396,6 +406,9 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
       [`ipoLockup.${ticker}`]: { shares: lockedShares, until: lockUntil },
       [`lastBuyTime.${ticker}`]: now,
       totalTrades: (userData.totalTrades || 0) + 1,
+      // Dividend / exit-loyalty lot, as every lane that adds shares must. Without
+      // it the first dividend run opened the lot instead, restarting the clock.
+      ...cohortAddUpdate(userData, ticker, quantity, now),
     });
     recordLedger(transaction, {
       uid,
