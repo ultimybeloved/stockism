@@ -259,11 +259,6 @@ const PublicProfilePage = () => {
               </div>
             ))}
           </div>
-          {profile.totalShortValue > 0 && (
-            <p className={`text-xs ${mutedClass} mt-2`}>
-              Total short exposure: {formatCurrency(profile.totalShortValue)}
-            </p>
-          )}
         </div>
       )}
 

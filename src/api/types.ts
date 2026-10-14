@@ -702,7 +702,6 @@ export interface PublicProfile {
   holdingTickers: string[];
   topHoldings: string[];
   shortTickers: string[];
-  totalShortValue: number;
   portfolioHistory: { timestamp: number; value: number }[];
   /** Only filled in when an admin is looking. */
   adminData: import('../features/profile/components/ProfileAdminPanel').ProfileAdminData | null;

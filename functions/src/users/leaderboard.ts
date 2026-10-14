@@ -356,9 +356,6 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
   // What the profile shows and ranks: net worth, same as the leaderboard.
   const netWorth = netWorthOf(userData);
 
-  const marketSnap = await db.collection('market').doc('current').get();
-  const prices = marketSnap.exists ? marketSnap.data()!.prices || {} : {};
-
   // Compute global rank (count aggregation — cheap regardless of rank)
   let rank = null;
   try {
@@ -382,15 +379,13 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
     }
   }
 
-  // Short positions (tickers only, no share counts)
+  // Short positions: tickers only. No share counts or dollar size, same as
+  // holdings (the total short value was public until 2026-10-14).
   const shortsRaw = userData.shorts || {};
   const shortTickers = Object.keys(shortsRaw).filter((t) => {
     const pos = shortsRaw[t];
     return pos && pos.shares > 0;
   });
-  const totalShortValue = shortTickers.reduce((sum, t) => {
-    return sum + shortsRaw[t].shares * (prices[t] || 0);
-  }, 0);
 
   // Portfolio history for sparkline — last 30 days, capped so a very active
   // account can't turn one profile view into thousands of doc reads.
@@ -448,7 +443,6 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
     holdingTickers,
     topHoldings,
     shortTickers,
-    totalShortValue,
     portfolioHistory,
     adminData,
     achievements: asArray(userData.achievements),
