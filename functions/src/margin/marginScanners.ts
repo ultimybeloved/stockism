@@ -453,8 +453,8 @@ export const checkMarginLending = cf()
               try {
                 await sendDiscordMessage(null, [
                   {
-                    title: 'Margin Liquidation',
-                    description: `${pxe('boom')} A trader was just **LIQUIDATED** by the margin system`,
+                    title: `${pxe('boom')} Margin Liquidation`,
+                    description: 'A trader was just **LIQUIDATED** by the margin system',
                     color: 0xff0000,
                     timestamp: new Date().toISOString(),
                   },

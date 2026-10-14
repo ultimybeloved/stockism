@@ -391,8 +391,8 @@ export async function syncCrewHeadRoles({
     if (stoppedEarly) {
       await sendDiscordMessage(null, [
         {
-          title: 'Crew head roles did not finish',
-          description: `${pxe('warning')} ` + problems.join('\n').slice(0, 3000),
+          title: `${pxe('warning')} Crew head roles did not finish`,
+          description: problems.join('\n').slice(0, 3000),
           color: 0xed4245,
         },
       ]);

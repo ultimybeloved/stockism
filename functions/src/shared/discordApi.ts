@@ -44,9 +44,8 @@ export function crewEmoji(crewId: string): string {
  * scripts/sync-pixel-emojis.cjs), as message markup. Every standard emoji the
  * bot used is mapped in scripts/discord-emoji-map.cjs; crews keep crewEmoji().
  *
- * Works in message text, DMs, embed descriptions and field names/values. NOT in
- * embed titles, author names or footers: Discord prints the raw `<:name:id>`
- * there, so titles stay plain and the icon opens the description instead.
+ * Works in message text, DMs, embed titles, descriptions and fields. NOT in
+ * embed footers or author names: Discord prints the raw `<:name:id>` there.
  */
 export const pxe = (icon: PixelEmoji): string => PIXEL_EMOJIS[icon];
 
@@ -219,21 +218,21 @@ export async function sendMarketStatusAlert(kind: string, reason = '') {
   const presets: Record<string, { color: number; title: string; description: string }> = {
     closed: {
       color: 0xe74c3c,
-      title: 'Market Closed',
-      description: `${pxe('dot_red')} Trading is paused for chapter review. Pre-market orders open at ${discordTime(Date.now() + msUntilWeekly(PRE_MARKET_START_MINUTE), 't')}. Trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
+      title: `${pxe('dot_red')} Market Closed`,
+      description: `Trading is paused for chapter review. Pre-market orders open at ${discordTime(Date.now() + msUntilWeekly(PRE_MARKET_START_MINUTE), 't')}. Trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
     },
     premarket: {
       color: 0xf1c40f,
-      title: 'Pre-Market Queue Open',
-      description: `${pxe('dot_yellow')} You can now place pre-market orders. They fill when trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
+      title: `${pxe('dot_yellow')} Pre-Market Queue Open`,
+      description: `You can now place pre-market orders. They fill when trading resumes at ${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 't')} (${discordTime(Date.now() + msUntilWeekly(WEEKLY_HALT_END_MINUTE), 'R')}).`,
     },
-    open: { color: 0x2ecc71, title: 'Market Open', description: `${pxe('dot_green')} Trading has resumed.` },
+    open: { color: 0x2ecc71, title: `${pxe('dot_green')} Market Open`, description: 'Trading has resumed.' },
     halted: {
       color: 0xe74c3c,
-      title: 'Trading Halted',
-      description: `${pxe('dot_red')} ${reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.'}`,
+      title: `${pxe('dot_red')} Trading Halted`,
+      description: reason ? `Trading is paused. ${reason}` : 'Trading is paused by an admin.',
     },
-    resumed: { color: 0x2ecc71, title: 'Trading Resumed', description: `${pxe('dot_green')} Trading has resumed.` },
+    resumed: { color: 0x2ecc71, title: `${pxe('dot_green')} Trading Resumed`, description: 'Trading has resumed.' },
   };
   const preset = presets[kind];
   if (!preset) {

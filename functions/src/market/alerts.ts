@@ -38,8 +38,8 @@ export const ipoAnnouncementAlert = cf().https.onCall(async (data, context) => {
 
   const embed = {
     color: 0x00d4ff,
-    title: 'NEW IPO ANNOUNCED!',
-    description: `${pxe('rocket')} **${characterName}** ($${ticker}) is going public!`,
+    title: `${pxe('rocket')} NEW IPO ANNOUNCED!`,
+    description: `**${characterName}** ($${ticker}) is going public!`,
     fields: [
       { name: 'IPO Price', value: `$${ipoPrice.toFixed(2)}`, inline: true },
       { name: 'Post-IPO Price', value: `$${postIpoPrice.toFixed(2)} (+15%)`, inline: true },
@@ -134,8 +134,8 @@ export const priceThresholdAlert = cf()
         const emoji = pxe(alert.change > 0 ? 'rocket' : 'boom');
         const direction = alert.change > 0 ? 'surged' : 'crashed';
         const embed = {
-          title: 'Major Price Movement',
-          description: `${emoji} **${alert.ticker}** has ${direction} ${Math.abs(alert.change).toFixed(1)}% in 24 hours`,
+          title: `${emoji} Major Price Movement`,
+          description: `**${alert.ticker}** has ${direction} ${Math.abs(alert.change).toFixed(1)}% in 24 hours`,
           color: alert.change > 0 ? 0x00ff00 : 0xff0000,
           fields: [
             { name: 'Current Price', value: `$${alert.price.toFixed(2)}`, inline: true },
@@ -230,8 +230,8 @@ export const achievementAlert = cf().https.onCall(async (data, context) => {
   if (!shouldAnnounce) return { success: true, alerted: false };
 
   const embed = {
-    title: 'Achievement Unlocked',
-    description: `${pxe('trophy')} A trader just earned **${noteworthy.name}**`,
+    title: `${pxe('trophy')} Achievement Unlocked`,
+    description: `A trader just earned **${noteworthy.name}**`,
     color: 0xffd700,
     fields: [{ name: 'Description', value: noteworthy.description, inline: false }],
     timestamp: new Date().toISOString(),

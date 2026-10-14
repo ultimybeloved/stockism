@@ -461,9 +461,9 @@ export const unlinkOwnDiscord = cf().https.onCall(async (data, context) => {
 const buildDailyDropMessage = () => ({
   embeds: [
     {
-      title: 'Daily Free Stock Drop!',
+      title: `${pxe('gift')} Daily Free Stock Drop!`,
       description:
-        `${pxe('gift')} Click the button below to claim your free daily stock(s)!\n\n` +
+        `Click the button below to claim your free daily stock(s)!\n\n` +
         '**How it works:**\n' +
         '• Every claim gives you a **main pull** from the rare and epic stocks\n' +
         '• On top of that you get **bonus shares** of cheaper characters\n' +

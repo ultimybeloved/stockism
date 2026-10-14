@@ -307,9 +307,8 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
 
   const embed = {
     color: 0x5865f2, // Discord blurple
-    title: 'Weekly Crew Rankings',
+    title: `${pxe('swords')} Weekly Crew Rankings`,
     description:
-      `${pxe('swords')} ` +
       '*Crews ranked by average weekly gain per active member. Less active crews get a mission reward bonus this week. Join one and cash in. The biggest active portfolio in each crew takes the crown.*',
     fields: fields,
     footer: {

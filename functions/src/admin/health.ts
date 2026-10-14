@@ -79,8 +79,8 @@ export const discordHealthCheck = cf()
         null,
         [
           {
-            title: 'Discord config health check failed',
-            description: `${pxe('warning')} ` + problems.map((p) => `• ${p}`).join('\n'),
+            title: `${pxe('warning')} Discord config health check failed`,
+            description: problems.map((p) => `• ${p}`).join('\n'),
             color: 0xe74c3c,
             footer: { text: 'Automated self-check • fix functions/.env and redeploy' },
             timestamp: new Date().toISOString(),
@@ -164,8 +164,8 @@ export const scheduledJobWatchdog = cf()
 
     await sendDiscordMessage(null, [
       {
-        title: 'Scheduled job watchdog',
-        description: `${pxe('warning')} ` + problems.map((p) => `• ${p}`).join('\n'),
+        title: `${pxe('warning')} Scheduled job watchdog`,
+        description: problems.map((p) => `• ${p}`).join('\n'),
         color: 0xe74c3c,
         footer: { text: 'A stale job means it failed or never ran' },
         timestamp: new Date().toISOString(),

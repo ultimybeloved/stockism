@@ -427,14 +427,14 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
 
         const embed = isJackpot
           ? {
-              title: 'JACKPOT!!',
-              description: `${pxe('slot')} You hit the **JACKPOT**! Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
+              title: `${pxe('slot')} JACKPOT!! ${pxe('slot')}`,
+              description: `You hit the **JACKPOT**! Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}!**`,
               color: 0xffd700,
               footer: { text: 'Incredible luck!' },
             }
           : {
-              title: 'Daily Stock Claimed!',
-              description: `${pxe('gift')} Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
+              title: `${pxe('gift')} Daily Stock Claimed!`,
+              description: `Here's what you got:\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
               color: 0x00d166,
               footer: { text: 'Come back tomorrow for more!' },
             };
@@ -509,12 +509,12 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
 
         const embed = lastResult.isJackpot
           ? {
-              title: 'Last Claim: JACKPOT!',
+              title: `${pxe('slot')} Last Claim: JACKPOT! ${pxe('slot')}`,
               description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} shares worth $${totalValue.toFixed(2)}**`,
               color: 0xffd700,
             }
           : {
-              title: 'Your Last Daily Claim',
+              title: `${pxe('missions')} Your Last Daily Claim`,
               description: `**Claimed:** ${claimedDate}\n\n${stockList}\n\n**Total: ${totalShares} share${totalShares > 1 ? 's' : ''} worth $${totalValue.toFixed(2)}**`,
               color: 0x5865f2,
             };

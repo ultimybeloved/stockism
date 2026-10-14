@@ -148,8 +148,8 @@ async function runWeeklyMarketSummary() {
 
     // Build comprehensive embed
     const embed = {
-      title: 'Weekly Market Report',
-      description: `${pxe('trade')} Week ending ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      title: `${pxe('trade')} Weekly Market Report`,
+      description: `Week ending ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
       color: 0x4ecdc4,
       fields: [
         {
@@ -274,7 +274,7 @@ export const weeklyLeaderboard = cf()
 
       const embed = {
         color: 0xffd700, // Gold
-        title: 'Weekly Leaderboard',
+        title: `${pxe('trophy')} Weekly Leaderboard`,
         description: leaderboardText,
         footer: {
           text: `Total Active Users (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`,

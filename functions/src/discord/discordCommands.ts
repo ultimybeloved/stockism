@@ -118,9 +118,9 @@ const signupPitch = (what: string) => ({
   embeds: [
     {
       color: BRAND_COLOR,
-      title: 'You are not on Stockism yet',
+      title: `${pxe('trade')} You are not on Stockism yet`,
       description:
-        `${pxe('trade')} ${what}\n\n` +
+        `${what}\n\n` +
         'Stockism is a stock market for characters. You start with cash, buy who you ' +
         'think is going up, and climb the leaderboard.\n\n' +
         'Already have an account? Link your Discord and this command will work here.',
@@ -180,8 +180,8 @@ const cmdLeaderboard = async () => {
       embeds: [
         {
           color: BRAND_COLOR,
-          title: 'Leaderboard',
-          description: `${pxe('trophy')} The leaderboard is still being built. Try again in a few minutes.`,
+          title: `${pxe('trophy')} Leaderboard`,
+          description: 'The leaderboard is still being built. Try again in a few minutes.',
         },
       ],
       components: [buttonRow(linkButton('Open Stockism', `${SITE_URL}/leaderboard`, 'trade'))],
@@ -205,7 +205,7 @@ const cmdLeaderboard = async () => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: 'Top Traders',
+        title: `${pxe('trophy')} Top Traders`,
         description: rows.join('\n'),
         footer: { text: stale ? 'Updates every few minutes' : 'Live' },
       },
@@ -269,10 +269,7 @@ const cmdProfile = async (interaction: Interaction) => {
   // custom Discord emoji instead (crewEmoji falls back to the Unicode emblem).
   const crew = CREWS[data.crew];
   if (crew) {
-    // The crew head mark can't go in the title (Discord prints custom emoji
-    // markup raw there), so it sits with the crew.
-    const head = data.isCrewHead ? ` ${pxe('crew_head')} Head` : '';
-    fields.push({ name: 'Crew', value: `${crewEmoji(data.crew)} ${crew.name}${head}`.trim(), inline: true });
+    fields.push({ name: 'Crew', value: `${crewEmoji(data.crew)} ${crew.name}`.trim(), inline: true });
   } else if (data.crew) {
     fields.push({ name: 'Crew', value: safeEcho(data.crew, 32), inline: true });
   }
@@ -285,7 +282,7 @@ const cmdProfile = async (interaction: Interaction) => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: name,
+        title: `${data.isCrewHead ? `${pxe('crew_head')} ` : ''}${name}`,
         fields,
       },
     ],
@@ -400,7 +397,7 @@ const cmdPortfolio = async (interaction: Interaction) => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: 'Your Portfolio',
+        title: `${pxe('briefcase')} Your Portfolio`,
         description,
         fields: [
           { name: 'Holdings value', value: money(holdingsValue), inline: true },
@@ -426,8 +423,8 @@ const cmdMissions = async (interaction: Interaction) => {
       embeds: [
         {
           color: BRAND_COLOR,
-          title: 'Missions',
-          description: `${pxe('missions')} Pick a crew on the website to start getting missions.`,
+          title: `${pxe('missions')} Missions`,
+          description: 'Pick a crew on the website to start getting missions.',
         },
       ],
       components: [buttonRow(linkButton('Choose a crew', `${SITE_URL}/profile`, 'crews'))],
@@ -466,7 +463,7 @@ const cmdMissions = async (interaction: Interaction) => {
     embeds: [
       {
         color: BRAND_COLOR,
-        title: 'Your Missions',
+        title: `${pxe('missions')} Your Missions`,
         fields: [
           { name: 'Daily', value: render(daily, dailyProgress, DAILY_MISSION_CHECKS, dailyProgress.claimed) },
           { name: 'Weekly', value: render(weekly, weeklyProgress, WEEKLY_MISSION_CHECKS, weeklyProgress.claimed) },

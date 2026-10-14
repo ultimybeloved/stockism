@@ -156,8 +156,8 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
 
   // Build Discord embed
   const embed = {
-    title: 'Daily Market Summary',
-    description: `${pxe('chart')} Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
+    title: `${pxe('chart')} Daily Market Summary`,
+    description: `Market close - ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`,
     color: 0xff6b35,
     fields: [
       {
@@ -446,8 +446,8 @@ export const chapterReviewRecap = cf()
       });
 
       const embed = {
-        title: 'Chapter Review Recap',
-        description: `${pxe('book')} ${dateStr}`,
+        title: `${pxe('book')} Chapter Review Recap`,
+        description: dateStr,
         color: 0x9b59b6,
         fields,
         timestamp: new Date().toISOString(),
