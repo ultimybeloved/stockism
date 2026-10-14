@@ -327,7 +327,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
   CREW_MAJORITY: {
     id: 'CREW_MAJORITY',
     name: 'Crew Majority',
-    description: 'Have 50%+ of your holdings in crew members',
+    description: 'Have 50%+ of your stock value in crew members',
     reward: 125,
     checkType: 'CREW_MAJORITY',
     requirement: 50,

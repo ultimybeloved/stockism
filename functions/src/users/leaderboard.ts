@@ -1,11 +1,11 @@
 import * as functions from 'firebase-functions/v1';
-import { cf, requireAppCheck, requireAdmin } from '../shared/fnConfig';
+import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import type { DocumentData, Query } from 'firebase-admin/firestore';
 // Rank counting lives in shared/equity — shared with the Discord bot's /profile.
-import { countRankAbove, grantedSince, netReturnPercent } from '../shared/equity';
+import { countRankAbove, grantedSince, netReturnPercent, netWorthOf, snapshotNetWorth } from '../shared/equity';
 import { BULLBEAR_FRAME_ID, frameTrend } from '../shared/rules/cosmetics';
 
 import {
@@ -16,6 +16,9 @@ import {
   ONE_WEEK_MS,
   PUBLIC_PROFILE_SPARKLINE_MAX_POINTS,
   LEADERBOARD_PERCENT_MIN_BASELINE,
+  LEADERBOARD_SIZE,
+  LEADERBOARD_POOL_START,
+  LEADERBOARD_POOL_MAX,
 } from '../shared/constants';
 
 // In-memory cache — persists across invocations on same instance
@@ -54,6 +57,12 @@ const LEADERBOARD_FIELDS = [
   'ownedCosmetics',
   'ownedTitles',
   'titleMeta',
+  // Banned accounts are skipped. Missing from this list until 2026-10-14, so
+  // that check read undefined and banned players kept their board slot.
+  'isBanned',
+  // Net worth = portfolioValue - marginUsed. Used for ranking only, never
+  // published on its own (margin debt is private).
+  'marginUsed',
 ];
 
 // Players write displayedShopPins / displayedAchievementPins / activeCosmetics
@@ -154,8 +163,9 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
 
           if (!userData.portfolioSnapshot7d || userData.portfolioSnapshot7d.timestamp < twoWeeksAgo) return;
 
-          const currentValue = userData.portfolioValue || 0;
-          const valueSevenDaysAgo = userData.portfolioSnapshot7d.value;
+          // Net of margin debt at both ends, so a margin buy isn't a "gain".
+          const currentValue = netWorthOf(userData);
+          const valueSevenDaysAgo = snapshotNetWorth(userData.portfolioSnapshot7d, userData.marginUsed || 0);
 
           // Percent board only: baseline floor keeps near-zero accounts from
           // topping the board with meaningless huge percentages.
@@ -206,33 +216,38 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
           query = query.where('crew', '==', crew);
         }
 
-        query = query
-          .orderBy('portfolioValue', 'desc')
-          .limit(100)
-          .select(...LEADERBOARD_FIELDS);
+        // Ranked on net worth, but the stored (and indexed) value is gross. Net
+        // can only be lower than gross, so if the 50th best net worth in the
+        // pool is at least the lowest gross value fetched, nobody outside the
+        // pool can beat it. Otherwise heavy borrowers pushed the cut-off down;
+        // widen the pool and try again.
+        let docs: DocumentData[] = [];
+        for (let poolSize = LEADERBOARD_POOL_START; ; poolSize *= 2) {
+          const snapshot = await query
+            .orderBy('portfolioValue', 'desc')
+            .limit(poolSize)
+            .select(...LEADERBOARD_FIELDS)
+            .get();
+          docs = snapshot.docs
+            .map((d): DocumentData => ({ ...d.data(), userId: d.id }))
+            .filter((u) => !u.isBot && !u.isBanned)
+            .sort((a, b) => netWorthOf(b) - netWorthOf(a));
+          const lowestGross = snapshot.docs[snapshot.docs.length - 1]?.data().portfolioValue || 0;
+          const cutoff = docs[LEADERBOARD_SIZE - 1];
+          const exhausted = snapshot.size < poolSize;
+          if (exhausted || poolSize >= LEADERBOARD_POOL_MAX || (cutoff && netWorthOf(cutoff) >= lowestGross)) break;
+        }
 
-        const snapshot = await query.get();
-
-        // Filter out bots and return only safe fields
-        leaderboard = [];
-        snapshot.forEach((doc) => {
-          const userData = doc.data()!;
-
-          // Skip bots and banned accounts
-          if (userData.isBot || userData.isBanned) return;
-
-          // Limit to top 50
-          if (leaderboard!.length >= 50) return;
-
+        leaderboard = docs.slice(0, LEADERBOARD_SIZE).map((userData) => {
           // Count holdings (only non-zero positions)
           const holdingsCount = userData.holdings
             ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length
             : 0;
 
-          leaderboard!.push({
-            userId: doc.id,
+          return {
+            userId: userData.userId,
             displayName: userData.displayName || 'Anonymous',
-            portfolioValue: userData.portfolioValue || 0,
+            portfolioValue: netWorthOf(userData),
             crew: userData.crew || null,
             isCrewHead: userData.isCrewHead || false,
             crewHeadColor: userData.crewHeadColor || null,
@@ -243,7 +258,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
             previousDisplayName: userData.previousDisplayName || null,
             nameChangedAt: userData.nameChangedAt || null,
             isPublic: userData.isPublic || false,
-          });
+          };
         });
       }
 
@@ -267,16 +282,16 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
       } else if (!gainSort) {
         // Caller is outside top 50 — count aggregation instead of reading one
         // doc per higher-ranked user (that scaled with the caller's rank).
-        // Only for the net-worth sort: the aggregation ranks by portfolioValue,
+        // Only for the net-worth sort: the aggregation ranks by net worth,
         // which would be a wrong answer for either weekly-gain board.
         try {
-          // Two fields only. This used to call select() on a DocumentReference,
+          // Three fields only. This used to call select() on a DocumentReference,
           // which has none, so it threw and nobody outside the top 50 got a rank.
           const [callerDoc] = (await db.getAll(db.collection('users').doc(context.auth.uid), {
-            fieldMask: ['isBot', 'portfolioValue'],
+            fieldMask: ['isBot', 'portfolioValue', 'marginUsed'],
           })) as [admin.firestore.DocumentSnapshot];
           if (callerDoc.exists && !callerDoc.data()!.isBot) {
-            callerRank = await countRankAbove(callerDoc.data()!.portfolioValue || 0, crew);
+            callerRank = await countRankAbove(netWorthOf(callerDoc.data()), crew);
           }
         } catch (e) {
           // Leave callerRank null if lookup fails
@@ -330,9 +345,16 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
 
   const isOwner = context.auth?.uid === uid;
   const isCallerAdmin = context.auth?.uid === ADMIN_UID;
+  // A banned account is gone from every board, so its profile is too. Admins
+  // still see it.
+  if (userData.isBanned && !isCallerAdmin) {
+    throw new functions.https.HttpsError('not-found', 'User not found');
+  }
   if (!userData.isPublic && !isOwner && !isCallerAdmin) {
     throw new functions.https.HttpsError('permission-denied', 'This profile is private');
   }
+  // What the profile shows and ranks: net worth, same as the leaderboard.
+  const netWorth = netWorthOf(userData);
 
   const marketSnap = await db.collection('market').doc('current').get();
   const prices = marketSnap.exists ? marketSnap.data()!.prices || {} : {};
@@ -340,7 +362,7 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
   // Compute global rank (count aggregation — cheap regardless of rank)
   let rank = null;
   try {
-    rank = await countRankAbove(userData.portfolioValue || 0, null);
+    rank = await countRankAbove(netWorth, null);
   } catch (e) {
     /* leave null */
   }
@@ -354,7 +376,7 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
   let crewRank = null;
   if (userData.crew) {
     try {
-      crewRank = await countRankAbove(userData.portfolioValue || 0, userData.crew);
+      crewRank = await countRankAbove(netWorth, userData.crew);
     } catch (e) {
       /* leave null */
     }
@@ -380,7 +402,14 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
     .orderBy('timestamp', 'desc')
     .limit(PUBLIC_PROFILE_SPARKLINE_MAX_POINTS)
     .get();
-  const portfolioHistory = histSnap.docs.map((d) => d.data()).reverse();
+  // Net of margin debt, so the line ends where the headline figure is. Points
+  // from before history recorded the debt use today's.
+  const portfolioHistory = histSnap.docs
+    .map((d) => {
+      const p = d.data();
+      return { timestamp: p.timestamp, value: snapshotNetWorth(p, userData.marginUsed || 0) };
+    })
+    .reverse();
 
   // Admin-only: weekly gain + full financial data
   let adminData = null;
@@ -412,7 +441,7 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
     crewHeadColor: userData.crewHeadColor || null,
     ...sanitizeDisplayFields(userData),
     displayCrewPin: userData.displayCrewPin ?? null,
-    portfolioValue: userData.portfolioValue || 0,
+    portfolioValue: netWorth,
     holdingsCount: holdingTickers.length,
     rank,
     crewRank,
@@ -432,34 +461,4 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
       createdAt: userData.createdAt || null,
     },
   };
-});
-
-/**
- * Daily Market Summary - Runs daily at 21:00 UTC
- */
-
-/**
- * Margin debt for the accounts currently on the board (admin only).
- *
- * Deliberately NOT folded into getLeaderboard. That result is cached in
- * leaderboard/{key}, which firestore.rules makes world-readable, so anything
- * added to it is public no matter who asked for it. Margin debt is not public.
- *
- * The admin leaderboard toggle calls this with the uids it is already showing
- * and subtracts locally, so the public payload stays exactly as it was.
- */
-export const getLeaderboardMargins = cf().https.onCall(async (data, context) => {
-  requireAdmin(context, 'Admin only.');
-  const { userIds } = data || {};
-  if (!Array.isArray(userIds) || !userIds.length) {
-    throw new functions.https.HttpsError('invalid-argument', 'userIds array required');
-  }
-  // The board shows 50 at a time; the cap stops a caller asking for everyone.
-  const ids = userIds.filter((id) => typeof id === 'string').slice(0, 100);
-  const docs = await db.getAll(...ids.map((id) => db.collection('users').doc(id)), { fieldMask: ['marginUsed'] });
-  const margins: Record<string, number> = {};
-  docs.forEach((d) => {
-    if (d.exists) margins[d.id] = d.data()!.marginUsed || 0;
-  });
-  return { margins };
 });

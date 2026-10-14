@@ -8,8 +8,6 @@ import { formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { CREW_MAP } from '../../../crews';
 import CrewFilter from '../components/CrewFilter';
-import AdminNetToggle from '../components/AdminNetToggle';
-import { useAdminNetWorth } from '../../admin/hooks/useAdminNetWorth';
 import { formatCurrency } from '../../../utils/formatters';
 import LeaderboardPodium from '../components/LeaderboardPodium';
 import LeaderboardRow from '../components/LeaderboardRow';
@@ -30,16 +28,8 @@ const LeaderboardPage = () => {
   const [sortMode, setSortMode] = useState<BoardMode>(searchParams.get('board') === 'season' ? 'season' : 'value');
   const [gainUnit, setGainUnit] = useState<'$' | '%'>('$');
   const sortBy = sortMode === 'value' ? 'value' : gainUnit === '%' ? 'weeklyGainPercent' : 'weeklyGain';
-  const { leaders: rawLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
-  // Admin only: re-rank on net worth with margin debt taken off. Returns the
-  // untouched list for everyone else.
-  const {
-    isAdmin,
-    netMode,
-    setNetMode,
-    adjustedLeaders: filteredLeaders,
-    loadingMargins,
-  } = useAdminNetWorth(rawLeaders, user);
+  // Ranked on net worth: margin debt is taken off on the server.
+  const { leaders: filteredLeaders, userRank, loading } = useLeaderboard(sortBy, crewFilter, user, userData?.crew);
   const { scrollContainerRef, userRowRef, userRowPosition } = useUserRowPosition([filteredLeaders, user]);
 
   const { cardClass, textClass, mutedClass, divideClass, chipClass, cardEdgeClass } = themeClasses;
@@ -72,7 +62,7 @@ const LeaderboardPage = () => {
           : formatGainDollars(userEntry.weeklyGain)}
       </span>
     ) : (
-      formatCurrency(userData?.portfolioValue || 0)
+      formatCurrency((userData?.portfolioValue || 0) - (userData?.marginUsed || 0))
     );
 
   const userCrewColor = userData?.crew ? CREW_MAP[userData.crew]?.color : '#6b7280';
@@ -88,8 +78,6 @@ const LeaderboardPage = () => {
 
           {/* Crew Filter */}
           <CrewFilter crewFilter={crewFilter} setCrewFilter={setCrewFilter} chipClass={chipClass} />
-
-          <AdminNetToggle isAdmin={isAdmin} netMode={netMode} setNetMode={setNetMode} loading={loadingMargins} />
 
           {/* Sort Toggle */}
           <div className="flex gap-2 mt-3">

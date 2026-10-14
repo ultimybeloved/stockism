@@ -205,17 +205,66 @@ export const characterExposure = (userData: UserData | null | undefined, prices:
   };
 };
 
-// A user's rank via count aggregations (~1 read per 1000 counted) instead of
-// reading one doc per higher-ranked user. Bots are subtracted with a second
-// count so ranks match the bot-free leaderboard. Shared by getLeaderboard and
-// the Discord bot's /profile so the two can't report different ranks.
-export const countRankAbove = async (value: number, crew?: string | null) => {
-  let above = db.collection('users').where('portfolioValue', '>', value);
-  let botsAbove = db.collection('users').where('isBot', '==', true).where('portfolioValue', '>', value);
+// ── Net worth (what the boards rank) ─────────────────────────────────────────
+// portfolioValue counts stock bought with borrowed money but not the loan, so
+// ranking on it put whoever borrowed most on top. Every leaderboard figure and
+// rank uses this instead (since 2026-10-14). portfolioValue itself stays gross.
+export const netWorthOf = (u: { portfolioValue?: number; marginUsed?: number } | null | undefined) =>
+  round2((u?.portfolioValue || 0) - (u?.marginUsed || 0));
+
+/** A 24h / 7d portfolio snapshot's net worth. Snapshots taken before they
+ * recorded the debt assume it was the same as now, which neither credits nor
+ * penalises the borrower for a loan nobody can date. */
+export const snapshotNetWorth = (
+  snap: { value?: number; marginUsed?: number } | null | undefined,
+  currentMarginUsed: number,
+) => round2((snap?.value || 0) - (snap?.marginUsed ?? currentMarginUsed));
+
+// Everyone with open margin debt, for the rank correction below. Borrowers are
+// a small set, and a minute-old copy is plenty for a rank.
+type Borrower = { portfolioValue: number; marginUsed: number; crew: string | null; isBot: boolean };
+let borrowerCache: { at: number; list: Borrower[] } | null = null;
+const BORROWER_CACHE_MS = 60 * 1000;
+const loadBorrowers = async (): Promise<Borrower[]> => {
+  if (borrowerCache && Date.now() - borrowerCache.at < BORROWER_CACHE_MS) return borrowerCache.list;
+  const snap = await db
+    .collection('users')
+    .where('marginUsed', '>', 0)
+    .select('portfolioValue', 'marginUsed', 'crew', 'isBot')
+    .get();
+  const list = snap.docs.map((d) => {
+    const u = d.data();
+    return {
+      portfolioValue: u.portfolioValue || 0,
+      marginUsed: u.marginUsed || 0,
+      crew: u.crew || null,
+      isBot: !!u.isBot,
+    };
+  });
+  borrowerCache = { at: Date.now(), list };
+  return list;
+};
+
+// A user's net-worth rank via count aggregations (~1 read per 1000 counted)
+// instead of reading one doc per higher-ranked user. The counts run on the
+// stored gross value, so borrowers whose gross is above `netValue` but whose
+// net worth isn't are taken back out. Bots are subtracted with a second count
+// so ranks match the bot-free leaderboard. Shared by getLeaderboard, public
+// profiles and the Discord bot's /profile so they can't report different ranks.
+export const countRankAbove = async (netValue: number, crew?: string | null) => {
+  let above = db.collection('users').where('portfolioValue', '>', netValue);
+  let botsAbove = db.collection('users').where('isBot', '==', true).where('portfolioValue', '>', netValue);
   if (crew) {
     above = above.where('crew', '==', crew);
     botsAbove = botsAbove.where('crew', '==', crew);
   }
-  const [aboveSnap, botsSnap] = await Promise.all([above.count().get(), botsAbove.count().get()]);
-  return Math.max(0, aboveSnap.data().count - botsSnap.data().count) + 1;
+  const [aboveSnap, botsSnap, borrowers] = await Promise.all([
+    above.count().get(),
+    botsAbove.count().get(),
+    loadBorrowers(),
+  ]);
+  const overCounted = borrowers.filter(
+    (b) => !b.isBot && (!crew || b.crew === crew) && b.portfolioValue > netValue && netWorthOf(b) <= netValue,
+  ).length;
+  return Math.max(0, aboveSnap.data().count - botsSnap.data().count - overCounted) + 1;
 };

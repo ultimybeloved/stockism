@@ -34,3 +34,10 @@ export const UNIFIER_FULL_SHARE_MIN = 0.999999;
 // a $50 account doubling up must not outrank real portfolios with a
 // meaningless percentage.
 export const LEADERBOARD_PERCENT_MIN_BASELINE = 1000;
+
+// Net-worth board: rows shown, and the pool of top gross portfolios it ranks
+// from. The pool doubles until it provably holds the top rows by net worth
+// (see getLeaderboard), up to the max.
+export const LEADERBOARD_SIZE = 50;
+export const LEADERBOARD_POOL_START = 100;
+export const LEADERBOARD_POOL_MAX = 1600;

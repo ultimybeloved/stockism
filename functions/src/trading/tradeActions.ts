@@ -16,7 +16,7 @@ import {
   SHORT_COOLDOWN_WINDOW_MS,
   TRADE_HOLD_PERIOD_MS,
 } from '../shared/constants';
-import { calculateMarginalImpact, traderMarginalImpact, liquidityFor } from '../shared/impact';
+import { calculateMarginalImpact, traderMarginalImpact, liquidityFor, stampMs } from '../shared/impact';
 import { lockedShares, remainingShares } from '../shared/cohorts';
 import { shortsEquity } from '../shared/equity';
 import { exitLoyaltyDiscount } from '../shared/characters';
@@ -24,7 +24,6 @@ import type { Lockup, ShortPosition, UserData } from '../shared/types';
 
 /** A Timestamp or epoch ms, as the throttle stamps are stored. */
 type Stamp = Timestamp | number;
-const stampMs = (s: Stamp) => ((s as Timestamp).toMillis ? (s as Timestamp).toMillis() : (s as number));
 
 /** Everything executeTrade hands an action. Each action reads the fields it needs. */
 export interface ComputeArgs {

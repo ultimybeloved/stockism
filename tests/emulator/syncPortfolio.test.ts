@@ -31,8 +31,10 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const { syncPortfolio } =
+const { syncPortfolio, sweepDustPositions } =
   require('../../functions/src/users/portfolio') as typeof import('../../functions/src/users/portfolio');
+const { isWeeklyTradingHalt, BID_ASK_SPREAD } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -334,6 +336,49 @@ async function main() {
     check(`${uid}: refused`, (await rejects(() => sync(uid), pattern)) === true);
     check(`${uid}: nothing written`, (await getUser(uid)).portfolioValue === undefined);
   }
+
+  // ── J. Tiny short cleanup (sweepDustPositions side: 'short') ──────────────
+  console.log('\nJ. Tiny short cleanup');
+  if (isWeeklyTradingHalt()) {
+    console.log('  skipped: the weekly halt is on, and the sweep refuses during it');
+    return;
+  }
+  const hourAgo = Date.now() - HOUR;
+  await seedUser('j_shorts', {
+    cash: 1000,
+    holdings: { CCC: 0.1 },
+    hasOpenShorts: true,
+    shorts: {
+      // $2 position: tiny, held an hour, at a profit (opened at 12, now 10).
+      AAA: { shares: 0.2, costBasis: 12, margin: 2.4, system: 'v2', openedAt: hourAgo },
+      // $200 position: not tiny.
+      BBB: { shares: 10, costBasis: 20, margin: 200, system: 'v2', openedAt: hourAgo },
+      // Tiny but opened just now: inside the 45-second hold.
+      DDD: { shares: 1, costBasis: 1, margin: 1, system: 'v2', openedAt: Date.now() },
+    },
+  });
+  const swept = await sweepDustPositions.run({ side: 'short' }, ctx('j_shorts'));
+  const js = await getUser('j_shorts');
+  const ask = Math.round(PRICES.AAA * (1 + BID_ASK_SPREAD / 2) * 100) / 100;
+  const expectCash = 1000 + 2.4 + (12 - ask) * 0.2;
+  check('one short swept', swept.swept === 1, swept);
+  check('the tiny short is gone', js.shorts.AAA === undefined, js.shorts);
+  check('the big short and the fresh one stay', !!js.shorts.BBB && !!js.shorts.DDD, js.shorts);
+  check('collateral plus profit comes back', near(js.cash, expectCash), { cash: js.cash, expectCash });
+  check('still flagged as holding shorts', js.hasOpenShorts === true);
+  check('longs untouched by a short sweep', js.holdings.CCC === 0.1, js.holdings);
+  const ledger = await db.collection('ledger').where('uid', '==', 'j_shorts').get();
+  check(
+    'booked in the ledger',
+    ledger.docs.some((d: Loose) => d.data().type === 'dust_sweep' && near(d.data().amount, expectCash - 1000)),
+  );
+
+  await seedUser('j_last', {
+    hasOpenShorts: true,
+    shorts: { AAA: { shares: 0.1, costBasis: 10, margin: 1, system: 'v2', openedAt: hourAgo } },
+  });
+  await sweepDustPositions.run({ side: 'short' }, ctx('j_last'));
+  check('clearing the last short drops the flag', (await getUser('j_last')).hasOpenShorts === false);
 }
 
 it('syncPortfolio', main);

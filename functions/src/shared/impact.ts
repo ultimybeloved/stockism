@@ -46,9 +46,10 @@ const createdAtMs = (createdAt: StoredTime) =>
       ? createdAt
       : Date.parse(createdAt as string);
 
-// A stamp stored as a Firestore Timestamp or as epoch ms, as epoch ms.
-const stampMs = (armed: Timestamp | number | undefined) =>
-  armed && ((armed as Timestamp).toMillis ? (armed as Timestamp).toMillis() : (armed as number));
+// A stamp stored as a Firestore Timestamp or as epoch ms, as epoch ms (0 when
+// missing). Used by every hold/cooldown check on a stored trade time.
+export const stampMs = (stamp: Timestamp | number | null | undefined): number =>
+  stamp ? ((stamp as Timestamp).toMillis ? (stamp as Timestamp).toMillis() : (stamp as number)) : 0;
 
 // The impact maths is the shared rule module (src/rules/impact.ts), so every
 // trade preview on the site prices an order exactly as this server fills it.

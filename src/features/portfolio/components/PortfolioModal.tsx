@@ -126,6 +126,8 @@ const PortfolioModal = ({
   const { dustItems, dustTotal, sweeping, handleSweep } = useDustCleanup(portfolioItems, showNotification);
 
   const shortItems = useMemo(() => buildShortItems({ shorts, prices }), [shorts, prices]);
+  const shortDust = useDustCleanup(shortItems, showNotification, 'short');
+  const dustSweepOpen = !isWeeklyHalt() && !marketData?.marketHalted;
 
   // Same search + sort treatment for shorts as the long-positions list.
   const visibleShorts = useMemo(
@@ -294,7 +296,7 @@ const PortfolioModal = ({
 
                   {positionTab === 'long' ? (
                     <>
-                      {dustItems.length > 0 && !isWeeklyHalt() && !marketData?.marketHalted && (
+                      {dustItems.length > 0 && dustSweepOpen && (
                         <DustCleanupBanner
                           count={dustItems.length}
                           total={dustTotal}
@@ -340,6 +342,15 @@ const PortfolioModal = ({
                     <p className={`text-sm text-center py-4 ${mutedClass}`}>No shorts match your search.</p>
                   ) : (
                     <div className="space-y-2">
+                      {shortDust.dustItems.length > 0 && dustSweepOpen && (
+                        <DustCleanupBanner
+                          side="short"
+                          count={shortDust.dustItems.length}
+                          total={shortDust.dustTotal}
+                          sweeping={shortDust.sweeping}
+                          onConfirm={shortDust.handleSweep}
+                        />
+                      )}
                       {visibleShorts.map((item) => (
                         <ShortRow
                           key={`short-${item.ticker}`}

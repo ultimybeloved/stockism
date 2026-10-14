@@ -51,16 +51,28 @@ export const DAILY_MISSION_CHECKS: Record<string, MissionCheck<DailyProgress>> =
   UNDERDOG_INVESTOR: (dp) => !!dp.boughtUnderdog,
   CREW_ACCUMULATOR: (dp) => (dp.crewSharesBought || 0) >= 20,
   // Composition-based: a percentage you actively maintain (fair across sizes).
-  CREW_MAJORITY: (dp, userData) => {
-    const crew = userData.crew;
-    if (!crew || !CREW_MEMBERS[crew]) return false;
-    const holdings = userData.holdings || {};
-    const total = Object.values(holdings).reduce((s, v) => s + v, 0);
-    if (total <= 0) return false;
-    const crewShares = CREW_MEMBERS[crew]!.reduce((s, t) => s + (holdings[t] || 0), 0);
-    return (crewShares / total) * 100 >= 50;
-  },
+  CREW_MAJORITY: (dp, userData, prices) => crewValuePercent(userData, prices) >= req(DAILY_MISSIONS.CREW_MAJORITY),
 };
+
+/**
+ * Share of the portfolio's stock value held in the player's crew, 0-100. By
+ * value, not share count: Crew Majority counted shares until 2026-10-14, so a
+ * pile of cheap crew stock passed for "most of your portfolio".
+ * Mirrors crewValuePercent in src/utils/missionProgress.ts.
+ */
+function crewValuePercent(userData: UserData, prices?: Record<string, number> | null) {
+  const crew = userData.crew;
+  if (!crew || !CREW_MEMBERS[crew]) return 0;
+  let totalVal = 0;
+  let crewVal = 0;
+  for (const [t, s] of Object.entries(userData.holdings || {})) {
+    if (s <= 0) continue;
+    const v = s * ((prices || {})[t] || 0);
+    totalVal += v;
+    if (CREW_MEMBERS[crew]!.includes(t)) crewVal += v;
+  }
+  return totalVal > 0 ? (crewVal / totalVal) * 100 : 0;
+}
 
 export const WEEKLY_MISSION_CHECKS: Record<string, MissionCheck<WeeklyProgress>> = {
   // Activity-based: a week's worth of trading / consistency.
@@ -72,21 +84,7 @@ export const WEEKLY_MISSION_CHECKS: Record<string, MissionCheck<WeeklyProgress>>
   TRADING_STREAK: (wp) => Object.keys(wp.tradingDays || {}).length >= req(WEEKLY_MISSIONS.TRADING_STREAK),
   DAILY_GRINDER: (wp) => Object.keys(wp.checkinDays || {}).length >= req(WEEKLY_MISSIONS.DAILY_GRINDER),
   // Composition-based: a percentage of portfolio value you actively maintain.
-  CREW_MAXIMALIST: (wp, userData, prices) => {
-    const crew = userData.crew;
-    if (!crew || !CREW_MEMBERS[crew]) return false;
-    const holdings = userData.holdings || {};
-    let totalVal = 0,
-      crewVal = 0;
-    Object.entries(holdings).forEach(([t, s]) => {
-      if (s > 0) {
-        const v = s * ((prices || {})[t] || 0);
-        totalVal += v;
-        if (CREW_MEMBERS[crew]!.includes(t)) crewVal += v;
-      }
-    });
-    return totalVal > 0 && (crewVal / totalVal) * 100 >= req(WEEKLY_MISSIONS.CREW_MAXIMALIST);
-  },
+  CREW_MAXIMALIST: (wp, userData, prices) => crewValuePercent(userData, prices) >= req(WEEKLY_MISSIONS.CREW_MAXIMALIST),
   // Growth is percentage-based so small accounts aren't locked out by flat
   // dollar targets.
   PORTFOLIO_BUILDER: (wp, userData) => earnedGrowthPct(wp, userData) >= req(WEEKLY_MISSIONS.PORTFOLIO_BUILDER),

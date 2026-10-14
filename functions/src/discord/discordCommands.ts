@@ -30,7 +30,7 @@ import type { Mission } from '../shared/crews';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { UserData } from '../shared/types';
 import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from '../missions/missionChecks';
-import { countRankAbove } from '../shared/equity';
+import { countRankAbove, netWorthOf } from '../shared/equity';
 import { getWeekId } from '../shared/tradeRecords';
 import { crewEmoji } from '../shared/discordApi';
 
@@ -238,7 +238,8 @@ const cmdProfile = async (interaction: Interaction) => {
   // from live prices produced a net worth on a different scale from the rank
   // sitting next to it (and from the leaderboard). syncAllPortfolios refreshes
   // the field daily; matching the site matters more here than being fresher.
-  const value = data.portfolioValue || 0;
+  // Net of margin debt, like the leaderboard.
+  const value = netWorthOf(data);
   const rank = await countRankAbove(value, null);
 
   const holdings: Record<string, number> = data.holdings || {};

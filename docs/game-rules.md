@@ -60,7 +60,7 @@ There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel
 - **Daily:** 3 missions per crew per day, $75 to $150 each.
 - **Weekly:** 2 missions per week, $400 to $1,000 each. Rerollable once per week before you claim anything.
 
-Growth missions measure net worth: free money received that week and margin debt are both taken out. Every mission rewards an action you take or a portfolio balance you actively maintain. Missions that paid out for simply owning something were removed, because they were free income for no effort.
+Growth missions measure net worth: free money received that week and margin debt are both taken out. The week's starting point is recorded at the Monday nightly sync (01:20 UTC), or at your first visit that week if that comes sooner. Crew Majority (daily) and Crew Maximalist (weekly) count your stock by value, not by number of shares. Every mission rewards an action you take or a portfolio balance you actively maintain. Missions that paid out for simply owning something were removed, because they were free income for no effort.
 
 ### Dividends
 
@@ -127,15 +127,16 @@ Platinum and Diamond are ranked within four size divisions (Rookie under $10k, T
 
 ### Progression and Social
 
-- **Leaderboards** by total portfolio value, by weekly percentage gain (with a minimum baseline so a $50 account doubling up cannot top it), by crew, and the season board.
-- **Public profiles** at `/u/username` with stats, portfolio sparkline, top holdings, and pinned achievements.
+- **Leaderboards** by net worth (portfolio value minus margin debt, since 2026-10-14, so borrowing never lifts your rank), by weekly gain in dollars or percent (also net of margin debt at both ends; the percent board has a minimum baseline so a $50 account doubling up cannot top it), by crew, and the season board. Banned players are left off.
+- **Public profiles** at `/u/username` with stats, portfolio sparkline, top holdings, and pinned achievements. Value, sparkline and rank are net worth, matching the leaderboard. Banned players' profiles are hidden.
 - **49 achievements** with pinnable badges. Extra pin slots are purchasable.
 - **56 cosmetics**: name colors, row glows, backdrops, and animated frames, $5,000 to $150,000 in the shop, plus season reward frames that are earned only (never sold, gifted, bundled or featured). Frame animations are offset per player so identical frames never move in step. Cosmetics given out without payment (admin grants) are booked in the ledger at their shop price.
 - **Shop deals** (src/rules/shop.ts): 10 bundles (name colour + glow + backdrop + frame) at 20% off the pieces you don't own yet; one featured item each week at 25% off, rotating Monday 00:00 UTC through every item worth $25,000+, announced in the Monday Discord report. Gilded Frame and Comet are never discounted.
 - **Gifting** (functions/src/users/cosmeticGifts.ts): buy any shop cosmetic or bundle for another player by name, at the price you would pay yourself (a gifted bundle always costs the whole set at the bundle discount; the recipient gets the pieces they don't own). No message box (harassment channel); the recipient gets a bell notification and a Discord DM naming the sender. Max 10 gifts a day; no gifts to yourself, bots, banned players or someone who already owns the item. Both sides are booked in the ledger, and every gift goes in the admin-only giftLog with the giver's connection; Admin, Watchlist, Gift Log flags pairs that look like one person (shared connection, alt-scan pair, watchlist link, receiver under a week old).
 - **Daily check-in** with a streak: $300 on day one, rising to $500 by day seven.
 - **Streak saver** (shop perk, src/rules/economy.ts): while active, every check-in pays $500 even after missed days. $10,000 for 30 days (buying again adds 30 more) or $100,000 permanent. Buying needs a live 7-day check-in streak, unless a saver is already running. The streak number itself still resets on a missed day, so streak achievements and the margin unlock still need real check-ins.
-- **Price alerts** you set per ticker, checked every 30 minutes.
+- **Price alerts** you set per ticker (up to 10), checked every 5 minutes against every price since the last check, so a quick spike that comes back down still fires. You get a bell notification, and a Discord DM if your Discord is linked.
+- **Dust cleanup.** Positions worth under $5 can be cleared in one click from the portfolio: tiny longs are sold at the bid, tiny shorts are bought back at the ask with their collateral returned. No price impact, and it does not count as a trade.
 - **Bankruptcy and bailout.** If your portfolio falls to $100 or below you are marked bankrupt and can take a $1,500 bailout once per 24 hours. The bailout wipes every position you hold, turns off margin, and removes you from your crew, so it is a last resort. Bankruptcy clears itself once you are back above $500.
 - **Guest mode** lets people browse the market without an account.
 - Dark mode, color-blind mode, mobile layout, and installable as a PWA.
@@ -244,7 +245,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | Limit order sweep | every 15 min |
 | Short margin calls | every 30 min |
 | Margin lending scan | every 30 min |
-| Price alerts | every 30 min |
+| Price alerts | every 5 min |
 | Event market settlement | every 30 min |
 | IPO price jumps | every 30 min |
 | Daily drop post | 14:00 daily |

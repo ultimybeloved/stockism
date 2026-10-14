@@ -750,14 +750,6 @@ export interface SeasonStandingsResponse {
   entries: SeasonStandingEntry[];
 }
 
-export interface LeaderboardMarginsRequest {
-  userIds: string[];
-}
-
-export interface LeaderboardMarginsResponse {
-  margins?: Record<string, number>;
-}
-
 export interface CreateLimitOrderRequest {
   ticker: string;
   /** 'BUY' | 'SELL' | 'STOP_LOSS'; the backend rejects anything else. */

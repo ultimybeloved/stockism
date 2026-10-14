@@ -4,7 +4,7 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 // Modular import (not FieldValue): the emulator sandbox strips
 // the namespaced statics, and this form works in both prod and sandbox.
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, type Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 
 import { CHARACTER_MAP, CHARACTERS } from '../shared/characters';
@@ -20,7 +20,10 @@ import {
   ANIMAL_TICKERS,
   UNIFIER_FULL_SHARE_MIN,
   DIVIDEND_DEMON_HOLD_MS,
+  TRADE_HOLD_PERIOD_MS,
+  LEGACY_SHORT_MARGIN_RATIO,
 } from '../shared/constants';
+import { stampMs } from '../shared/impact';
 import { touchLastActive } from '../shared/activity';
 import { lockedShares } from '../shared/cohorts';
 import { reportError } from '../shared/sentry';
@@ -47,8 +50,12 @@ const getSpread = (ticker: string) => (CHARACTER_MAP[ticker]?.isETF ? ETF_BID_AS
  * Deliberately NOT a trade: it does not touch trade history, trade counts, or
  * mission progress, so it can't be used to farm trade-count missions. Locked
  * shares (IPO / margin holds) are skipped entirely.
+ *
+ * `{ side: 'short' }` does the same for tiny SHORT positions instead: each is
+ * bought back at the ask, with no price impact, and its collateral comes back
+ * the way a normal cover returns it (see computeCover in trading/tradeActions).
  */
-export const sweepDustPositions = cf().https.onCall(async (data, context) => {
+export const sweepDustPositions = cf().https.onCall(async (data: { side?: unknown } | null, context) => {
   requireAppCheck(context);
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
@@ -98,8 +105,37 @@ export const sweepDustPositions = cf().https.onCall(async (data, context) => {
       let proceeds = 0;
       let swept = 0;
       const updates: Record<string, unknown> = {};
+      const sweepShorts = data?.side === 'short';
 
-      for (const [ticker, sharesRaw] of Object.entries(holdings)) {
+      if (sweepShorts) {
+        const shorts: Record<string, ShortPosition | null> = userData.shorts || {};
+        let remaining = 0;
+        for (const [ticker, pos] of Object.entries(shorts)) {
+          const shares = pos?.shares || 0;
+          if (!pos || shares <= 0) continue;
+          remaining++;
+          const price = prices[ticker] != null ? prices[ticker] : CHARACTER_MAP[ticker]?.basePrice || 0;
+          if (!(price > 0) || shares * price >= DUST_MAX_VALUE) continue;
+          const tickerHalt = haltedTickers[ticker];
+          if (tickerHalt && tickerHalt.resumeAt && now < tickerHalt.resumeAt) continue;
+          // Same 45-second hold as a normal cover.
+          if (now - stampMs(pos.openedAt as Timestamp | number | undefined) < TRADE_HOLD_PERIOD_MS) continue;
+
+          const ask = round2(price * (1 + getSpread(ticker) / 2));
+          const costBasis = pos.costBasis || pos.entryPrice || ask;
+          const margin = pos.margin || costBasis * shares * LEGACY_SHORT_MARGIN_RATIO;
+          // v2 posted collateral and got no proceeds, so it gets the collateral
+          // back plus or minus the move. Legacy got the proceeds at open, so it
+          // pays the buy-back out of cash and gets the collateral back.
+          proceeds += (pos.system || 'v2') === 'v2' ? margin + (costBasis - ask) * shares : margin - ask * shares;
+          swept++;
+          remaining--;
+          updates[`shorts.${ticker}`] = FieldValue.delete();
+        }
+        if (swept > 0) updates.hasOpenShorts = remaining > 0;
+      }
+
+      for (const [ticker, sharesRaw] of Object.entries(sweepShorts ? {} : holdings)) {
         const shares = sharesRaw || 0;
         if (shares <= 0) continue;
 
@@ -143,7 +179,7 @@ export const sweepDustPositions = cf().https.onCall(async (data, context) => {
         type: 'dust_sweep',
         amount: proceeds,
         cashAfter: (userData.cash || 0) + proceeds,
-        detail: { positions: swept },
+        detail: { positions: swept, side: sweepShorts ? 'short' : 'long' },
       });
 
       result = { swept, proceeds };
@@ -299,7 +335,10 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
 
   let historyWritten = false;
   if (!lastRecord || timeElapsed || valueChanged) {
-    await userRef.collection('portfolioHistory').add({ timestamp: now, value: portfolioValue });
+    // The debt rides along so public views can show net worth (snapshotNetWorth).
+    await userRef
+      .collection('portfolioHistory')
+      .add({ timestamp: now, value: portfolioValue, marginUsed: userData.marginUsed || 0 });
     updateData.lastPortfolioSnapshot = { timestamp: now, value: portfolioValue };
     historyWritten = true;
   }
@@ -317,12 +356,14 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
 
   // Rolling reference snapshots — used by leaderboard and dashboard
   const snap24h = userData.portfolioSnapshot24h;
+  // marginUsed is recorded so the weekly-gain boards can measure net worth at
+  // both ends (a margin buy is not a gain).
   if (!snap24h || now - snap24h.timestamp >= TWENTY_FOUR_HOURS_MS) {
-    updateData.portfolioSnapshot24h = { timestamp: now, value: portfolioValue };
+    updateData.portfolioSnapshot24h = { timestamp: now, value: portfolioValue, marginUsed: userData.marginUsed || 0 };
   }
   const snap7d = userData.portfolioSnapshot7d;
   if (!snap7d || now - snap7d.timestamp >= ONE_WEEK_MS) {
-    updateData.portfolioSnapshot7d = { timestamp: now, value: portfolioValue };
+    updateData.portfolioSnapshot7d = { timestamp: now, value: portfolioValue, marginUsed: userData.marginUsed || 0 };
   }
   // 30-day reference is the user's ACTUAL portfolio value ~30 days ago, read
   // from the permanent portfolioHistory. Refreshed at most once a day so the

@@ -33,9 +33,30 @@ export interface WeeklyProgress {
   startMarginUsed?: number;
 }
 
+// Share of the portfolio's stock value held in crew members, 0-100. By value,
+// not share count: counting shares let a pile of cheap crew stock pass for
+// "most of your portfolio" (Crew Majority until 2026-10-14).
+// Mirrors crewValuePercent in functions/src/missions/missionChecks.ts.
+export const crewValuePercent = (holdings: ShareMap, prices: PriceMap, crewMembers: string[]) => {
+  let totalValue = 0;
+  let crewValue = 0;
+  for (const [ticker, shares] of Object.entries(holdings)) {
+    if (shares <= 0) continue;
+    const value = shares * (prices[ticker] || 0);
+    totalValue += value;
+    if (crewMembers.includes(ticker)) crewValue += value;
+  }
+  return totalValue > 0 ? (crewValue / totalValue) * 100 : 0;
+};
+
 export const getDailyMissionProgress = (
   mission: Mission,
-  { holdings, dailyProgress, crewMembers }: { holdings: ShareMap; dailyProgress: DailyProgress; crewMembers: string[] },
+  {
+    holdings,
+    prices,
+    dailyProgress,
+    crewMembers,
+  }: { holdings: ShareMap; prices: PriceMap; dailyProgress: DailyProgress; crewMembers: string[] },
 ): MissionProgress => {
   // Every check type that compares against `requirement` defines one.
   const req = mission.requirement as number;
@@ -84,9 +105,7 @@ export const getDailyMissionProgress = (
     // CREW LOYALTY (percentage you actively maintain)
     // ============================================
     case 'CREW_MAJORITY': {
-      const totalShares = Object.values(holdings).reduce((sum, s) => sum + s, 0);
-      const crewShares = crewMembers.reduce((sum, ticker) => sum + (holdings[ticker] || 0), 0);
-      const percent = totalShares > 0 ? (crewShares / totalShares) * 100 : 0;
+      const percent = crewValuePercent(holdings, prices, crewMembers);
       return { complete: percent >= req, progress: Math.floor(percent), target: req };
     }
 
@@ -171,20 +190,7 @@ export const getWeeklyMissionProgress = (
     // CREW LOYALTY
     // ============================================
     case 'WEEKLY_CREW_PERCENT': {
-      // Calculate % of portfolio in crew members by value
-      let totalValue = 0;
-      let crewValue = 0;
-      Object.entries(holdings).forEach(([ticker, shares]) => {
-        if (shares > 0) {
-          const price = prices[ticker] || 0;
-          const value = shares * price;
-          totalValue += value;
-          if (crewMembers.includes(ticker)) {
-            crewValue += value;
-          }
-        }
-      });
-      const percent = totalValue > 0 ? (crewValue / totalValue) * 100 : 0;
+      const percent = crewValuePercent(holdings, prices, crewMembers);
       return {
         complete: percent >= req,
         progress: Math.floor(percent),

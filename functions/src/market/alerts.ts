@@ -6,11 +6,22 @@ import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS } from '../shared/characters';
-import { isWeeklyTradingHalt, TWENTY_FOUR_HOURS_MS } from '../shared/constants';
-import { sendDiscordMessage } from '../shared/discordApi';
+import {
+  isWeeklyTradingHalt,
+  TWENTY_FOUR_HOURS_MS,
+  SITE_URL,
+  PRICE_ALERT_CHECK_SCHEDULE,
+  PRICE_ALERT_LOOKBACK_MS,
+  MAX_ACTIVE_PRICE_ALERTS,
+  PRICE_MOVE_ALERT_PERCENT,
+  PRICE_MOVE_ALERT_COOLDOWN_MS,
+} from '../shared/constants';
+import { sendDiscordMessage, sendDiscordDM } from '../shared/discordApi';
 import { writeNotification } from '../shared/notifications';
 import { priceHistoryRef } from '../shared/marketData';
 import { recordHeartbeat } from '../shared/activity';
+import { reportError } from '../shared/sentry';
+import type { PricePoint } from '../shared/types';
 
 // ─── Discord Alert Triggers ──────────────────────────────────────────────────
 
@@ -81,7 +92,7 @@ export const priceThresholdAlert = cf()
 
       const prices: Record<string, number> = marketData.prices || {};
       const histSnap = await priceHistoryRef().get();
-      const priceHistory = histSnap.exists ? histSnap.data() || {} : {};
+      const priceHistory: Record<string, PricePoint[]> = histSnap.exists ? histSnap.data() || {} : {};
       const alertedThresholds = marketData.alertedThresholds || {};
 
       const now = Date.now();
@@ -89,31 +100,33 @@ export const priceThresholdAlert = cf()
       const newAlerts: { ticker: string; price: number; price24hAgo: number; change: number; alertKey: string }[] = [];
       const updatedAlertedThresholds = { ...alertedThresholds };
 
-      Object.entries(prices).forEach(([ticker, currentPrice]) => {
-        const history = priceHistory[ticker] || [];
-        if (history.length === 0) return;
-
-        let price24hAgo = history[0].price;
-        for (let i = history.length - 1; i >= 0; i--) {
-          if (history[i].timestamp <= dayAgo) {
-            price24hAgo = history[i].price;
-            break;
-          }
+      for (const [ticker, currentPrice] of Object.entries(prices)) {
+        // The price a day ago. The live chart keeps only its last 60 points,
+        // which on a busy stock can cover less than a day, so this used to
+        // fall back to the oldest live point and call a few hours "24 hours".
+        // Older points are in the archive. A stock with no point that old
+        // (just launched) has no 24h change to report.
+        let price24hAgo = priceAtOrBefore(priceHistory[ticker], dayAgo);
+        if (price24hAgo === null) {
+          const archive = await db.collection('market').doc('current').collection('price_history').doc(ticker).get();
+          price24hAgo = priceAtOrBefore(archive.data()?.history, dayAgo);
         }
+        if (!price24hAgo || price24hAgo <= 0) continue;
 
-        const change = price24hAgo > 0 ? ((currentPrice - price24hAgo) / price24hAgo) * 100 : 0;
-        const absChange = Math.abs(change);
+        const change = ((currentPrice - price24hAgo) / price24hAgo) * 100;
         const alertKey = `${ticker}_10_${change > 0 ? 'up' : 'down'}`;
         const lastAlerted = alertedThresholds[alertKey] || 0;
-        const hoursSinceAlert = (now - lastAlerted) / (60 * 60 * 1000);
 
-        if (absChange >= 10 && hoursSinceAlert > 12) {
+        if (Math.abs(change) >= PRICE_MOVE_ALERT_PERCENT && now - lastAlerted > PRICE_MOVE_ALERT_COOLDOWN_MS) {
           newAlerts.push({ ticker, price: currentPrice, price24hAgo, change, alertKey });
           updatedAlertedThresholds[alertKey] = now;
         }
-      });
+      }
 
-      if (newAlerts.length === 0) return null;
+      if (newAlerts.length === 0) {
+        await recordHeartbeat('priceThresholdAlert');
+        return null;
+      }
 
       await marketRef.update({ alertedThresholds: updatedAlertedThresholds });
 
@@ -134,12 +147,23 @@ export const priceThresholdAlert = cf()
         await sendDiscordMessage(null, [embed]);
       }
 
+      await recordHeartbeat('priceThresholdAlert');
       return null;
     } catch (error) {
-      logger.error('Error in priceThresholdAlert:', error);
+      reportError(error, { where: 'priceThresholdAlert' });
       return null;
     }
   });
+
+/** Price of the last point at or before `ts` in an ascending history, or null. */
+function priceAtOrBefore(history: PricePoint[] | null | undefined, ts: number): number | null {
+  if (!Array.isArray(history)) return null;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const p = history[i]!;
+    if (p.timestamp <= ts) return p.price;
+  }
+  return null;
+}
 
 /**
  * Achievement Alert - Called when someone unlocks an achievement
@@ -254,8 +278,11 @@ export const createPriceAlert = cf().https.onCall(async (data, context) => {
     .where('triggered', '==', false)
     .get();
 
-  if (alertsSnap.size >= 10) {
-    throw new functions.https.HttpsError('failed-precondition', 'Maximum 10 active price alerts.');
+  if (alertsSnap.size >= MAX_ACTIVE_PRICE_ALERTS) {
+    throw new functions.https.HttpsError(
+      'failed-precondition',
+      `Maximum ${MAX_ACTIVE_PRICE_ALERTS} active price alerts.`,
+    );
   }
 
   const alertRef = await db.collection('users').doc(uid).collection('priceAlerts').add({
@@ -290,21 +317,33 @@ export const deletePriceAlert = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Check price alerts - every 30 minutes
+ * Check price alerts every few minutes. An alert fires if the price touched its
+ * target at any point since the last check, not only if it is there right now:
+ * at a 30-minute check on the current price alone, a spike that came back down
+ * in between was missed. Players with Discord linked also get a DM.
  */
 export const checkPriceAlerts = cf()
-  .pubsub.schedule('every 30 minutes')
+  .pubsub.schedule(PRICE_ALERT_CHECK_SCHEDULE)
   .timeZone('UTC')
   .onRun(async () => {
     try {
-      const marketSnap = await db.collection('market').doc('current').get();
-      if (!marketSnap.exists) return null;
-      const prices: Record<string, number> = marketSnap.data()!.prices || {};
-
       // Collection-group query reads only the untriggered alert docs
       // themselves, instead of scanning every user doc plus one subcollection
       // query per user on every run.
       const alertsSnap = await db.collectionGroup('priceAlerts').where('triggered', '==', false).get();
+      if (alertsSnap.empty) {
+        await recordHeartbeat('checkPriceAlerts');
+        return { triggered: 0 };
+      }
+
+      const [marketSnap, histSnap] = await Promise.all([
+        db.collection('market').doc('current').get(),
+        priceHistoryRef().get(),
+      ]);
+      if (!marketSnap.exists) return null;
+      const prices: Record<string, number> = marketSnap.data()!.prices || {};
+      const history: Record<string, PricePoint[]> = histSnap.exists ? histSnap.data() || {} : {};
+      const now = Date.now();
       let triggered = 0;
 
       for (const alertDoc of alertsSnap.docs) {
@@ -312,28 +351,45 @@ export const checkPriceAlerts = cf()
         const currentPrice = prices[alert.ticker];
         if (!currentPrice) continue;
 
-        let shouldTrigger = false;
-        if (alert.direction === 'above' && currentPrice >= alert.targetPrice) shouldTrigger = true;
-        if (alert.direction === 'below' && currentPrice <= alert.targetPrice) shouldTrigger = true;
+        // Every price since the window opened (or the alert was set, if later),
+        // plus the price right now.
+        const createdAt = alert.createdAt?.toMillis?.() ?? 0;
+        const since = Math.max(createdAt, now - PRICE_ALERT_LOOKBACK_MS);
+        const seen = (history[alert.ticker] || []).filter((p) => p.timestamp >= since).map((p) => p.price);
+        seen.push(currentPrice);
+        const hitPrice = alert.direction === 'above' ? Math.max(...seen) : Math.min(...seen);
+        const hit = alert.direction === 'above' ? hitPrice >= alert.targetPrice : hitPrice <= alert.targetPrice;
+        if (!hit) continue;
 
-        if (shouldTrigger) {
-          const uid = alertDoc.ref.parent.parent!.id;
-          await alertDoc.ref.update({ triggered: true });
-          await writeNotification(uid, {
-            type: 'alert',
-            title: `Price Alert: $${alert.ticker}`,
-            message: `$${alert.ticker} is now $${currentPrice.toFixed(2)} (${alert.direction === 'above' ? 'above' : 'below'} your target of $${alert.targetPrice.toFixed(2)})`,
-            data: { ticker: alert.ticker, price: currentPrice },
-          });
-          triggered++;
+        const uid = alertDoc.ref.parent.parent!.id;
+        await alertDoc.ref.update({ triggered: true, triggeredAt: now, triggeredPrice: hitPrice });
+        const side = alert.direction === 'above' ? 'above' : 'below';
+        const touched =
+          hitPrice === currentPrice
+            ? `$${alert.ticker} is now $${currentPrice.toFixed(2)}`
+            : `$${alert.ticker} hit $${hitPrice.toFixed(2)} and is now $${currentPrice.toFixed(2)}`;
+        const message = `${touched} (${side} your target of $${alert.targetPrice.toFixed(2)})`;
+        await writeNotification(uid, {
+          type: 'alert',
+          title: `Price Alert: $${alert.ticker}`,
+          message,
+          data: { ticker: alert.ticker, price: currentPrice },
+        });
+        try {
+          const userSnap = await db.getAll(db.collection('users').doc(uid), { fieldMask: ['discordId'] });
+          const discordId = userSnap[0]?.data()?.discordId;
+          if (discordId) await sendDiscordDM(discordId, `Price alert: ${message}. ${SITE_URL}/stock/${alert.ticker}`);
+        } catch (e) {
+          reportError(e, { where: 'checkPriceAlerts.dm', uid });
         }
+        triggered++;
       }
 
-      logger.info(`Price alert check: ${triggered} alerts triggered`);
+      if (triggered) logger.info(`Price alert check: ${triggered} alerts triggered`);
       await recordHeartbeat('checkPriceAlerts');
       return { triggered };
     } catch (err) {
-      logger.error('Price alert check failed:', err);
+      reportError(err, { where: 'checkPriceAlerts' });
       return null;
     }
   });

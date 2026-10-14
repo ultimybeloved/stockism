@@ -16,6 +16,8 @@ import { writeNotification } from '../shared/notifications';
 import { recordHeartbeat } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import { seasonMarginUpdate } from '../season/seasonTiers';
+import { getWeekId } from '../shared/tradeRecords';
+import type { WeeklyProgress } from '../missions/missionChecks';
 import {
   loyaltyTierFor,
   LOYALTY_TIER_LABEL,
@@ -280,6 +282,7 @@ export const syncAllPortfolios = cf()
 
       const marketData = marketSnap.data()!;
       const prices: Record<string, number> = marketData.prices || {};
+      const weekId = getWeekId(new Date(startTime));
 
       // Get all users
       const usersSnapshot = await db.collection('users').get();
@@ -346,15 +349,36 @@ export const syncAllPortfolios = cf()
             ? { current: {}, upgrades: [], changed: false }
             : diffLoyaltyTiers(userData, startTime);
 
+          // The weekly growth missions measure from the week's starting value,
+          // which syncPortfolio records on the player's first visit of the week.
+          // Recording it here too means the week starts at Monday's run for
+          // everyone, not whenever they happened to log in (a player could
+          // stay away until their portfolio dipped, then start the clock).
+          const weekStartFields: Record<string, number> = {};
+          if (userData.crew && !userData.isBot) {
+            const week = (userData.weeklyMissions as Record<string, WeeklyProgress> | undefined)?.[weekId];
+            if (week?.startPortfolioValue === undefined) {
+              weekStartFields[`weeklyMissions.${weekId}.startPortfolioValue`] = portfolioValue;
+            }
+            if (week?.startGrantedValue === undefined) {
+              weekStartFields[`weeklyMissions.${weekId}.startGrantedValue`] = userData.grantedValue || 0;
+            }
+            if (week?.startMarginUsed === undefined) {
+              weekStartFields[`weeklyMissions.${weekId}.startMarginUsed`] = userData.marginUsed || 0;
+            }
+          }
+          const startsWeek = Object.keys(weekStartFields).length > 0;
+
           // Only update if different from stored value (avoid unnecessary writes)
           const storedValue = userData.portfolioValue || 0;
           const isDifferent = Math.abs(portfolioValue - storedValue) > 0.01 || marginInterest > 0;
 
-          if (isDifferent || loyalty.changed) {
+          if (isDifferent || loyalty.changed || startsWeek) {
             const userRef = db.collection('users').doc(userId);
             const updateFields: Record<string, unknown> = {
               portfolioValue: portfolioValue,
               lastSyncedAt: FieldValue.serverTimestamp(),
+              ...weekStartFields,
             };
             // Interest is charged separately below, from a fresh read.
             if (marginInterest > 0) interestDue.push(userId);

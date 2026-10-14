@@ -154,3 +154,16 @@ export const MARGIN_SELL_LOCKUP_MS = 36 * 60 * 60 * 1000; // 36 hours
 // never deleted) to market/current/price_history/{ticker}; charts merge the
 // archive back in, so trimming costs nothing visible.
 export const PRICE_HISTORY_LIVE_MAX = 60;
+
+// Player price alerts. Checked every few minutes against every price point
+// since the last check, not just the price at check time, so a spike that comes
+// back down between checks still fires. The lookback is wider than the interval
+// so a late-starting run can't leave a gap.
+export const PRICE_ALERT_CHECK_SCHEDULE = 'every 5 minutes';
+export const PRICE_ALERT_LOOKBACK_MS = 10 * 60 * 1000;
+export const MAX_ACTIVE_PRICE_ALERTS = 10;
+
+// Public "major price movement" post: a 24h move this big, at most once per
+// direction per ticker in the cooldown.
+export const PRICE_MOVE_ALERT_PERCENT = 10;
+export const PRICE_MOVE_ALERT_COOLDOWN_MS = 12 * 60 * 60 * 1000;

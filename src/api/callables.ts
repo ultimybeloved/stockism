@@ -35,7 +35,9 @@ export const broadcastNotificationFunction = callable<
 >('broadcastNotification');
 // Trade execution & anti-exploit
 export const executeTradeFunction = callable<Api.ExecuteTradeRequest, Api.ExecuteTradeResponse>('executeTrade');
-export const sweepDustPositionsFunction = callable<void, Api.SweepDustResponse>('sweepDustPositions');
+export const sweepDustPositionsFunction = callable<{ side: 'short' } | void, Api.SweepDustResponse>(
+  'sweepDustPositions',
+);
 export const banUserFunction = callable<{ userId: string; reason: string }>('banUser');
 // Daily checkin
 export const dailyCheckinFunction = callable<Record<string, never>, Api.DailyCheckinResponse>('dailyCheckin');
@@ -59,11 +61,6 @@ export const triggerCollapseReviewHistoryFunction = callable<
 export const triggerDailyFreeStockFunction = callable<Record<string, never>, Api.JobResult>('triggerDailyFreeStock');
 // Leaderboard
 export const getLeaderboardFunction = callable<Api.GetLeaderboardRequest, Api.GetLeaderboardResponse>('getLeaderboard');
-// Admin only: margin debt for the accounts on the board, kept out of the
-// world-readable leaderboard cache.
-export const getLeaderboardMarginsFunction = callable<Api.LeaderboardMarginsRequest, Api.LeaderboardMarginsResponse>(
-  'getLeaderboardMargins',
-);
 export const getPublicProfileFunction = callable<{ username: string | undefined }, Api.PublicProfile>(
   'getPublicProfile',
 );

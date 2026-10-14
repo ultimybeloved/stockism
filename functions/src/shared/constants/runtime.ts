@@ -34,6 +34,7 @@ export const APP_CHECK_ENFORCED = true;
 // this date, so a weekly job isn't reported missing before its first run.
 const ADDED_2026_09_28 = Date.UTC(2026, 8, 29);
 const ADDED_2026_10_11 = Date.UTC(2026, 9, 12);
+const ADDED_2026_10_14 = Date.UTC(2026, 9, 15);
 export const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday/Monday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
@@ -83,4 +84,11 @@ export const WATCHED_SCHEDULED_JOBS = [
   { job: 'recordPriceExtremes', maxAgeHours: 12, label: 'All-time high/low sweep' },
   { job: 'applyNeglectDecay', maxAgeHours: 48, label: 'Neglect decay' },
   { job: 'haltPriceAudit', maxAgeHours: 8 * 24, label: 'Halt price audit', watchedSince: ADDED_2026_10_11 },
+  // Every 6 hours, skipping the Thursday halt (two runs), so 24h clears it.
+  {
+    job: 'priceThresholdAlert',
+    maxAgeHours: 24,
+    label: 'Big price move Discord post',
+    watchedSince: ADDED_2026_10_14,
+  },
 ];

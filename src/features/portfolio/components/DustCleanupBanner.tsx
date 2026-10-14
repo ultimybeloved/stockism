@@ -6,11 +6,13 @@ interface DustCleanupBannerProps {
   total: number;
   sweeping: boolean;
   onConfirm: () => void;
+  side?: 'long' | 'short';
 }
 
-// Small banner shown above the long-positions list when the user has tiny
+// Small banner shown above the long or short list when the user has tiny
 // (sub-$5) positions. Two-step confirm so it can't be hit by accident.
-const DustCleanupBanner = ({ count, total, sweeping, onConfirm }: DustCleanupBannerProps) => {
+const DustCleanupBanner = ({ count, total, sweeping, onConfirm, side = 'long' }: DustCleanupBannerProps) => {
+  const isShort = side === 'short';
   const [confirming, setConfirming] = useState(false);
 
   const secondaryBtn =
@@ -20,10 +22,13 @@ const DustCleanupBanner = ({ count, total, sweeping, onConfirm }: DustCleanupBan
     <div className="mb-3 p-3 rounded-sm border flex items-center justify-between gap-3 light:border-amber-200 light:bg-amber-50 dark:border-zinc-700 dark:bg-zinc-800/60">
       <div>
         <p className="text-sm font-semibold light:text-slate-700 dark:text-zinc-200">
-          {count} tiny position{count === 1 ? '' : 's'} worth about {formatCurrency(total)}
+          {count} tiny {isShort ? 'short' : 'position'}
+          {count === 1 ? '' : 's'} worth about {formatCurrency(total)}
         </p>
         <p className="text-xs light:text-slate-500 dark:text-zinc-400">
-          Sell them all to cash in one go. Locked shares are left alone.
+          {isShort
+            ? 'Close them all in one go. Your collateral comes back to cash.'
+            : 'Sell them all to cash in one go. Locked shares are left alone.'}
         </p>
       </div>
 

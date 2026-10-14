@@ -72,7 +72,7 @@ const DailyMissionsModal = ({
   const missions = todaysMissions.map((mission) => ({
     ...mission,
     reward: Math.round(mission.reward * crewMultiplier),
-    ...getDailyMissionProgress(mission, { holdings: userData?.holdings || {}, dailyProgress, crewMembers }),
+    ...getDailyMissionProgress(mission, { holdings: userData?.holdings || {}, prices, dailyProgress, crewMembers }),
     claimed: dailyProgress.claimed?.[mission.id] || false,
   }));
 

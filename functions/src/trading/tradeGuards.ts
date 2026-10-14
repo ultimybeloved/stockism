@@ -6,12 +6,11 @@ import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { CHARACTER_MAP } from '../shared/characters';
-import { washRuleRemainingMs, shortAfterDumpRemainingMs, maxTradeSharesFor } from '../shared/impact';
+import { washRuleRemainingMs, shortAfterDumpRemainingMs, maxTradeSharesFor, stampMs } from '../shared/impact';
 import type { UserData } from '../shared/types';
 
 /** A Timestamp or epoch ms, as the throttle stamps are stored. */
 type Stamp = Timestamp | number;
-const stampMs = (s: Stamp) => ((s as Timestamp).toMillis ? (s as Timestamp).toMillis() : (s as number));
 import {
   isWeeklyTradingHalt,
   MAX_TRADES_PER_TICKER_24H,
