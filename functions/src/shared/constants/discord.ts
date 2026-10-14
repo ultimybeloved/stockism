@@ -122,6 +122,8 @@ export const DIRECT_REPLY_BUDGET_MS = 1200;
 // Public site URL. Slash-command replies deep-link back here (this is the whole
 // point of the "trade on the website" buttons).
 export const SITE_URL = 'https://stockism.app';
+// The official server's public invite (same link as the site footer).
+export const DISCORD_INVITE_URL = 'https://discord.gg/hpVm8nQMvY';
 // How many leaderboard rows a /leaderboard reply shows. Discord embeds get
 // unreadable past ~10 lines on mobile.
 export const DISCORD_LEADERBOARD_ROWS = 10;

@@ -206,51 +206,91 @@ export const characterExposure = (userData: UserData | null | undefined, prices:
 };
 
 // ── Net worth (what the boards rank) ─────────────────────────────────────────
-// portfolioValue counts stock bought with borrowed money but not the loan, so
-// ranking on it put whoever borrowed most on top. Every leaderboard figure and
-// rank uses this instead (since 2026-10-14). portfolioValue itself stays gross.
-export const netWorthOf = (u: { portfolioValue?: number; marginUsed?: number } | null | undefined) =>
+// portfolioValue counts stock bought with borrowed money but not the loan, and
+// leaves out money sitting in long-term markets. Every leaderboard figure and
+// rank uses net worth instead (since 2026-10-14): portfolioValue minus margin
+// debt, plus what open long-term positions would sell back for
+// (eventPositionsValue, kept fresh by syncPortfolio, the nightly sync and the
+// event-market trades). portfolioValue itself stays as it was.
+type WorthFields = { portfolioValue?: number; marginUsed?: number; eventPositionsValue?: number };
+
+/** Net worth for ranking and display. */
+export const netWorthOf = (u: WorthFields | null | undefined) =>
+  round2(tradingNetWorthOf(u) + Math.max(0, u?.eventPositionsValue || 0));
+
+/**
+ * Net worth WITHOUT long-term market positions, for gain and return figures.
+ * Prediction money is booked as a flow (predictionFlowUpdate) so it never
+ * counts as a trading gain; adding the positions here as well would turn every
+ * share bought into an instant "gain" of what it cost.
+ */
+export const tradingNetWorthOf = (u: WorthFields | null | undefined) =>
   round2((u?.portfolioValue || 0) - (u?.marginUsed || 0));
 
-/** A 24h / 7d portfolio snapshot's net worth. Snapshots taken before they
- * recorded the debt assume it was the same as now, which neither credits nor
- * penalises the borrower for a loan nobody can date. */
+/** A 24h / 7d portfolio snapshot's trading net worth. Snapshots taken before
+ * they recorded the debt assume it was the same as now, which neither credits
+ * nor penalises the borrower for a loan nobody can date. */
 export const snapshotNetWorth = (
   snap: { value?: number; marginUsed?: number } | null | undefined,
   currentMarginUsed: number,
 ) => round2((snap?.value || 0) - (snap?.marginUsed ?? currentMarginUsed));
 
-// Everyone with open margin debt, for the rank correction below. Borrowers are
-// a small set, and a minute-old copy is plenty for a rank.
-type Borrower = { portfolioValue: number; marginUsed: number; crew: string | null; isBot: boolean };
-let borrowerCache: { at: number; list: Borrower[] } | null = null;
-const BORROWER_CACHE_MS = 60 * 1000;
-const loadBorrowers = async (): Promise<Borrower[]> => {
-  if (borrowerCache && Date.now() - borrowerCache.at < BORROWER_CACHE_MS) return borrowerCache.list;
-  const snap = await db
-    .collection('users')
-    .where('marginUsed', '>', 0)
-    .select('portfolioValue', 'marginUsed', 'crew', 'isBot')
-    .get();
-  const list = snap.docs.map((d) => {
+// Everyone whose net worth differs from their stored gross value: borrowers
+// and long-term market holders. A small set, and a minute-old copy is plenty
+// for a rank.
+type Adjusted = WorthFields & { portfolioValue: number; crew: string | null; isBot: boolean };
+let adjustedCache: { at: number; list: Adjusted[] } | null = null;
+const ADJUSTED_CACHE_MS = 60 * 1000;
+const ADJUSTED_FIELDS = ['portfolioValue', 'marginUsed', 'eventPositionsValue', 'crew', 'isBot'];
+const loadAdjusted = async (): Promise<Adjusted[]> => {
+  if (adjustedCache && Date.now() - adjustedCache.at < ADJUSTED_CACHE_MS) return adjustedCache.list;
+  const [borrowers, holders] = await Promise.all([
+    db
+      .collection('users')
+      .where('marginUsed', '>', 0)
+      .select(...ADJUSTED_FIELDS)
+      .get(),
+    db
+      .collection('users')
+      .where('eventPositionsValue', '>', 0)
+      .select(...ADJUSTED_FIELDS)
+      .get(),
+  ]);
+  const byId = new Map<string, Adjusted>();
+  for (const d of [...borrowers.docs, ...holders.docs]) {
     const u = d.data();
-    return {
+    byId.set(d.id, {
       portfolioValue: u.portfolioValue || 0,
       marginUsed: u.marginUsed || 0,
+      eventPositionsValue: u.eventPositionsValue || 0,
       crew: u.crew || null,
       isBot: !!u.isBot,
-    };
-  });
-  borrowerCache = { at: Date.now(), list };
+    });
+  }
+  const list = [...byId.values()];
+  adjustedCache = { at: Date.now(), list };
   return list;
+};
+
+/** The largest long-term position value anyone holds: how far above their
+ * stored gross value anyone's net worth can be (see getLeaderboard's pool). */
+export const maxEventPositionsValue = async () => {
+  const snap = await db
+    .collection('users')
+    .orderBy('eventPositionsValue', 'desc')
+    .limit(1)
+    .select('eventPositionsValue')
+    .get();
+  return snap.empty ? 0 : snap.docs[0]!.data().eventPositionsValue || 0;
 };
 
 // A user's net-worth rank via count aggregations (~1 read per 1000 counted)
 // instead of reading one doc per higher-ranked user. The counts run on the
-// stored gross value, so borrowers whose gross is above `netValue` but whose
-// net worth isn't are taken back out. Bots are subtracted with a second count
-// so ranks match the bot-free leaderboard. Shared by getLeaderboard, public
-// profiles and the Discord bot's /profile so they can't report different ranks.
+// stored gross value, then the players whose net worth sits on the other side
+// of `netValue` from their gross (borrowers, long-term market holders) are
+// moved across. Bots are subtracted with a second count so ranks match the
+// bot-free leaderboard. Shared by getLeaderboard, public profiles and the
+// Discord bot's /profile so they can't report different ranks.
 export const countRankAbove = async (netValue: number, crew?: string | null) => {
   let above = db.collection('users').where('portfolioValue', '>', netValue);
   let botsAbove = db.collection('users').where('isBot', '==', true).where('portfolioValue', '>', netValue);
@@ -258,13 +298,18 @@ export const countRankAbove = async (netValue: number, crew?: string | null) => 
     above = above.where('crew', '==', crew);
     botsAbove = botsAbove.where('crew', '==', crew);
   }
-  const [aboveSnap, botsSnap, borrowers] = await Promise.all([
+  const [aboveSnap, botsSnap, adjusted] = await Promise.all([
     above.count().get(),
     botsAbove.count().get(),
-    loadBorrowers(),
+    loadAdjusted(),
   ]);
-  const overCounted = borrowers.filter(
-    (b) => !b.isBot && (!crew || b.crew === crew) && b.portfolioValue > netValue && netWorthOf(b) <= netValue,
-  ).length;
-  return Math.max(0, aboveSnap.data().count - botsSnap.data().count - overCounted) + 1;
+  let correction = 0;
+  for (const a of adjusted) {
+    if (a.isBot || (crew && a.crew !== crew)) continue;
+    const grossAbove = a.portfolioValue > netValue;
+    const netAbove = netWorthOf(a) > netValue;
+    if (grossAbove && !netAbove) correction--;
+    if (!grossAbove && netAbove) correction++;
+  }
+  return Math.max(0, aboveSnap.data().count - botsSnap.data().count + correction) + 1;
 };

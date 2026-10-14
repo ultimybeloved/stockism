@@ -23,7 +23,7 @@ const DiscordLinkBanner = () => {
     <>
       {discordLinkStatus === 'success' && (
         <div className="p-3 rounded-sm bg-green-900/30 border border-green-700 text-green-400 text-sm">
-          Discord linked successfully! You can now claim daily free stocks.
+          Discord linked! Run /welcome in the Stockism Discord to start your welcome week.
         </div>
       )}
       {discordLinkStatus?.startsWith('error') && (

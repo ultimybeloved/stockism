@@ -62,7 +62,9 @@ const LeaderboardPage = () => {
           : formatGainDollars(userEntry.weeklyGain)}
       </span>
     ) : (
-      formatCurrency((userData?.portfolioValue || 0) - (userData?.marginUsed || 0))
+      formatCurrency(
+        (userData?.portfolioValue || 0) - (userData?.marginUsed || 0) + (userData?.eventPositionsValue || 0),
+      )
     );
 
   const userCrewColor = userData?.crew ? CREW_MAP[userData.crew]?.color : '#6b7280';

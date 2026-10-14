@@ -31,8 +31,10 @@ admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
-const { syncPortfolio, sweepDustPositions } =
+const { syncPortfolio } =
   require('../../functions/src/users/portfolio') as typeof import('../../functions/src/users/portfolio');
+const { sweepDustPositions } =
+  require('../../functions/src/users/dustSweep') as typeof import('../../functions/src/users/dustSweep');
 const { isWeeklyTradingHalt, BID_ASK_SPREAD } =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 

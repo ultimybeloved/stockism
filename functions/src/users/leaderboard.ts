@@ -5,8 +5,17 @@ import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 import type { DocumentData, Query } from 'firebase-admin/firestore';
 // Rank counting lives in shared/equity — shared with the Discord bot's /profile.
-import { countRankAbove, grantedSince, netReturnPercent, netWorthOf, snapshotNetWorth } from '../shared/equity';
+import {
+  countRankAbove,
+  grantedSince,
+  netReturnPercent,
+  netWorthOf,
+  tradingNetWorthOf,
+  snapshotNetWorth,
+  maxEventPositionsValue,
+} from '../shared/equity';
 import { BULLBEAR_FRAME_ID, frameTrend } from '../shared/rules/cosmetics';
+import { round2 } from '../shared/money';
 
 import {
   LEADERBOARD_CACHE_TTL,
@@ -63,6 +72,8 @@ const LEADERBOARD_FIELDS = [
   // Net worth = portfolioValue - marginUsed. Used for ranking only, never
   // published on its own (margin debt is private).
   'marginUsed',
+  // Long-term market positions at sell-back value, part of net worth.
+  'eventPositionsValue',
 ];
 
 // Players write displayedShopPins / displayedAchievementPins / activeCosmetics
@@ -164,7 +175,8 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
           if (!userData.portfolioSnapshot7d || userData.portfolioSnapshot7d.timestamp < twoWeeksAgo) return;
 
           // Net of margin debt at both ends, so a margin buy isn't a "gain".
-          const currentValue = netWorthOf(userData);
+          // Long-term positions stay out: prediction money is a flow, not a gain.
+          const currentValue = tradingNetWorthOf(userData);
           const valueSevenDaysAgo = snapshotNetWorth(userData.portfolioSnapshot7d, userData.marginUsed || 0);
 
           // Percent board only: baseline floor keeps near-zero accounts from
@@ -221,6 +233,9 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
         // pool is at least the lowest gross value fetched, nobody outside the
         // pool can beat it. Otherwise heavy borrowers pushed the cut-off down;
         // widen the pool and try again.
+        // Net worth can also sit ABOVE gross by a player's long-term positions,
+        // so the bound is the lowest gross fetched plus the largest position.
+        const eventHeadroom = await maxEventPositionsValue();
         let docs: DocumentData[] = [];
         for (let poolSize = LEADERBOARD_POOL_START; ; poolSize *= 2) {
           const snapshot = await query
@@ -235,7 +250,12 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
           const lowestGross = snapshot.docs[snapshot.docs.length - 1]?.data().portfolioValue || 0;
           const cutoff = docs[LEADERBOARD_SIZE - 1];
           const exhausted = snapshot.size < poolSize;
-          if (exhausted || poolSize >= LEADERBOARD_POOL_MAX || (cutoff && netWorthOf(cutoff) >= lowestGross)) break;
+          if (
+            exhausted ||
+            poolSize >= LEADERBOARD_POOL_MAX ||
+            (cutoff && netWorthOf(cutoff) >= lowestGross + eventHeadroom)
+          )
+            break;
         }
 
         leaderboard = docs.slice(0, LEADERBOARD_SIZE).map((userData) => {
@@ -402,7 +422,12 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
   const portfolioHistory = histSnap.docs
     .map((d) => {
       const p = d.data();
-      return { timestamp: p.timestamp, value: snapshotNetWorth(p, userData.marginUsed || 0) };
+      return {
+        timestamp: p.timestamp,
+        value: round2(
+          snapshotNetWorth(p, userData.marginUsed || 0) + (p.eventPositionsValue ?? userData.eventPositionsValue ?? 0),
+        ),
+      };
     })
     .reverse();
 

@@ -94,7 +94,7 @@ IPO shares are locked from selling for 24 hours after the window closes, so the 
 Two formats run side by side:
 
 - **Weekly bets.** Cash pool betting on chapter outcomes. Winners split the pot in proportion to their stake. One bet per question, unless the admin reopens it for top-ups.
-- **Event markets.** Long-term markets where each outcome is a share that pays $1 if it happens and $0 if it does not. Prices come from a house-run LMSR market maker, so you can buy or sell at any time instead of waiting for resolution. Admin sets the opening odds. The house takes the other side and can lose. The card shows what you put in, what your shares are worth now, and what they pay if the outcome wins.
+- **Event markets.** Long-term markets where each outcome is a share that pays $1 if it happens and $0 if it does not. Prices come from a house-run LMSR market maker, so you can buy or sell at any time instead of waiting for resolution. Admin sets the opening odds. The house takes the other side and can lose. The card shows what you put in, what your shares are worth now, and what they pay if the outcome wins. Open positions count toward your net worth (leaderboard, profile, crew head) at what selling them back would pay right now (since 2026-10-14), but stay out of percent-gain boards and season scoring, so a lucky long-shot can't win a season.
 
 **One shared limit** (src/rules/equity.ts `sideGameRoom`, since 2026-10-11): open weekly bets, long-term market positions (at what you paid) and your own money in the ladder (not the free check-in chips) together can't exceed what you've invested in stocks. Before, each game had its own limit, so the same stock let you put the full amount into all three.
 
@@ -121,13 +121,14 @@ Platinum and Diamond are ranked within four size divisions (Rookie under $10k, T
 ### Discord
 
 - **Daily drop.** A claim button posts to Discord every day at 14:00 UTC and stays claimable for 72 hours. Each claim rolls three tables: a guaranteed core pull, a guaranteed bonus of cheap shares, and a 10% shot at one legendary share. 3% of claims are jackpots.
-- **Slash commands.** A public bot installable in any server: `/leaderboard`, `/profile`, `/price`, `/portfolio`, `/missions`, and `/buy` (deep-links to the site).
+- **Slash commands.** A public bot installable in any server: `/leaderboard`, `/profile`, `/price`, `/portfolio`, `/missions`, `/buy` (deep-links to the site), and `/welcome`.
+- **Welcome week** (`/welcome`, src/rules/welcome.ts). Run once a day in the official server for 7 days: $1,000, $700, $800, $900, $1,000, $1,100, $1,500 ($7,000 total). With the $3,000 Discord-linked start that makes $10,000. A missed day pauses the week, never resets it. Needs a linked account and a Discord account at least 30 days old; once per Discord account and once per Stockism account, ever. Booked as free money (ledger `welcome_streak`, grantedValue). Finishing posts a shout-out in the channel.
 - **Alerts.** Market open and close, chapter recaps, whale trades, crew milestones, IPO announcements, weekly summaries.
 - **Crew head roles.** Optional Discord roles that color the weekly crew head's name. Dormant until the role IDs are filled in.
 
 ### Progression and Social
 
-- **Leaderboards** by net worth (portfolio value minus margin debt, since 2026-10-14, so borrowing never lifts your rank), by weekly gain in dollars or percent (also net of margin debt at both ends; the percent board has a minimum baseline so a $50 account doubling up cannot top it), by crew, and the season board. Banned players are left off.
+- **Leaderboards** by net worth (portfolio value minus margin debt plus long-term market positions at sell-back value, since 2026-10-14, so borrowing never lifts your rank), by weekly gain in dollars or percent (also net of margin debt at both ends; the percent board has a minimum baseline so a $50 account doubling up cannot top it), by crew, and the season board. Banned players are left off.
 - **Public profiles** at `/u/username` with stats, portfolio sparkline, top holdings, and pinned achievements. Value, sparkline and rank are net worth, matching the leaderboard. Banned players' profiles are hidden.
 - **49 achievements** with pinnable badges. Extra pin slots are purchasable.
 - **56 cosmetics**: name colors, row glows, backdrops, and animated frames, $5,000 to $150,000 in the shop, plus season reward frames that are earned only (never sold, gifted, bundled or featured). Frame animations are offset per player so identical frames never move in step. Cosmetics given out without payment (admin grants) are booked in the ledger at their shop price.

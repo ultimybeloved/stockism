@@ -1,6 +1,7 @@
 import CheckInButton from '../../missions/components/CheckInButton';
 import PredictionsTeaser from '../../predictions/components/PredictionsTeaser';
 import MarketIndex from './MarketIndex';
+import WelcomeWeekCard from '../../../shared/components/WelcomeWeekCard';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { themeClasses } from '../../../utils/theme';
@@ -207,6 +208,8 @@ const DashboardRail = ({
           })()}
         </div>
       </div>
+
+      <WelcomeWeekCard />
 
       <PredictionsTeaser predictions={predictions} />
 

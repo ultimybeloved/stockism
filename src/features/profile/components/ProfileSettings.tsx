@@ -2,6 +2,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { themeClasses } from '../../../utils/theme';
 import { STARTING_CASH } from '../../../constants/economy';
+import { WELCOME_STREAK_TOTAL } from '../../../rules/welcome';
 import { useDiscordLink } from '../hooks/useDiscordLink';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
@@ -91,8 +92,8 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
             {userData?.discordId
               ? `Linked${userData?.discordUsername ? ` as ${userData.discordUsername}` : ''}`
               : userData?.startingCashUnlocked
-                ? 'Link to claim daily free stocks in Discord'
-                : `Link Discord to unlock your full $${STARTING_CASH.toLocaleString()} starting balance`}
+                ? `Link to claim daily free stocks and up to $${WELCOME_STREAK_TOTAL.toLocaleString()} in welcome bonuses`
+                : `Link Discord to unlock your full $${STARTING_CASH.toLocaleString()} starting balance, plus up to $${WELCOME_STREAK_TOTAL.toLocaleString()} more with /welcome`}
           </p>
         </div>
         {userData?.discordId ? (

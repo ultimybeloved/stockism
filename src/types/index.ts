@@ -5,6 +5,7 @@
 import type { HoldingCohort } from '../characters';
 import type { DailyProgress, WeeklyProgress } from '../utils/missionProgress';
 import type { SeasonBaseline, SeasonWeekRecord } from '../utils/seasonWeeks';
+import type { WelcomeStreakState } from '../rules/welcome';
 
 /** users/{uid}.seasonBaseline: the player's numbers when the season pinned them. */
 export interface SeasonBaselineDoc extends SeasonBaseline {
@@ -167,6 +168,10 @@ export interface UserData {
   activeLoan?: { principal?: number; [key: string]: unknown } | null;
   discordId?: string | null;
   discordUsername?: string | null;
+  /** The /welcome week's progress (server-written). */
+  welcomeStreak?: WelcomeStreakState;
+  /** Sell-back value of open long-term market positions (server-written). */
+  eventPositionsValue?: number;
   lastSyncedAt?: TimestampLike;
   lastMarginInterestCharge?: number;
   ipoPurchases?: Record<Ticker, number>;

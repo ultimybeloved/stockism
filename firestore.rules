@@ -474,5 +474,12 @@ service cloud.firestore {
     match /discordLinkNonces/{state} {
       allow read, write: if false;
     }
+
+    // The /welcome week, keyed by Discord ID so a Discord account can only run
+    // it once. Cloud Functions only: the player's progress is mirrored on their
+    // own user doc (welcomeStreak) for the site to show.
+    match /welcomeStreaks/{discordId} {
+      allow read, write: if false;
+    }
   }
 }

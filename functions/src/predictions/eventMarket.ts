@@ -14,7 +14,7 @@ const db = admin.firestore();
 import { isWeeklyTradingHalt, chapterReviewHaltMsg, EVENT_AMM_LIQUIDITY, EVENT_MIN_BUYIN } from '../shared/constants';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { writeNotification } from '../shared/notifications';
-import { lmsrCost, lmsrBuyCost, lmsrSellRefund } from '../shared/lmsr';
+import { lmsrCost, lmsrBuyCost, lmsrSellRefund, eventPositionsValue, type EventMarketRef } from '../shared/lmsr';
 import { getTotalInvested, predictionFlowUpdate } from '../shared/equity';
 import { touchLastActive, recordHeartbeat } from '../shared/activity';
 import { round2 } from '../shared/money';
@@ -148,14 +148,16 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
       cashAfter,
       ip: context.rawRequest?.ip || null,
     });
+    const newPosition = { shares: newShares, costBasis: round2((pos.costBasis || 0) + cost), settled: false };
     tx.update(userRef, {
       cash: cashAfter,
       ...predictionFlowUpdate(-cost),
-      [`eventPositions.${marketId}`]: {
-        shares: newShares,
-        costBasis: round2((pos.costBasis || 0) + cost),
-        settled: false,
-      },
+      [`eventPositions.${marketId}`]: newPosition,
+      // Net worth counts positions at sell-back value; refreshed on every trade.
+      eventPositionsValue: eventPositionsValue(
+        { ...(userData.eventPositions || {}), [marketId]: newPosition },
+        updatedList,
+      ),
     });
 
     return { success: true, cost, shares: qty, outcome };
@@ -251,16 +253,21 @@ export const sellEventShares = cf().https.onCall(async (data, context) => {
       cashAfter,
       ip: context.rawRequest?.ip || null,
     });
+    const newPosition = {
+      shares: newShares,
+      // Clamp at 0: selling at a profit must not go negative, or the surplus
+      // would grant extra invested-cap room in other markets.
+      costBasis: Math.max(0, round2((pos.costBasis || 0) - refund)),
+      settled: false,
+    };
     tx.update(userRef, {
       cash: cashAfter,
       ...predictionFlowUpdate(refund),
-      [`eventPositions.${marketId}`]: {
-        shares: newShares,
-        // Clamp at 0: selling at a profit must not go negative, or the surplus
-        // would grant extra invested-cap room in other markets.
-        costBasis: Math.max(0, round2((pos.costBasis || 0) - refund)),
-        settled: false,
-      },
+      [`eventPositions.${marketId}`]: newPosition,
+      eventPositionsValue: eventPositionsValue(
+        { ...(userData.eventPositions || {}), [marketId]: newPosition },
+        updatedList,
+      ),
     });
 
     return { success: true, refund, shares: qty, outcome };
@@ -312,6 +319,11 @@ async function settleResolvedEventMarkets() {
         const updates: Record<string, unknown> = {
           [`eventPositions.${market.id}.settled`]: true,
           [`eventPositions.${market.id}.payout`]: payout,
+          // The payout is now cash, so the position leaves net worth.
+          eventPositionsValue: eventPositionsValue(
+            { ...(ud.eventPositions || {}), [market.id]: { ...pos, settled: true } },
+            list,
+          ),
         };
 
         const ach = ud.achievements || [];
@@ -441,6 +453,8 @@ export const cancelEventMarket = cf().https.onCall(async (data, context) => {
   // 2. Refund every holder their net stake, one transaction per user so a
   //    concurrent write cannot clobber cash. Full scan only happens on cancel (rare).
   const usersSnap = await db.collection('users').get();
+  // The other markets, to re-value each refunded player's remaining positions.
+  const marketsNow = ((await predictionsRef.get()).data()?.list || []) as EventMarketRef[];
   let refundedCount = 0;
   let refundedTotal = 0;
 
@@ -477,6 +491,10 @@ export const cancelEventMarket = cf().https.onCall(async (data, context) => {
           refunded: true,
           payout: amount,
         },
+        eventPositionsValue: eventPositionsValue(
+          { ...(ud.eventPositions || {}), [marketId]: { ...pos, settled: true } },
+          marketsNow,
+        ),
       });
       return amount;
     });

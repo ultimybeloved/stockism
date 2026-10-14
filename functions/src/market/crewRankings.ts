@@ -7,7 +7,7 @@ import { TWENTY_FOUR_HOURS_MS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_DYNASTY_
 import { writeNotification } from '../shared/notifications';
 import { sendDiscordMessage, crewEmoji } from '../shared/discordApi';
 import { getWeekId } from '../shared/tradeRecords';
-import { netWorthOf, snapshotNetWorth } from '../shared/equity';
+import { netWorthOf, tradingNetWorthOf, snapshotNetWorth } from '../shared/equity';
 import { reportError } from '../shared/sentry';
 import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
 import type { DocumentData } from 'firebase-admin/firestore';
@@ -116,7 +116,8 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       // net of the debt at both ends so a margin buy isn't a gain.
       const snap7d = user.portfolioSnapshot7d;
       const baseline = snap7d && snap7d.value > 0 ? snapshotNetWorth(snap7d, marginUsed) : 0;
-      const gain = snap7d && snap7d.value > 0 ? portfolioValue - baseline : 0;
+      // Long-term positions stay out of the gain: prediction money is a flow.
+      const gain = snap7d && snap7d.value > 0 ? tradingNetWorthOf(user) - baseline : 0;
       const active = wasActiveLastWeek(user);
 
       const c = crews[crew]!;

@@ -61,6 +61,10 @@ const COMMANDS = [
     description: 'See your daily and weekly missions (only you can see the reply)',
   },
   {
+    name: 'welcome',
+    description: 'Claim your welcome week bonus (Stockism server only, once a day for 7 days)',
+  },
+  {
     name: 'buy',
     description: 'Get a link to trade a stock on the website',
     options: [

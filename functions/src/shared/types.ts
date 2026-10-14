@@ -2,6 +2,7 @@
 // reads them, so a missing field here means nothing typed uses it yet.
 import type { Timestamp } from 'firebase-admin/firestore';
 import type { ActionHistory } from './impact';
+import type { EventPositionRef } from './rules/lmsr';
 
 /** A stored moment: a Firestore Timestamp, epoch ms, or an ISO string on older docs. */
 export type StoredTime = Timestamp | number | string;
@@ -182,6 +183,10 @@ export interface UserData {
   seasonTier?: { seasonId: string; tier: string };
   seasonActiveWeeks?: { seasonId: string; weeks?: number; lastWeek?: number | null };
   seasonTopTierExclusion?: { seasonId: string; at?: number };
+  /** Long-term market positions, keyed by market id. */
+  eventPositions?: Record<string, EventPositionRef | null | undefined>;
+  /** Their sell-back value, part of net worth (shared/equity netWorthOf). */
+  eventPositionsValue?: number;
   [field: string]: unknown;
 }
 

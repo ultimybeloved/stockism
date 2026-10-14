@@ -5,7 +5,8 @@
 // handleSlashCommand() here and edits the result in.
 //
 // Design rules for everything in this file:
-//   * READ ONLY. No command mutates game state. Trading happens on the website —
+//   * READ ONLY, except /welcome (discordWelcome.ts), which pays the welcome
+//     week inside its own transaction. Trading happens on the website —
 //     /buy hands back a deep link, it does not place an order. This keeps the
 //     bot entirely outside executeTrade's auth and anti-abuse surface.
 //   * CHEAP. The bot is installable in partner servers we don't control, so
@@ -33,6 +34,9 @@ import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from '../missions/mission
 import { countRankAbove, netWorthOf } from '../shared/equity';
 import { getWeekId } from '../shared/tradeRecords';
 import { crewEmoji } from '../shared/discordApi';
+// Circular on purpose: discordWelcome reuses this file's helpers. Safe because
+// neither module touches the other's exports until a command actually runs.
+import { cmdWelcome } from './discordWelcome';
 
 const BRAND_COLOR = 0x5865f2;
 export const EPHEMERAL = 64;
@@ -46,9 +50,12 @@ export interface Interaction {
   data: { name?: string; options?: { name: string; value: string }[] };
   member?: { user?: { id: string } };
   user?: { id: string };
+  /** Absent in DMs. /welcome only works in the official server. */
+  guild_id?: string;
+  channel_id?: string;
 }
 
-const money = (n: unknown) =>
+export const money = (n: unknown) =>
   `$${(Number(n) || 0).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -86,7 +93,7 @@ const resolveTicker = (input: unknown) => {
   );
 };
 
-const linkButton = (label: string, url: string, emoji?: string) => ({
+export const linkButton = (label: string, url: string, emoji?: string) => ({
   type: 2,
   style: 5,
   label,
@@ -94,7 +101,7 @@ const linkButton = (label: string, url: string, emoji?: string) => ({
   ...(emoji ? { emoji: { name: emoji } } : {}),
 });
 
-const buttonRow = (...buttons: (object | null | false | undefined)[]) => ({
+export const buttonRow = (...buttons: (object | null | false | undefined)[]) => ({
   type: 1,
   components: buttons.filter(Boolean),
 });
@@ -150,7 +157,7 @@ const readMarket = async (withSnapshot = false) => {
 };
 
 // The account behind a Discord ID, or null. One indexed query.
-const findUserByDiscordId = async (discordId: string | null) => {
+export const findUserByDiscordId = async (discordId: string | null) => {
   if (!discordId) return null;
   const snap = await db.collection('users').where('discordId', '==', discordId).limit(1).get();
   return snap.empty ? null : { uid: snap.docs[0]!.id, data: snap.docs[0]!.data() };
@@ -512,7 +519,7 @@ const cmdBuy = async (interaction: Interaction) => {
 // Cooldown + dispatch
 // ---------------------------------------------------------------------------
 
-const callerDiscordId = (interaction: Interaction) =>
+export const callerDiscordId = (interaction: Interaction) =>
   (interaction.member && interaction.member.user && interaction.member.user.id) ||
   (interaction.user && interaction.user.id) ||
   null;
@@ -541,11 +548,13 @@ export const HANDLERS: Record<string, (interaction: Interaction) => Promise<Reco
   portfolio: cmdPortfolio,
   missions: cmdMissions,
   buy: cmdBuy,
+  // The one command that moves money; lives in its own module.
+  welcome: (interaction) => cmdWelcome(interaction),
 };
 
 // Commands whose reply is only meaningful to the caller. Public commands post
 // visibly so partner servers get the shared-moment effect.
-const PRIVATE_COMMANDS = new Set(['portfolio', 'missions']);
+const PRIVATE_COMMANDS = new Set(['portfolio', 'missions', 'welcome']);
 
 export const isPrivate = (name: string) => PRIVATE_COMMANDS.has(name);
 

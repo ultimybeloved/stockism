@@ -17,6 +17,7 @@ import { recordHeartbeat } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import { seasonMarginUpdate } from '../season/seasonTiers';
 import { getWeekId } from '../shared/tradeRecords';
+import { eventPositionsValue } from '../shared/lmsr';
 import type { WeeklyProgress } from '../missions/missionChecks';
 import {
   loyaltyTierFor,
@@ -283,6 +284,9 @@ export const syncAllPortfolios = cf()
       const marketData = marketSnap.data()!;
       const prices: Record<string, number> = marketData.prices || {};
       const weekId = getWeekId(new Date(startTime));
+      // Long-term markets, to value players' open positions (net worth).
+      const predSnap = await db.collection('predictions').doc('current').get();
+      const eventMarkets = predSnap.exists ? predSnap.data()!.list || [] : [];
 
       // Get all users
       const usersSnapshot = await db.collection('users').get();
@@ -369,16 +373,23 @@ export const syncAllPortfolios = cf()
           }
           const startsWeek = Object.keys(weekStartFields).length > 0;
 
+          // Open long-term positions at sell-back value. Odds move with other
+          // players' trades, so this keeps the value fresh for players who don't
+          // log in. Written only when it changed.
+          const eventValue = eventPositionsValue(userData.eventPositions, eventMarkets);
+          const eventChanged = Math.abs(eventValue - (userData.eventPositionsValue || 0)) > 0.01;
+
           // Only update if different from stored value (avoid unnecessary writes)
           const storedValue = userData.portfolioValue || 0;
           const isDifferent = Math.abs(portfolioValue - storedValue) > 0.01 || marginInterest > 0;
 
-          if (isDifferent || loyalty.changed || startsWeek) {
+          if (isDifferent || loyalty.changed || startsWeek || eventChanged) {
             const userRef = db.collection('users').doc(userId);
             const updateFields: Record<string, unknown> = {
               portfolioValue: portfolioValue,
               lastSyncedAt: FieldValue.serverTimestamp(),
               ...weekStartFields,
+              ...(eventChanged ? { eventPositionsValue: eventValue } : {}),
             };
             // Interest is charged separately below, from a fresh read.
             if (marginInterest > 0) interestDue.push(userId);

@@ -21,6 +21,7 @@
     "discord:commands": "node scripts/register-discord-commands.cjs",
     "discord:emojis": "node scripts/sync-crew-emojis.cjs",
     "test:discord": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core discordCommands.test\"",
+    "test:welcome": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core welcome.test\"",
     "test:discord:endpoint": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core discordEndpoint.test\"",
     "test": "vitest run",
     "test:watch": "vitest",

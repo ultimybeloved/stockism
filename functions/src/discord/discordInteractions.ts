@@ -102,8 +102,9 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
     return void res.json({ type: InteractionResponseType.PONG });
   }
 
-  // Handle slash commands (/leaderboard, /profile, /price, /portfolio, /missions, /buy).
-  // These are read-only and installable in partner servers — see discordCommands.js.
+  // Handle slash commands (/leaderboard, /profile, /price, /portfolio, /missions, /buy,
+  // /welcome). All read-only and installable in partner servers except /welcome,
+  // which pays out only in the official server — see discordCommands.ts.
   if (interaction.type === InteractionType.APPLICATION_COMMAND) {
     const commandName = interaction.data && interaction.data.name;
     const appId = interaction.application_id;
