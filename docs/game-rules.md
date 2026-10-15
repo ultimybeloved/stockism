@@ -16,14 +16,15 @@ The goal is the highest portfolio value: cash plus holdings, minus anything you 
 
 ## How Prices Move
 
-Prices are driven by six things:
+Prices are driven by seven things:
 
 1. **Player trades.** Every trade moves the price using a square root impact model, so a big order costs more per share than a small one. A single trade can move a price at most 5%.
 2. **ETF trailing.** The 11 ETFs track their member characters. Trading a member nudges its ETFs, and trading an ETF nudges its members.
-3. **Bots.** Automated traders run every 30 minutes. Each has a personality (market follower, momentum, contrarian, hodler, day trader, panic seller, and a few others) so quiet hours still have movement.
-4. **Market maker.** Runs hourly. If a price has drifted more than 12% from its 7-day average, it nudges it back with a 6-share trade using the same impact math as a real trade.
-5. **Admin adjustments.** Manual price corrections after chapter events. Once an admin sets a price, bots and the market maker leave that ticker alone for 7 days so they cannot claw the change back.
-6. **Neglect decay.** A stock no player has traded for 14 days drifts down 1% a day until it reaches a hidden floor. Open short interest pauses the decay, so a short seller cannot farm a guaranteed decline.
+3. **Bots.** Every 15 minutes the bot engine moves a handful of stocks a little (at most 2.5% a move, 8 moves a stock a day), more when players are trading and right after the Thursday reopen. Since 2026-10-15 each stock follows a hidden storyline: calm stretches, slow climbs, slow slides, choppy patches and the odd bigger day, each lasting days to weeks. Climbs and slides lean against whatever the bots have already done to that stock and are capped at 35% either way, so over time bots add shape to the charts but never a trend. The storylines are server-only, and bot moves never count as trades.
+4. **Market maker (the stabilizer).** Runs hourly. If a price has drifted more than 12% from its 7-day average, it nudges it back with a 6-share trade using the same impact math as a real trade. It will not lift a stock that confirmed manipulators bought the bottom of, or push down one they shorted the top of.
+5. **Admin adjustments.** Manual price corrections after chapter events. Once an admin sets a price, the market maker and neglect leave that ticker alone for 7 days so they cannot claw the change back. Bots keep it busy with up to 3 small wiggles a day, but their combined effect always stays within 1.5% of the admin's price.
+6. **Neglect.** A stock no player has traded for 14 days slides toward a hidden floor through the bot storylines: slides of about 1 to 1.5% a day, flat patches and small bounces, about 0.8% a day on average. Open short interest (25+ shares) freezes the slide, so a short seller cannot farm a guaranteed decline. Before 2026-10-15 this was a flat 1% every day.
+7. **The market guard.** Players the admin has confirmed as manipulators are watched by the bot. When their trades move a stock 3% or more within 3 hours, the bot pushes it back toward where they started (at most 3% a run), but only when that costs them: a pump they still hold, or a dump they are short on. If other players opened positions that would profit from the reversal, it stands aside.
 
 Stocks can also be **split** (for example 3-for-1): the price divides, every holder's shares multiply, and nobody's money changes.
 
@@ -199,7 +200,8 @@ Admins can also halt the market manually at any time with a custom reason.
 | Limit order expiry | 90 days |
 | Wash rule | 4% down-impact in 24h blocks buying back for 48h |
 | Circuit breaker | 10% move in 5 min pauses the stock 3 min, max 2 a day |
-| Neglect decay | 1% a day after 14 days untraded, to a hidden floor |
+| Neglect | about 0.8% a day on average after 14 days untraded, to a hidden floor |
+| Bot moves | at most 2.5% each, 8 a stock a day (3 on an admin-set price), 6% total a stock a day |
 | Event market liquidity (b) | 20,000 default for new markets (admin can set per market; existing markets keep theirs) |
 | Ladder starting balance | $500 |
 | Weekly halt | Thursday 13:00 to 21:00 UTC |
@@ -241,7 +243,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 
 | Job | Schedule (UTC) |
 |---|---|
-| Bot trading | every 30 min |
+| Bot engine (storylines, neglect, market guard) | every 15 min |
 | Market maker | hourly |
 | Limit order sweep | every 15 min |
 | Short margin calls | every 30 min |
@@ -253,7 +255,6 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | All-time high/low sweep | hourly at :20 |
 | Coordination scan | hourly at :35 |
 | Alt account scan | 04:00 daily |
-| Neglect decay | 21:40 daily |
 | Daily market summary | 21:00 daily |
 | Market backup | every 24h |
 | Archiving and portfolio sync | every 24h |
@@ -281,7 +282,7 @@ Admin accounts get a panel in the header with tabs for:
 - Predictions: create, extend, resolve, and cancel both bet formats
 - Badges: grant and revoke achievements
 - Dividends: run payouts manually, override tiers
-- Bots: create and manage bot traders
 - Watchlist: IP tracking, signup reports, alt linking
+- Market guard: confirm or remove manipulators, see what the guard did, and the accounts flagged most for teaming up
 - Recovery: spike repair, portfolio history reconstruction, ticker rollback, rename ticker, split stock
 - Diagnostics: scheduled job status, orphan cleanup, health checks

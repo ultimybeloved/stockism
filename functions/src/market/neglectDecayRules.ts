@@ -1,7 +1,7 @@
 // The neglect-decay decision, split from the scheduled function so every skip
 // reason is testable without an emulator.
 //
-// INTERNAL MODULE — required directly by neglectDecay.js and deliberately
+// INTERNAL MODULE — required directly by botTrader.ts and deliberately
 // absent from servicePaths.js. It exports no Cloud Functions.
 import {
   NEGLECT_WINDOW_MS,
@@ -17,10 +17,33 @@ import type { Character } from '../shared/characters';
 import type { PricePoint } from '../shared/types';
 
 /**
+ * Has no player traded this stock for the whole neglect window?
+ *
+ * With no recorded trade the honest answer is "not since we started
+ * watching". Per-ticker trade times only began being recorded on the day this
+ * system shipped, so falling back to dateAdded alone would treat a stock that
+ * traded last week, before tracking existed, as long dead. trackingStartedAt is
+ * the floor on how far back any claim of neglect can reach, and with no
+ * tracking start at all nothing is neglected.
+ */
+export const isNeglected = (
+  character: Pick<Character, 'dateAdded' | 'isETF'>,
+  stats: { lastTradedAt?: number } | null | undefined,
+  now: number,
+  trackingStartedAt?: number | null,
+) => {
+  if (character.isETF || !trackingStartedAt) return false;
+  const reference = stats?.lastTradedAt || Math.max(new Date(character.dateAdded).getTime(), trackingStartedAt);
+  return now - reference >= NEGLECT_WINDOW_MS;
+};
+
+/**
  * Decide one ticker's fate. Returns the new price, or null to leave it alone.
  *
- * Split out from the scheduled function so every skip reason is testable
- * without an emulator.
+ * The bot engine (botTrader) calls this to tell a neglected stock that may
+ * slide from one that is neglected but frozen (short interest, admin price,
+ * at its floor). It no longer applies the 1% step itself: the slide is spread
+ * through the bot storylines instead.
  */
 export const decayTarget = ({
   character,
@@ -52,13 +75,6 @@ export const decayTarget = ({
   if (isTickerPaused(haltedTickers, character.ticker, now)) return null;
 
   // When was this stock last shown any interest?
-  //
-  // With no recorded trade the honest answer is "not since we started
-  // watching". Per-ticker trade times only began being recorded on the day this
-  // system shipped, so falling back to dateAdded alone would treat a stock that
-  // traded last week — before tracking existed — as long dead and decay it
-  // immediately. trackingStartedAt is the floor on how far back any claim of
-  // neglect can reach.
   const reference = stats?.lastTradedAt || Math.max(new Date(character.dateAdded).getTime(), trackingStartedAt || 0);
   if (now - reference < NEGLECT_WINDOW_MS) return null;
 

@@ -17,6 +17,8 @@ import { isPriceProtected, priceHistoryRef, dailyClosesRef, monthIdOf } from '..
 import { round2 } from '../shared/money';
 import { recordHeartbeat } from '../shared/activity';
 import type { PricePoint } from '../shared/types';
+import { netFlowByTicker, stabilizerShouldSkip } from './botRules';
+import { loadConfirmed, loadGroupExposure, loadGroupTrades } from './manipulatorActivity';
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
 const DEVIATION_THRESHOLD = 0.12;
@@ -121,6 +123,16 @@ export const marketMakerCycle = cf()
         return null;
       }
 
+      // Confirmed manipulators: never lift a stock they bought the bottom of, or
+      // push down one they shorted the top of. That would hand them the profit.
+      const confirmed = Object.keys(await loadConfirmed());
+      let groupFlow: Record<string, number> = {};
+      let groupExposure: Record<string, number> = {};
+      if (confirmed.length) {
+        groupFlow = netFlowByTicker(await loadGroupTrades(confirmed, now - LOOKBACK_DAYS * TWENTY_FOUR_HOURS_MS));
+        groupExposure = await loadGroupExposure(confirmed);
+      }
+
       // Priced and written in one transaction from a fresh read of the prices.
       // Computing from the read at the top and writing later erased any player
       // trade on the same stock that landed in between: they paid for a move
@@ -160,6 +172,10 @@ export const marketMakerCycle = cf()
           // Positive deviation → price too high → market maker sells (pushes price down)
           // Negative deviation → price too low → market maker buys (pushes price up)
           const isSell = deviation > 0;
+          if (stabilizerShouldSkip(isSell, groupFlow[ticker] || 0, groupExposure[ticker] || 0)) {
+            logger.info(`marketMakerCycle: ${ticker} left alone, the move would pay confirmed manipulators`);
+            continue;
+          }
 
           const impact = calculateMarginalImpact(
             currentPrice,

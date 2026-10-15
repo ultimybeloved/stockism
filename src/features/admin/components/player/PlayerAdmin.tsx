@@ -1,12 +1,15 @@
 // Player file, admin actions tab: the existing edit tools (cash, ladder,
 // sync, trade as them, crew, achievements, margin, holdings, cosmetics,
 // Discord link, name), the admin history on this player, and delete.
+import { useState } from 'react';
+import { adminMarketGuardFunction } from '../../../../api/callables';
+import { errorMessage } from '../../../../utils/errors';
 import { useAdminNav } from '../../utils/adminNav';
 import { utc } from '../../utils/termFormat';
 import UserFinancials from '../users/UserFinancials';
 import UserTradeAs from '../users/UserTradeAs';
 import UserAdminActions from '../users/UserAdminActions';
-import { Empty, Panel } from '../shell/ui';
+import { Empty, Panel, Tag } from '../shell/ui';
 import { t } from '../shell/terminal';
 import type { AdminCommonProps } from '../types';
 import type { AdminUser } from '../../utils/adminShared';
@@ -38,6 +41,7 @@ const PlayerAdmin = ({
   prices,
   selectedUser,
   file,
+  onChanged,
   userList,
   userOps,
   cosmetics,
@@ -48,6 +52,26 @@ const PlayerAdmin = ({
   const { textClass, mutedClass, inputClass, loading } = common;
   const name = selectedUser.displayName || selectedUser.username || '';
   const actions = [...(file?.adminActions || [])].sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+  const [guardBusy, setGuardBusy] = useState(false);
+  const [guardError, setGuardError] = useState<string | null>(null);
+
+  const toggleGuard = async () => {
+    const confirmed = !file?.confirmedManipulator;
+    const question = confirmed
+      ? `Confirm ${name} as a manipulator? The bot will push back on their pumps and dumps.`
+      : `Take ${name} off the confirmed list?`;
+    if (!window.confirm(question)) return;
+    setGuardBusy(true);
+    setGuardError(null);
+    try {
+      await adminMarketGuardFunction({ action: 'set', uid: selectedUser.id, confirmed });
+      onChanged();
+    } catch (err) {
+      setGuardError(errorMessage(err));
+    } finally {
+      setGuardBusy(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-2 gap-3 items-start">
@@ -103,6 +127,23 @@ const PlayerAdmin = ({
               </table>
             </div>
           )}
+        </Panel>
+        <Panel title="Market guard">
+          <div className="flex items-center gap-3">
+            {file?.confirmedManipulator ? <Tag tone="red">confirmed manipulator</Tag> : <Tag>not confirmed</Tag>}
+            <button
+              className={file?.confirmedManipulator ? t.btn : t.btnDanger}
+              disabled={loading || guardBusy || !file}
+              onClick={toggleGuard}
+            >
+              {file?.confirmedManipulator ? 'Remove from list' : 'Confirm as manipulator'}
+            </button>
+          </div>
+          <p className={`text-xs ${t.muted} mt-2`}>
+            The bot pushes back on pumps and dumps by confirmed players, and the stabilizer stops lifting stocks they
+            bought the bottom of. Full list under Market guard.
+          </p>
+          {guardError && <p className={`text-xs ${t.red} mt-1`}>{guardError}</p>}
         </Panel>
         <Panel title="Danger">
           <button

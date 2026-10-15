@@ -284,7 +284,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/shared/constants/` | All backend economy constants, one file per topic — add new ones to the right topic |
 | `functions/src/shared/helpers.ts` | Re-exports the shared topic modules beside it (impact, cohorts, equity, usernames, ...) |
 | `functions/src/shared/characters.ts` | **Generated file** — never edit directly, always via `npm run sync:chars` |
-| `functions/src/market/botTrader.ts` | Bot trading scheduler |
+| `functions/src/market/botTrader.ts` | Bot engine, every 15 min: hidden per-stock storylines, neglect slides, and the market guard against confirmed manipulators. Moves prices directly (no bot wallets), tags points `bot` / `bot_guard`. Decisions in `botRules.ts` (internal, unit-tested); state in `botState/storylines` (server-only) |
+| `functions/src/market/manipulatorActivity.ts` | **Internal module.** The admin-confirmed manipulator list (`botState/manipulators`), their recent trades and net exposure, for the bot guard and the stabilizer |
 | `functions/src/trading/trading.ts` | executeTrade orchestrator — the most critical flow, treat with care. Logic in `tradeGuards.ts` / `tradeActions.ts` / `tradePricing.ts` / `tradeState.ts` / `tradeEffects.ts` (internal modules, not in index.js) |
 | `functions/src/users/users.ts` | Account lifecycle: createUser, deleteAccount (anti-abuse gates live here) |
 | `functions/src/users/signupHelpers.ts` | **Internal module.** createUser's blocked-signup auth cleanup and the parked Discord-link apply |
@@ -339,6 +340,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/adminPlayerFile.ts` | adminGetPlayerFile (everything about one player, each source fail-soft) + private notes (`adminNotes/{uid}`) |
 | `functions/src/admin/adminDashboard.ts` | adminDashboard (home screen counts via aggregation queries), adminWelcomeTracker, adminDiscordActivity |
 | `functions/src/admin/adminMoneyFlow.ts` | adminMoneyFlow: the ledger summed by type per UTC day (rules/ledgerFlow); finished days saved once to `ledgerDaily/{day}` |
+| `functions/src/admin/adminMarketGuard.ts` | adminMarketGuard: list, confirm or remove manipulators (admin click only), guard log, most-flagged accounts |
 | `functions/src/admin/adminBulk.ts` | adminBulkAction: cash grant or bell/DM message to picked players; cash goes through adminCashCore one player at a time |
 | `functions/src/admin/adminCashCore.ts` | **Internal module.** One admin cash change (memo, transaction, ledger, cash log, history, notification), shared by adminSetCash and bulk grants |
 | `functions/src/admin/adminGiftLog.ts` | adminListGifts: the gift log with same-connection / alt-scan / watchlist flags, for spotting alts feeding a main |
@@ -351,8 +353,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/discord/dropAudit.ts` | auditUserDrops: daily-drop claim auditing |
 | `functions/src/ladder/ladderTransfers.ts` | Ladder deposits, withdrawals (with the shared withdrawal tax) and adminTransferToLadder. Deposit caps in `shared/ladderMath.ts` |
 | `functions/src/margin/marginForceCover.ts` | **Internal module.** The forced short cover transaction used by the scanners |
-| `functions/src/market/marketMaker.ts` | marketMakerCycle: nudges stocks that stray more than 12% from their 7-day average |
-| `functions/src/market/neglectDecay.ts` | applyNeglectDecay: untraded stocks drift down toward a hidden floor. The decision is in `neglectDecayRules.ts` (internal, unit-tested) |
+| `functions/src/market/marketMaker.ts` | marketMakerCycle (the stabilizer): nudges stocks that stray more than 12% from their 7-day average, never in a direction that pays confirmed manipulators |
+| `functions/src/market/neglectDecayRules.ts` | **Internal module.** Is a stock neglected, and may it slide (short interest, floor, admin price). The slide itself runs in the bot engine; the old daily applyNeglectDecay job was removed 2026-10-15 |
 | `functions/src/market/reviewChanges.ts` | **Internal module.** Persists what the admin changed during a chapter review (market/reviewChanges) and the collapse work |
 | `functions/src/market/reviewCollapse.ts` | collapseReviewHistory (20:54 UTC): folds a finished review to one price point per stock, stashing detail in market/reviewDetail |
 | `functions/src/market/stockSplitMath.ts` | **Internal module.** Pure helpers for what a split does to each document |

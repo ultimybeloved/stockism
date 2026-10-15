@@ -7,6 +7,7 @@ import PlayersSection from './players/PlayersSection';
 import WelcomeTracker from './welcome/WelcomeTracker';
 import MoneyFlow from './money/MoneyFlow';
 import DiscordActivity from './discordActivity/DiscordActivity';
+import MarketGuard from './guard/MarketGuard';
 import IpoTab from './IpoTab';
 import PredictionsTab from './PredictionsTab';
 import HoldersTab from './HoldersTab';
@@ -133,6 +134,8 @@ const AdminContent = ({
       return <MoneyFlow />;
     case 'discordActivity':
       return <DiscordActivity />;
+    case 'guard':
+      return <MarketGuard />;
     case 'ipo':
       return <IpoTab {...common} {...h.ipo} setMessage={setMessage} />;
     case 'predictions':

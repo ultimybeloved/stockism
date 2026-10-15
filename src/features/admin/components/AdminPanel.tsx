@@ -139,6 +139,7 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
             if (!watchlist.watchlistLoaded) watchlist.loadWatchlist();
           },
         },
+        { id: 'guard', label: 'Market guard' },
         { id: 'badges', label: 'Badges', load: badges.loadBadgeUsers },
       ],
     },

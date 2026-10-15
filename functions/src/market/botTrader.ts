@@ -1,546 +1,278 @@
+// The bot engine. Every 15 minutes it moves a handful of stocks by small
+// amounts, following each stock's hidden storyline, and answers pushes by
+// admin-confirmed manipulators. The decisions are all in botRules.ts.
+//
+// Bots no longer trade from wallets. The old bots were accounts with cash and
+// personalities making random trades, which drew the constant up-and-down
+// zigzag and could stall when a bot ran out of cash. The engine now moves the
+// price directly, like the stabilizer, and tags every chart point it writes:
+// 'bot' for storylines, 'bot_guard' for answers to a manipulator push. Bot
+// moves never count as trades, so they never stop neglect from setting in and
+// never show in trade counts or most-traded lists.
+//
+// It obeys every rule the other price movers do: the weekly and emergency
+// halts, the circuit breaker, and admin prices (which it only wiggles around,
+// see botRules 'held').
 import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import * as logger from 'firebase-functions/logger';
 import {
   MIN_PRICE,
-  WEEKLY_HALT_START_MINUTE,
-  WEEKLY_HALT_END_MINUTE,
   ADMIN_PRICE_PROTECTION_MS,
-  MAX_DAILY_IMPACT,
-  CREW_MEMBERS,
+  NEGLECT_SHORT_INTEREST_THRESHOLD,
+  SHORT_INTEREST_MAX_AGE_MS,
   isWeeklyTradingHalt,
 } from '../shared/constants';
-import { CHARACTER_MAP, splitFactorOf } from '../shared/characters';
-import { liquidityFor, calculateMarginalImpact, isTickerPaused } from '../shared/impact';
-import { isPriceProtected, priceHistoryRef, appendPriceHistory } from '../shared/marketData';
+import { CHARACTER_MAP } from '../shared/characters';
+import { isTickerPaused } from '../shared/impact';
+import { priceHistoryRef, tickerStatsRef, appendPriceHistory, neglectFloorPrice } from '../shared/marketData';
 import { isRosterTicker } from '../shared/roster';
+import { round2 } from '../shared/money';
 import { recordHeartbeat } from '../shared/activity';
-import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
-import * as logger from 'firebase-functions/logger';
+import { decayTarget, isNeglected } from './neglectDecayRules';
+import {
+  type Kind,
+  type Storyline,
+  GUARD_WINDOW_MS,
+  chooseTickers,
+  guardMove,
+  lastAdminPoint,
+  movesForRun,
+  needsNewPhase,
+  normalizeStoryline,
+  pickPhase,
+  recordMove,
+  stepMove,
+  underDailyCap,
+} from './botRules';
+import {
+  loadConfirmed,
+  loadGroupExposure,
+  loadGroupTrades,
+  loadOthersOpened,
+  storylinesRef,
+} from './manipulatorActivity';
 
-type BotDecision = { action: 'HOLD' } | { action: 'BUY' | 'SELL'; ticker: string; shares: number };
+const db = admin.firestore();
+const GUARD_LOG_MAX = 60;
+const ACTIVE_WINDOW_MS = 2 * 60 * 60 * 1000;
 
-/** One uniformly random element. Callers only pass non-empty lists. */
-const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Get price trend (% change over last N data points)
- */
-function getPriceTrend(priceHistory: Record<string, PricePoint[]>, ticker: string, lookbackMinutes = 60) {
-  const history = priceHistory[ticker] || [];
-  if (history.length < 2) return 0;
+interface PlannedMove {
+  ticker: string;
+  move: number;
+  source: 'bot' | 'bot_guard';
+  floor: number | null;
+}
 
-  const now = Date.now();
-  const cutoff = now - lookbackMinutes * 60 * 1000;
-
-  // Find price at cutoff
-  let oldPrice = history[0]!.price;
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i]!.timestamp <= cutoff) {
-      oldPrice = history[i]!.price;
-      break;
-    }
-  }
-
-  const currentPrice = history[history.length - 1]!.price;
-  return ((currentPrice - oldPrice) / oldPrice) * 100;
+interface GuardLogEntry {
+  at: number;
+  ticker: string;
+  from: number;
+  to: number;
+  reason: string;
+  uids: string[];
 }
 
 /**
- * Bot decision logic based on personality
- * Returns: { action: 'BUY'|'SELL'|'HOLD', ticker: string, shares: number }
+ * Write one wave of moves in a transaction, from fresh prices. Returns the
+ * fraction each stock actually moved.
  */
-function makeBotDecision(
-  bot: DocumentData,
-  marketData: DocumentData,
-  allTickers: string[],
-  isThursday = false,
-): BotDecision {
-  const personality = bot.botPersonality;
-  const cash = bot.cash || 0;
-  // Old bot docs stored { shares } objects instead of a number; both are read.
-  const holdings: DocumentData = bot.holdings || {};
-  const prices: DocumentData = marketData.prices || {};
-  const priceHistory = marketData.priceHistory || {};
+const applyWave = async (moves: PlannedMove[], clearOldFields: boolean) =>
+  db.runTransaction(async (tx) => {
+    const marketRef = db.collection('market').doc('current');
+    const fresh = (await tx.get(marketRef)).data() || {};
+    if (isWeeklyTradingHalt() || fresh.marketHalted) return [];
+    const now = Date.now();
+    const prices: Record<string, number> = fresh.prices || {};
+    const updates: Record<string, unknown> = {};
+    const points: Record<string, PricePoint> = {};
+    const applied: { ticker: string; frac: number; from: number; to: number }[] = [];
 
-  // Filter to bot's crew preference if they have one
-  let tickerPool = allTickers;
-  if (bot.botCrew) {
-    tickerPool = ((CREW_MEMBERS as Record<string, string[]>)[bot.botCrew] || allTickers).filter((t) =>
-      allTickers.includes(t),
-    );
-  }
+    for (const m of moves) {
+      if (isTickerPaused(fresh.haltedTickers, m.ticker, now)) continue;
+      const p = prices[m.ticker];
+      if (!p || !(p > 0)) continue;
+      let next = round2(Math.max(MIN_PRICE, p * (1 + m.move)));
+      if (m.floor && m.move < 0 && next < m.floor) next = Math.min(p, round2(m.floor));
+      if (next === p) continue;
+      updates[`prices.${m.ticker}`] = next;
+      points[m.ticker] = { timestamp: now, price: next, source: m.source };
+      applied.push({ ticker: m.ticker, frac: next / p - 1, from: p, to: next });
+    }
 
-  if (tickerPool.length === 0) return { action: 'HOLD' };
-
-  // Calculate trends for all tickers
-  const trends: Record<string, number> = {};
-  tickerPool.forEach((ticker) => {
-    trends[ticker] = getPriceTrend(priceHistory, ticker);
+    // The old bots kept their daily counters on the world-readable market doc.
+    if (clearOldFields && ('botImpact' in fresh || 'botImpactDate' in fresh)) {
+      updates.botImpact = FieldValue.delete();
+      updates.botImpactDate = FieldValue.delete();
+    }
+    if (Object.keys(updates).length) tx.update(marketRef, updates);
+    if (applied.length) appendPriceHistory(tx, points);
+    return applied;
   });
 
-  // Personality-based decision making
-  switch (personality) {
-    case 'market_follower': {
-      // Mix of amplifying trends and random market activity
-      const shortTermTrends: Record<string, number> = {};
-      const lookbackMinutes = isThursday ? 360 : 720;
-      tickerPool.forEach((ticker) => {
-        shortTermTrends[ticker] = getPriceTrend(priceHistory, ticker, lookbackMinutes);
-      });
-
-      const risingStocks = tickerPool
-        .filter((t) => shortTermTrends[t]! > 0.1)
-        .sort((a, b) => shortTermTrends[b]! - shortTermTrends[a]!);
-      const movingStocks = tickerPool.filter((t) => Math.abs(shortTermTrends[t]!) > 0.05); // Any movement
-      const fallingHoldings = Object.keys(holdings).filter(
-        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && shortTermTrends[t]! < -0.1,
-      );
-
-      const aggressionMultiplier = isThursday ? 1.5 : 1.0;
-      const behaviorRoll = Math.random();
-
-      // SELL logic - sell falling positions
-      if (fallingHoldings.length > 0 && Math.random() > 0.3) {
-        const ticker = pick(fallingHoldings);
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        const sellPct = Math.min(0.9, (0.4 + Math.random() * 0.3) * aggressionMultiplier);
-        return { action: 'SELL', ticker, shares: Math.ceil(shareCount * sellPct) };
-      }
-
-      // BUY logic - mix of behaviors
-      if (cash > 30) {
-        let ticker;
-
-        if (behaviorRoll < 0.4 && risingStocks.length > 0) {
-          // 40% - Amplify trends: pick from top 10 rising stocks
-          const topRising = risingStocks.slice(0, Math.min(10, risingStocks.length));
-          ticker = pick(topRising);
-        } else if (behaviorRoll < 0.7 && movingStocks.length > 0) {
-          // 30% - Trade any stock with slight movement
-          ticker = pick(movingStocks);
-        } else {
-          // 30% - Completely random across entire market
-          ticker = pick(tickerPool);
-        }
-
-        const cashPct = Math.min(0.6, (0.25 + Math.random() * 0.25) * aggressionMultiplier);
-        const maxShares = Math.floor((cash * cashPct) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-
-    case 'momentum': {
-      // Buy rising stocks, sell falling ones
-      const risingStocks = tickerPool.filter((t) => trends[t]! > 1).sort((a, b) => trends[b]! - trends[a]!);
-      const fallingHoldings = Object.keys(holdings).filter(
-        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t]! < -1,
-      );
-
-      if (fallingHoldings.length > 0 && Math.random() > 0.3) {
-        // Sell falling
-        const ticker = pick(fallingHoldings);
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.3 + Math.random() * 0.4)) };
-      } else if (risingStocks.length > 0 && cash > 50) {
-        // Buy rising - pick from top 10 to spread across multiple gainers
-        const topRising = risingStocks.slice(0, Math.min(10, risingStocks.length));
-        const ticker = pick(topRising);
-        const maxShares = Math.floor((cash * (0.2 + Math.random() * 0.3)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(10 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-
-    case 'contrarian': {
-      // Buy dips, sell peaks
-      const dips = tickerPool.filter((t) => trends[t]! < -1.5).sort((a, b) => trends[a]! - trends[b]!);
-      const peakHoldings = Object.keys(holdings).filter(
-        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t]! > 1.5,
-      );
-
-      if (peakHoldings.length > 0 && Math.random() > 0.4) {
-        const ticker = pick(peakHoldings);
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.4 + Math.random() * 0.4)) };
-      } else if (dips.length > 0 && cash > 50) {
-        // Buy dips - pick from top 10 dipping stocks
-        const topDips = dips.slice(0, Math.min(10, dips.length));
-        const ticker = pick(topDips);
-        const maxShares = Math.floor((cash * (0.3 + Math.random() * 0.3)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(15 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-
-    case 'hodler': {
-      // Mostly buys, rarely sells
-      if (Math.random() > 0.9 && Object.keys(holdings).length > 0) {
-        // Rarely trim positions
-        const ticker = pick(Object.keys(holdings));
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        if (shareCount > 10 * splitFactorOf(ticker)) {
-          return { action: 'SELL', ticker, shares: Math.floor(shareCount * 0.2) };
-        }
-      } else if (cash > 100) {
-        // Buy and hold
-        const ticker = pick(tickerPool);
-        const maxShares = Math.floor((cash * (0.15 + Math.random() * 0.15)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(8 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-
-    case 'daytrader': {
-      // Quick small trades
-      if (Math.random() > 0.5 && Object.keys(holdings).length > 0) {
-        const ticker = pick(Object.keys(holdings));
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        return { action: 'SELL', ticker, shares: Math.min(5 * splitFactorOf(ticker), shareCount) };
-      } else if (cash > 30) {
-        const ticker = pick(tickerPool);
-        const maxShares = Math.floor((cash * 0.1) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(5 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-
-    case 'random': {
-      // Completely random
-      if (Math.random() > 0.6 && Object.keys(holdings).length > 0) {
-        const ticker = pick(Object.keys(holdings));
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        return { action: 'SELL', ticker, shares: Math.ceil(shareCount * Math.random()) };
-      } else if (cash > 50) {
-        const ticker = pick(tickerPool);
-        const maxShares = Math.floor((cash * Math.random() * 0.5) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(12 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-
-    case 'panic': {
-      // Sells on any dip
-      const fallingHoldings = Object.keys(holdings).filter(
-        (t) => (holdings[t] > 0 || holdings[t]?.shares > 0) && trends[t]! < -1,
-      );
-      if (fallingHoldings.length > 0) {
-        const ticker = fallingHoldings[0]!;
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.5 + Math.random() * 0.4)) };
-      } else if (cash > 80 && Math.random() > 0.7) {
-        const ticker = pick(tickerPool);
-        const maxShares = Math.floor((cash * 0.15) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(6 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-
-    case 'swing':
-    case 'balanced':
-    default: {
-      // Balanced approach
-      if (Math.random() > 0.55 && Object.keys(holdings).length > 0) {
-        const ticker = pick(Object.keys(holdings));
-        const shareCount = typeof holdings[ticker] === 'number' ? holdings[ticker] : holdings[ticker]?.shares || 0;
-        return { action: 'SELL', ticker, shares: Math.ceil(shareCount * (0.3 + Math.random() * 0.3)) };
-      } else if (cash > 70) {
-        const ticker = pick(tickerPool);
-        const maxShares = Math.floor((cash * (0.2 + Math.random() * 0.2)) / prices[ticker]);
-        return { action: 'BUY', ticker, shares: Math.max(1, Math.min(10 * splitFactorOf(ticker), maxShares)) };
-      }
-      break;
-    }
-  }
-
-  return { action: 'HOLD' };
-}
-
-/**
- * Bot Trader - Runs every 30 minutes
- * Picks 3-6 random bots to make trades (5-10 on Thursdays)
- */
-export const botTrader = cf({ timeoutSeconds: 540, memory: '512MB' })
-  .pubsub.schedule('every 30 minutes')
-  .onRun(async (_context) => {
+export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
+  .pubsub.schedule('*/15 * * * *')
+  .timeZone('UTC')
+  .onRun(async () => {
     try {
-      // Weekly trading halt: Thursday 13:00–21:00 UTC
-      const now = new Date();
-      if (now.getUTCDay() === 4) {
-        const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-        if (utcMins >= WEEKLY_HALT_START_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
-          logger.info('Skipping bot trades — weekly trading halt active');
-          return null;
+      if (isWeeklyTradingHalt()) {
+        logger.info('botTrader: skipping, weekly halt');
+        return null;
+      }
+      // Never on the exact quarter hour.
+      await sleep(Math.floor(Math.random() * 60000));
+
+      const [marketSnap, histSnap, statsSnap, stateSnap, confirmed] = await Promise.all([
+        db.collection('market').doc('current').get(),
+        priceHistoryRef().get(),
+        tickerStatsRef().get(),
+        storylinesRef().get(),
+        loadConfirmed(),
+      ]);
+      const market = marketSnap.data();
+      if (!market) return null;
+      if (market.marketHalted) {
+        logger.info('botTrader: skipping, emergency halt');
+        return null;
+      }
+
+      const now = Date.now();
+      const rng = Math.random;
+      const prices: Record<string, number> = market.prices || {};
+      const history = (histSnap.data() || {}) as Record<string, PricePoint[]>;
+      const stats = statsSnap.data() || {};
+      const shortInterest = stats.shortInterest || {};
+      // A stale "nobody is short" reading is the hole the neglect pause closes,
+      // so with one every neglected stock only wiggles flat.
+      const shortsFresh = now - (stats.shortInterestAt || 0) <= SHORT_INTEREST_MAX_AGE_MS;
+      const saved = (stateSnap.data()?.tickers || {}) as Record<string, Partial<Storyline>>;
+      const guardLog = (stateSnap.data()?.guardLog || []) as GuardLogEntry[];
+      const launched: string[] = market.launchedTickers || [];
+
+      // Classify every tradable stock and bring its storyline up to date.
+      const state: Record<string, Storyline> = {};
+      const kinds: Record<string, Kind> = {};
+      const floors: Record<string, number | null> = {};
+      for (const ticker of Object.keys(prices)) {
+        const character = CHARACTER_MAP[ticker];
+        if (!character || character.isETF || !isRosterTicker(ticker)) continue;
+        if (character.ipoRequired && !launched.includes(ticker)) continue;
+        if (!(prices[ticker]! > 0)) continue;
+
+        const adminPoint = lastAdminPoint(history[ticker], ADMIN_PRICE_PROTECTION_MS, now);
+        let kind: Kind = 'normal';
+        let floor: number | null = null;
+        if (adminPoint) {
+          kind = 'held';
+        } else if (isNeglected(character, stats[ticker], now, stats.neglectTrackingStartedAt)) {
+          floor = neglectFloorPrice(character, stats[ticker]?.trades || 0);
+          const slides =
+            shortsFresh &&
+            (shortInterest[ticker] || 0) < NEGLECT_SHORT_INTEREST_THRESHOLD &&
+            decayTarget({
+              character,
+              price: prices[ticker],
+              stats: stats[ticker],
+              shortInterest,
+              priceHistory: history,
+              now,
+              trackingStartedAt: stats.neglectTrackingStartedAt,
+              haltedTickers: market.haltedTickers,
+            }) !== null;
+          kind = slides ? 'neglected' : 'neglected_still';
+        }
+
+        let s = normalizeStoryline(saved[ticker], now);
+        const holdFrom = adminPoint ? adminPoint.timestamp : null;
+        if (needsNewPhase(s, kind, now, holdFrom)) s = pickPhase(s, kind, now, rng, holdFrom);
+        state[ticker] = s;
+        kinds[ticker] = kind;
+        floors[ticker] = floor;
+      }
+
+      // The guard goes first, in the first wave.
+      const guardMoves: PlannedMove[] = [];
+      const guardWhy = new Map<string, { reason: string; uids: string[] }>();
+      const guardNotes: GuardLogEntry[] = [];
+      const uids = Object.keys(confirmed);
+      if (uids.length) {
+        const since = now - GUARD_WINDOW_MS;
+        const trades = await loadGroupTrades(uids, since, 200);
+        if (trades.length) {
+          const exposure = await loadGroupExposure(uids);
+          const group = new Set(uids);
+          const byTicker = new Map<string, typeof trades>();
+          for (const t of trades) byTicker.set(t.ticker, [...(byTicker.get(t.ticker) || []), t]);
+          for (const [ticker, list] of byTicker) {
+            if (!state[ticker] || isTickerPaused(market.haltedTickers, ticker, now)) continue;
+            const price = prices[ticker]!;
+            // Cheap check first: no push big enough means no query.
+            const first = guardMove({ trades: list, price, exposure: exposure[ticker] || 0, othersOpposite: 0 });
+            if (!first) continue;
+            const othersOpposite = await loadOthersOpened(ticker, since, group, first.move < 0 ? 'short' : 'buy');
+            const answer = guardMove({ trades: list, price, exposure: exposure[ticker] || 0, othersOpposite });
+            if (!answer) continue;
+            guardMoves.push({ ticker, move: answer.move, source: 'bot_guard', floor: null });
+            guardWhy.set(ticker, { reason: answer.reason, uids: [...new Set(list.map((t) => t.uid))] });
+          }
         }
       }
 
-      // Random delay before starting (0-90 seconds) to avoid predictable timing
-      const startDelay = Math.floor(Math.random() * 90000);
-      await new Promise((resolve) => setTimeout(resolve, startDelay));
+      // Storyline moves.
+      const guarded = new Set(guardMoves.map((m) => m.ticker));
+      const activeTickers = Object.keys(state).filter(
+        (t) => (stats[t]?.lastTradedAt || 0) >= now - ACTIVE_WINDOW_MS,
+      ).length;
+      const d = new Date(now);
+      const afterReopen = d.getUTCDay() === 4 && d.getUTCHours() >= 21;
+      const cands = Object.keys(state)
+        .filter((t) => !guarded.has(t) && underDailyCap(state[t]!, kinds[t]!))
+        .map((ticker) => ({ ticker, kind: kinds[ticker]! }));
+      const picked = chooseTickers(cands, movesForRun(activeTickers, afterReopen, rng), rng);
 
-      const db = admin.firestore();
-      const marketRef = db.collection('market').doc('current');
-      const usersRef = db.collection('users');
-
-      // Get all bots
-      const usersSnap = await usersRef.where('isBot', '==', true).get();
-      const bots = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as DocumentData & { id: string });
-
-      if (bots.length === 0) {
-        logger.info('No bots found');
-        return null;
+      const storyMoves: PlannedMove[] = [];
+      for (const ticker of picked) {
+        const move = stepMove(state[ticker]!, kinds[ticker]!, prices[ticker]!, now, rng, floors[ticker]);
+        if (Math.abs(move) >= 0.0005) storyMoves.push({ ticker, move, source: 'bot', floor: floors[ticker] ?? null });
       }
 
-      // Get market data
-      const marketSnap = await marketRef.get();
-      if (!marketSnap.exists) {
-        logger.info('No market data');
-        return null;
+      // Spread over two or three waves so prices tick rather than jump at once.
+      const waveCount = storyMoves.length <= 3 ? 1 : rng() < 0.4 ? 3 : 2;
+      const waves: PlannedMove[][] = Array.from({ length: waveCount }, () => []);
+      storyMoves.forEach((m, i) => waves[i % waveCount]!.push(m));
+      waves[0] = [...guardMoves, ...waves[0]!];
+
+      let moved = 0;
+      for (let i = 0; i < waves.length; i++) {
+        if (i > 0) await sleep(15000 + Math.floor(Math.random() * 25000));
+        if (!waves[i]!.length && i > 0) continue;
+        const applied = await applyWave(waves[i]!, i === 0);
+        const at = Date.now();
+        for (const a of applied) {
+          moved++;
+          const why = guardWhy.get(a.ticker);
+          if (why) {
+            // Guard moves are logged for the admin and never touch storyline totals.
+            guardNotes.push({ at, ticker: a.ticker, from: a.from, to: a.to, ...why });
+            continue;
+          }
+          state[a.ticker] = recordMove(state[a.ticker]!, kinds[a.ticker]!, a.frac, at);
+        }
       }
 
-      const marketData = marketSnap.data()!;
-
-      // Check emergency halt
-      if (marketData.marketHalted) {
-        logger.info('Skipping bot trades — emergency halt active');
-        return null;
-      }
-
-      // Chart history lives in its own doc now. Attach it so the decision
-      // helpers (trends, admin price protection) read it as before.
-      const historySnap = await priceHistoryRef().get();
-      marketData.priceHistory = historySnap.exists ? historySnap.data() || {} : {};
-
-      const prices: Record<string, number> = marketData.prices || {};
-      const launchedTickers = marketData.launchedTickers || [];
-      const allTickers = Object.keys(prices).filter((t) => {
-        if (!isRosterTicker(t)) return false; // stale price from an old rename
-        const meta = CHARACTER_MAP[t];
-        return !meta?.ipoRequired || launchedTickers.includes(t);
+      await storylinesRef().set({
+        tickers: state,
+        guardLog: [...guardNotes, ...guardLog].slice(0, GUARD_LOG_MAX),
+        updatedAt: Date.now(),
       });
-
-      // Per-ticker daily cap on bot-driven price movement — the same 10%/day
-      // ceiling (MAX_DAILY_IMPACT) humans get. Stops bots from cratering or
-      // pumping any single stock. Resets each UTC day.
-      const today = new Date().toISOString().slice(0, 10);
-      const botImpactToday = marketData.botImpactDate === today ? { ...(marketData.botImpact || {}) } : {};
-      if (marketData.botImpactDate !== today) {
-        await marketRef.update({ botImpact: {}, botImpactDate: today });
-      }
-
-      // Check if it's Thursday (chapter release day)
-      const isThursday = now.getUTCDay() === 4;
-
-      // Fewer bots per round, more spread out
-      const numBotsToTrade = isThursday
-        ? Math.floor(Math.random() * 3) + 3 // 3-5 bots on Thursday
-        : Math.floor(Math.random() * 3) + 1; // 1-3 bots normally
-
-      const shuffled = bots.sort(() => 0.5 - Math.random());
-      const tradingBots = shuffled.slice(0, numBotsToTrade);
 
       logger.info(
-        `${numBotsToTrade} bots will trade this round${isThursday ? ' (THURSDAY BOOST)' : ''} (delayed ${Math.floor(startDelay / 1000)}s)`,
+        `botTrader: ${moved} moves (${guardMoves.length} guard), ${picked.length} picked, ${activeTickers} active stocks`,
       );
-
-      // Execute trades for each bot with random delays between them
-      for (const bot of tradingBots) {
-        const decision = makeBotDecision(bot, marketData, allTickers, isThursday);
-
-        if (decision.action === 'HOLD') {
-          logger.info(`${bot.displayName} decided to HOLD`);
-          continue;
-        }
-
-        // Respect the circuit breaker. Real players, limit orders and the
-        // dust sweep all stop on a paused ticker; bots kept trading it and
-        // kept pushing the price, which is exactly the cascade the pause
-        // exists to interrupt. Picked up on a later round, like the cap below.
-        if (isTickerPaused(marketData.haltedTickers, decision.ticker)) {
-          logger.info(`${bot.displayName}: skipping ${decision.ticker} — circuit breaker pause active`);
-          continue;
-        }
-
-        // Respect admin price protection — don't undo a manual price set
-        if (isPriceProtected(marketData.priceHistory, decision.ticker, ADMIN_PRICE_PROTECTION_MS)) {
-          logger.info(`${bot.displayName}: skipping ${decision.action} ${decision.ticker} — admin price protected`);
-          continue;
-        }
-
-        // Daily cap: bots can't move one ticker more than MAX_DAILY_IMPACT per day
-        if ((botImpactToday[decision.ticker] || 0) >= MAX_DAILY_IMPACT) {
-          logger.info(`${bot.displayName}: skipping ${decision.ticker} — bots hit daily price-move cap`);
-          continue;
-        }
-
-        logger.info(
-          `${bot.displayName} (${bot.botPersonality}): ${decision.action} ${decision.shares} ${decision.ticker}`,
-        );
-
-        // Execute trade in transaction
-        let appliedFrac = 0;
-        await db.runTransaction(async (transaction) => {
-          const botRef = usersRef.doc(bot.id);
-          const botSnap = await transaction.get(botRef);
-          const botData = botSnap.data()!;
-
-          // Read prices fresh inside the transaction — the pre-loop snapshot
-          // can be minutes old (bots sleep between trades), and writing from
-          // it used to clobber concurrent player trades.
-          const marketTxnSnap = await transaction.get(marketRef);
-          const freshMarket = marketTxnSnap.data() || {};
-          const freshPrices = freshMarket.prices || {};
-          // Re-checked per trade: a round runs for minutes, so one started just
-          // before 13:00 Thursday, or before an emergency halt or a breaker
-          // pause, kept trading through it when this was checked only up front.
-          if (
-            isWeeklyTradingHalt() ||
-            freshMarket.marketHalted ||
-            isTickerPaused(freshMarket.haltedTickers, decision.ticker)
-          ) {
-            return;
-          }
-
-          const currentPrice = freshPrices[decision.ticker];
-          if (!currentPrice) return;
-
-          if (decision.action === 'BUY') {
-            const totalCost = currentPrice * decision.shares;
-            if (botData.cash < totalCost) return; // Not enough cash
-
-            const priceImpact = calculateMarginalImpact(
-              currentPrice,
-              decision.shares,
-              0,
-              liquidityFor(decision.ticker),
-            );
-            const newPrice = Math.max(MIN_PRICE, currentPrice + priceImpact);
-
-            // Update bot
-            const newHoldings: DocumentData = { ...(botData.holdings || {}) };
-            const currentShares =
-              typeof newHoldings[decision.ticker] === 'number'
-                ? newHoldings[decision.ticker]
-                : newHoldings[decision.ticker]?.shares || 0;
-            newHoldings[decision.ticker] = currentShares + decision.shares;
-
-            const newCostBasis = { ...(botData.costBasis || {}) };
-            const oldCost = newCostBasis[decision.ticker] || 0;
-            newCostBasis[decision.ticker] = oldCost + totalCost;
-
-            const newCash = botData.cash - totalCost;
-            const holdingsValue = Object.entries(newHoldings).reduce((sum, [ticker, shares]) => {
-              const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
-              return sum + (freshPrices[ticker] || 0) * shareCount;
-            }, 0);
-
-            const txLog = botData.transactionLog || [];
-            txLog.push({
-              type: 'BUY',
-              ticker: decision.ticker,
-              shares: decision.shares,
-              pricePerShare: currentPrice,
-              totalCost,
-              cashBefore: botData.cash,
-              cashAfter: newCash,
-              portfolioAfter: newCash + holdingsValue,
-              timestamp: Date.now(),
-            });
-
-            transaction.update(botRef, {
-              cash: newCash,
-              holdings: newHoldings,
-              costBasis: newCostBasis,
-              portfolioValue: newCash + holdingsValue,
-              totalTrades: (botData.totalTrades || 0) + 1,
-              transactionLog: txLog.slice(-100), // Keep last 100
-            });
-
-            // Update market price — field-path write on just this ticker so a
-            // concurrent player trade on another ticker can never be clobbered
-            appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
-            transaction.update(marketRef, {
-              [`prices.${decision.ticker}`]: newPrice,
-              [`botImpact.${decision.ticker}`]: FieldValue.increment(appliedFrac),
-              botImpactDate: today,
-            });
-            appendPriceHistory(transaction, {
-              [decision.ticker]: { timestamp: Date.now(), price: newPrice },
-            });
-          } else if (decision.action === 'SELL') {
-            const currentShares =
-              typeof botData.holdings[decision.ticker] === 'number'
-                ? botData.holdings[decision.ticker]
-                : botData.holdings[decision.ticker]?.shares || 0;
-
-            if (currentShares < decision.shares) return; // Not enough shares
-
-            const priceImpact = calculateMarginalImpact(
-              currentPrice,
-              decision.shares,
-              0,
-              liquidityFor(decision.ticker),
-            );
-            const newPrice = Math.max(MIN_PRICE, currentPrice - priceImpact);
-            const totalRevenue = newPrice * decision.shares;
-
-            // Update bot
-            const newHoldings: DocumentData = { ...(botData.holdings || {}) };
-            newHoldings[decision.ticker] = Math.max(0, currentShares - decision.shares);
-
-            const newCash = botData.cash + totalRevenue;
-            const holdingsValue = Object.entries(newHoldings).reduce((sum, [ticker, shares]) => {
-              const shareCount = typeof shares === 'number' ? shares : shares?.shares || 0;
-              return sum + (freshPrices[ticker] || 0) * shareCount;
-            }, 0);
-
-            const txLog = botData.transactionLog || [];
-            txLog.push({
-              type: 'SELL',
-              ticker: decision.ticker,
-              shares: decision.shares,
-              pricePerShare: newPrice,
-              totalRevenue,
-              cashBefore: botData.cash,
-              cashAfter: newCash,
-              portfolioAfter: newCash + holdingsValue,
-              timestamp: Date.now(),
-            });
-
-            transaction.update(botRef, {
-              cash: newCash,
-              holdings: newHoldings,
-              portfolioValue: newCash + holdingsValue,
-              totalTrades: (botData.totalTrades || 0) + 1,
-              transactionLog: txLog.slice(-100),
-            });
-
-            // Update market price — field-path write on just this ticker so a
-            // concurrent player trade on another ticker can never be clobbered
-            appliedFrac = currentPrice > 0 ? Math.abs(newPrice - currentPrice) / currentPrice : 0;
-            transaction.update(marketRef, {
-              [`prices.${decision.ticker}`]: newPrice,
-              [`botImpact.${decision.ticker}`]: FieldValue.increment(appliedFrac),
-              botImpactDate: today,
-            });
-            appendPriceHistory(transaction, {
-              [decision.ticker]: { timestamp: Date.now(), price: newPrice },
-            });
-          }
-        });
-
-        if (appliedFrac > 0) {
-          botImpactToday[decision.ticker] = (botImpactToday[decision.ticker] || 0) + appliedFrac;
-        }
-
-        // Random delay between bot trades (5-45 seconds) to avoid simultaneous trades
-        const tradeDelay = Math.floor(Math.random() * 40000) + 5000;
-        await new Promise((resolve) => setTimeout(resolve, tradeDelay));
-      }
-
-      logger.info('Bot trading round complete');
       await recordHeartbeat('botTrader');
       return null;
     } catch (error) {

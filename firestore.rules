@@ -493,5 +493,12 @@ service cloud.firestore {
     match /ledgerDaily/{day} {
       allow read, write: if false;
     }
+
+    // Bot engine state, Cloud Functions only: the hidden storylines (a player
+    // who could read them could trade ahead of them) and the admin-confirmed
+    // manipulator list.
+    match /botState/{document} {
+      allow read, write: if false;
+    }
   }
 }

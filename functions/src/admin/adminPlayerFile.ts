@@ -83,6 +83,7 @@ export const adminGetPlayerFile = cf({ memory: '512MB' }).https.onCall(async (da
     watchAlerts,
     history,
     notifications,
+    confirmedManipulator,
   ] = await Promise.all([
     part('auth', uid, null, async () => {
       const rec = await admin.auth().getUser(uid);
@@ -160,6 +161,10 @@ export const adminGetPlayerFile = cf({ memory: '512MB' }).https.onCall(async (da
     part('notifications', uid, [], async () =>
       docs(await userRef.collection('notifications').orderBy('createdAt', 'desc').limit(50).get()),
     ),
+    part('confirmedManipulator', uid, false, async () => {
+      const snap = await db.collection('botState').doc('manipulators').get();
+      return !!snap.data()?.uids?.[uid];
+    }),
   ]);
 
   return {
@@ -183,6 +188,7 @@ export const adminGetPlayerFile = cf({ memory: '512MB' }).https.onCall(async (da
     watchAlerts,
     history,
     notifications,
+    confirmedManipulator,
   };
 });
 

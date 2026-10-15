@@ -7,7 +7,6 @@ export = [
   'market',
   'marketMaker',
   'marketWeekly',
-  'neglectDecay',
   'reviewCollapse',
   'snapshot',
   'tickerStats',

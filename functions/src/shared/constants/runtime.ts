@@ -53,7 +53,7 @@ export const WATCHED_SCHEDULED_JOBS = [
   // three days before anyone looked at its logs. They all swallow their own
   // errors and return null, so a heartbeat on the success path is the only
   // outside signal that they are alive. Budgets clear the 8h Thursday halt.
-  { job: 'marketMakerCycle', maxAgeHours: 12, label: 'Price stabiliser' },
+  { job: 'marketMakerCycle', maxAgeHours: 12, label: 'Price stabilizer' },
   { job: 'botTrader', maxAgeHours: 12, label: 'Bot trading round' },
   // Added 2026-09-28: every other scheduled job that players or moderation
   // depend on. All of them caught their own errors and logged to the console,
@@ -82,7 +82,6 @@ export const WATCHED_SCHEDULED_JOBS = [
   // Skips itself during the Thursday halt, so the budget clears it.
   { job: 'processIPOPriceJumps', maxAgeHours: 12, label: 'IPO price jumps', watchedSince: ADDED_2026_09_28 },
   { job: 'recordPriceExtremes', maxAgeHours: 12, label: 'All-time high/low sweep' },
-  { job: 'applyNeglectDecay', maxAgeHours: 48, label: 'Neglect decay' },
   { job: 'haltPriceAudit', maxAgeHours: 8 * 24, label: 'Halt price audit', watchedSince: ADDED_2026_10_11 },
   // Every 6 hours, skipping the Thursday halt (two runs), so 24h clears it.
   {

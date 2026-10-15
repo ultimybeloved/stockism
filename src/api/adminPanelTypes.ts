@@ -63,7 +63,34 @@ export interface PlayerFileResponse {
   watchAlerts: Row[];
   history: Row[];
   notifications: Row[];
+  confirmedManipulator?: boolean;
 }
+
+export interface GuardLogEntry {
+  at: number;
+  ticker: string;
+  from: number;
+  to: number;
+  reason: string;
+  uids: string[];
+}
+
+export interface MarketGuardResponse {
+  confirmed: { uid: string; name: string; at: number }[];
+  candidates: {
+    uid: string;
+    name: string;
+    flags: number;
+    tight: number;
+    last: number;
+    confirmed: boolean;
+    partners: { name: string; n: number }[];
+  }[];
+  guardLog: GuardLogEntry[];
+  botsUpdatedAt: number | null;
+}
+
+export type MarketGuardRequest = { action: 'list' } | { action: 'set'; uid: string; confirmed: boolean };
 
 export interface DashboardJob {
   job: string;

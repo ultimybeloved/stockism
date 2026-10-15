@@ -62,6 +62,7 @@ const PlayerFile = (props: Props) => {
               {u.isPublic === false && <Tag>private profile</Tag>}
               {u.discordId ? <Tag tone="violet">discord linked</Tag> : <Tag tone="amber">no discord</Tag>}
               {file?.watched && <Tag tone="red">on watchlist</Tag>}
+              {file?.confirmedManipulator && <Tag tone="red">confirmed manipulator</Tag>}
               {file && file.notes.length > 0 && (
                 <Tag tone="cyan">
                   {file.notes.length} note{file.notes.length === 1 ? '' : 's'}
