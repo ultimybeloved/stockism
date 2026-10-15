@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSession, useMarket } from '../../../context/AppContext';
 import { CREW_MAP } from '../../../crews';
 import { usePortfolioHistory } from '../../portfolio/hooks/usePortfolioHistory';
@@ -30,7 +32,7 @@ const ProfilePage = ({
   const [chartTimeRange, setChartTimeRange] = useState('1m');
   const { history: portfolioHistory } = usePortfolioHistory(user, chartTimeRange);
 
-  const { cardClass, mutedClass } = themeClasses;
+  const { cardClass, mutedClass, textClass } = themeClasses;
   const colorBlindMode = userData?.colorBlindMode || false;
 
   const bets = userData?.bets || {};
@@ -86,6 +88,17 @@ const ProfilePage = ({
         <ProfileHeader userData={userData} onOpenCustomization={onOpenCustomization} />
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* Phones: the bottom bar's Achievements slot became Portfolio. */}
+          <Link
+            to="/achievements"
+            className={`md:hidden flex items-center justify-between px-3 py-2.5 rounded-sm border text-sm font-semibold light:border-amber-200 dark:border-zinc-700 hover:text-orange-500 ${textClass}`}
+          >
+            <span>
+              <PixelIcon name="medal" className="w-5 h-5 mr-2 align-[-4px]" />
+              Achievements
+            </span>
+            <span aria-hidden="true">→</span>
+          </Link>
           <DiscordLinkBanner />
 
           <CrewSection

@@ -4,6 +4,8 @@ import { themeClasses } from '../../../utils/theme';
 import { REVIEW_SORTS, activeFilterCount } from '../../../utils/marketFilters';
 import MarketFilterPanel from './MarketFilterPanel';
 import type { useMarketBrowser } from '../hooks/useMarketBrowser';
+import type { MarketView } from '../hooks/useMarketView';
+import { MARKET_SEARCH_ID } from '../hooks/useDesktopMarket';
 
 type MarketControlsProps = Pick<
   ReturnType<typeof useMarketBrowser>,
@@ -18,7 +20,7 @@ type MarketControlsProps = Pick<
   | 'showAll'
   | 'setShowAll'
   | 'reviewChanges'
->;
+> & { view: MarketView; setView: (view: MarketView) => void };
 
 const TABS: { id: string; label: string; needsUser?: boolean; needsReview?: boolean }[] = [
   { id: 'stocks', label: 'Stocks' },
@@ -56,6 +58,8 @@ const MarketControls = ({
   showAll,
   setShowAll,
   reviewChanges,
+  view,
+  setView,
 }: MarketControlsProps) => {
   const { user, userData } = useSession();
   const { cardClass, textClass, mutedClass, inputClass, ghostBtnClass, chipClass, raisedClass } = themeClasses;
@@ -110,6 +114,27 @@ const MarketControls = ({
             Clear all
           </button>
         )}
+
+        {/* Cards or list. The list is compact rows on phones, a table on desktop. */}
+        <div
+          className="ml-auto flex rounded-sm border overflow-hidden light:border-amber-200 dark:border-zinc-700"
+          role="group"
+          aria-label="Market view"
+        >
+          {(['cards', 'list'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              aria-pressed={view === v}
+              onClick={() => setView(v)}
+              className={`px-3 py-2 text-sm font-semibold capitalize ${
+                view === v ? 'bg-orange-600 text-white' : 'light:text-zinc-600 dark:text-zinc-300'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
 
       {panelOpen && (
@@ -143,6 +168,7 @@ const MarketControls = ({
             ))}
           </select>
           <input
+            id={MARKET_SEARCH_ID}
             aria-label="Search characters"
             type="text"
             placeholder="Search..."

@@ -3,6 +3,11 @@ import SeasonCard from '../../season/components/SeasonCard';
 import IPOHypeCard from '../../ipo/components/IPOHypeCard';
 import IPOActiveCard from '../../ipo/components/IPOActiveCard';
 import DashboardRail from '../components/DashboardRail';
+import PhoneSummaryBar from '../components/PhoneSummaryBar';
+import StockSidePanel from '../components/StockSidePanel';
+import CompareTray from '../components/CompareTray';
+import CompareChartModal from '../components/CompareChartModal';
+import { useDesktopMarket } from '../hooks/useDesktopMarket';
 import MarketControls from '../components/MarketControls';
 import MarketGrid from '../components/MarketGrid';
 import { useSession, useMarket } from '../../../context/AppContext';
@@ -10,21 +15,15 @@ import { useSession, useMarket } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
 import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
-import type { ComponentProps } from 'react';
+import { useMarketView } from '../hooks/useMarketView';
+import { useState, type ComponentProps } from 'react';
 import PixelIcon from '../../../shared/components/PixelIcon';
 
 type GridProps = ComponentProps<typeof MarketGrid>;
 
 type HomePageProps = Pick<
   GridProps,
-  | 'activeUserData'
-  | 'onTrade'
-  | 'onViewChart'
-  | 'onToggleWatchlist'
-  | 'tradeAnimation'
-  | 'limitOrderRequest'
-  | 'onClearLimitOrderRequest'
-  | 'onSetAlert'
+  'activeUserData' | 'onTrade' | 'onViewChart' | 'onToggleWatchlist' | 'tradeAnimation' | 'onSetAlert'
 > &
   Pick<ComponentProps<typeof DashboardRail>, 'isGuest' | 'onShowLogin' | 'onShowPortfolio' | 'onShowBailout'> &
   Pick<ComponentProps<typeof IPOActiveCard>, 'onBuyIPO'> & {
@@ -51,8 +50,6 @@ const HomePage = ({
   onViewChart,
   onToggleWatchlist,
   tradeAnimation,
-  limitOrderRequest,
-  onClearLimitOrderRequest,
   onSetAlert,
   onShowMissions,
   onShowPinShop,
@@ -75,6 +72,15 @@ const HomePage = ({
     launchedTickers,
     ipoRestrictedTickers,
     storedReviewChanges,
+  });
+
+  const [railOpen, setRailOpen] = useState(false);
+  const { view, setView } = useMarketView();
+  const desk = useDesktopMarket({
+    characters: browser.reviewSections
+      ? browser.reviewSections.flatMap((s) => s.characters)
+      : browser.displayedCharacters,
+    onViewChart,
   });
 
   const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
@@ -111,6 +117,18 @@ const HomePage = ({
             About
           </button>
         </div>
+
+        <PhoneSummaryBar
+          activeUserData={activeUserData}
+          portfolioValue={portfolioValue}
+          isGuest={isGuest}
+          open={railOpen}
+          onToggle={() => setRailOpen((o) => !o)}
+          checkinLoading={!!actionLoading.checkin}
+          onCheckin={onCheckin}
+          onShowLogin={onShowLogin}
+          onShowBailout={onShowBailout}
+        />
 
         {/* Guest Banner */}
         {isGuest && (
@@ -151,16 +169,32 @@ const HomePage = ({
             its own scroll. Mobile/tablet: everything stacks exactly as before
             (DOM order = mobile order; the order classes flip it on desktop). */}
         <div className="lg:flex lg:items-start lg:gap-6">
-          <DashboardRail
-            activeUserData={activeUserData}
-            portfolioValue={portfolioValue}
-            isGuest={isGuest}
-            checkinLoading={!!actionLoading.checkin}
-            onCheckin={onCheckin}
-            onShowLogin={onShowLogin}
-            onShowPortfolio={onShowPortfolio}
-            onShowBailout={onShowBailout}
-          />
+          {desk.panelCharacter ? (
+            <StockSidePanel
+              character={desk.panelCharacter}
+              onClose={desk.closePanel}
+              onStep={desk.step}
+              onTrade={onTrade}
+              onToggleWatchlist={onToggleWatchlist}
+              onSetAlert={onSetAlert}
+              inCompare={desk.compare.includes(desk.panelCharacter.ticker)}
+              onToggleCompare={desk.toggleCompare}
+              pendingAction={desk.pendingAction}
+              onPendingHandled={desk.clearPendingAction}
+            />
+          ) : (
+            <DashboardRail
+              activeUserData={activeUserData}
+              portfolioValue={portfolioValue}
+              isGuest={isGuest}
+              checkinLoading={!!actionLoading.checkin}
+              onCheckin={onCheckin}
+              onShowLogin={onShowLogin}
+              onShowPortfolio={onShowPortfolio}
+              onShowBailout={onShowBailout}
+              phoneOpen={railOpen}
+            />
+          )}
 
           {/* Market column */}
           <div className="lg:order-1 flex-1 min-w-0">
@@ -176,14 +210,16 @@ const HomePage = ({
               showAll={browser.showAll}
               setShowAll={browser.setShowAll}
               reviewChanges={browser.reviewChanges}
+              view={view}
+              setView={setView}
             />
             <MarketGrid
               displayedCharacters={browser.displayedCharacters}
               activeUserData={activeUserData}
               onTrade={onTrade}
-              onViewChart={onViewChart}
-              limitOrderRequest={limitOrderRequest}
-              onClearLimitOrderRequest={onClearLimitOrderRequest}
+              onViewChart={desk.openStock}
+              selectedTicker={desk.panelCharacter?.ticker}
+              compareTickers={desk.compare}
               onToggleWatchlist={onToggleWatchlist}
               tradeAnimation={tradeAnimation}
               onSetAlert={onSetAlert}
@@ -195,10 +231,30 @@ const HomePage = ({
               setCurrentPage={browser.setCurrentPage}
               totalPages={browser.totalPages}
               showAll={browser.showAll}
+              view={view}
+              sortBy={browser.sortBy}
+              setSortBy={(s) => {
+                browser.setSortBy(s);
+                browser.setCurrentPage(1);
+              }}
             />
           </div>
         </div>
       </div>
+
+      <CompareTray
+        tickers={desk.compare}
+        onRemove={desk.toggleCompare}
+        onClear={desk.clearCompare}
+        onCompare={() => desk.setComparing(true)}
+      />
+      {desk.comparing && (
+        <CompareChartModal
+          tickers={desk.compare}
+          onRemove={desk.toggleCompare}
+          onClose={() => desk.setComparing(false)}
+        />
+      )}
     </div>
   );
 };

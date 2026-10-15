@@ -8,17 +8,18 @@ import { rarityClassFor } from '../../../utils/rarity';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import ShortRiskTag from '../../trading/components/ShortRiskTag';
-import TradeActionModal, { type OrderFormMode } from '../../trading/components/TradeActionModal';
+import TradeActionModal from '../../trading/components/TradeActionModal';
 import PreMarketModal from '../../trading/components/PreMarketModal';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { isPreMarketWindow, getMarketClosedState, type ReviewChange } from '../../../utils/marketHours';
 import type { Character } from '../../../characters';
 import type { PricePoint, ShortPosition, TradeAction } from '../../../types';
-import type { LimitOrderRequest } from '../../account/hooks/useUserActions';
 import type { TradeAnimation } from '../../../shared/hooks/types';
 import { pressable } from '../../../utils/a11y';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import { usePhone } from '../../../shared/hooks/useMediaQuery';
+import { useLongPress } from '../hooks/useLongPress';
 
 interface CharacterCardProps {
   character: Character;
@@ -29,8 +30,6 @@ interface CharacterCardProps {
   onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
   onViewChart: (character: Character, timeRange: string) => void;
   userCash?: number;
-  limitOrderRequest?: LimitOrderRequest | null;
-  onClearLimitOrderRequest?: () => void;
   isWatchlisted?: boolean;
   onToggleWatchlist?: (ticker: string) => void;
   tradeAnimation?: TradeAnimation | null;
@@ -38,6 +37,10 @@ interface CharacterCardProps {
   haltInfo?: { resumeAt?: number } | null;
   onSetAlert?: (ticker: string) => void;
   reviewChange?: ReviewChange | null;
+  /** Phones: press and hold the card for its quick actions. */
+  onQuickActions?: (character: Character) => void;
+  /** Wide screens: open in the side panel, or picked for a comparison. */
+  highlight?: 'open' | 'compare' | null;
 }
 
 /**
@@ -79,33 +82,22 @@ const CharacterCard = ({
   onTrade,
   onViewChart,
   userCash = 0,
-  limitOrderRequest,
-  onClearLimitOrderRequest,
   isWatchlisted,
   onToggleWatchlist,
   tradeAnimation,
   haltInfo,
   onSetAlert,
   reviewChange,
+  onQuickActions,
+  highlight = null,
 }: CharacterCardProps) => {
   const { user, userData } = useSession();
   const { priceHistory, marketData, rarityTiers } = useMarket();
+  const phone = usePhone();
   const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [tradeAction, setTradeAction] = useState<TradeAction | null>(null);
-  const [shouldOpenAsLimit, setShouldOpenAsLimit] = useState<OrderFormMode>(false);
   const [showPreMarket, setShowPreMarket] = useState(false);
   const [preMarketAction, setPreMarketAction] = useState<'buy' | 'sell'>('buy');
-
-  // Check if this card should open in limit order or stop loss mode
-  useEffect(() => {
-    if (limitOrderRequest && limitOrderRequest.ticker === character.ticker) {
-      setTradeAction(limitOrderRequest.action as TradeAction);
-      setShouldOpenAsLimit((limitOrderRequest.mode as OrderFormMode) || 'limit');
-      if (onClearLimitOrderRequest) {
-        onClearLimitOrderRequest();
-      }
-    }
-  }, [limitOrderRequest, character.ticker, onClearLimitOrderRequest]);
 
   const [haltCountdown, setHaltCountdown] = useState('');
 
@@ -226,11 +218,16 @@ const CharacterCard = ({
       ? ({ '--rarity-stagger': getRarityStagger(character.ticker) } as CSSProperties)
       : undefined;
 
+  const openChart = () => onViewChart(character, defaultChartTimeRange);
+  const press = useLongPress(openChart, phone && onQuickActions ? () => onQuickActions(character) : undefined);
+
   return (
     <>
       <div
         style={rarityStyle}
         className={`${cardClass} border rounded-sm ${SPACING.cardPad} transition-all relative ${frameClass} ${
+          highlight === 'open' ? 'ring-2 ring-orange-500' : highlight === 'compare' ? 'ring-2 ring-blue-500' : ''
+        } ${
           tradeAnimation
             ? tradeAnimation.big
               ? 'animate-trade-gold'
@@ -273,7 +270,7 @@ const CharacterCard = ({
             </div>
           </div>
         )}
-        <div className="cursor-pointer" {...pressable(() => onViewChart(character, defaultChartTimeRange))}>
+        <div className="cursor-pointer select-none" {...pressable(openChart)} {...press}>
           {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
           <div className="flex justify-between items-start mb-2">
             <div>
@@ -407,11 +404,7 @@ const CharacterCard = ({
           shortPosition={shortPosition}
           userCash={userCash}
           onTrade={onTrade}
-          onClose={() => {
-            setTradeAction(null);
-            setShouldOpenAsLimit(false);
-          }}
-          defaultToLimitOrder={shouldOpenAsLimit}
+          onClose={() => setTradeAction(null)}
           haltInfo={haltInfo}
         />
       )}

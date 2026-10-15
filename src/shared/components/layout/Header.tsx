@@ -12,6 +12,8 @@ import { useNewCharacters } from '../../../features/market/hooks/useNewCharacter
 import { useAdminAlerts } from '../../../features/admin/hooks/useAdminAlerts';
 import MyPreMarketOrdersModal from '../../../features/trading/components/MyPreMarketOrdersModal';
 import { themeClasses } from '../../../utils/theme';
+import { OPEN_SEARCH_EVENT } from './GlobalShortcuts';
+import { MOD_LABEL } from '../../hooks/useShortcuts';
 import PixelIcon from '../PixelIcon';
 
 export interface HeaderProps {
@@ -185,6 +187,14 @@ const Header = ({
 
             {/* User Info & Controls */}
             <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Quick search (Ctrl+K). Desktop only: phones have the market search. */}
+              <button
+                onClick={() => window.dispatchEvent(new Event(OPEN_SEARCH_EVENT))}
+                className="hidden lg:flex items-center gap-2 px-3 py-1.5 text-sm rounded-md border light:border-amber-200 light:text-zinc-500 dark:border-zinc-700 dark:text-zinc-400 hover:text-orange-500"
+              >
+                Search
+                <kbd className="text-[10px] font-mono opacity-70">{MOD_LABEL} K</kbd>
+              </button>
               {/* Dark Mode Toggle */}
               <button
                 onClick={() => setDarkMode(!darkMode)}

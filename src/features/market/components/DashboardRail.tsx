@@ -21,6 +21,8 @@ interface DashboardRailProps {
   onShowLogin: () => void;
   onShowPortfolio: () => void;
   onShowBailout: () => void;
+  /** Phones show only the summary bar until it is tapped open. */
+  phoneOpen?: boolean;
 }
 
 // Right-hand dashboard rail on the home page: cash / portfolio / holdings
@@ -34,6 +36,7 @@ const DashboardRail = ({
   onShowLogin,
   onShowPortfolio,
   onShowBailout,
+  phoneOpen = false,
 }: DashboardRailProps) => {
   const { userData, getColorBlindColors } = useSession();
   const { prices, priceHistory, predictions } = useMarket();
@@ -42,8 +45,8 @@ const DashboardRail = ({
 
   return (
     <aside className="lg:order-2 lg:w-96 2xl:w-[30rem] lg:shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto lg:pl-1">
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4 mb-4">
+      {/* Stats. Phones hide them behind the summary bar (PhoneSummaryBar). */}
+      <div className={`grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1 gap-4 mb-4 ${phoneOpen ? '' : 'max-md:hidden'}`}>
         <div
           className={`${cardClass} border rounded-sm p-4 ${(activeUserData.cash || 0) < 0 ? (userData?.colorBlindMode ? 'border-purple-500' : 'border-red-500') : ''}`}
         >
@@ -132,7 +135,7 @@ const DashboardRail = ({
                 <p className={`text-xs ${changePercent30d != null ? colors30d.text : mutedClass}`}>
                   {changePercent30d != null && (changePercent30d >= 0 ? '▲ ' : '▼ ')}
                   {changePercent30d != null ? `${formatChange(changePercent30d)} 30d` : ''}
-                  {!isGuest && <span className="text-orange-500 ml-2">→ View chart</span>}
+                  {!isGuest && <span className="text-orange-500 ml-2">→ Open portfolio</span>}
                 </p>
               </>
             );
@@ -211,9 +214,11 @@ const DashboardRail = ({
 
       <WelcomeWeekCard />
 
-      <PredictionsTeaser predictions={predictions} />
+      <div className={phoneOpen ? '' : 'max-md:hidden'}>
+        <PredictionsTeaser predictions={predictions} />
 
-      <MarketIndex prices={prices} priceHistory={priceHistory} colorBlindMode={userData?.colorBlindMode} />
+        <MarketIndex prices={prices} priceHistory={priceHistory} colorBlindMode={userData?.colorBlindMode} />
+      </div>
     </aside>
   );
 };

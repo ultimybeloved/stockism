@@ -1,4 +1,5 @@
 import { useState, useMemo, Suspense, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AppModals from './app/AppModals';
 import AppRoutes from './app/AppRoutes';
 import BackgroundTasks from './app/BackgroundTasks';
@@ -48,9 +49,9 @@ export default function App() {
   const { actionLoading, setLoadingKey } = useActionLoading();
   const { notifications, showNotification, dismissNotification } = useToasts();
   const modals = useModalManager();
+  const navigate = useNavigate();
   const {
     setShowLoginModal,
-    setShowPortfolio,
     setShowAbout,
     setShowLending,
     setShowBailout,
@@ -60,8 +61,8 @@ export default function App() {
     setShowAdmin,
     setShowNotificationPanel,
     setShowPriceAlertModal,
+    setShowTradeHistory,
     setTradeConfirmation,
-    limitOrderRequest,
     setLimitOrderRequest,
     setBetConfirmation,
     setSelectedCharacter,
@@ -164,7 +165,7 @@ export default function App() {
     handleDeleteAccount,
     handleMarginTutorialComplete,
     handleOnboardingComplete,
-  } = useUserActions({ user, userData, showNotification, setLimitOrderRequest, setShowPortfolio });
+  } = useUserActions({ user, userData, showNotification, setLimitOrderRequest });
 
   const activeUserData = userData || GUEST_DATA;
   const isGuest = !user;
@@ -219,8 +220,6 @@ export default function App() {
                 onViewChart: handleViewChart,
                 onToggleWatchlist: toggleWatchlist,
                 tradeAnimation,
-                limitOrderRequest,
-                onClearLimitOrderRequest: () => setLimitOrderRequest(null),
                 onSetAlert: (ticker) => setShowPriceAlertModal(ticker),
                 onShowMissions: () => setShowDailyMissions(true),
                 onShowPinShop: () => setShowPinShop(true),
@@ -228,7 +227,7 @@ export default function App() {
                 onShowMargin: () => setShowLending(true),
                 onShowAbout: () => setShowAbout(true),
                 onShowLogin: showLogin,
-                onShowPortfolio: () => setShowPortfolio(true),
+                onShowPortfolio: () => navigate('/portfolio'),
                 onShowBailout: () => setShowBailout(true),
               }}
               predictions={{
@@ -245,6 +244,13 @@ export default function App() {
                 onOpenCrewSelection: () => setShowCrewSelection(true),
                 onDeleteAccount: handleDeleteAccount,
                 onOpenCustomization: () => setShowPinShop(true),
+              }}
+              portfolio={{
+                onTrade: requestTrade,
+                onLimitSell: handleLimitOrderRequest,
+                onOpenTradeHistory: () => setShowTradeHistory(true),
+                onToggleDrip: handleToggleDrip,
+                onShowLogin: showLogin,
               }}
               onPinAction={isGuest ? undefined : pinShop.handlePinAction}
               onTrade={requestTrade}
@@ -267,10 +273,8 @@ export default function App() {
                 dismissNotification={dismissNotification}
                 handleBailout={handleBailout}
                 handleBet={handleBet}
-                handleLimitOrderRequest={handleLimitOrderRequest}
                 handleMarginTutorialComplete={handleMarginTutorialComplete}
                 handleOnboardingComplete={handleOnboardingComplete}
-                handleToggleDrip={handleToggleDrip}
                 handleTrade={handleTrade}
                 isGuest={isGuest}
                 needsEmailVerification={needsEmailVerification}

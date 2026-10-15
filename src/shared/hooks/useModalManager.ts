@@ -12,7 +12,6 @@ export interface ChartSelection {
 
 export function useModalManager() {
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showPortfolio, setShowPortfolio] = useState(false);
   const [showTradeHistory, setShowTradeHistory] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showLending, setShowLending] = useState(false);
@@ -31,8 +30,6 @@ export function useModalManager() {
   return {
     showLoginModal,
     setShowLoginModal,
-    showPortfolio,
-    setShowPortfolio,
     showTradeHistory,
     setShowTradeHistory,
     showAbout,

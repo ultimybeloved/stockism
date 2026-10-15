@@ -1,7 +1,8 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Header from './Header';
 import MobileBottomNav from './MobileBottomNav';
 import Footer from './Footer';
+import GlobalShortcuts from './GlobalShortcuts';
 import MarketTicker from '../../../features/market/components/MarketTicker';
 import SiteMessageBar from '../SiteMessageBar';
 import { useTheme } from '../../../context/AppContext';
@@ -22,6 +23,8 @@ const Layout = ({
 }: LayoutProps) => {
   const { darkMode } = useTheme();
   usePageTitle();
+  // Full size on the home page; elsewhere it would push the page down for nothing.
+  const isHome = useLocation().pathname === '/';
   return (
     <div className="min-h-screen light:bg-amber-50 dark:bg-zinc-950">
       <Header
@@ -37,12 +40,12 @@ const Layout = ({
       <SiteMessageBar />
 
       {/* Desktop Hero Logo - sits below ticker, scrolls away naturally */}
-      <div className="hidden md:flex justify-center py-2">
+      <div className={`hidden md:flex justify-center ${isHome ? 'py-2' : 'py-1'}`}>
         <Link to="/">
           <img
             src={darkMode ? '/stockism grey splatter.png' : '/stockism logo.png'}
             alt="Stockism"
-            className="h-40 w-auto select-none cursor-pointer hover:opacity-90 transition-opacity"
+            className={`${isHome ? 'h-40' : 'h-14'} w-auto select-none cursor-pointer hover:opacity-90 transition-opacity`}
             draggable="false"
             onContextMenu={(e) => e.preventDefault()}
             style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
@@ -54,6 +57,7 @@ const Layout = ({
 
       <Footer />
       <MobileBottomNav />
+      <GlobalShortcuts />
     </div>
   );
 };

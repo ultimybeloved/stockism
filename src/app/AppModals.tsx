@@ -14,8 +14,11 @@ import PriceAlertModal from '../features/market/components/PriceAlertModal';
 import TradeConfirmModal from '../features/trading/components/TradeConfirmModal';
 import BetConfirmModal from '../features/predictions/components/BetConfirmModal';
 import BailoutModal from '../features/margin/components/BailoutModal';
+import TradeLauncher from '../features/trading/components/TradeLauncher';
+import { CHARACTER_MAP } from '../characters';
+import type { OrderFormMode } from '../features/trading/components/TradeActionModal';
 
-import type { UserData } from '../types';
+import type { TradeAction, UserData } from '../types';
 import type { useModalManager } from '../shared/hooks/useModalManager';
 import type { useMissionManagement } from '../features/missions/hooks/useMissionManagement';
 import type { useMarginManagement } from '../features/margin/hooks/useMarginManagement';
@@ -37,12 +40,11 @@ const DailyMissionsModal = lazy(() => import('../features/missions/components/Da
 const MarginModal = lazy(() => import('../features/margin/components/MarginModal'));
 const MarginTutorialModal = lazy(() => import('../features/margin/components/MarginTutorialModal'));
 const ChartModal = lazy(() => import('../features/market/components/ChartModal'));
-const PortfolioModal = lazy(() => import('../features/portfolio/components/PortfolioModal'));
 const TradeHistoryModal = lazy(() => import('../features/trading/components/TradeHistoryModal'));
 
 type Hook<F extends (...args: never[]) => unknown> = ReturnType<F>;
 
-type AppModalsProps = Omit<Hook<typeof useModalManager>, 'limitOrderRequest' | 'setLimitOrderRequest'> &
+type AppModalsProps = Hook<typeof useModalManager> &
   Hook<typeof useMissionManagement> &
   Pick<Hook<typeof useMarginManagement>, 'handleEnableMargin' | 'handleDisableMargin' | 'handleRepayMargin'> &
   Hook<typeof useCrewManagement> &
@@ -53,10 +55,7 @@ type AppModalsProps = Omit<Hook<typeof useModalManager>, 'limitOrderRequest' | '
   Pick<Hook<typeof useTradeManagement>, 'handleTrade' | 'requestTrade'> &
   Pick<Hook<typeof useDailyOperations>, 'handleBailout'> &
   Pick<Hook<typeof usePredictionManagement>, 'handleBet'> &
-  Pick<
-    Hook<typeof useUserActions>,
-    'handleLimitOrderRequest' | 'handleMarginTutorialComplete' | 'handleOnboardingComplete' | 'handleToggleDrip'
-  > & {
+  Pick<Hook<typeof useUserActions>, 'handleMarginTutorialComplete' | 'handleOnboardingComplete'> & {
     actionLoading: Record<string, boolean | undefined>;
     activeUserData: UserData;
     isGuest: boolean;
@@ -88,7 +87,8 @@ const AppModals = ({
   handleDisableMargin,
   handleEnableMargin,
   handleEquipCosmetic,
-  handleLimitOrderRequest,
+  limitOrderRequest,
+  setLimitOrderRequest,
   handleMarginTutorialComplete,
   handleMarkAllNotificationsRead,
   handleMarkNotificationRead,
@@ -99,7 +99,6 @@ const AppModals = ({
   handleGiftCosmetic,
   handleRepayMargin,
   handleRerollMissions,
-  handleToggleDrip,
   handleTrade,
   isGuest,
   needsEmailVerification,
@@ -121,7 +120,6 @@ const AppModals = ({
   setShowMarginTutorialReview,
   setShowNotificationPanel,
   setShowPinShop,
-  setShowPortfolio,
   setShowPriceAlertModal,
   setShowTradeHistory,
   setTradeConfirmation,
@@ -135,14 +133,13 @@ const AppModals = ({
   showMarginTutorialReview,
   showNotificationPanel,
   showPinShop,
-  showPortfolio,
   showPriceAlertModal,
   showTradeHistory,
   tradeConfirmation,
   userNotifications,
 }: AppModalsProps) => {
   const { user, userData } = useSession();
-  const { prices, predictions, marketData, dividendTierOverrides } = useMarket();
+  const { prices, predictions, marketData } = useMarket();
   const portfolioValue = calculatePortfolioValue(activeUserData, prices);
 
   return (
@@ -264,23 +261,6 @@ const AppModals = ({
       {/* Toast Notifications */}
       <ToastContainer notifications={notifications} onDismiss={dismissNotification} />
 
-      {showPortfolio && !isGuest && (
-        <PortfolioModal
-          currentValue={portfolioValue}
-          onClose={() => setShowPortfolio(false)}
-          onTrade={requestTrade}
-          onLimitSell={handleLimitOrderRequest}
-          onOpenTradeHistory={() => {
-            setShowPortfolio(false);
-            setShowTradeHistory(true);
-          }}
-          ipoPurchases={userData?.ipoPurchases || {}}
-          holdingCohorts={activeUserData.holdingCohorts || {}}
-          dividendTierOverrides={dividendTierOverrides}
-          drip={userData?.drip || {}}
-          onToggleDrip={handleToggleDrip}
-        />
-      )}
       {showTradeHistory && !isGuest && <TradeHistoryModal onClose={() => setShowTradeHistory(false)} />}
       {selectedCharacter && (
         <ChartModal
@@ -288,6 +268,18 @@ const AppModals = ({
           currentPrice={prices[selectedCharacter.character.ticker] || selectedCharacter.character.basePrice}
           onClose={() => setSelectedCharacter(null)}
           defaultTimeRange={selectedCharacter.defaultTimeRange || '1d'}
+        />
+      )}
+
+      {/* A limit or stop-loss order asked for from the portfolio, for any stock,
+          whatever page is open. */}
+      {limitOrderRequest && CHARACTER_MAP[limitOrderRequest.ticker] && (
+        <TradeLauncher
+          character={CHARACTER_MAP[limitOrderRequest.ticker]!}
+          action={limitOrderRequest.action as TradeAction}
+          orderMode={(limitOrderRequest.mode as OrderFormMode) || 'limit'}
+          onTrade={requestTrade}
+          onClose={() => setLimitOrderRequest(null)}
         />
       )}
 

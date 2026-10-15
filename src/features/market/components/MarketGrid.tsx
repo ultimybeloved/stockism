@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import CharacterCard from './CharacterCard';
+import MarketList from './MarketList';
+import QuickActionsSheet from './QuickActionsSheet';
+import type { MarketView } from '../hooks/useMarketView';
 import { useSession, useMarket } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
 import { getSentiment } from '../../../utils/marketStats';
@@ -20,14 +23,17 @@ type MarketGridProps = Pick<
   | 'totalPages'
   | 'showAll'
 > &
-  Pick<
-    CardProps,
-    'onTrade' | 'onViewChart' | 'limitOrderRequest' | 'onClearLimitOrderRequest' | 'onToggleWatchlist' | 'onSetAlert'
-  > & {
+  Pick<CardProps, 'onTrade' | 'onViewChart' | 'onToggleWatchlist' | 'onSetAlert'> & {
     activeUserData: UserData;
     tradeAnimation?: CardProps['tradeAnimation'];
     marketTab: string;
     searchQuery: string;
+    view: MarketView;
+    /** Wide screens: the stock open in the side panel, and the ones picked to compare. */
+    selectedTicker?: string;
+    compareTickers?: string[];
+    sortBy: string;
+    setSortBy: (sort: string) => void;
   };
 
 // The character card grid plus empty state and bottom pagination.
@@ -42,8 +48,6 @@ const MarketGrid = ({
   activeUserData,
   onTrade,
   onViewChart,
-  limitOrderRequest,
-  onClearLimitOrderRequest,
   onToggleWatchlist,
   tradeAnimation,
   onSetAlert,
@@ -55,6 +59,11 @@ const MarketGrid = ({
   setCurrentPage,
   totalPages,
   showAll,
+  view,
+  sortBy,
+  setSortBy,
+  selectedTicker,
+  compareTickers = [],
 }: MarketGridProps) => {
   const { userData } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
@@ -65,6 +74,8 @@ const MarketGrid = ({
   // A section that is not in THIS week's review falls back to showing everything,
   // so a stale pick from last week cannot leave the tab looking empty.
   const activeSection = reviewSections?.some((s) => s.id === openSection) ? openSection : 'all';
+  // Phones: the stock someone pressed and held, for its quick actions.
+  const [quick, setQuick] = useState<Character | null>(null);
 
   // One card, wherever it is being rendered.
   const renderCard = (character: Character) => (
@@ -78,25 +89,38 @@ const MarketGrid = ({
       onTrade={onTrade}
       onViewChart={onViewChart}
       userCash={activeUserData.cash || 0}
-      limitOrderRequest={limitOrderRequest}
-      onClearLimitOrderRequest={onClearLimitOrderRequest}
       isWatchlisted={(userData?.watchlist || []).includes(character.ticker)}
       onToggleWatchlist={onToggleWatchlist}
       tradeAnimation={tradeAnimation?.ticker === character.ticker ? tradeAnimation : null}
       haltInfo={marketData?.haltedTickers?.[character.ticker]}
       onSetAlert={onSetAlert}
+      onQuickActions={setQuick}
+      highlight={
+        character.ticker === selectedTicker ? 'open' : compareTickers.includes(character.ticker) ? 'compare' : null
+      }
       // Only in the Review tab: elsewhere the card's own price and 24h
       // change are the whole story.
       reviewChange={marketTab === 'review' ? reviewChanges?.[character.ticker] : null}
     />
   );
 
-  // Auto-fills as many ~300px+ columns as the screen allows.
-  const cardGrid = (list: Character[]) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
-      {list.map(renderCard)}
-    </div>
-  );
+  // Auto-fills as many ~300px+ columns as the screen allows, or the list view.
+  const cardGrid = (list: Character[]) =>
+    view === 'list' ? (
+      <MarketList
+        characters={list}
+        onTrade={onTrade}
+        onViewChart={onViewChart}
+        onQuickActions={setQuick}
+        selectedTicker={selectedTicker}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+      />
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+        {list.map(renderCard)}
+      </div>
+    );
 
   return (
     <>
@@ -176,6 +200,17 @@ const MarketGrid = ({
             </button>
           </div>
         </div>
+      )}
+
+      {quick && (
+        <QuickActionsSheet
+          character={quick}
+          onClose={() => setQuick(null)}
+          onTrade={onTrade}
+          onViewChart={onViewChart}
+          onToggleWatchlist={onToggleWatchlist}
+          onSetAlert={onSetAlert}
+        />
       )}
     </>
   );

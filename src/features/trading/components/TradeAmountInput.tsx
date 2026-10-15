@@ -26,13 +26,22 @@ const TradeAmountInput = ({
   marginLockedShares = 0,
   marginLockHours,
 }: TradeAmountInputProps) => {
-  const { textClass, mutedClass } = themeClasses;
+  const { textClass, mutedClass, ghostBtnClass } = themeClasses;
   // Exits keep six decimals: holdings pick up fractional remainders from
   // dividends and partial fills, and rounding the box to cents would make the
   // last speck of a position untypeable (and so unsellable).
   const isExit = action === 'sell' || action === 'cover';
   const roundEntered = (v: number) => roundShares(v, isExit);
   const smallestStep = isExit ? Math.min(0.01, maxShares) : 0.01;
+  // Quick picks under the box: a fixed count, or a share of the most allowed.
+  const quick = [
+    { label: '1', value: Math.min(1, maxShares) },
+    { label: '10', value: Math.min(10, isExit || partialShares ? maxShares : Math.floor(maxShares)) },
+    ...[0.25, 0.5].map((f) => ({
+      label: `${f * 100}%`,
+      value: isExit || partialShares ? roundEntered(maxShares * f) : Math.floor(maxShares * f),
+    })),
+  ];
 
   return (
     <div className="mb-4">
@@ -106,6 +115,21 @@ const TradeAmountInput = ({
         >
           Max
         </button>
+      </div>
+      <div className="grid grid-cols-4 gap-2 mt-2">
+        {quick.map((q) => (
+          <button
+            key={q.label}
+            type="button"
+            onClick={() => setAmount(q.value)}
+            disabled={!(q.value > 0)}
+            className={`py-2 md:py-1 text-xs font-semibold rounded-sm border disabled:opacity-40 ${
+              amount === q.value && q.value > 0 ? 'border-orange-500 text-orange-500' : ghostBtnClass
+            }`}
+          >
+            {q.label}
+          </button>
+        ))}
       </div>
       {maxShares === 0 && (
         <p className="text-xs text-red-500 mt-1">

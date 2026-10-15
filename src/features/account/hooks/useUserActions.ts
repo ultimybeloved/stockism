@@ -21,13 +21,11 @@ export function useUserActions({
   userData,
   showNotification,
   setLimitOrderRequest,
-  setShowPortfolio,
 }: {
   user: User | null;
   userData: UserData | null;
   showNotification: AppContextValue['showNotification'];
   setLimitOrderRequest: (request: LimitOrderRequest | null) => void;
-  setShowPortfolio: (show: boolean) => void;
 }) {
   // Watchlist toggle
   const toggleWatchlist = useCallback(
@@ -52,9 +50,8 @@ export function useUserActions({
         return;
       }
       setLimitOrderRequest({ ticker, action, mode: mode || 'limit' });
-      setShowPortfolio(false); // Close portfolio modal
     },
-    [user, userData, showNotification, setLimitOrderRequest, setShowPortfolio],
+    [user, userData, showNotification, setLimitOrderRequest],
   );
 
   // Hide prediction from feed (admin only)

@@ -59,6 +59,10 @@ export const themeClasses = {
   // Modal container. Add max-w-* (and overflow/max-h/flex if the modal
   // scrolls) at the call site.
   modalShellClass: `w-full ${card} border rounded-sm shadow-xl`,
+  // Bottom sheet: on phones the modal rises from the bottom edge, within thumb
+  // reach (pair with useSwipeToClose); from md up it is an ordinary modal.
+  sheetOverlayClass: 'fixed inset-0 bg-black/60 flex items-end md:items-center justify-center md:p-4',
+  sheetShellClass: `w-full ${card} border rounded-t-xl md:rounded-sm shadow-xl max-h-[92vh] overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]`,
 };
 
 // Spacing rhythm — shared paddings/gaps so sections breathe evenly.

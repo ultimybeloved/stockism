@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useHideOnScroll } from '../../hooks/useHideOnScroll';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSession } from '../../../context/AppContext';
 
@@ -9,32 +9,7 @@ const MobileBottomNav = () => {
   const { user } = useSession();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const isVisibleRef = useRef(true);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      let shouldShow;
-
-      if (currentScrollY < 10) {
-        shouldShow = true;
-      } else {
-        shouldShow = currentScrollY <= lastScrollY.current;
-      }
-
-      if (shouldShow !== isVisibleRef.current) {
-        isVisibleRef.current = shouldShow;
-        setIsVisible(shouldShow);
-      }
-
-      lastScrollY.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const isVisible = useHideOnScroll();
 
   const isActivePage = (path: string) => {
     return location.pathname === path;
@@ -56,7 +31,11 @@ const MobileBottomNav = () => {
       badge: newPredictions,
     },
     { path: '/ladder', icon: <PixelIcon name="ladder" className="w-7 h-7" />, label: 'Ladder' },
-    { path: '/achievements', icon: <PixelIcon name="medal" className="w-7 h-7" />, label: 'Achievements' },
+    // Signed in, the slot goes to the portfolio (achievements are a link on the
+    // profile page); guests have no portfolio, so they keep achievements.
+    user
+      ? { path: '/portfolio', icon: <PixelIcon name="cash" className="w-7 h-7" />, label: 'Portfolio' }
+      : { path: '/achievements', icon: <PixelIcon name="medal" className="w-7 h-7" />, label: 'Achievements' },
     ...(user ? [{ path: '/profile', icon: <PixelIcon name="profile" className="w-7 h-7" />, label: 'Profile' }] : []),
   ];
 

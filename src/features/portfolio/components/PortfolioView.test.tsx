@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-// Characterization test: captures how PortfolioModal renders today so the
+// Characterization test: captures how PortfolioView renders today so the
 // component can be split into sub-components without changing behavior.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
@@ -28,7 +28,7 @@ vi.mock('../../../context/AppContext', () => ({
   useMarket: () => h.ctx,
 }));
 
-import PortfolioModal from './PortfolioModal';
+import PortfolioView from './PortfolioView';
 
 const baseCtx = () => ({
   darkMode: false,
@@ -50,7 +50,7 @@ afterEach(cleanup);
 describe('PortfolioModal', () => {
   it('renders the header, value, and long/short tabs (short behind its tab)', async () => {
     h.ctx = baseCtx();
-    render(<PortfolioModal currentValue={1000} onClose={noop} onTrade={noop} />);
+    render(<PortfolioView currentValue={1000} onTrade={noop} />);
 
     expect(await screen.findByText(/Your Portfolio/)).toBeInTheDocument();
     expect(screen.getByText('$1,000.00')).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('PortfolioModal', () => {
 
   it('expands a long position to reveal its stats and sell controls', async () => {
     h.ctx = baseCtx();
-    render(<PortfolioModal currentValue={1000} onClose={noop} onTrade={noop} />);
+    render(<PortfolioView currentValue={1000} onTrade={noop} />);
 
     fireEvent.click(await screen.findByText('$JAKE'));
     expect(screen.getByText('Avg Cost / Share')).toBeInTheDocument();
@@ -81,7 +81,7 @@ describe('PortfolioModal', () => {
 
   it('expands a short position to reveal its stats and cover controls', async () => {
     h.ctx = baseCtx();
-    render(<PortfolioModal currentValue={1000} onClose={noop} onTrade={noop} />);
+    render(<PortfolioView currentValue={1000} onTrade={noop} />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Short/ }));
     fireEvent.click(screen.getByText('$GAP'));
@@ -92,7 +92,7 @@ describe('PortfolioModal', () => {
 
   it('shows the empty state when there are no positions', async () => {
     h.ctx = { ...baseCtx(), holdings: {}, shorts: {}, activeIPOs: [] };
-    render(<PortfolioModal currentValue={0} onClose={noop} onTrade={noop} />);
+    render(<PortfolioView currentValue={0} onTrade={noop} />);
 
     expect(await screen.findByText(/No positions yet/)).toBeInTheDocument();
   });

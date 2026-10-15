@@ -15,7 +15,8 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { errorMessage } from '../../../utils/errors';
 import type { Character } from '../../../characters';
 import type { ShortPosition, TradeAction } from '../../../types';
-import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import { useSheetRef } from '../../../shared/hooks/useSwipeToClose';
+import SheetHandle from '../../../shared/components/SheetHandle';
 
 /** Which order form the modal opens on; `true` is the old spelling of 'limit'. */
 export type OrderFormMode = boolean | 'limit' | 'stopLoss';
@@ -53,7 +54,7 @@ const TradeActionModal = ({
   haltInfo,
 }: TradeActionModalProps) => {
   useEscapeKey(onClose);
-  const dialogRef = useModalFocus();
+  const sheetRef = useSheetRef(onClose);
   const { userData, showNotification } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
@@ -67,7 +68,7 @@ const TradeActionModal = ({
   // Max defaults to cash only; margin buying power is opt-in via the checkbox.
   const [useMarginMax, setUseMarginMax] = useState(false);
 
-  const { textClass, mutedClass, overlayClass, modalShellClass } = themeClasses;
+  const { textClass, mutedClass, sheetOverlayClass, sheetShellClass } = themeClasses;
 
   // Color blind friendly colors for price indicators (bid/ask displays)
   const getColors = (isPositive: boolean): ActionColors => {
@@ -302,8 +303,9 @@ const TradeActionModal = ({
   };
 
   return (
-    <div className={`${overlayClass} z-50`} onClick={onClose}>
-      <div ref={dialogRef} className={`${modalShellClass} p-4 max-w-md`} onClick={(e) => e.stopPropagation()}>
+    <div className={`${sheetOverlayClass} z-50`} onClick={onClose}>
+      <div ref={sheetRef} className={`${sheetShellClass} p-4 md:max-w-md`} onClick={(e) => e.stopPropagation()}>
+        <SheetHandle />
         {/* Header */}
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -406,8 +408,8 @@ const TradeActionModal = ({
           </div>
         ) : null}
 
-        {/* Action buttons */}
-        <div className="flex gap-2">
+        {/* Action buttons. On phones they stay pinned to the bottom of the sheet. */}
+        <div className="flex gap-2 max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:-mb-4 max-md:px-4 max-md:py-3 max-md:border-t bg-inherit light:border-amber-200 dark:border-zinc-800">
           <button
             onClick={handleSubmit}
             disabled={

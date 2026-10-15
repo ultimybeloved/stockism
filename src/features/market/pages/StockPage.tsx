@@ -4,7 +4,10 @@ import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
-import TradeActionModal from '../../trading/components/TradeActionModal';
+import TradeLauncher from '../../trading/components/TradeLauncher';
+import StickyTradeBar from '../components/StickyTradeBar';
+import StockTradeMenu from '../components/StockTradeMenu';
+import { useStockTradeShortcuts } from '../hooks/useStockTradeShortcuts';
 import { getMarketClosedState } from '../../../utils/marketHours';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import { useStockPageData } from '../hooks/useStockPageData';
@@ -39,7 +42,6 @@ const StockPage = ({ onTrade }: StockPageProps) => {
   const [timeRange, setTimeRange] = useState('1d');
   const [chartType, setChartType] = useState<ChartType>('area');
   const [tradeAction, setTradeAction] = useState<TradeAction | null>(null);
-  const [showTradeMenu, setShowTradeMenu] = useState(false);
   const [hoveredChartPoint, setHoveredChartPoint] = useState<PricePoint | null>(null);
 
   const {
@@ -65,50 +67,20 @@ const StockPage = ({ onTrade }: StockPageProps) => {
   const { cardClass, textClass, mutedClass, bgClass } = themeClasses;
 
   const aliasTarget = useTickerAliasRedirect(ticker, !!character, marketData);
+  const tradeOpen =
+    !!user && !!character && !marketClosed && Date.now() >= (marketData?.haltedTickers?.[ticker]?.resumeAt ?? 0);
+  useStockTradeShortcuts(setTradeAction, { enabled: tradeOpen && !tradeAction, canSell: positionShares > 0 });
 
   const isUp = priceStats.change >= 0;
   const upColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
   const downColor = colorBlindMode ? 'text-purple-500' : 'text-red-500';
   const cc = (pct: number) => (pct >= 0 ? upColor : downColor);
-  const cd = (pct: number) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(Math.abs(pct))}`;
+  const cd = (pct: number) => `${pct >= 0 ? '▲' : '▼'} ${formatChange(pct)}`;
 
   const stat = (label: string, value: ReactNode, cls = textClass) => (
     <div className="p-3 rounded-sm border light:border-amber-200 light:bg-white dark:border-zinc-800 dark:bg-zinc-900">
       <div className={`text-xs ${mutedClass} uppercase mb-1`}>{label}</div>
       <div className={`font-semibold text-sm ${cls}`}>{value}</div>
-    </div>
-  );
-
-  const tradeButtons = (
-    <div className="space-y-2 mt-3">
-      <div className="grid grid-cols-2 gap-2">
-        {(
-          [
-            ['buy', colorBlindMode ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700'],
-            ['sell', colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'],
-            ['short', 'border-2 border-orange-500 text-orange-500 hover:bg-orange-500/10'],
-            ['cover', 'border-2 border-blue-500 text-blue-500 hover:bg-blue-500/10'],
-          ] as [TradeAction, string][]
-        ).map(([action, cls]) => (
-          <button
-            key={action}
-            disabled={(action === 'sell' && positionShares === 0) || (action === 'cover' && !shortPosition?.shares)}
-            onClick={() => {
-              setTradeAction(action);
-              setShowTradeMenu(false);
-            }}
-            className={`py-1.5 text-xs font-semibold uppercase rounded-sm ${cls} text-white disabled:opacity-40`}
-          >
-            {action}
-          </button>
-        ))}
-      </div>
-      <button
-        onClick={() => setShowTradeMenu(false)}
-        className={`w-full py-1 text-xs ${mutedClass} hover:text-orange-500`}
-      >
-        Cancel
-      </button>
     </div>
   );
 
@@ -176,7 +148,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
                     priceStats.first > 0 ? ((hoveredChartPoint.price - priceStats.first) / priceStats.first) * 100 : 0;
                   return (
                     <div className={`text-sm font-semibold ${hChange >= 0 ? upColor : downColor}`}>
-                      {hChange >= 0 ? '▲' : '▼'} {formatChange(Math.abs(hChange))}
+                      {hChange >= 0 ? '▲' : '▼'} {formatChange(hChange)}
                       <span className={`text-xs ml-1 font-normal ${mutedClass}`}>
                         ({TIME_RANGES.find((r) => r.key === timeRange)?.label})
                       </span>
@@ -185,7 +157,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
                 })()
               ) : (
                 <div className={`text-sm font-semibold ${isUp ? upColor : downColor}`}>
-                  {isUp ? '▲' : '▼'} {formatChange(Math.abs(priceStats.change))}
+                  {isUp ? '▲' : '▼'} {formatChange(priceStats.change)}
                   <span className={`text-xs ml-1 font-normal ${mutedClass}`}>
                     ({TIME_RANGES.find((r) => r.key === timeRange)?.label})
                   </span>
@@ -193,24 +165,16 @@ const StockPage = ({ onTrade }: StockPageProps) => {
               )}
             </div>
           </div>
-          {user &&
-            (marketClosed ? (
-              <button
-                disabled
-                className="mt-3 px-4 py-1.5 border border-red-500/30 text-red-400 opacity-60 text-sm font-semibold uppercase rounded-sm cursor-not-allowed"
-              >
-                Market Closed
-              </button>
-            ) : !showTradeMenu ? (
-              <button
-                onClick={() => setShowTradeMenu(true)}
-                className="mt-3 px-4 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm"
-              >
-                Trade
-              </button>
-            ) : (
-              tradeButtons
-            ))}
+          {/* Phones trade from the bar pinned to the bottom instead. */}
+          {user && (
+            <StockTradeMenu
+              marketClosed={marketClosed}
+              canSell={positionShares > 0}
+              canCover={!!shortPosition?.shares}
+              colorBlindMode={colorBlindMode}
+              onAction={setTradeAction}
+            />
+          )}
         </div>
 
         {/* Chart */}
@@ -298,14 +262,26 @@ const StockPage = ({ onTrade }: StockPageProps) => {
         <EtfLinks character={character} memberOfETFs={memberOfETFs} />
       </div>
 
+      {user && (
+        <StickyTradeBar
+          price={currentPrice}
+          canSell={positionShares > 0}
+          canCover={!!shortPosition?.shares}
+          disabledReason={
+            marketClosed
+              ? 'Market closed'
+              : Date.now() < (marketData?.haltedTickers?.[ticker]?.resumeAt ?? 0)
+                ? 'Trading paused for a few minutes'
+                : null
+          }
+          onAction={setTradeAction}
+        />
+      )}
+
       {tradeAction && (
-        <TradeActionModal
+        <TradeLauncher
           character={character}
           action={tradeAction}
-          price={currentPrice}
-          holdings={positionShares}
-          shortPosition={shortPosition}
-          userCash={userData?.cash || 0}
           onTrade={onTrade}
           onClose={() => setTradeAction(null)}
         />

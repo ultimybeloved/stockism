@@ -28,6 +28,7 @@ vi.mock('../../../context/AppContext', () => ({
   useMarket: () => h.ctx,
 }));
 
+import { MemoryRouter } from 'react-router-dom';
 import ProfilePage from './ProfilePage';
 
 const baseCtx = () => ({
@@ -57,7 +58,11 @@ afterEach(cleanup);
 describe('ProfilePage', () => {
   it('renders the main sections for a signed-in user', async () => {
     h.ctx = baseCtx();
-    render(<ProfilePage onOpenCrewSelection={noop} onDeleteAccount={async () => {}} onOpenCustomization={noop} />);
+    render(
+      <MemoryRouter>
+        <ProfilePage onOpenCrewSelection={noop} onDeleteAccount={async () => {}} onOpenCustomization={noop} />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByText('TestTrader')).toBeInTheDocument();
     expect(screen.getByText('Portfolio Value')).toBeInTheDocument();
@@ -73,7 +78,11 @@ describe('ProfilePage', () => {
 
   it('shows a sign-in prompt when logged out', () => {
     h.ctx = { ...baseCtx(), user: null, userData: null };
-    render(<ProfilePage onOpenCrewSelection={noop} onDeleteAccount={async () => {}} onOpenCustomization={noop} />);
+    render(
+      <MemoryRouter>
+        <ProfilePage onOpenCrewSelection={noop} onDeleteAccount={async () => {}} onOpenCustomization={noop} />
+      </MemoryRouter>,
+    );
 
     expect(screen.getByText(/Please sign in/)).toBeInTheDocument();
   });
