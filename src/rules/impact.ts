@@ -27,11 +27,14 @@ export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3;
 export const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1;
 
 // Players the admin has confirmed as manipulators (Admin -> Market guard) move
-// the market this fraction of their impact. They still PAY the full impact and
-// it still counts in full against their daily allowance, so pushing a stock
-// costs them the same and gets them half the move. Server only: nothing tells
-// the player, and their trade preview still shows the price they will pay.
-export const CONFIRMED_MANIPULATOR_MARKET_MOVE = 0.5;
+// the market a random fraction of their impact, picked fresh for every order
+// between these two. They still PAY the full impact and it still counts in full
+// against their daily allowance, so pushing a stock costs them the same and
+// gets them half to three quarters of the move. Random rather than a flat half
+// so the shortfall reads as market noise instead of a clean, testable pattern.
+// Server only: nothing tells the player.
+export const CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN = 0.5;
+export const CONFIRMED_MANIPULATOR_MARKET_MOVE_MAX = 0.75;
 
 /**
  * The uncapped marginal cost of `newShares` on top of the shares this player

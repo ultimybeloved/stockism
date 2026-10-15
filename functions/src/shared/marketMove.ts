@@ -1,6 +1,7 @@
 // How far a player's orders move the market, as a fraction of their impact.
-// 1 for everyone except admin-confirmed manipulators, who get
-// CONFIRMED_MANIPULATOR_MARKET_MOVE. They are charged the full impact either
+// 1 for everyone except admin-confirmed manipulators, who get a random factor
+// between CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN and _MAX, new for every order.
+// They are charged the full impact either
 // way; only the price the market is left at changes.
 //
 // INTERNAL MODULE: used by every fill lane that a player's own order drives
@@ -11,7 +12,7 @@
 // so a trade costs no extra read and the confirm list never joins a
 // transaction's read set. A new confirmation takes effect within CACHE_MS.
 import * as admin from 'firebase-admin';
-import { CONFIRMED_MANIPULATOR_MARKET_MOVE } from './rules/impact';
+import { CONFIRMED_MANIPULATOR_MARKET_MOVE_MAX, CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN } from './rules/impact';
 import { reportError } from './sentry';
 
 const CACHE_MS = 5 * 60_000;
@@ -30,9 +31,12 @@ const loadConfirmedUids = async (): Promise<Set<string>> => {
   return cache.uids;
 };
 
-/** The market-move factor for this player's orders. */
-export const marketMoveFactor = async (uid: string | null | undefined): Promise<number> =>
-  uid && (await loadConfirmedUids()).has(uid) ? CONFIRMED_MANIPULATOR_MARKET_MOVE : 1;
+/** The market-move factor for one of this player's orders. */
+export const marketMoveFactor = async (uid: string | null | undefined): Promise<number> => {
+  if (!uid || !(await loadConfirmedUids()).has(uid)) return 1;
+  const span = CONFIRMED_MANIPULATOR_MARKET_MOVE_MAX - CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN;
+  return CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN + Math.random() * span;
+};
 
 /** Test hook: forget the cached list. */
 export const resetMarketMoveCache = () => {

@@ -115,7 +115,7 @@ export const executeTrade = cf().https.onCall(
       // Nothing here needs transaction state: it takes uid/ticker/action/now only,
       // which is why it can sit next to assertNoLiveSellOrders above.
       await assertVelocityLimits(uid, ticker, action, now);
-      // Confirmed manipulators move the market half as far (shared/marketMove.ts).
+      // Confirmed manipulators move the market 50-75% as far (shared/marketMove.ts).
       // Read out here for the same reason: no extra read inside the transaction.
       const moveFactor = await marketMoveFactor(uid);
 

@@ -215,7 +215,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 **Price manipulation**
 - Max 5% price move per trade, and max 10% cumulative move per player per ticker per day in each direction (down and up are counted separately).
 - New accounts have their price impact scaled down for their first 3 days, ramping from 10% to full.
-- Players the admin confirms as manipulators move the market half as far as their order would, but still pay the full-impact price and use up their daily impact allowance in full. So pushing a stock costs them the same and gets them half the move. Applies to market, limit and stop-loss orders, not the pooled opening auction. Takes effect within 5 minutes of confirming. Nothing tells the player.
+- Players the admin confirms as manipulators move the market a random 50% to 75% of what their order would (picked fresh for each order), but still pay the full-impact price and use up their daily impact allowance in full. So pushing a stock costs them the same and gets them half to three quarters of the move. Applies to market, limit and stop-loss orders, not the pooled opening auction. Takes effect within 5 minutes of confirming. Nothing tells the player.
 - 3 second cooldown between trades, 45 second minimum hold before a position can be closed.
 - Per ticker: 10 trades per rolling 24 hours, 15 per hour, 3 per 5-minute burst, and a 10 second gap between buys or shorts.
 - After 3 shorts on one ticker, further shorts wait for the oldest to age out of an 8-hour window.

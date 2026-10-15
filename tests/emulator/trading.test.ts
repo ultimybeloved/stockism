@@ -39,6 +39,8 @@ const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
+const { CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN, CONFIRMED_MANIPULATOR_MARKET_MOVE_MAX } =
+  require('../../functions/src/shared/rules/impact') as typeof import('../../functions/src/shared/rules/impact');
 const { resetMarketMoveCache } =
   require('../../functions/src/shared/marketMove') as typeof import('../../functions/src/shared/marketMove');
 const { executeTrade } =
@@ -2116,8 +2118,8 @@ async function testAdminActAs() {
 // ════════════════════════════════════════════════════════════════════════════
 // S. CONFIRMED MANIPULATORS
 // ════════════════════════════════════════════════════════════════════════════
-// A player the admin confirmed moves the market CONFIRMED_MANIPULATOR_MARKET_MOVE
-// of their impact, but pays the full impact and is charged it in full against
+// A player the admin confirmed moves the market a random 50-75% of their impact
+// (CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN/_MAX), but pays the full impact and is charged it in full against
 // the daily allowance. Everyone else is untouched.
 async function testConfirmedManipulator() {
   console.log('\nS. Confirmed manipulators');
@@ -2135,9 +2137,13 @@ async function testConfirmedManipulator() {
   await setUser('manip_s', { cash: 100000, holdings: {} });
   const manip = await ok({ ticker: T, action: 'buy', amount: 300 }, 'manip_s');
 
+  // Between the two bounds, with a cent of rounding either side.
+  const within = (moved: number, full: number) =>
+    moved >= full * CONFIRMED_MANIPULATOR_MARKET_MOVE_MIN - 0.011 &&
+    moved <= full * CONFIRMED_MANIPULATOR_MARKET_MOVE_MAX + 0.011;
   check(
-    'manipulator buy: the market moves half as far',
-    near(manip.newPrice - 100, (honest.newPrice - 100) / 2, 0.011),
+    'manipulator buy: the market moves 50-75% as far',
+    within(manip.newPrice - 100, honest.newPrice - 100),
     `honest ${honest.newPrice} manip ${manip.newPrice}`,
   );
   check(
@@ -2157,8 +2163,8 @@ async function testConfirmedManipulator() {
   const sold = await ok({ ticker: T, action: 'sell', amount: 300 }, 'manip_s');
   const exp = sellMath(100, 300);
   check(
-    'manipulator sell: half the drop, paid the full-impact price',
-    near(100 - sold.newPrice, (100 - exp.newPrice) / 2, 0.011) && near(sold.executionPrice, exp.exec, 0.011),
+    'manipulator sell: 50-75% of the drop, paid the full-impact price',
+    within(100 - sold.newPrice, 100 - exp.newPrice) && near(sold.executionPrice, exp.exec, 0.011),
     `newPrice ${sold.newPrice} exec ${sold.executionPrice} vs ${exp.newPrice} / ${exp.exec}`,
   );
 
