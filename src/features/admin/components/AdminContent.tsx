@@ -9,6 +9,7 @@ import MoneyFlow from './money/MoneyFlow';
 import DiscordActivity from './discordActivity/DiscordActivity';
 import MarketGuard from './guard/MarketGuard';
 import BotActivity from './bots/BotActivity';
+import WeeklyChanges from './weekly/WeeklyChanges';
 import IpoTab from './IpoTab';
 import PredictionsTab from './PredictionsTab';
 import HoldersTab from './HoldersTab';
@@ -139,6 +140,8 @@ const AdminContent = ({
       return <MarketGuard />;
     case 'bots':
       return <BotActivity />;
+    case 'weekly':
+      return <WeeklyChanges />;
     case 'ipo':
       return <IpoTab {...common} {...h.ipo} setMessage={setMessage} />;
     case 'predictions':
