@@ -15,6 +15,7 @@ type WatchlistTabProps = AdminCommonProps &
     altScanResult: ReturnType<typeof useAltScan>['result'];
     runAltScan: ReturnType<typeof useAltScan>['runScan'];
     markAlertReviewed: ReturnType<typeof useAltScan>['markReviewed'];
+    markAllAlertsReviewed: ReturnType<typeof useAltScan>['markAllReviewed'];
   };
 
 const WatchlistTab = ({
@@ -57,6 +58,7 @@ const WatchlistTab = ({
   altScanResult,
   runAltScan,
   markAlertReviewed,
+  markAllAlertsReviewed,
 }: WatchlistTabProps) => {
   const { darkMode } = useTheme();
   return (
@@ -171,6 +173,7 @@ const WatchlistTab = ({
         mutedClass={mutedClass}
         alerts={watchlistAlerts}
         markAlertReviewed={markAlertReviewed}
+        markAllAlertsReviewed={markAllAlertsReviewed}
       />
 
       {/* Refresh button */}

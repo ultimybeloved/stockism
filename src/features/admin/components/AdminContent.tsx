@@ -199,6 +199,7 @@ const AdminContent = ({
           altScanResult={h.altScan.result}
           runAltScan={h.altScan.runScan}
           markAlertReviewed={h.altScan.markReviewed}
+          markAllAlertsReviewed={h.altScan.markAllReviewed}
         />
       );
     case 'diagnostic':

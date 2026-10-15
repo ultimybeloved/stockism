@@ -27,13 +27,31 @@ const alertColor = (alert: WatchlistAlert) => {
 type WatchlistAlertsProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   alerts: WatchlistAlert[];
   markAlertReviewed: (alertId: string) => void;
+  markAllAlertsReviewed: () => void;
 };
 
-const WatchlistAlerts = ({ textClass, mutedClass, alerts, markAlertReviewed }: WatchlistAlertsProps) => {
+const WatchlistAlerts = ({
+  textClass,
+  mutedClass,
+  alerts,
+  markAlertReviewed,
+  markAllAlertsReviewed,
+}: WatchlistAlertsProps) => {
   if (alerts.length === 0) return null;
+  const unreviewed = alerts.filter((a) => a.reviewed === false).length;
   return (
     <div className="p-3 rounded-sm light:bg-yellow-50 dark:bg-slate-700/50">
-      <h3 className={`text-sm font-bold mb-2 ${textClass}`}>Recent Alerts ({alerts.length})</h3>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h3 className={`text-sm font-bold ${textClass}`}>Recent Alerts ({alerts.length})</h3>
+        {unreviewed > 0 && (
+          <button
+            onClick={markAllAlertsReviewed}
+            className="px-2 py-1 text-xs font-semibold rounded-sm bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            Mark all as reviewed
+          </button>
+        )}
+      </div>
       <div className="space-y-1 max-h-60 overflow-y-auto">
         {alerts.map((alert) => (
           <div key={alert.id} className={`text-xs p-1.5 rounded light:bg-white dark:bg-slate-800 ${mutedClass}`}>

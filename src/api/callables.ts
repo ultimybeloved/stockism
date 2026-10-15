@@ -228,7 +228,10 @@ export const getIpTrackingHealthFunction = callable<void, Api.IpHealthReport>('g
 export const getRecentSignupReportFunction = callable<{ hoursBack: number }, Api.SignupReport>('getRecentSignupReport');
 // Admin: proactive alt detection
 export const triggerAltScanFunction = callable<{ dryRun: boolean }, Api.AltScanResponse>('triggerAltScan');
-export const reviewWatchlistAlertFunction = callable<{ alertId: string }>('reviewWatchlistAlert');
+export const reviewWatchlistAlertFunction = callable<
+  { alertId: string } | { all: true },
+  { success: boolean; marked?: number }
+>('reviewWatchlistAlert');
 // Price alerts
 export const createPriceAlertFunction = callable<Api.CreatePriceAlertRequest>('createPriceAlert');
 export const deletePriceAlertFunction = callable<{ alertId: string }>('deletePriceAlert');

@@ -307,18 +307,31 @@ export const triggerAltScan = cf({ timeoutSeconds: 540, memory: '1GB' }).https.o
 
 /**
  * Marks an alert as dealt with so it stops counting toward the admin badge.
+ * `all: true` marks every unreviewed alert at once.
  */
 export const reviewWatchlistAlert = cf().https.onCall(
-  withAdminLog('review_watchlist_alert', async (data: { alertId?: unknown } | null, context) => {
+  withAdminLog('review_watchlist_alert', async (data: { alertId?: unknown; all?: unknown } | null, context) => {
     requireAdmin(context, 'Admin only.');
-    const { alertId } = data || {};
+    const { alertId, all } = data || {};
+    const stamp = { reviewed: true, reviewedAt: Date.now() };
+    if (all === true) {
+      let marked = 0;
+      // Pages of 400 keep each batch under Firestore's 500-write limit.
+      for (;;) {
+        const snap = await db.collection('watchlist_alerts').where('reviewed', '==', false).limit(400).get();
+        if (snap.empty) break;
+        const batch = db.batch();
+        snap.docs.forEach((d) => batch.update(d.ref, stamp));
+        await batch.commit();
+        marked += snap.size;
+        if (snap.size < 400) break;
+      }
+      return { success: true, marked };
+    }
     if (!alertId || typeof alertId !== 'string') {
       throw new functions.https.HttpsError('invalid-argument', 'alertId required');
     }
-    await db.collection('watchlist_alerts').doc(alertId).update({
-      reviewed: true,
-      reviewedAt: Date.now(),
-    });
+    await db.collection('watchlist_alerts').doc(alertId).update(stamp);
     return { success: true };
   }),
 );

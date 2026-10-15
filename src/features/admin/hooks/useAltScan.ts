@@ -44,5 +44,15 @@ export function useAltScan(showMessage: ShowMessage, onAfterScan?: () => Promise
     }
   };
 
-  return { scanning, result, runScan, markReviewed };
+  const markAllReviewed = async () => {
+    try {
+      const res = await reviewWatchlistAlertFunction({ all: true });
+      showMessage('success', `Marked ${res.data.marked ?? 0} alert(s) reviewed.`);
+      if (onAfterScan) await onAfterScan();
+    } catch (err) {
+      showMessage('error', `Could not mark reviewed: ${errorMessage(err)}`);
+    }
+  };
+
+  return { scanning, result, runScan, markReviewed, markAllReviewed };
 }
