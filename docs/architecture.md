@@ -297,7 +297,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/discord/discord.ts` | Discord OAuth and account linking (≤352 lines) |
 | `functions/src/discord/discordInteractions.ts` | Discord slash command webhook handler |
 | `functions/src/discord/discordActivityLog.ts` | **Internal module.** `recordDiscordActivity`: one `discordActivity/{discordId}` doc per bot user (commands, buttons, counts), stamped by discordInteractions |
-| `functions/src/admin/admin.ts` | banUser, fixBasePriceCliffs, createBots |
+| `functions/src/admin/admin.ts` | banUser, fixBasePriceCliffs |
 | `functions/src/admin/adminBackups.ts` | Market backup/restore/retention (restoreBackup overwrites live data) |
 | `functions/src/admin/adminOps.ts` | Small direct admin ops: grant/revoke achievements and cosmetics, reinstate, set cash, broadcast |
 | `functions/src/admin/adminUserEdit.ts` | Direct edits to one player's game state: crew, achievements, margin, a single holding. Skips player-facing penalties/cooldowns on purpose |

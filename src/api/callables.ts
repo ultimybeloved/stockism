@@ -25,7 +25,6 @@ export const purchaseBundleFunction = callable<
   { bundleId: string },
   { success: boolean; price: number; items: string[] }
 >('purchaseBundle');
-export const createBotsFunction = callable<Record<string, never>, Api.CreateBotsResponse>('createBots');
 export const fixBasePriceCliffsFunction = callable<Record<string, never>, Api.FixCliffsResponse>('fixBasePriceCliffs');
 export const triggerManualBackupFunction = callable<void, { filename?: string }>('triggerManualBackup');
 export const listBackupsFunction = callable<void, { backups?: Api.BackupFile[]; total?: number }>('listBackups');

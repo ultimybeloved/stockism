@@ -399,11 +399,6 @@ export interface RemoveCoordProfitRequest {
   preferTickers?: string[];
 }
 
-export interface CreateBotsResponse {
-  created: number;
-  skipped: number;
-}
-
 export interface SpikeVictim {
   userId: string;
   displayName: string;
