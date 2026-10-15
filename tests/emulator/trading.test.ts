@@ -21,6 +21,8 @@
 //   O. Circuit breaker (the only cap that looks at the stock, not the trader)
 //   P. Wash rule (no buying back a stock you just pushed down)
 //   Q. Oversized order impact (market move capped, trader pays the real cost)
+//   R. Admin trading on a player's account
+//   S. Confirmed manipulators (market moves half, they still pay in full)
 
 import { it } from 'vitest';
 import { createRequire } from 'module';
@@ -37,6 +39,8 @@ const db = admin.firestore();
 
 // Modules loaded AFTER admin.initializeApp so their top-level admin.firestore()
 // binds to the emulator.
+const { resetMarketMoveCache } =
+  require('../../functions/src/shared/marketMove') as typeof import('../../functions/src/shared/marketMove');
 const { executeTrade } =
   require('../../functions/src/trading/trading') as typeof import('../../functions/src/trading/trading');
 const { checkShortMarginCalls, checkMarginLending } =
@@ -2110,6 +2114,59 @@ async function testAdminActAs() {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// S. CONFIRMED MANIPULATORS
+// ════════════════════════════════════════════════════════════════════════════
+// A player the admin confirmed moves the market CONFIRMED_MANIPULATOR_MARKET_MOVE
+// of their impact, but pays the full impact and is charged it in full against
+// the daily allowance. Everyone else is untouched.
+async function testConfirmedManipulator() {
+  console.log('\nS. Confirmed manipulators');
+  await db
+    .collection('botState')
+    .doc('manipulators')
+    .set({ uids: { manip_s: { name: 'Manip' } } });
+  resetMarketMoveCache();
+
+  await seedMarket({ [T]: 100 });
+  await setUser('honest_s', { cash: 100000, holdings: {} });
+  const honest = await ok({ ticker: T, action: 'buy', amount: 300 }, 'honest_s');
+
+  await seedMarket({ [T]: 100 });
+  await setUser('manip_s', { cash: 100000, holdings: {} });
+  const manip = await ok({ ticker: T, action: 'buy', amount: 300 }, 'manip_s');
+
+  check(
+    'manipulator buy: the market moves half as far',
+    near(manip.newPrice - 100, (honest.newPrice - 100) / 2, 0.011),
+    `honest ${honest.newPrice} manip ${manip.newPrice}`,
+  );
+  check(
+    'manipulator buy: they pay the same price an honest buyer does',
+    near(manip.executionPrice, honest.executionPrice),
+    `${manip.executionPrice} vs ${honest.executionPrice}`,
+  );
+  const hist = (await getUser('manip_s')).tickerTradeHistory[T].buy;
+  check(
+    'manipulator buy: the full impact counts against their daily allowance',
+    near(hist[hist.length - 1].impact, (honest.newPrice - 100) / 100, 1e-3),
+    hist,
+  );
+
+  await seedMarket({ [T]: 100 });
+  await setUser('manip_s', { cash: 0, holdings: { [T]: 1000 } });
+  const sold = await ok({ ticker: T, action: 'sell', amount: 300 }, 'manip_s');
+  const exp = sellMath(100, 300);
+  check(
+    'manipulator sell: half the drop, paid the full-impact price',
+    near(100 - sold.newPrice, (100 - exp.newPrice) / 2, 0.011) && near(sold.executionPrice, exp.exec, 0.011),
+    `newPrice ${sold.newPrice} exec ${sold.executionPrice} vs ${exp.newPrice} / ${exp.exec}`,
+  );
+
+  await db.collection('botState').doc('manipulators').delete();
+  resetMarketMoveCache();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 async function main() {
   if (isWeeklyTradingHalt()) {
     console.error('Cannot run: the weekly trading halt (Thursday 13:00–21:00 UTC) is active right now.');
@@ -2135,6 +2192,7 @@ async function main() {
   await testWashRule();
   await testOversizedImpact();
   await testAdminActAs();
+  await testConfirmedManipulator();
 }
 
 it('executeTrade and the scanners', main);

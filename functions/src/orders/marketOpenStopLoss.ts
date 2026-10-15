@@ -39,6 +39,7 @@ import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 import { computePriceUpdates, buildTrailingEntries } from '../trading/tradePricing';
 import { pruneHistoryMap, appendTradeEntries } from '../trading/tradeState';
 import { readOrderNetwork, networkImpactSpent, writeNetworkFill } from './orderNetwork';
+import { marketMoveFactor } from '../shared/marketMove';
 
 /**
  * Fill one stop loss inside a transaction. Returns what the post-commit
@@ -57,11 +58,13 @@ const executeSweepFill = async (
     orderDoc,
     marketRef,
     openingPrice,
+    marketMove,
   }: {
     order: LimitOrder;
     orderDoc: admin.firestore.QueryDocumentSnapshot;
     marketRef: admin.firestore.DocumentReference;
     openingPrice: number;
+    marketMove: number;
   },
 ) => {
   const userRef = db.collection('users').doc(order.userId);
@@ -123,7 +126,7 @@ const executeSweepFill = async (
     traderMarginalImpact(freshPrice, fillShares, cumVol, liquidityFor(order.ticker)) *
     getAccountAgeImpactFactor(userData);
 
-  const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact));
+  const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact * marketMove));
   // Seller pays their own impact, reduced by exit loyalty; the market moves only
   // the capped amount. Same split as every other sell lane.
   const loyalty = exitLoyaltyDiscount(userData.holdingCohorts?.[order.ticker], fillShares, now);
@@ -273,8 +276,10 @@ export const runStopLossSweep = async ({
     if (!openingPrice || openingPrice > order.limitPrice!) continue;
 
     try {
+      // Read before the transaction, never inside it (cached; shared/marketMove.ts).
+      const marketMove = await marketMoveFactor(order.userId);
       const fill = await db.runTransaction((transaction) =>
-        executeSweepFill(transaction, { order, orderDoc, marketRef, openingPrice }),
+        executeSweepFill(transaction, { order, orderDoc, marketRef, openingPrice, marketMove }),
       );
 
       // Crew mission progress (fire-and-forget, same as executeTrade)

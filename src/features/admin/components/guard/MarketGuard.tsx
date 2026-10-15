@@ -16,7 +16,7 @@ const MarketGuard = () => {
 
   const setConfirmed = async (uid: string, name: string, confirmed: boolean) => {
     const question = confirmed
-      ? `Confirm ${name} as a manipulator? The bot will push back on their pumps and dumps, and the stabilizer will stop handing them profit.`
+      ? `Confirm ${name} as a manipulator? Their trades will move prices half as much while they still pay full price, the bot will push back on their pumps and dumps, and the stabilizer will stop handing them profit.`
       : `Take ${name} off the confirmed list?`;
     if (!window.confirm(question)) return;
     setBusy(uid);

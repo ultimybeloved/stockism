@@ -34,6 +34,8 @@ export interface ComputeArgs {
   prices: Record<string, number>;
   effectiveSpread: number;
   ageImpactFactor: number;
+  /** Share of the impact the MARKET takes (marketMove.ts). The trader is still charged all of it. */
+  marketMoveFactor?: number;
   cumulativeVolume: number;
   cumulativeDailyImpact: number;
   ipCumulativeDailyImpact: number;
@@ -68,6 +70,7 @@ export function computeBuy({
   prices,
   effectiveSpread,
   ageImpactFactor,
+  marketMoveFactor = 1,
   cumulativeVolume,
   cumulativeDailyImpact,
   ipCumulativeDailyImpact,
@@ -100,7 +103,7 @@ export function computeBuy({
     );
   }
 
-  const newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
+  const newPrice = Math.round((currentPrice + priceImpact * marketMoveFactor) * 100) / 100;
   // The buyer pays against their own (uncapped, bounded) impact, so an oversized
   // order stops being cheaper per share than easing in.
   const buyerMid = Math.round((currentPrice + buyerImpact) * 100) / 100;
@@ -164,6 +167,7 @@ export function computeSell({
   currentPrice,
   effectiveSpread,
   ageImpactFactor,
+  marketMoveFactor = 1,
   cumulativeVolume,
   cumulativeDailyImpact,
   ipCumulativeDailyImpact,
@@ -230,7 +234,7 @@ export function computeSell({
   priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);
 
   // The market takes the full impact — a big exit still shows on the chart.
-  const newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
+  const newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact * marketMoveFactor) * 100) / 100);
 
   // Exit loyalty: a long-held position is priced against a reduced impact, so
   // the seller keeps more without the market being told a smaller story. At a
@@ -272,6 +276,7 @@ export function computeShort({
   prices,
   effectiveSpread,
   ageImpactFactor,
+  marketMoveFactor = 1,
   cumulativeVolume,
   cumulativeDailyImpact,
   ipCumulativeDailyImpact,
@@ -361,7 +366,7 @@ export function computeShort({
     );
   }
 
-  const newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact) * 100) / 100);
+  const newPrice = Math.max(MIN_PRICE, Math.round((currentPrice - priceImpact * marketMoveFactor) * 100) / 100);
   const shorterMid = Math.max(MIN_PRICE, Math.round((currentPrice - shorterImpact) * 100) / 100);
   const executionPrice = Math.max(MIN_PRICE, shorterMid * (1 - effectiveSpread / 2)); // Bid price
   const totalCost = executionPrice * amount;
@@ -410,6 +415,7 @@ export function computeCover({
   currentPrice,
   effectiveSpread,
   ageImpactFactor,
+  marketMoveFactor = 1,
   cumulativeVolume,
   cumulativeDailyImpact,
   ipCumulativeDailyImpact,
@@ -455,7 +461,7 @@ export function computeCover({
   const remainingDailyImpact = Math.max(0, MAX_DAILY_IMPACT - effectiveDailyImpact);
   priceImpact = Math.min(priceImpact, currentPrice * remainingDailyImpact);
 
-  const newPrice = Math.round((currentPrice + priceImpact) * 100) / 100;
+  const newPrice = Math.round((currentPrice + priceImpact * marketMoveFactor) * 100) / 100;
   const covererMid = Math.round((currentPrice + covererImpact) * 100) / 100;
   const executionPrice = covererMid * (1 + effectiveSpread / 2); // Ask price
   const totalCost = executionPrice * amount;

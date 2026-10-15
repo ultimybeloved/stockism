@@ -36,6 +36,7 @@ import {
   shrinkBuyToCash,
   readActionHistory,
 } from './limitOrderGuards';
+import { marketMoveFactor } from '../shared/marketMove';
 import { computeImpact, applyBuyFill, applySellFill, markOrderFilled, buyAskPrice } from './limitOrderFill';
 import { notifyCanceled, notifyExpired, publishFill } from './limitOrderEffects';
 import { readOrderNetwork, networkImpactSpent, assertNetworkSlot, writeNetworkFill } from './orderNetwork';
@@ -77,6 +78,7 @@ const fillOrder = async (
     now,
     currentPrice,
     priceHistory,
+    marketMove,
   }: {
     order: LimitOrder;
     orderId: string;
@@ -84,6 +86,7 @@ const fillOrder = async (
     now: number;
     currentPrice: number;
     priceHistory: Record<string, PricePoint[] | undefined>;
+    marketMove: number;
   },
 ) => {
   const orderRef = db.collection('limitOrders').doc(orderId);
@@ -172,6 +175,7 @@ const fillOrder = async (
     traderImpact,
     impactPercent,
     fillSource,
+    marketMove,
   };
   const { executedPrice, tradeValue, historyEntry, trailingEntries, priceUpdates } =
     effectiveType === 'BUY' ? applyBuyFill(transaction, ctx) : applySellFill(transaction, ctx);
@@ -321,8 +325,10 @@ export const runLimitOrderCheck = async () => {
 
         let fill;
         try {
+          // Read before the transaction, never inside it (cached; shared/marketMove.ts).
+          const marketMove = await marketMoveFactor(order.userId);
           fill = await db.runTransaction((transaction) =>
-            fillOrder(transaction, { order, orderId, marketRef, now, currentPrice, priceHistory }),
+            fillOrder(transaction, { order, orderId, marketRef, now, currentPrice, priceHistory, marketMove }),
           );
         } catch (transactionError) {
           const msg = (transactionError as Error).message || '';

@@ -27,6 +27,13 @@ export const ETF_BID_ASK_SPREAD = 0.001; // 0.1% spread for ETFs (diversified = 
 export const NEW_ACCOUNT_IMPACT_PERIOD_DAYS = 3;
 export const NEW_ACCOUNT_MIN_IMPACT_FACTOR = 0.1;
 
+// Players the admin has confirmed as manipulators (Admin -> Market guard) move
+// the market this fraction of their impact. They still PAY the full impact and
+// it still counts in full against their daily allowance, so pushing a stock
+// costs them the same and gets them half the move. Server only: nothing tells
+// the player, and their trade preview still shows the price they will pay.
+export const CONFIRMED_MANIPULATOR_MARKET_MOVE = 0.5;
+
 /**
  * The uncapped marginal cost of `newShares` on top of the shares this player
  * already moved in the rolling window (impact is a square-root curve, so the

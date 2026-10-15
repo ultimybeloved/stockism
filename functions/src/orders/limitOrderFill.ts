@@ -49,6 +49,8 @@ export interface FillCtx {
   traderImpact: number;
   impactPercent: number;
   fillSource: string;
+  /** Share of the impact the market takes (shared/marketMove.ts); 1 unless the player is a confirmed manipulator. */
+  marketMove?: number;
 }
 
 /** A committed fill: the price paid and what goes into the connection's history. */
@@ -205,10 +207,11 @@ export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: Fill
     traderImpact,
     impactPercent,
     fillSource,
+    marketMove = 1,
   } = ctx;
   const ticker = order.ticker;
 
-  const newMarketPrice = round2(freshPrice + effectiveImpact);
+  const newMarketPrice = round2(freshPrice + effectiveImpact * marketMove);
   // Buyer pays their own impact, market moves the capped one.
   const askPrice = buyAskPrice(freshPrice, traderImpact, ticker);
   const executedPrice = round2(askPrice);
@@ -325,10 +328,11 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
     traderImpact,
     impactPercent,
     fillSource,
+    marketMove = 1,
   } = ctx;
   const ticker = order.ticker;
 
-  const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact));
+  const newMarketPrice = Math.max(0.01, round2(freshPrice - effectiveImpact * marketMove));
 
   // Seller is priced against their own impact, reduced by exit loyalty; the
   // market still moves only the capped amount.

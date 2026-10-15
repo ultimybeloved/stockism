@@ -57,6 +57,7 @@ import {
 } from './tradeGuards';
 import { computeBuy, computeSell, computeShort, computeCover } from './tradeActions';
 import { computePriceUpdates, buildTrailingEntries } from './tradePricing';
+import { marketMoveFactor } from '../shared/marketMove';
 import {
   readIpTradeData,
   pruneHistoryMap,
@@ -114,6 +115,9 @@ export const executeTrade = cf().https.onCall(
       // Nothing here needs transaction state: it takes uid/ticker/action/now only,
       // which is why it can sit next to assertNoLiveSellOrders above.
       await assertVelocityLimits(uid, ticker, action, now);
+      // Confirmed manipulators move the market half as far (shared/marketMove.ts).
+      // Read out here for the same reason: no extra read inside the transaction.
+      const moveFactor = await marketMoveFactor(uid);
 
       // Execute trade in an atomic transaction. Every trade writes market/current,
       // so simultaneous trades collide even on unrelated tickers; a bounded retry
@@ -238,6 +242,7 @@ export const executeTrade = cf().https.onCall(
             prices,
             effectiveSpread,
             ageImpactFactor,
+            marketMoveFactor: moveFactor,
             cumulativeVolume,
             cumulativeDailyImpact,
             ipCumulativeDailyImpact,
