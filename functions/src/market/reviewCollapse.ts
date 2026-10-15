@@ -9,7 +9,7 @@
 // It has to land before the 20:55 lock and the 20:56 opening auction, or the
 // review would appear on the chart AFTER the fills that were priced off it.
 
-import { cf, requireAdmin } from '../shared/fnConfig';
+import { cf } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
@@ -25,18 +25,6 @@ const haltWindowFor = (when: Date) => {
     haltStart: dayStart + WEEKLY_HALT_START_MINUTE * 60 * 1000,
     haltEnd: dayStart + WEEKLY_HALT_END_MINUTE * 60 * 1000,
   };
-};
-
-// Most recent Thursday halt, mirroring getMostRecentHaltWindow on the client.
-const mostRecentHaltWindow = () => {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const d = new Date(now);
-  if (!(day === 4 && utcMins >= WEEKLY_HALT_START_MINUTE)) {
-    d.setUTCDate(d.getUTCDate() - ((day - 4 + 7) % 7 || 7));
-  }
-  return haltWindowFor(d);
 };
 
 /**
@@ -79,16 +67,3 @@ export const collapseReviewHistory = cf({ timeoutSeconds: 300 })
     }
     return null;
   });
-
-/**
- * Admin re-run, for a failed scheduled pass. Idempotent: a stock already folded
- * to one point has nothing left to fold.
- */
-export const triggerCollapseReviewHistory = cf({ timeoutSeconds: 300 }).https.onCall(
-  async (_data: unknown, context) => {
-    requireAdmin(context);
-
-    const result = await finalizeReview(mostRecentHaltWindow());
-    return { success: true, ...result };
-  },
-);

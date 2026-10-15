@@ -1,6 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import type * as Api from './types';
+import type * as Panel from './adminPanelTypes';
 
 // Every Cloud Function the site calls, typed as callable<Request, Response>('name').
 // The shapes live in src/api/types.ts. Errors are classified by src/utils/errors.ts
@@ -54,10 +55,6 @@ export const triggerDailyMarketSummaryFunction = callable<Record<string, never>,
 export const triggerReviewChangesFunction = callable<Record<string, never>, { tickerCount?: number }>(
   'triggerReviewChanges',
 );
-export const triggerCollapseReviewHistoryFunction = callable<
-  Record<string, never>,
-  { tidied?: number; folded?: number }
->('triggerCollapseReviewHistory');
 export const triggerDailyFreeStockFunction = callable<Record<string, never>, Api.JobResult>('triggerDailyFreeStock');
 // Leaderboard
 export const getLeaderboardFunction = callable<Api.GetLeaderboardRequest, Api.GetLeaderboardResponse>('getLeaderboard');
@@ -213,10 +210,6 @@ export const adminTransferAccountFunction = callable<
   { fromUserId: string; toUserId: string },
   { success: boolean; fromName: string | null }
 >('adminTransferAccount');
-// Admin: repair spike victim accounts
-export const repairSpikeVictimsFunction = callable<Api.SpikeRepairRequest, Api.SpikeRepairResponse>(
-  'repairSpikeVictims',
-);
 // Admin: rename ticker across all data
 export const renameTickerFunction = callable<Api.RenameTickerRequest, Api.RenameTickerResponse>('renameTicker');
 export const splitStockFunction = callable<Api.SplitStockRequest, Api.SplitStockResponse>('splitStock');
@@ -240,25 +233,14 @@ export const reviewWatchlistAlertFunction = callable<{ alertId: string }>('revie
 // Price alerts
 export const createPriceAlertFunction = callable<Api.CreatePriceAlertRequest>('createPriceAlert');
 export const deletePriceAlertFunction = callable<{ alertId: string }>('deletePriceAlert');
-// Admin: ticker rollback diagnostic
-export const diagnoseTickerRollbackFunction = callable<
-  { ticker: string; startTimestamp: number },
-  Api.TickerDiagnosticResponse
->('diagnoseTickerRollback');
-// Admin: ticker recovery (clawback + price reset)
-export const recoverTickerFunction = callable<Api.TickerRecoveryRequest, Api.TickerRecoveryResponse>('recoverTicker');
 // Admin: drop audit
 export const auditUserDropsFunction = callable<{ uid?: string; username?: string }, Api.DropAuditResponse>(
   'auditUserDrops',
 );
 // Dividends
 export const runDividendPayoutNowFunction = callable<void, Api.DividendRunResponse>('runDividendPayoutNow');
-// Username reservation audit + portfolio-history repair
+// Username reservation audit
 export const auditUsernamesFunction = callable<Record<string, never>, Api.AuditUsernamesResponse>('migrateUsernames');
-export const reconstructPortfolioHistoryFunction = callable<
-  { uid?: string; startAfterUid?: string },
-  Api.ReconstructHistoryResponse
->('reconstructPortfolioHistory');
 // Admin: initialize prices for new characters
 export const initNewCharacterPricesFunction = callable<void, { initialized: { ticker: string }[]; message: string }>(
   'initNewCharacterPrices',
@@ -274,10 +256,6 @@ export const triggerWeeklyMarketSummaryFunction = callable<
   Api.JobResult & { posted?: boolean; weeklyTrades?: number; activeUsers?: number }
 >('triggerWeeklyMarketSummary');
 // Admin: write the trade records that old limit/stop-loss/pre-market fills never wrote
-export const backfillFillTradeRecordsFunction = callable<
-  Record<string, never>,
-  { limitOrders?: { written?: number }; preMarketOrders?: { written?: number } }
->('backfillFillTradeRecords');
 
 // Admin: Discord message manager (post / edit / delete bot messages from the panel)
 export const adminListDiscordChannelsFunction = callable<void, { channels?: Api.DiscordChannel[]; reason?: string }>(
@@ -304,3 +282,18 @@ export const adminImportDiscordMessageFunction = callable<
 export const adminListGiftsFunction = callable<Record<string, never>, Api.GiftLogResponse>('adminListGifts');
 export const adminListLogFunction = callable<{ limit?: number }, Api.AdminLogResponse>('adminListLog');
 export const adminListCashLogFunction = callable<Record<string, never>, Api.CashLogResponse>('adminListCashLog');
+
+// Admin command panel (functions/src/admin/adminPlayerFile.ts, adminDashboard.ts,
+// adminMoneyFlow.ts, adminBulk.ts)
+export const adminGetPlayerFileFunction = callable<{ uid: string }, Panel.PlayerFileResponse>('adminGetPlayerFile');
+export const adminAddPlayerNoteFunction = callable<{ uid: string; text: string }, { note: Panel.PlayerNote }>(
+  'adminAddPlayerNote',
+);
+export const adminDeletePlayerNoteFunction = callable<{ uid: string; noteId: string }, { ok: boolean }>(
+  'adminDeletePlayerNote',
+);
+export const adminDashboardFunction = callable<void, Panel.DashboardResponse>('adminDashboard');
+export const adminWelcomeTrackerFunction = callable<void, Panel.WelcomeTrackerResponse>('adminWelcomeTracker');
+export const adminDiscordActivityFunction = callable<void, Panel.DiscordActivityResponse>('adminDiscordActivity');
+export const adminMoneyFlowFunction = callable<{ days: number }, Panel.MoneyFlowResponse>('adminMoneyFlow');
+export const adminBulkActionFunction = callable<Panel.BulkActionRequest, Panel.BulkActionResponse>('adminBulkAction');

@@ -190,7 +190,7 @@ preference and survives on purpose.
 **Shared game rules** (`src/rules/*.ts` and their `functions/src/shared/rules/` copies)
 - Any rule the website previews and the server enforces (taxes, caps, ramps, price maths) lives ONCE in `src/rules/`. `npm run sync:chars` copies every file there to `functions/src/shared/rules/`; `npm run check:sync` (CI) fails if a copy is stale or orphaned. Never edit the copies.
 - A rule module stays pure: no Firebase, no React, and imports only from inside `src/rules/` (or `../characters` / `../crews`, which sit at the same relative path on both sides). Constants files on both sides re-export from it so existing imports keep working.
-- Modules: `rules/ladder` (caps, ramp, house chips, withdrawal tax), `rules/lmsr` (event-market pricing), `rules/activity` (last-active time), `rules/impact` (price impact, liquidity, spreads, order size, new-account ramp), `rules/money` (round2), `rules/equity` (exit equity, total invested), `rules/seasons` (tier thresholds, divisions, default rules), `rules/seasonMoney` (season margin averaging, money in, week maths), `rules/economy` (starting cash, check-in rewards, order sizes, margin gates, daily limits).
+- Modules: `rules/ladder` (caps, ramp, house chips, withdrawal tax), `rules/lmsr` (event-market pricing), `rules/activity` (last-active time), `rules/impact` (price impact, liquidity, spreads, order size, new-account ramp), `rules/money` (round2), `rules/equity` (exit equity, total invested), `rules/seasons` (tier thresholds, divisions, default rules), `rules/seasonMoney` (season margin averaging, money in, week maths), `rules/economy` (starting cash, check-in rewards, order sizes, margin gates, daily limits), `rules/ledgerFlow` (money flow report: daily rollup and source groups).
 
 **Characters & crews** (`src/characters.ts` + `src/crews.ts` and their `functions/` copies)
 - `src/characters.ts` and `src/crews.ts` are the **only files you ever edit**. Never touch `functions/src/shared/characters.ts` or `functions/src/shared/crews.ts` directly — both are generated copies.
@@ -267,7 +267,7 @@ Quick reference so you know where to look and where to add things.
 | `src/constants/achievements.ts` | Achievement definitions |
 | `src/constants/cosmetics.ts` | Cosmetic item definitions |
 | `src/characters.ts` | **Source of truth** for all character/ETF data — edit here only |
-| `src/features/admin/` | Admin panel: `components/` (AdminPanel.tsx orchestrator + tabs), `hooks/` (state + handlers, one hook per domain, spread into tabs as props), `utils/` (pure helpers) |
+| `src/features/admin/` | Admin command panel (full screen, desktop only, terminal look from `src/styles/adminTerminal.css`): `components/` (AdminPanel.tsx owns the hooks and sidebar, AdminContent.tsx draws the section; `shell/` UI kit and `terminal.ts` tokens; `home/`, `players/`, `player/` (the player file), `welcome/`, `money/`, `discordActivity/`, plus the older tabs), `hooks/` (state + handlers, one hook per domain), `utils/` (pure helpers; `adminNav.ts` lets any screen open a player file via PlayerLink) |
 | `src/features/ladder/` | Ladder game: `components/` (board, side panel, modals, shared style constants), `hooks/` (data listeners, game flow, banners, DOM animation) |
 | `src/shared/components/layout/` | Header, Footer, MobileBottomNav, Layout wrapper |
 
@@ -295,12 +295,11 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/market/alerts.ts` | Price alerts |
 | `functions/src/discord/discord.ts` | Discord OAuth and account linking (≤352 lines) |
 | `functions/src/discord/discordInteractions.ts` | Discord slash command webhook handler |
-| `functions/src/discord/discordAdmin.ts` | Discord-triggered admin diagnostics and recovery tools |
+| `functions/src/discord/discordActivityLog.ts` | **Internal module.** `recordDiscordActivity`: one `discordActivity/{discordId}` doc per bot user (commands, buttons, counts), stamped by discordInteractions |
 | `functions/src/admin/admin.ts` | banUser, fixBasePriceCliffs, createBots |
 | `functions/src/admin/adminBackups.ts` | Market backup/restore/retention (restoreBackup overwrites live data) |
 | `functions/src/admin/adminOps.ts` | Small direct admin ops: grant/revoke achievements and cosmetics, reinstate, set cash, broadcast |
 | `functions/src/admin/adminUserEdit.ts` | Direct edits to one player's game state: crew, achievements, margin, a single holding. Skips player-facing penalties/cooldowns on purpose |
-| `functions/src/admin/adminRepair.ts` | Heavy bulk player-data repair (repairSpikeVictims, reconstructPortfolioHistory) |
 | `functions/src/admin/adminMigrate.ts` | Ticker/roster migrations: renameTicker, initNewCharacterPrices |
 | `functions/src/margin/margin.ts` | User-facing margin actions: repay, bailout, toggle, interest |
 | `functions/src/margin/marginScanners.ts` | The two scheduled liquidation scanners (checkShortMarginCalls, checkMarginLending). Covered by test:trading sections J and K |
@@ -337,6 +336,11 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/shared/adminLog.ts` | **Internal module.** `logAdminAction`: every admin callable that changes a player or the market records what it was before and after, after the change lands. A new admin action must call it |
 | `src/features/admin/utils/panelLog.ts` | `logPanelAction`: the same history for admin panel tools that still write from the browser (price adjust, IPOs, predictions, site messages, deletions). Rules let only the admin append, stamped with their uid and server time. A new browser-side admin write must call it |
 | `functions/src/predictions/predictionAdmin.ts` | adminCancelPrediction: cancel a weekly prediction and refund every unpaid stake (ledger `prediction_refund`, flow reversed, bell). Event markets use cancelEventMarket |
+| `functions/src/admin/adminPlayerFile.ts` | adminGetPlayerFile (everything about one player, each source fail-soft) + private notes (`adminNotes/{uid}`) |
+| `functions/src/admin/adminDashboard.ts` | adminDashboard (home screen counts via aggregation queries), adminWelcomeTracker, adminDiscordActivity |
+| `functions/src/admin/adminMoneyFlow.ts` | adminMoneyFlow: the ledger summed by type per UTC day (rules/ledgerFlow); finished days saved once to `ledgerDaily/{day}` |
+| `functions/src/admin/adminBulk.ts` | adminBulkAction: cash grant or bell/DM message to picked players; cash goes through adminCashCore one player at a time |
+| `functions/src/admin/adminCashCore.ts` | **Internal module.** One admin cash change (memo, transaction, ledger, cash log, history, notification), shared by adminSetCash and bulk grants |
 | `functions/src/admin/adminGiftLog.ts` | adminListGifts: the gift log with same-connection / alt-scan / watchlist flags, for spotting alts feeding a main |
 | `functions/src/admin/haltAudit.ts` | haltPriceAudit (Thursday 21:05 UTC): flags untagged price points inside the halt, DMs the admin, silent when clean. Pure logic in `haltAuditCore.ts` (internal, unit-tested). Manual version: `npm run audit:halt` |
 | `functions/src/crews/crewMissions.ts` | claimCrewMission; progress writing lives in an internal module |
@@ -350,7 +354,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/market/marketMaker.ts` | marketMakerCycle: nudges stocks that stray more than 12% from their 7-day average |
 | `functions/src/market/neglectDecay.ts` | applyNeglectDecay: untraded stocks drift down toward a hidden floor. The decision is in `neglectDecayRules.ts` (internal, unit-tested) |
 | `functions/src/market/reviewChanges.ts` | **Internal module.** Persists what the admin changed during a chapter review (market/reviewChanges) and the collapse work |
-| `functions/src/market/reviewCollapse.ts` | collapseReviewHistory (20:54 UTC) + manual trigger: folds a finished review to one price point per stock, stashing detail in market/reviewDetail |
+| `functions/src/market/reviewCollapse.ts` | collapseReviewHistory (20:54 UTC): folds a finished review to one price point per stock, stashing detail in market/reviewDetail |
 | `functions/src/market/stockSplitMath.ts` | **Internal module.** Pure helpers for what a split does to each document |
 | `functions/src/market/migrationWalk.ts` | **Internal module.** Time-budgeted collection walks shared by the rename and split engines |
 | `functions/src/moderation/altDetection.ts` | scanForAltAccounts (scheduled) + manual trigger + alert review: proactive alt detection off stored IPs |
@@ -361,7 +365,6 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/season/seasonDryRun.ts` | Season dry run: what the rules would hand out, written to a report only |
 | `functions/src/shared/indexMaintenance.ts` | **Internal module.** The divisor-adjusted market index |
 | `functions/src/shared/ladderMath.ts` | **Internal module.** Ladder deposit ramp and chip balances |
-| `functions/src/trading/tradeBackfill.ts` | backfillFillTradeRecords: rebuilds missing trade records from completed orders |
 | `functions/src/users/cosmeticGifts.ts` | giftCosmetic: gift a cosmetic or a whole bundle; writes `giftLog` and both ledger sides |
 | `functions/src/users/disposableEmail.ts` | **Internal module.** Disposable email blocking at signup |
 | `functions/src/users/ipCap.ts` | **Internal module.** Pure per-IP account counting for the signup cap |

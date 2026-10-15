@@ -1,4 +1,4 @@
-import { triggerReviewChangesFunction, triggerCollapseReviewHistoryFunction } from '../../../api/callables';
+import { triggerReviewChangesFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 
@@ -23,24 +23,5 @@ export function useAdminReviewJobs({ showMessage, setLoading }: Pick<AdminHookDe
     setLoading(false);
   };
 
-  // Save the review's numbers, then fold its price-history staircase down to one
-  // point per stock. Runs automatically at 20:54 Thursday; this is the re-run.
-  const runCollapseReview = async () => {
-    setLoading(true);
-    try {
-      const d = (await triggerCollapseReviewHistoryFunction({})).data || {};
-      showMessage(
-        'success',
-        d.tidied
-          ? `Chart tidied: ${d.tidied} stock${d.tidied === 1 ? '' : 's'}, ${d.folded} extra points folded away.`
-          : 'Nothing to tidy — the review is already one point per stock.',
-      );
-    } catch (err) {
-      console.error('Review collapse failed:', err);
-      showMessage('error', 'Failed to tidy the review chart: ' + errorMessage(err));
-    }
-    setLoading(false);
-  };
-
-  return { runReviewChanges, runCollapseReview };
+  return { runReviewChanges };
 }

@@ -1,142 +1,60 @@
-import { useState } from 'react';
 import { adminDeleteUserFunction } from '../../../api/callables';
 import { ADMIN_UIDS } from '../../../constants';
 import { summarizeForDeletion } from '../utils/deletionSummary';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AdminHookDeps, AdminUser } from '../utils/adminShared';
 
-// Users tab: multi-select delete mode. Operates on the list state owned by
-// useAdminUserList, passed in as deps.
+// Delete one account from its player file, after two confirmations that spell
+// out what goes with it. (Bulk delete mode was removed on 2026-10-14.)
 export function useAdminUserDeletion({
   showMessage,
   setLoading,
   prices,
-  allUsers,
   setAllUsers,
-  setUserSearchResults,
 }: Pick<AdminHookDeps, 'showMessage' | 'setLoading' | 'prices'> & {
-  allUsers: AdminUser[];
   setAllUsers: Dispatch<SetStateAction<AdminUser[]>>;
-  setUserSearchResults: Dispatch<SetStateAction<AdminUser[]>>;
 }) {
-  const [deleteMode, setDeleteMode] = useState(false);
-  const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(new Set());
-
-  // Toggle user selection for deletion
-  const toggleUserForDeletion = (userId: string) => {
-    setSelectedForDeletion((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(userId)) {
-        newSet.delete(userId);
-      } else {
-        newSet.add(userId);
-      }
-      return newSet;
-    });
-  };
-
-  // Delete selected users
-  const deleteSelectedUsers = async () => {
-    if (selectedForDeletion.size === 0) {
-      showMessage('error', 'No users selected for deletion');
-      return;
+  /** Resolves true once the account is gone. */
+  const deleteUser = async (user: AdminUser): Promise<boolean> => {
+    if (ADMIN_UIDS.includes(user.id)) {
+      showMessage('error', 'Admin accounts cannot be deleted here');
+      return false;
     }
-
-    // Calculate what's being deleted
-    const {
-      totalCash,
-      totalShares,
-      totalValue,
-      totalShortShares,
-      totalShortCollateral,
-      holdingsSummary,
-      shortsSummary,
-    } = summarizeForDeletion(selectedForDeletion, allUsers, prices);
-
-    // Build summary message
-    const topHoldings = Object.entries(holdingsSummary)
+    const { totalCash, totalShares, totalValue, totalShortShares, totalShortCollateral, holdingsSummary } =
+      summarizeForDeletion([user.id], [user], prices);
+    const top = Object.entries(holdingsSummary)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([ticker, shares]) => `${ticker}: ${shares}`)
       .join(', ');
-
-    const topShorts = Object.entries(shortsSummary)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([ticker, shares]) => `${ticker}: ${shares}`)
-      .join(', ');
-
-    let summaryMsg =
-      `DELETE ${selectedForDeletion.size} USERS?\n\n` +
-      `💰 Total Cash: $${totalCash.toFixed(2)}\n` +
-      `📊 Long Shares: ${totalShares}\n` +
-      `💵 Long Value: $${totalValue.toFixed(2)}\n`;
-
+    let summary =
+      `DELETE ${user.displayName}?\n\n` +
+      `Cash: $${totalCash.toFixed(2)}\n` +
+      `Long shares: ${totalShares} (worth $${totalValue.toFixed(2)})\n`;
     if (totalShortShares > 0) {
-      summaryMsg +=
-        `🩳 Short Shares: ${totalShortShares}\n` + `🔒 Short Collateral: $${totalShortCollateral.toFixed(2)}\n`;
+      summary += `Short shares: ${totalShortShares} (collateral $${totalShortCollateral.toFixed(2)})\n`;
     }
-
-    summaryMsg += `\n📈 Top Holdings: ${topHoldings || 'None'}`;
-    if (topShorts) {
-      summaryMsg += `\n📉 Top Shorts: ${topShorts}`;
-    }
-    summaryMsg += `\n\nThis cannot be undone!`;
-
-    if (!window.confirm(summaryMsg)) return;
-    if (!window.confirm(`FINAL CONFIRMATION: Permanently delete ${selectedForDeletion.size} user accounts?`)) return;
+    summary += `Top holdings: ${top || 'None'}\n\nThis cannot be undone.`;
+    if (!window.confirm(summary)) return false;
+    if (!window.confirm(`FINAL CONFIRMATION: permanently delete ${user.displayName}?`)) return false;
 
     setLoading(true);
-    let deleted = 0;
-    let failed = 0;
-    const failedIds: string[] = [];
-
-    for (const userId of selectedForDeletion) {
-      // Don't allow deleting admin
-      if (ADMIN_UIDS.includes(userId)) continue;
-
-      try {
-        // Server-side, so the account is archived and fully cleaned up (and the
-        // server writes the admin history entry).
-        await adminDeleteUserFunction({ userId });
-        deleted++;
-      } catch (err) {
-        console.error(`Failed to delete user ${userId}:`, err);
-        failed++;
-        failedIds.push(userId);
-      }
-    }
-
-    // Remove successfully deleted users from lists
-    const successfullyDeleted = new Set([...selectedForDeletion].filter((id) => !failedIds.includes(id)));
-    setAllUsers((prev) => prev.filter((u) => !successfullyDeleted.has(u.id)));
-    setUserSearchResults((prev) => prev.filter((u) => !successfullyDeleted.has(u.id)));
-
-    // Keep failed ones selected so user can retry
-    if (failed > 0) {
-      setSelectedForDeletion(new Set(failedIds));
-      showMessage(
-        'error',
-        `Deleted ${deleted}, but ${failed} failed. Check console for details. Failed IDs still selected.`,
-      );
-    } else {
-      setSelectedForDeletion(new Set());
-      setDeleteMode(false);
+    try {
+      await adminDeleteUserFunction({ userId: user.id });
+      setAllUsers((prev) => prev.filter((u) => u.id !== user.id));
       showMessage(
         'success',
-        `Deleted ${deleted} users. Removed $${totalCash.toFixed(2)} cash and ${totalShares} shares.`,
+        `Deleted ${user.displayName}. Removed $${totalCash.toFixed(2)} cash and ${totalShares} shares.`,
       );
+      return true;
+    } catch (err) {
+      console.error(`Failed to delete user ${user.id}:`, err);
+      showMessage('error', `Could not delete ${user.displayName}. Check the console.`);
+      return false;
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
-  return {
-    deleteMode,
-    setDeleteMode,
-    selectedForDeletion,
-    setSelectedForDeletion,
-    toggleUserForDeletion,
-    deleteSelectedUsers,
-  };
+  return { deleteUser };
 }

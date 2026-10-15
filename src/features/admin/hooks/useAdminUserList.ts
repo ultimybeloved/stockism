@@ -5,21 +5,18 @@ import { withUserDefaults } from '../utils/adminShared';
 import type { AdminHookDeps, AdminUser } from '../utils/adminShared';
 import type { UserData } from '../../../types';
 import { sharesOf } from '../../../utils/holdings';
+import { pickListFields } from '../utils/playerRows';
 
-// Users tab: load/search/sort the user list and selected-user card.
+// Players: load the player list (the table filters and sorts it) and the
+// selected player's full document.
 export function useAdminUserList({
   showMessage,
   setLoading,
   prices,
 }: Pick<AdminHookDeps, 'showMessage' | 'setLoading' | 'prices'>) {
-  // User search state
-  const [userSearchQuery, setUserSearchQuery] = useState('');
-  const [userSearchResults, setUserSearchResults] = useState<AdminUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
-  const [usersPage, setUsersPage] = useState(0);
-  const [userSortBy, setUserSortBy] = useState('portfolio-high'); // 'portfolio-high', 'portfolio-low', 'cash-high', 'cash-low'
-  const USERS_PER_PAGE = 25;
+  const [loadedAt, setLoadedAt] = useState<number | null>(null);
 
   // Load all users for search
   const handleLoadAllUsers = async () => {
@@ -28,16 +25,16 @@ export function useAdminUserList({
       const usersRef = collection(db, 'users');
       const snapshot = await getDocs(usersRef);
 
-      // Deliberately trimmed to these fields — this loads the whole collection,
-      // so rows stay small. selectUser fetches the full document on click.
+      // Deliberately trimmed to the table's columns: this loads the whole
+      // collection, so rows stay small. selectUser fetches the full document.
       const users: AdminUser[] = [];
       snapshot.forEach((doc) => {
-        users.push({ id: doc.id, ...withUserDefaults(doc.data()) });
+        const data = doc.data();
+        users.push({ id: doc.id, ...pickListFields(data), ...withUserDefaults(data) });
       });
 
       setAllUsers(users);
-      setUserSearchResults(sortUsers(users));
-      showMessage('success', `Loaded ${users.length} users`);
+      setLoadedAt(Date.now());
     } catch (err) {
       console.error(err);
       showMessage('error', 'Failed to load users');
@@ -50,7 +47,13 @@ export function useAdminUserList({
   // that list — achievements, crew head status, pins. Show the trimmed row
   // straight away so the card opens instantly, then swap in the real document.
   const selectingRef = useRef<string | null>(null);
-  const selectUser = async (user: AdminUser | null) => {
+  const selectUser = async (target: AdminUser | string | null) => {
+    // A bare uid (from a name clicked anywhere in the panel) opens with the
+    // loaded row if there is one, else a blank card until the document lands.
+    const user =
+      typeof target === 'string'
+        ? allUsers.find((u) => u.id === target) || { id: target, ...withUserDefaults({ displayName: 'Loading...' }) }
+        : target;
     if (!user) {
       selectingRef.current = null;
       setSelectedUser(null);
@@ -110,67 +113,11 @@ export function useAdminUserList({
     return Math.round((cash + holdingsValue + shortsValue) * 100) / 100;
   };
 
-  // Filter users by search query
-  // Apply sorting to users
-  // sortBy is passed in on a sort change, because the state hasn't updated yet.
-  const sortUsers = (users: AdminUser[], sortBy = userSortBy) => {
-    const sorted = [...users];
-    switch (sortBy) {
-      case 'portfolio-high':
-        return sorted.sort((a, b) => (b.portfolioValue || 0) - (a.portfolioValue || 0));
-      case 'portfolio-low':
-        return sorted.sort((a, b) => (a.portfolioValue || 0) - (b.portfolioValue || 0));
-      case 'cash-high':
-        return sorted.sort((a, b) => (b.cash || 0) - (a.cash || 0));
-      case 'cash-low':
-        return sorted.sort((a, b) => (a.cash || 0) - (b.cash || 0));
-      default:
-        return sorted;
-    }
-  };
-
-  const handleUserSearch = (query: string, sortBy = userSortBy) => {
-    setUserSearchQuery(query);
-    if (!query.trim()) {
-      setUserSearchResults(sortUsers(allUsers, sortBy));
-      return;
-    }
-
-    const q = query.toLowerCase();
-    const filtered = allUsers.filter(
-      (u) =>
-        (u.displayName || '').toLowerCase().includes(q) ||
-        u.id.toLowerCase().includes(q) ||
-        String(u.discordId || '')
-          .toLowerCase()
-          .includes(q) ||
-        String(u.discordUsername || '')
-          .toLowerCase()
-          .includes(q),
-    );
-    setUserSearchResults(sortUsers(filtered, sortBy));
-  };
-
-  // Handle sort change
-  const handleUserSortChange = (newSort: string) => {
-    setUserSortBy(newSort);
-    // Re-apply current search with new sort
-    handleUserSearch(userSearchQuery, newSort);
-  };
-
   return {
-    userSearchQuery,
-    handleUserSearch,
-    userSearchResults,
-    setUserSearchResults,
-    userSortBy,
-    handleUserSortChange,
     handleLoadAllUsers,
     allUsers,
     setAllUsers,
-    usersPage,
-    setUsersPage,
-    USERS_PER_PAGE,
+    loadedAt,
     selectedUser,
     setSelectedUser,
     selectUser,

@@ -25,10 +25,8 @@ const MarketTab = ({
   runDailyFreeStock,
   checkCrewRoles,
   syncCrewRoles,
-  runBackfillFillTrades,
   runArchivePriceHistory,
   runReviewChanges,
-  runCollapseReview,
   season,
   seasonName,
   setSeasonName,
@@ -180,25 +178,6 @@ const MarketTab = ({
         </button>
       </div>
 
-      {/* Fold the review's price-history staircase down to one point */}
-      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
-        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Tidy Review Chart</h4>
-        <p className={`text-xs mb-3 ${mutedClass}`}>
-          Adjusting one stock also drags every stock linked to it, so a review leaves each chart with a run of steps
-          that players read as trading during the halt. This folds them into one point, stamped {localDailyTime(1254)}{' '}
-          so every stock moves at the same moment. It never changes a price, and the real step-by-step history is saved
-          first. Runs automatically at 20:54 on Thursday, so you only need this if that run failed. Safe to run again
-          any time.
-        </p>
-        <button
-          onClick={runCollapseReview}
-          disabled={loading}
-          className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-sm hover:bg-emerald-700 disabled:opacity-50"
-        >
-          Tidy Review Chart
-        </button>
-      </div>
-
       {/* Crew head Discord roles */}
       <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
         <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Crew Head Discord Roles</h4>
@@ -239,23 +218,6 @@ const MarketTab = ({
           className="px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-sm hover:bg-emerald-700 disabled:opacity-50"
         >
           Post Drop Now
-        </button>
-      </div>
-
-      {/* Missing fill history */}
-      <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
-        <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Backfill Old Fill History</h4>
-        <p className={`text-xs mb-3 ${mutedClass}`}>
-          Limit orders, stop losses and pre-market orders used to fill without writing anything to trade history, so
-          players cannot see those trades. This adds the missing entries. Running it twice does nothing the second time,
-          so it is safe to press again.
-        </p>
-        <button
-          onClick={runBackfillFillTrades}
-          disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-sm hover:bg-blue-700 disabled:opacity-50"
-        >
-          Backfill Fill History
         </button>
       </div>
 

@@ -3,7 +3,6 @@ import {
   triggerWeeklyMarketSummaryFunction,
   triggerDailyMarketSummaryFunction,
   archivePriceHistoryFunction,
-  backfillFillTradeRecordsFunction,
   triggerDailyFreeStockFunction,
 } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
@@ -153,24 +152,6 @@ export function useAdminScheduledJobs({ showMessage, setLoading }: Pick<AdminHoo
     setLoading(false);
   };
 
-  // One-off repair: writes trade records for old limit/stop-loss/pre-market
-  // fills. Deterministic ids make repeat runs harmless.
-  const runBackfillFillTrades = async () => {
-    setLoading(true);
-    try {
-      const result = await backfillFillTradeRecordsFunction({});
-      const { limitOrders, preMarketOrders } = result.data || {};
-      showMessage(
-        'success',
-        `Backfilled ${limitOrders?.written || 0} limit/stop-loss fills and ${preMarketOrders?.written || 0} pre-market fills.`,
-      );
-    } catch (err) {
-      console.error('Fill backfill failed:', err);
-      showMessage('error', 'Backfill failed: ' + errorMessage(err));
-    }
-    setLoading(false);
-  };
-
   return {
     runCrewRankings,
     runMarketSummary,
@@ -179,6 +160,5 @@ export function useAdminScheduledJobs({ showMessage, setLoading }: Pick<AdminHoo
     checkCrewRoles,
     syncCrewRoles,
     runArchivePriceHistory,
-    runBackfillFillTrades,
   };
 }

@@ -15,9 +15,6 @@ const StatsTab = ({
   statsLoading,
   marketStats,
   loadMarketStats,
-  handleCleanupBasePrices,
-  handleSyncPricesToHistory,
-  handleResetAllPrices,
   handleFixPriceCliffs,
   orphanScanComplete,
   orphanedUsers,
@@ -35,39 +32,12 @@ const StatsTab = ({
           <p className={`text-sm ${mutedClass}`}>📈 Market overview and platform statistics</p>
           <div className="flex gap-2 flex-wrap">
             <button
-              onClick={handleCleanupBasePrices}
-              disabled={loading}
-              className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
-              title="Remove recent base price entries from history"
-            >
-              {loading ? '...' : '🧹 Cleanup Base Prices'}
-            </button>
-            <button
               onClick={handleFixPriceCliffs}
               disabled={loading}
               className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
               title="Remove the false starting jump from any chart that has one"
             >
               {loading ? '...' : '📉 Fix Chart Cliffs'}
-            </button>
-            <button
-              onClick={() => {
-                if (window.confirm('Set every live price to its last chart point? Only prices that differ change.'))
-                  void handleSyncPricesToHistory();
-              }}
-              disabled={loading}
-              className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-sm disabled:opacity-50"
-              title="Sync current prices to match latest price history"
-            >
-              {loading ? '...' : '🔄 Sync Prices to History'}
-            </button>
-            <button
-              onClick={handleResetAllPrices}
-              disabled={loading}
-              className="px-3 py-1 text-xs bg-red-600 hover:bg-red-700 text-white rounded-sm disabled:opacity-50"
-              title="Reset ALL character prices to base prices"
-            >
-              {loading ? '...' : '🔄 Reset All Prices'}
             </button>
             <button
               onClick={loadMarketStats}

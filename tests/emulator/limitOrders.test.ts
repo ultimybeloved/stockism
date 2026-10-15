@@ -45,8 +45,6 @@ const db = admin.firestore();
 
 const { runLimitOrderCheck } =
   require('../../functions/src/orders/limitOrders') as typeof import('../../functions/src/orders/limitOrders');
-const { runFillBackfill } =
-  require('../../functions/src/trading/tradeBackfill') as typeof import('../../functions/src/trading/tradeBackfill');
 const { calculateMarginalImpact } =
   require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
 const { BID_ASK_SPREAD, MAX_TRADES_PER_TICKER_24H } =
@@ -547,40 +545,6 @@ async function main() {
 
   const deferredTrades = await tradesFor('lo_deferrer');
   check('deferred order wrote no trade record', deferredTrades.length === 0, JSON.stringify(deferredTrades));
-
-  // ── 15. Backfill never duplicates a fill it already has ────────────────
-  // Every fill in this run was recorded live, so the backfill has nothing to do.
-  // If it writes anything here, players would see the same trade twice.
-  const tradeCountBefore = (await db.collection('trades').get()).size;
-  const firstPass = await runFillBackfill();
-  const afterFirst = (await db.collection('trades').get()).size;
-  check(
-    'backfill skips fills already recorded live',
-    afterFirst === tradeCountBefore && firstPass.limitOrders.written === 0,
-    `${tradeCountBefore} -> ${afterFirst}, ${JSON.stringify(firstPass)}`,
-  );
-  check(
-    'buyer still has exactly one record after backfill',
-    (await tradesFor('lo_buyer')).length === 1,
-    'duplicate written',
-  );
-
-  // An old fill with no record: strip the live one, then the backfill restores it.
-  const legacy = (await db.collection('trades').where('uid', '==', 'lo_seller').get()).docs[0];
-  await legacy.ref.delete();
-  const secondPass = await runFillBackfill();
-  const restored = await tradesFor('lo_seller');
-  check(
-    'backfill restores a fill that has no record',
-    secondPass.limitOrders.written === 1 && restored.length === 1 && restored[0].source === 'limit',
-    JSON.stringify(restored),
-  );
-  const thirdPass = await runFillBackfill();
-  check(
-    're-running after a backfill adds nothing',
-    thirdPass.limitOrders.written === 0 && (await tradesFor('lo_seller')).length === 1,
-    JSON.stringify(thirdPass),
-  );
 
   // ── 16. Only the intentional deferrals remain PENDING ──────────────────
   const leftover = await db.collection('limitOrders').where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']).get();

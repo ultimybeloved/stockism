@@ -481,5 +481,17 @@ service cloud.firestore {
     match /welcomeStreaks/{discordId} {
       allow read, write: if false;
     }
+
+    // Admin command panel data, Cloud Functions only: private player notes,
+    // who uses the Discord bot, and the saved daily money flow summaries.
+    match /adminNotes/{uid} {
+      allow read, write: if false;
+    }
+    match /discordActivity/{discordId} {
+      allow read, write: if false;
+    }
+    match /ledgerDaily/{day} {
+      allow read, write: if false;
+    }
   }
 }

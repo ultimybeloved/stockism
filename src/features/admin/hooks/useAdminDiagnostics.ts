@@ -1,37 +1,17 @@
 import { useState } from 'react';
-import { auditUserDropsFunction, diagnoseTickerRollbackFunction, recoverTickerFunction } from '../../../api/callables';
+import { auditUserDropsFunction } from '../../../api/callables';
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
-import type { DropAuditResponse, TickerDiagnosticResponse, TickerRecoveryResponse } from '../../../api/types';
+import type { DropAuditResponse } from '../../../api/types';
 
-// Diagnostics tab: drop audits, ticker rollback diagnosis, ticker recovery.
+// Diagnostics tab: the daily drop audit. The March 2026 ticker rollback
+// diagnostic and recovery tool were removed on 2026-10-14.
 // Uses setMessage directly (no auto-dismiss), matching the original behavior.
 export function useAdminDiagnostics({ setMessage }: Pick<AdminHookDeps, 'setMessage'>) {
-  // Drop audit state
   const [dropAuditQuery, setDropAuditQuery] = useState('');
   const [dropAuditRunning, setDropAuditRunning] = useState(false);
   const [dropAuditResult, setDropAuditResult] = useState<DropAuditResponse | null>(null);
 
-  // Ticker rollback diagnostic state
-  const [diagTicker, setDiagTicker] = useState('SHRO');
-  const [diagStartDate, setDiagStartDate] = useState('2026-03-18');
-  // What the last preview ran on. Execute sends exactly this, never whatever is
-  // typed in the boxes now, so the clawback is the one the admin looked at.
-  const [previewedRecovery, setPreviewedRecovery] = useState<{
-    ticker: string;
-    startTimestamp: number;
-    rollbackToTimestamp: number;
-  } | null>(null);
-  const [diagRunning, setDiagRunning] = useState(false);
-  const [diagResult, setDiagResult] = useState<TickerDiagnosticResponse | null>(null);
-  const [diagUserSort, setDiagUserSort] = useState('net'); // 'net', 'bought', 'sold'
-  const [recoveryPreview, setRecoveryPreview] = useState<TickerRecoveryResponse | null>(null);
-  const [recoveryRunning, setRecoveryRunning] = useState(false);
-  const [recoveryExecuting, setRecoveryExecuting] = useState(false);
-  const [recoveryDone, setRecoveryDone] = useState(false);
-  const [recoveryRollbackDate, setRecoveryRollbackDate] = useState('2026-03-18');
-
-  // Drop audit handler
   const handleDropAudit = async () => {
     if (!dropAuditQuery.trim()) return;
     setDropAuditRunning(true);
@@ -41,112 +21,12 @@ export function useAdminDiagnostics({ setMessage }: Pick<AdminHookDeps, 'setMess
       const isUid = query.length > 20 && !query.includes(' ');
       const result = await auditUserDropsFunction(isUid ? { uid: query } : { username: query });
       setDropAuditResult(result.data);
-      setMessage({ type: 'success', text: `Drop audit complete — ${result.data.totalClaims} claims found` });
+      setMessage({ type: 'success', text: `Drop audit complete: ${result.data.totalClaims} claims found` });
     } catch (err) {
       setMessage({ type: 'error', text: `Drop audit failed: ${errorMessage(err)}` });
     }
     setDropAuditRunning(false);
   };
 
-  // Spike victim repair handlers
-  const handleRunDiagnostic = async () => {
-    setDiagRunning(true);
-    setDiagResult(null);
-    try {
-      const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
-      const result = await diagnoseTickerRollbackFunction({ ticker: diagTicker, startTimestamp });
-      setDiagResult(result.data);
-      setMessage({ type: 'success', text: `Diagnostic complete — ${result.data.summary.totalTrades} trades found` });
-    } catch (err) {
-      setMessage({ type: 'error', text: `Diagnostic failed: ${errorMessage(err)}` });
-    }
-    setDiagRunning(false);
-    setRecoveryPreview(null);
-    setRecoveryDone(false);
-    setRecoveryRollbackDate(diagStartDate);
-  };
-
-  const handleRecoveryPreview = async () => {
-    if (!recoveryRollbackDate) {
-      setMessage({ type: 'error', text: 'Pick a rollback date' });
-      return;
-    }
-    setRecoveryRunning(true);
-    setRecoveryPreview(null);
-    setRecoveryDone(false);
-    try {
-      const startTimestamp = new Date(diagStartDate + 'T00:00:00Z').getTime();
-      const rollbackToTimestamp = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
-      const result = await recoverTickerFunction({
-        ticker: diagTicker,
-        startTimestamp,
-        rollbackToTimestamp,
-        dryRun: true,
-      });
-      setRecoveryPreview(result.data);
-      setPreviewedRecovery({ ticker: diagTicker, startTimestamp, rollbackToTimestamp });
-    } catch (err) {
-      setMessage({ type: 'error', text: `Recovery preview failed: ${errorMessage(err)}` });
-    }
-    setRecoveryRunning(false);
-  };
-
-  const handleRecoveryExecute = async () => {
-    const previewed = previewedRecovery;
-    const startNow = new Date(diagStartDate + 'T00:00:00Z').getTime();
-    const rollbackNow = new Date(recoveryRollbackDate + 'T00:00:00Z').getTime();
-    if (
-      !previewed ||
-      previewed.ticker !== diagTicker ||
-      previewed.startTimestamp !== startNow ||
-      previewed.rollbackToTimestamp !== rollbackNow
-    ) {
-      setMessage({ type: 'error', text: 'The ticker or dates changed since the preview. Preview again first.' });
-      return;
-    }
-    if (
-      !window.confirm(
-        `EXECUTE RECOVERY on ${previewed.ticker}? This will claw back cash, reset the price, and rewrite price history. This cannot be undone.`,
-      )
-    )
-      return;
-    setRecoveryExecuting(true);
-    try {
-      const result = await recoverTickerFunction({ ...previewed, dryRun: false });
-      setRecoveryPreview(result.data);
-      setRecoveryDone(true);
-      setMessage({
-        type: 'success',
-        text: `Recovery complete — $${result.data.totalClawedBack.toFixed(2)} clawed back, price reset to $${result.data.priceReset.to.toFixed(2)}`,
-      });
-    } catch (err) {
-      setMessage({ type: 'error', text: `Recovery failed: ${errorMessage(err)}` });
-    }
-    setRecoveryExecuting(false);
-  };
-
-  return {
-    dropAuditQuery,
-    setDropAuditQuery,
-    dropAuditRunning,
-    handleDropAudit,
-    dropAuditResult,
-    diagTicker,
-    setDiagTicker,
-    diagStartDate,
-    setDiagStartDate,
-    diagRunning,
-    handleRunDiagnostic,
-    diagResult,
-    diagUserSort,
-    setDiagUserSort,
-    recoveryRollbackDate,
-    setRecoveryRollbackDate,
-    recoveryRunning,
-    recoveryExecuting,
-    handleRecoveryPreview,
-    recoveryDone,
-    recoveryPreview,
-    handleRecoveryExecute,
-  };
+  return { dropAuditQuery, setDropAuditQuery, dropAuditRunning, handleDropAudit, dropAuditResult };
 }

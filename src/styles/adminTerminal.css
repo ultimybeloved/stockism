@@ -1,0 +1,133 @@
+/* The admin command panel's trading-terminal look (desktop only).
+ *
+ * The panel root carries `dark admin-terminal`, so every `dark:` class inside
+ * applies whatever theme the player picked, and the rules below repaint the
+ * slate palette the older tabs were built with onto the terminal palette in
+ * one place. New admin screens use the --t-* variables directly (see
+ * src/features/admin/components/shell/terminal.ts).
+ *
+ * `.admin-terminal .x` outweighs Tailwind's `.x:where(.dark, .dark *)`, so
+ * these win without !important.
+ */
+.admin-terminal {
+  --t-bg: #07090c;
+  --t-panel: #0d1117;
+  --t-panel2: #121821;
+  --t-raise: #18212c;
+  --t-line: #1c2531;
+  --t-line2: #2a3646;
+  --t-text: #d6dde6;
+  --t-muted: #7d8a99;
+  --t-dim: #4f5b69;
+  --t-green: #3ddc84;
+  --t-red: #ff5d5d;
+  --t-amber: #ffb224;
+  --t-cyan: #4cc9f0;
+  --t-violet: #a78bfa;
+  background: var(--t-bg);
+  color: var(--t-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-terminal .t-mono {
+  font-family: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
+}
+
+/* Older tabs: slate surfaces, borders and text onto the terminal palette. */
+.admin-terminal .dark\:bg-slate-900,
+.admin-terminal .dark\:bg-zinc-900 {
+  background-color: var(--t-bg);
+}
+.admin-terminal .dark\:bg-slate-800,
+.admin-terminal .dark\:bg-zinc-800 {
+  background-color: var(--t-panel);
+}
+.admin-terminal .dark\:bg-slate-700,
+.admin-terminal .dark\:bg-slate-700\/50,
+.admin-terminal .dark\:bg-slate-700\/30,
+.admin-terminal .dark\:bg-slate-800\/50 {
+  background-color: var(--t-panel2);
+}
+.admin-terminal .dark\:bg-slate-600,
+.admin-terminal .dark\:bg-slate-600\/50 {
+  background-color: var(--t-raise);
+}
+.admin-terminal .dark\:border-slate-700,
+.admin-terminal .dark\:border-zinc-700,
+.admin-terminal .dark\:border-slate-800 {
+  border-color: var(--t-line);
+}
+.admin-terminal .dark\:border-slate-600,
+.admin-terminal .dark\:border-slate-500 {
+  border-color: var(--t-line2);
+}
+.admin-terminal .dark\:text-slate-100,
+.admin-terminal .dark\:text-slate-200,
+.admin-terminal .dark\:text-slate-300,
+.admin-terminal .dark\:text-zinc-100,
+.admin-terminal .dark\:text-zinc-300,
+.admin-terminal .dark\:text-white {
+  color: var(--t-text);
+}
+.admin-terminal .dark\:text-slate-400,
+.admin-terminal .dark\:text-zinc-400 {
+  color: var(--t-muted);
+}
+.admin-terminal .dark\:hover\:bg-slate-700:hover,
+.admin-terminal .dark\:hover\:bg-slate-600:hover {
+  background-color: var(--t-raise);
+}
+
+/* Inputs and selects everywhere in the panel. */
+.admin-terminal input:not([type='checkbox']):not([type='radio']),
+.admin-terminal select,
+.admin-terminal textarea {
+  background-color: var(--t-bg);
+  border-color: var(--t-line2);
+  color: var(--t-text);
+}
+.admin-terminal input:focus,
+.admin-terminal select:focus,
+.admin-terminal textarea:focus {
+  outline: 1px solid var(--t-green);
+  outline-offset: -1px;
+}
+
+/* The older tabs' big teal action buttons, in the terminal's green. */
+.admin-terminal .bg-teal-600 {
+  background-color: #16a34a;
+}
+.admin-terminal .hover\:bg-teal-700:hover {
+  background-color: #15803d;
+}
+
+.admin-terminal ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.admin-terminal ::-webkit-scrollbar-track {
+  background: var(--t-bg);
+}
+.admin-terminal ::-webkit-scrollbar-thumb {
+  background: var(--t-line2);
+  border: 2px solid var(--t-bg);
+}
+
+@keyframes t-blink {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  61%,
+  100% {
+    opacity: 0.35;
+  }
+}
+.admin-terminal .t-live {
+  animation: t-blink 2.4s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-terminal .t-live {
+    animation: none;
+  }
+}

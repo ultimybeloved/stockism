@@ -127,9 +127,8 @@ interface TradeRecordInput {
 // Writes one record to the trades collection, inside the caller's transaction.
 //
 // This collection is the canonical record of a trade: the player's own Trade
-// History reads it, the daily/weekly market reports count it, and
-// reconstructPortfolioHistory replays it (which is why cashAfter is worth
-// passing — records without it are skipped there).
+// History reads it, the daily/weekly market reports count it, and the admin
+// player file lists it.
 //
 // `source` marks a fill that the player didn't place by hand ('limit',
 // 'stop_loss', 'premarket'). Trades placed through executeTrade leave it unset,
@@ -165,8 +164,7 @@ export function recordTrade(
   if (cashBefore !== null) record.cashBefore = cashBefore;
   if (cashAfter !== null) record.cashAfter = cashAfter;
   if (source) record.source = source;
-  // Which order produced this fill. The backfill uses it to skip orders that
-  // already have a record, so it can never duplicate a live fill.
+  // Which order produced this fill, so a fill can be traced back to its order.
   if (orderId) record.orderId = orderId;
 
   const tradeRef = db.collection('trades').doc();

@@ -5,24 +5,13 @@ import {
   listBackupsFunction,
   restoreBackupFunction,
   triggerManualBackupFunction,
-  reconstructPortfolioHistoryFunction,
   adminTransferAccountFunction,
 } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
-import type { BackupFile, ReconstructHistoryResponse } from '../../../api/types';
+import type { BackupFile } from '../../../api/types';
 import type { AdminHookDeps } from '../utils/adminShared';
 
-interface ReconstructionProgress {
-  usersProcessed: number;
-  usersSkipped: number;
-  totalPointsWritten: number;
-  errors: number;
-  batch?: number;
-  running: boolean;
-}
-
-// Recovery tab: backup list/restore, manual backup, portfolio-history
-// reconstruction, and whole-account data transfer.
+// Recovery tab: backup list/restore, manual backup and whole-account data transfer.
 export function useAdminBackups({
   showMessage,
   setMessage,
@@ -35,9 +24,6 @@ export function useAdminBackups({
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [loadingBackups, setLoadingBackups] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(false);
-  const [reconstructingHistory, setReconstructingHistory] = useState(false);
-  const [reconstructionResult, setReconstructionResult] = useState<ReconstructionProgress | null>(null);
-  const [reconstructUid, setReconstructUid] = useState('');
 
   // User data transfer state
   const [oldUserId, setOldUserId] = useState('');
@@ -96,40 +82,6 @@ export function useAdminBackups({
       setMessage({ type: 'error', text: `Backup failed: ${errorMessage(error)}` });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleReconstructPortfolioHistory = async () => {
-    const target = reconstructUid.trim() || null;
-    const label = target ? `user ${target}` : 'ALL non-bot users (batched)';
-    if (!window.confirm(`Reconstruct portfolio history from trades for ${label}?`)) return;
-    setReconstructingHistory(true);
-    setReconstructionResult(null);
-
-    const totals = { usersProcessed: 0, usersSkipped: 0, totalPointsWritten: 0, errors: 0 };
-    let cursor: string | null = null;
-    let batchNum = 0;
-
-    try {
-      do {
-        batchNum++;
-        const payload = { uid: target || undefined, startAfterUid: cursor || undefined };
-        const result = await reconstructPortfolioHistoryFunction(payload);
-        const d: ReconstructHistoryResponse = result.data;
-        totals.usersProcessed += d.usersProcessed || 0;
-        totals.usersSkipped += d.usersSkipped || 0;
-        totals.totalPointsWritten += d.totalPointsWritten || 0;
-        totals.errors += d.errors || 0;
-        setReconstructionResult({ ...totals, batch: batchNum, running: !d.done });
-        cursor = d.nextCursor || null;
-        if (d.done || target) break;
-      } while (cursor);
-      setReconstructionResult({ ...totals, batch: batchNum, running: false });
-    } catch (error) {
-      setMessage({ type: 'error', text: `Reconstruction failed: ${errorMessage(error)}` });
-      setReconstructionResult({ ...totals, running: false });
-    } finally {
-      setReconstructingHistory(false);
     }
   };
 
@@ -214,11 +166,6 @@ This cannot be undone. Continue?`,
     restoringBackup,
     handleRestoreBackup,
     handleManualBackup,
-    reconstructingHistory,
-    reconstructionResult,
-    reconstructUid,
-    setReconstructUid,
-    handleReconstructPortfolioHistory,
     oldUserId,
     setOldUserId,
     newUserId,

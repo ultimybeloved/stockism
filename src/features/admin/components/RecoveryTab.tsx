@@ -1,5 +1,3 @@
-import RecoverySpikeRepair from './recovery/RecoverySpikeRepair';
-import RecoveryDiagnose from './recovery/RecoveryDiagnose';
 import RecoveryRenameTicker from './recovery/RecoveryRenameTicker';
 import RecoverySplitStock from './recovery/RecoverySplitStock';
 import RecoveryPriceHistory from './recovery/RecoveryPriceHistory';
@@ -7,9 +5,7 @@ import RecoveryPriceHistory from './recovery/RecoveryPriceHistory';
 import type { AdminCommonProps } from './types';
 import type { ShowMessage } from '../utils/adminShared';
 import type { useAdminBankruptcy } from '../hooks/useAdminBankruptcy';
-import type { useAdminSpikeRepair } from '../hooks/useAdminSpikeRepair';
 import type { useAdminBackups } from '../hooks/useAdminBackups';
-import type { useAdminAccountRepair } from '../hooks/useAdminAccountRepair';
 import type { useAdminRecoveryTools } from '../hooks/useAdminRecoveryTools';
 import type { renameTickerFunction as RenameTickerFn } from '../../../api/callables';
 import type { Character } from '../../../characters';
@@ -18,9 +14,7 @@ import { useTheme } from '../../../context/AppContext';
 
 type RecoveryTabProps = AdminCommonProps &
   ReturnType<typeof useAdminBankruptcy> &
-  ReturnType<typeof useAdminSpikeRepair> &
   ReturnType<typeof useAdminBackups> &
-  ReturnType<typeof useAdminAccountRepair> &
   ReturnType<typeof useAdminRecoveryTools> & {
     showMessage: ShowMessage;
     renameTickerFunction: typeof RenameTickerFn;
@@ -39,20 +33,7 @@ const RecoveryTab = ({
   bankruptUsers,
   loadBankruptUsers,
   handleReinstateUser,
-  scanningSpike,
-  repairingSpike,
-  spikeScanned,
-  spikeVictims,
-  handleScanSpikeVictims,
-  handleRepairAllSpikeVictims,
-  handleRepairSpikeVictim,
-  diagnosisIds,
-  setDiagnosisIds,
-  diagnosing,
-  diagnosisResults,
-  handleDiagnoseUsers,
   handleManualBackup,
-  handleRepairCorruptedAccounts,
   loadingBackups,
   backups,
   handleListBackups,
@@ -72,11 +53,6 @@ const RecoveryTab = ({
   setRenameResult,
   showMessage,
   renameTickerFunction,
-  reconstructingHistory,
-  reconstructionResult,
-  reconstructUid,
-  setReconstructUid,
-  handleReconstructPortfolioHistory,
   tradeFilterTicker,
   setTradeFilterTicker,
   sortedCharacters,
@@ -139,32 +115,6 @@ const RecoveryTab = ({
           ))}
       </div>
 
-      <RecoverySpikeRepair
-        {...{
-          darkMode,
-          textClass,
-          mutedClass,
-          scanningSpike,
-          repairingSpike,
-          spikeScanned,
-          spikeVictims,
-          handleScanSpikeVictims,
-          handleRepairAllSpikeVictims,
-          handleRepairSpikeVictim,
-        }}
-      />
-      <RecoveryDiagnose
-        {...{
-          darkMode,
-          textClass,
-          mutedClass,
-          diagnosisIds,
-          setDiagnosisIds,
-          diagnosing,
-          diagnosisResults,
-          handleDiagnoseUsers,
-        }}
-      />
       {/* Manual Backup */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <h3 className={`font-semibold mb-2 ${textClass}`}>💾 Manual Backup</h3>
@@ -178,57 +128,6 @@ const RecoveryTab = ({
           className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
           {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
-        </button>
-      </div>
-
-      {/* Portfolio History Reconstruction */}
-      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-blue-300 dark:border-blue-700">
-        <h3 className="font-semibold mb-2 text-blue-500">🔁 Reconstruct Portfolio History</h3>
-        <p className={`text-sm ${mutedClass} mb-3`}>
-          Rebuilds historical portfolio values from the permanent trades collection and price archives. Leave the UID
-          field blank to run for all non-bot users. Runs up to 9 minutes.
-        </p>
-        <input
-          aria-label="User UID"
-          type="text"
-          value={reconstructUid}
-          onChange={(e) => setReconstructUid(e.target.value)}
-          placeholder="User UID (leave blank for all users)"
-          className="w-full px-3 py-2 mb-3 rounded-sm border text-sm font-mono light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-500 focus:outline-none focus:border-blue-500"
-        />
-        {reconstructionResult && (
-          <p
-            className={`text-sm mb-3 font-semibold ${reconstructionResult.errors > 0 ? 'text-red-500' : reconstructionResult.running ? 'text-yellow-500' : 'text-green-500'}`}
-          >
-            {reconstructionResult.running ? `Batch ${reconstructionResult.batch} — ` : 'Done — '}
-            users: {reconstructionResult.usersProcessed}, points: {reconstructionResult.totalPointsWritten}, skipped:{' '}
-            {reconstructionResult.usersSkipped}, errors: {reconstructionResult.errors}
-          </p>
-        )}
-        <button
-          onClick={handleReconstructPortfolioHistory}
-          disabled={reconstructingHistory}
-          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
-        >
-          {reconstructingHistory
-            ? `Reconstructing... (batch ${reconstructionResult?.batch || 1})`
-            : '🔁 Reconstruct from Trades'}
-        </button>
-      </div>
-
-      {/* NaN Account Repair */}
-      <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-        <h3 className="font-semibold mb-2 text-red-500">🔧 Repair Corrupted Accounts</h3>
-        <p className={`text-sm ${mutedClass} mb-3`}>
-          Scans all accounts for NaN/corrupted values in cash, holdings, shorts, and portfolio data. Fixes them
-          automatically.
-        </p>
-        <button
-          onClick={handleRepairCorruptedAccounts}
-          disabled={loading}
-          className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-sm disabled:opacity-50"
-        >
-          {loading ? 'Scanning...' : '🔧 Scan & Repair All Accounts'}
         </button>
       </div>
 
@@ -315,7 +214,7 @@ const RecoveryTab = ({
               <br />
               1. Ask user for their display name (username)
               <br />
-              2. Search for them in the Users tab
+              2. Search for them in Players
               <br />
               3. Click on them to view details
               <br />

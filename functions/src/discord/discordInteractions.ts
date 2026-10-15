@@ -25,6 +25,7 @@ import { CHARACTER_MAP } from '../shared/characters';
 import { handleSlashCommand, isPrivate, EPHEMERAL } from './discordCommands';
 import { pxe } from '../shared/discordApi';
 import { rollDailyStock } from './dailyDropRoll';
+import { recordDiscordActivity } from './discordActivityLog';
 import type { DropPick } from './dailyDropRoll';
 import type { PricePoint } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
@@ -103,6 +104,16 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
     return void res.json({ type: InteractionResponseType.PONG });
   }
 
+  // Who used the bot, for the admin panel. Started here so it runs alongside
+  // the work; awaited where the command and claim paths finish, never before
+  // the reply, so it can't eat into Discord's 3s deadline.
+  const stamp =
+    interaction.type === InteractionType.APPLICATION_COMMAND
+      ? recordDiscordActivity(interaction, `/${interaction.data?.name || 'unknown'}`)
+      : interaction.type === InteractionType.MESSAGE_COMPONENT
+        ? recordDiscordActivity(interaction, String(interaction.data?.custom_id || 'button'))
+        : Promise.resolve();
+
   // Handle slash commands (/leaderboard, /profile, /price, /portfolio, /missions, /buy,
   // /welcome). All read-only and installable in partner servers except /welcome,
   // which pays out only in the official server — see discordCommands.ts.
@@ -144,6 +155,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: { ...payload, ...flags },
       });
+      await stamp;
       return;
     }
 
@@ -160,6 +172,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         logger.error('Failed to report slash command error to Discord:', editError);
       }
     }
+    await stamp;
     return;
   }
 
@@ -450,6 +463,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
           logger.error('Failed to send error follow-up:', (followUpErr as Error).message);
         }
       }
+      await stamp;
       return;
     }
 

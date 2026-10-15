@@ -25,6 +25,7 @@ const NO_LEDGER_NEEDED: Record<string, string> = {
   'shared/ledger.ts': 'the ledger itself',
   'shared/eventTradeRecords.ts': 'books its own ledger entry',
   'shared/accountArchive.ts': 'copies a deleted account; no balance changes',
+  'shared/constants/pixelEmojis.ts': 'emoji IDs; "cash" is an icon name',
 };
 
 const CASH_WRITE =
