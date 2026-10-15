@@ -3,7 +3,13 @@ import { summarizeWeek, toRedditMarkdown, weekLabel, weekWindow } from './weekly
 import type { AdminLogEntry } from '../../../api/types';
 
 const at = (iso: string) => Date.parse(iso);
-const adjust = (iso: string, ticker: string, from: number, to: number): AdminLogEntry => ({
+const adjust = (
+  iso: string,
+  ticker: string,
+  from: number,
+  to: number,
+  trailing: { ticker: string; from: number; to: number }[] = [],
+): AdminLogEntry => ({
   id: `${ticker}-${iso}`,
   at: at(iso),
   action: 'adjust_price',
@@ -12,7 +18,7 @@ const adjust = (iso: string, ticker: string, from: number, to: number): AdminLog
   name: null,
   before: { ticker, price: from },
   after: { ticker, price: to },
-  detail: null,
+  detail: { trailing },
 });
 
 describe('weekWindow', () => {
@@ -55,6 +61,23 @@ describe('summarizeWeek', () => {
       week,
     );
     expect(rows.map((r) => r.ticker)).toEqual(['VIN', 'JAKE']);
+  });
+
+  it('adds knock-on moves to hand-set stocks but never lists a stock only dragged along', () => {
+    const rows = summarizeWeek(
+      [
+        adjust('2026-10-15T14:00:00Z', 'EUNH', 100, 110),
+        adjust('2026-10-15T14:05:00Z', 'GAP', 200, 190, [
+          { ticker: 'EUNH', from: 110, to: 109.868 },
+          { ticker: 'JIN', from: 50, to: 49 },
+        ]),
+      ],
+      week,
+    );
+    expect(rows.map((r) => r.ticker)).toEqual(['EUNH', 'GAP']);
+    expect(rows[0]).toMatchObject({ from: 100, to: 109.868, edits: 1 });
+    expect(rows[0].percent).toBeCloseTo(9.868);
+    expect(rows[0].directPercent).toBeCloseTo(10);
   });
 
   it('writes a markdown table with risers first', () => {

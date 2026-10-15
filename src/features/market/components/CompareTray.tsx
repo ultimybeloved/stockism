@@ -1,5 +1,5 @@
 // The stocks picked for a chart comparison (shift-click a card, or Compare in
-// the side panel), pinned to the bottom of the screen until compared or cleared.
+// the stock window), pinned to the bottom of the screen until compared or cleared.
 import { themeClasses } from '../../../utils/theme';
 import { COMPARE_MAX } from './CompareChartModal';
 

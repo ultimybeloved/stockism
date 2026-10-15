@@ -4,7 +4,7 @@ import IPOHypeCard from '../../ipo/components/IPOHypeCard';
 import IPOActiveCard from '../../ipo/components/IPOActiveCard';
 import DashboardRail from '../components/DashboardRail';
 import PhoneSummaryBar from '../components/PhoneSummaryBar';
-import StockSidePanel from '../components/StockSidePanel';
+import StockPopup from '../components/StockPopup';
 import CompareTray from '../components/CompareTray';
 import CompareChartModal from '../components/CompareChartModal';
 import { useDesktopMarket } from '../hooks/useDesktopMarket';
@@ -169,32 +169,17 @@ const HomePage = ({
             its own scroll. Mobile/tablet: everything stacks exactly as before
             (DOM order = mobile order; the order classes flip it on desktop). */}
         <div className="lg:flex lg:items-start lg:gap-6">
-          {desk.panelCharacter ? (
-            <StockSidePanel
-              character={desk.panelCharacter}
-              onClose={desk.closePanel}
-              onStep={desk.step}
-              onTrade={onTrade}
-              onToggleWatchlist={onToggleWatchlist}
-              onSetAlert={onSetAlert}
-              inCompare={desk.compare.includes(desk.panelCharacter.ticker)}
-              onToggleCompare={desk.toggleCompare}
-              pendingAction={desk.pendingAction}
-              onPendingHandled={desk.clearPendingAction}
-            />
-          ) : (
-            <DashboardRail
-              activeUserData={activeUserData}
-              portfolioValue={portfolioValue}
-              isGuest={isGuest}
-              checkinLoading={!!actionLoading.checkin}
-              onCheckin={onCheckin}
-              onShowLogin={onShowLogin}
-              onShowPortfolio={onShowPortfolio}
-              onShowBailout={onShowBailout}
-              phoneOpen={railOpen}
-            />
-          )}
+          <DashboardRail
+            activeUserData={activeUserData}
+            portfolioValue={portfolioValue}
+            isGuest={isGuest}
+            checkinLoading={!!actionLoading.checkin}
+            onCheckin={onCheckin}
+            onShowLogin={onShowLogin}
+            onShowPortfolio={onShowPortfolio}
+            onShowBailout={onShowBailout}
+            phoneOpen={railOpen}
+          />
 
           {/* Market column */}
           <div className="lg:order-1 flex-1 min-w-0">
@@ -241,6 +226,21 @@ const HomePage = ({
           </div>
         </div>
       </div>
+
+      {desk.panelCharacter && (
+        <StockPopup
+          character={desk.panelCharacter}
+          onClose={desk.closePanel}
+          onStep={desk.step}
+          onTrade={onTrade}
+          onToggleWatchlist={onToggleWatchlist}
+          onSetAlert={onSetAlert}
+          inCompare={desk.compare.includes(desk.panelCharacter.ticker)}
+          onToggleCompare={desk.toggleCompare}
+          pendingAction={desk.pendingAction}
+          onPendingHandled={desk.clearPendingAction}
+        />
+      )}
 
       <CompareTray
         tickers={desk.compare}

@@ -127,7 +127,7 @@ const WeeklyCard = forwardRef<HTMLDivElement, WeeklyCardProps>(({ rows, week, na
       </div>
 
       <div className="mt-7 pt-4 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
-        <span>Set by the Stockism team. Linked stocks can move with them.</span>
+        <span>Set by the Stockism team. Totals include moves from linked stocks.</span>
         <span className="font-semibold text-orange-400">stockism.app</span>
       </div>
     </div>

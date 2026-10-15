@@ -270,10 +270,10 @@ Quick reference so you know where to look and where to add things.
 | `src/features/admin/` | Admin command panel (full screen, desktop only, terminal look from `src/styles/adminTerminal.css`): `components/` (AdminPanel.tsx owns the hooks and sidebar, AdminContent.tsx draws the section; `shell/` UI kit and `terminal.ts` tokens; `home/`, `players/`, `player/` (the player file), `welcome/`, `money/`, `discordActivity/`, plus the older tabs), `hooks/` (state + handlers, one hook per domain), `utils/` (pure helpers; `adminNav.ts` lets any screen open a player file via PlayerLink) |
 | `src/features/ladder/` | Ladder game: `components/` (board, side panel, modals, shared style constants), `hooks/` (data listeners, game flow, banners, DOM animation) |
 | `src/shared/components/layout/` | Header, Footer, MobileBottomNav, Layout wrapper, GlobalShortcuts (Ctrl+K quick search, `?` shortcut list, P / M) |
-| `src/shared/hooks/useMediaQuery.ts` | `usePhone` / `useWideScreen` for features that only exist on one screen size (phone list rows, long-press, swipe rows, the desktop side panel and comparison). Prefer plain Tailwind breakpoints when only the look changes |
+| `src/shared/hooks/useMediaQuery.ts` | `usePhone` / `useWideScreen` for features that only exist on one screen size (phone list rows, long-press, swipe rows, the desktop stock window and comparison). Prefer plain Tailwind breakpoints when only the look changes |
 | `src/shared/hooks/useSwipeToClose.ts` | `useSheetRef`: bottom-sheet modals on phones (with `themeClasses.sheetOverlayClass` / `sheetShellClass` and `SheetHandle`), ordinary modals from `md` up |
-| `src/features/trading/components/TradeLauncher.tsx` | The one way to open an order form outside a character card (list view, quick actions, side panel, stock page, portfolio swipe, limit requests). Sends pre-market buys and sells to the opening auction |
-| `src/features/market/hooks/useDesktopMarket.ts` | Home page wide-screen extras: side panel instead of the chart window, shift-click comparison, market keyboard shortcuts |
+| `src/features/trading/components/TradeLauncher.tsx` | The one way to open an order form outside a character card (list view, quick actions, desktop stock window, stock page, portfolio swipe, limit requests). Sends pre-market buys and sells to the opening auction |
+| `src/features/market/hooks/useDesktopMarket.ts` | Home page wide-screen extras: big stock window (StockPopup) instead of the plain chart window, shift-click comparison, market keyboard shortcuts |
 
 ### Backend (`functions/`)
 

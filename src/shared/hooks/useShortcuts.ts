@@ -3,7 +3,9 @@ import { useEffect, useRef } from 'react';
 // Keyboard shortcuts. Keys are lower-case `e.key` values ('b', '/', '?',
 // 'arrowright'); 'mod+k' means Ctrl+K, or Cmd+K on a Mac. Plain keys are ignored
 // while typing in a box or while a window (dialog) is open, so they never fire
-// by accident; 'mod+' keys always work.
+// by accident; 'mod+' keys always work. A window can opt back in by carrying
+// data-keep-shortcuts (the desktop stock window, so arrows and B / S work in
+// it), as long as nothing else is open on top of it.
 export type ShortcutMap = Record<string, (e: KeyboardEvent) => void>;
 
 export const isTyping = (target: EventTarget | null) => {
@@ -11,7 +13,10 @@ export const isTyping = (target: EventTarget | null) => {
   return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
 };
 
-const dialogOpen = () => !!document.querySelector('[aria-modal="true"]');
+const dialogOpen = () => {
+  const open = document.querySelectorAll('[aria-modal="true"]');
+  return open.length > 1 || (open.length === 1 && !open[0]!.hasAttribute('data-keep-shortcuts'));
+};
 
 export function useShortcuts(map: ShortcutMap, enabled = true) {
   const mapRef = useRef(map);

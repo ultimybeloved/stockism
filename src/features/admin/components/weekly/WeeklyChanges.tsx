@@ -117,7 +117,8 @@ const WeeklyChanges = () => {
                   <th className={t.th}>Stock</th>
                   <th className={`${t.th} text-right`}>Before</th>
                   <th className={`${t.th} text-right`}>After</th>
-                  <th className={`${t.th} text-right`}>Change</th>
+                  <th className={`${t.th} text-right`}>You set</th>
+                  <th className={`${t.th} text-right`}>Total</th>
                   <th className={`${t.th} text-right`}>Edits</th>
                 </tr>
               </thead>
@@ -127,6 +128,7 @@ const WeeklyChanges = () => {
                     <td className={`${t.td} ${t.text}`}>${r.ticker}</td>
                     <td className={`${t.td} ${t.num} text-right ${t.muted}`}>{money2(r.from)}</td>
                     <td className={`${t.td} ${t.num} text-right ${t.text}`}>{money2(r.to)}</td>
+                    <td className={`${t.td} ${t.num} text-right ${t.muted}`}>{pct(r.directPercent, 2)}</td>
                     <td className={`${t.td} ${t.num} text-right ${signClass(r.percent)}`}>{pct(r.percent, 2)}</td>
                     <td className={`${t.td} ${t.num} text-right ${t.muted}`}>{r.edits}</td>
                   </tr>
@@ -134,7 +136,8 @@ const WeeklyChanges = () => {
               </tbody>
             </table>
             <p className={`px-2 py-2 text-[11px] ${t.dim}`}>
-              Change counts only your own edits. If players traded between two edits, that movement is left out.
+              Total is what the card shows: your edits plus the knock-on from linked stocks you adjusted. Player trading
+              in between is left out. Stocks only dragged along are not listed.
             </p>
           </Panel>
         </div>

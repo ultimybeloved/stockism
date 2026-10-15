@@ -22,7 +22,7 @@ interface MarketListProps {
   onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
   onViewChart: (character: Character, timeRange: string) => void;
   onQuickActions?: (character: Character) => void;
-  /** The stock open in the desktop side panel. */
+  /** The stock open in the desktop stock window. */
   selectedTicker?: string;
   sortBy: string;
   setSortBy: (sort: string) => void;

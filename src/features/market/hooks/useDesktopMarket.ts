@@ -8,8 +8,8 @@ import type { TradeAction } from '../../../types';
 
 export const MARKET_SEARCH_ID = 'market-search';
 
-// The home page's wide-screen extras: clicking a stock opens the side panel
-// instead of a chart window, shift-click collects stocks for a comparison, and
+// The home page's wide-screen extras: clicking a stock opens the big stock window
+// (chart, position and trade buttons) instead of the plain chart window, shift-click collects stocks for a comparison, and
 // the market keyboard shortcuts (/ to search, arrows to step through stocks,
 // B / S to trade the open one, C to add it to the comparison). Phones and
 // tablets keep the chart window.
@@ -37,7 +37,7 @@ export function useDesktopMarket({
     return () => document.removeEventListener('pointerdown', note, true);
   }, []);
 
-  // Only wide screens have room for the panel.
+  // Only wide screens get the big window.
   const shown = wide ? panel : null;
 
   const toggleCompare = (ticker: string) =>
@@ -71,7 +71,7 @@ export function useDesktopMarket({
 
   useShortcuts(
     {
-      '/': () => document.getElementById(MARKET_SEARCH_ID)?.focus(),
+      '/': () => !shown && document.getElementById(MARKET_SEARCH_ID)?.focus(),
       arrowright: () => step(1),
       arrowleft: () => step(-1),
       b: () => canTrade('buy') && setPendingAction('buy'),

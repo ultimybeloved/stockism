@@ -3,8 +3,9 @@
 //
 // A week ends when a chapter review ends (Thursday 21:00 UTC) and starts when
 // the one before it ended, so a post made after the review covers the review
-// plus every tweak since the last one. Knock-on moves on linked stocks are left
-// out on purpose: this is what the admin decided, not what it dragged along.
+// plus every tweak since the last one. Only stocks the admin set by hand are
+// listed, but each one's number includes the knock-on moves it took when a
+// linked stock was adjusted, so it matches what the stock actually did.
 import type { AdminLogEntry } from '../../../api/types';
 
 const WEEK_MS = 7 * 86_400_000;
@@ -32,48 +33,55 @@ export interface WeeklyChange {
   ticker: string;
   from: number;
   to: number;
-  /** The admin's own moves compounded, so trading between two edits doesn't count. */
+  /** Every admin-caused move compounded (own edits plus knock-on), so trading between them doesn't count. */
   percent: number;
+  /** The admin's own edits alone. */
+  directPercent: number;
   edits: number;
 }
 
 type Side = { ticker?: unknown; price?: unknown };
+type Move = { ticker?: unknown; from?: unknown; to?: unknown };
 
-/** Fold the week's adjust_price entries into one change per stock, biggest first. */
+/** Fold the week's adjust_price entries into one change per hand-set stock, biggest first. */
 export const summarizeWeek = (entries: AdminLogEntry[], { start, end }: Week): WeeklyChange[] => {
-  const moves = entries
+  const adjustments = entries
     .filter((e) => e.action === 'adjust_price' && e.at != null && e.at > start && e.at <= end)
-    .map((e) => {
-      const b = (e.before || {}) as Side;
-      const a = (e.after || {}) as Side;
-      return {
-        at: e.at as number,
-        ticker: String(a.ticker || b.ticker || ''),
-        from: Number(b.price),
-        to: Number(a.price),
-      };
-    })
-    .filter((m) => m.ticker && m.from > 0 && m.to > 0)
-    .sort((x, y) => x.at - y.at);
+    .sort((x, y) => (x.at as number) - (y.at as number));
 
-  const byTicker = new Map<string, WeeklyChange & { factor: number }>();
+  // Each adjustment's own move first, then the linked stocks it dragged.
+  const moves = adjustments.flatMap((e) => {
+    const b = (e.before || {}) as Side;
+    const a = (e.after || {}) as Side;
+    const trailing = (Array.isArray(e.detail?.trailing) ? e.detail.trailing : []) as Move[];
+    return [
+      { ticker: String(a.ticker || b.ticker || ''), from: Number(b.price), to: Number(a.price), direct: true },
+      ...trailing.map((m) => ({
+        ticker: String(m.ticker || ''),
+        from: Number(m.from),
+        to: Number(m.to),
+        direct: false,
+      })),
+    ].filter((m) => m.ticker && m.from > 0 && m.to > 0);
+  });
+  const handSet = new Set(moves.filter((m) => m.direct).map((m) => m.ticker));
+
+  type Row = { ticker: string; from: number; to: number; edits: number; total: number; own: number };
+  const byTicker = new Map<string, Row>();
   for (const m of moves) {
-    const row = byTicker.get(m.ticker) || {
-      ticker: m.ticker,
-      from: m.from,
-      to: m.from,
-      percent: 0,
-      edits: 0,
-      factor: 1,
-    };
-    row.factor *= m.to / m.from;
+    if (!handSet.has(m.ticker)) continue;
+    const row = byTicker.get(m.ticker) || { ticker: m.ticker, from: m.from, to: m.from, edits: 0, total: 1, own: 1 };
+    row.total *= m.to / m.from;
+    if (m.direct) {
+      row.own *= m.to / m.from;
+      row.edits += 1;
+    }
     row.to = m.to;
-    row.edits += 1;
     byTicker.set(m.ticker, row);
   }
 
   return [...byTicker.values()]
-    .map(({ factor, ...row }) => ({ ...row, percent: (factor - 1) * 100 }))
+    .map(({ total, own, ...row }) => ({ ...row, percent: (total - 1) * 100, directPercent: (own - 1) * 100 }))
     .filter((row) => Math.abs(row.percent) >= 0.005)
     .sort((a, b) => Math.abs(b.percent) - Math.abs(a.percent));
 };

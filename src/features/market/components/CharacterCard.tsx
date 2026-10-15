@@ -39,7 +39,7 @@ interface CharacterCardProps {
   reviewChange?: ReviewChange | null;
   /** Phones: press and hold the card for its quick actions. */
   onQuickActions?: (character: Character) => void;
-  /** Wide screens: open in the side panel, or picked for a comparison. */
+  /** Wide screens: open in the stock window, or picked for a comparison. */
   highlight?: 'open' | 'compare' | null;
 }
 

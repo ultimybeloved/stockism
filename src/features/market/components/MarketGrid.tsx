@@ -29,7 +29,7 @@ type MarketGridProps = Pick<
     marketTab: string;
     searchQuery: string;
     view: MarketView;
-    /** Wide screens: the stock open in the side panel, and the ones picked to compare. */
+    /** Wide screens: the stock open in the stock window, and the ones picked to compare. */
     selectedTicker?: string;
     compareTickers?: string[];
     sortBy: string;
