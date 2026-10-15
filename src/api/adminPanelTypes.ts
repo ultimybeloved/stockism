@@ -90,6 +90,33 @@ export interface MarketGuardResponse {
   botsUpdatedAt: number | null;
 }
 
+export interface BotRun {
+  at: number;
+  moves: number;
+  guard: number;
+  picked: number;
+  active: number;
+}
+
+export interface BotStock {
+  ticker: string;
+  name: string;
+  price: number;
+  kind: 'normal' | 'neglected' | 'neglected_still' | 'held' | null;
+  phase: string;
+  until: number;
+  botDrift: number;
+  holdDrift: number;
+  movesToday: number;
+}
+
+export interface BotActivityResponse {
+  updatedAt: number | null;
+  runLog: BotRun[];
+  moves: { at: number; ticker: string; from: number; to: number; guard: boolean }[];
+  stocks: BotStock[];
+}
+
 export type MarketGuardRequest = { action: 'list' } | { action: 'set'; uid: string; confirmed: boolean };
 
 export interface DashboardJob {

@@ -173,7 +173,7 @@ describe('AdminPanel', () => {
 
   it('no longer has the removed tools', async () => {
     renderPanel();
-    expect(screen.queryByRole('button', { name: /^Bots/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Create Bots/i)).not.toBeInTheDocument();
     fireEvent.click(menu('Recovery'));
     await screen.findByText(/Bankrupt Users/);
     for (const gone of [/Spike Victim/, /Diagnose User Accounts/, /Reconstruct Portfolio History/, /Repair Corrupted/])

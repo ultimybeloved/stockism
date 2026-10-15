@@ -9,6 +9,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import { logAdminAction } from '../shared/adminLog';
 import { manipulatorsRef, storylinesRef } from '../market/manipulatorActivity';
+import { buildBotActivity } from './adminBotActivity';
 
 const db = admin.firestore();
 const CANDIDATE_DAYS = 60;
@@ -73,9 +74,11 @@ const buildList = async () => {
 /**
  * Admin-only. `{ action: 'list' }` returns the screen; `{ action: 'set', uid,
  * confirmed }` adds or removes one account and returns the screen.
+ * `{ action: 'bots' }` returns the Bots screen instead.
  */
 export const adminMarketGuard = cf().https.onCall(async (data, context) => {
   requireAdmin(context);
+  if (data?.action === 'bots') return buildBotActivity();
   if (data?.action === 'set') {
     const uid = String(data.uid || '').trim();
     if (!uid || uid.length > 128 || uid.includes('/')) {

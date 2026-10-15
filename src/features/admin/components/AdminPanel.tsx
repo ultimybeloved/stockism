@@ -173,6 +173,7 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
             ),
         },
         { id: 'holders', label: 'Holders' },
+        { id: 'bots', label: 'Bots' },
         { id: 'stats', label: 'Stats', load: stats.loadMarketStats },
         { id: 'ipo', label: 'IPOs', load: ipo.loadIPOs },
         { id: 'predictions', label: 'Bets and markets', badge: unresolvedPredictions.length, load: bets.loadAllBets },

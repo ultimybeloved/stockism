@@ -300,3 +300,5 @@ export const adminBulkActionFunction = callable<Panel.BulkActionRequest, Panel.B
 export const adminMarketGuardFunction = callable<Panel.MarketGuardRequest, Panel.MarketGuardResponse>(
   'adminMarketGuard',
 );
+// Same backend function, the Bots screen view.
+export const adminBotActivityFunction = callable<{ action: 'bots' }, Panel.BotActivityResponse>('adminMarketGuard');

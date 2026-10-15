@@ -57,6 +57,8 @@ import {
 
 const db = admin.firestore();
 const GUARD_LOG_MAX = 60;
+// One day of runs, for the admin Bots screen.
+const RUN_LOG_MAX = 96;
 const ACTIVE_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -151,6 +153,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
       const shortsFresh = now - (stats.shortInterestAt || 0) <= SHORT_INTEREST_MAX_AGE_MS;
       const saved = (stateSnap.data()?.tickers || {}) as Record<string, Partial<Storyline>>;
       const guardLog = (stateSnap.data()?.guardLog || []) as GuardLogEntry[];
+      const runLog = (stateSnap.data()?.runLog || []) as unknown[];
       const launched: string[] = market.launchedTickers || [];
 
       // Classify every tradable stock and bring its storyline up to date.
@@ -266,7 +269,12 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
 
       await storylinesRef().set({
         tickers: state,
+        kinds,
         guardLog: [...guardNotes, ...guardLog].slice(0, GUARD_LOG_MAX),
+        runLog: [
+          { at: now, moves: moved, guard: guardNotes.length, picked: picked.length, active: activeTickers },
+          ...runLog,
+        ].slice(0, RUN_LOG_MAX),
         updatedAt: Date.now(),
       });
 
