@@ -6,8 +6,19 @@ export interface SortableHolding {
   ticker: string;
   shares?: number;
   value?: number;
+  totalReturnPercent?: number;
+  todayReturnPercent?: number;
+  currentPrice?: number;
   character?: { name?: string } | null;
 }
+
+/** Numeric sort keys beyond value and shares (the portfolio table's columns). */
+const NUMERIC_KEYS: Record<string, keyof SortableHolding> = {
+  shares: 'shares',
+  return: 'totalReturnPercent',
+  today: 'todayReturnPercent',
+  price: 'currentPrice',
+};
 
 export type TimeRange = { key: string; label: string; days?: number; months?: number; years?: number };
 
@@ -29,6 +40,7 @@ export const formatShares = (n: number): string => {
 // Sort options for the holdings (long positions) list.
 export const HOLDING_SORTS = [
   { key: 'value', label: 'Value' },
+  { key: 'return', label: 'Return' },
   { key: 'shares', label: 'Shares' },
   { key: 'name', label: 'Name' },
 ];
@@ -53,8 +65,9 @@ export const sortHoldings = <T extends SortableHolding>(items: T[], key: string,
       const bn = (b.character?.name || b.ticker || '').toLowerCase();
       return an.localeCompare(bn) * sign;
     }
-    const av = key === 'shares' ? a.shares || 0 : a.value || 0;
-    const bv = key === 'shares' ? b.shares || 0 : b.value || 0;
+    const field = NUMERIC_KEYS[key] ?? 'value';
+    const av = Number(a[field]) || 0;
+    const bv = Number(b[field]) || 0;
     return (av - bv) * sign;
   });
   return sorted;

@@ -2,31 +2,33 @@
 // clean-up, and one row per position. On phones each long row can be swiped:
 // left to sell, right to buy more (it only opens the order form).
 import { useMemo, useState, type ComponentProps } from 'react';
+import type PositionDetail from './PositionDetail';
 import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { useSession, useMarket } from '../../../context/AppContext';
-import HoldingRow from './HoldingRow';
 import ShortRow from './ShortRow';
 import HoldingsControls from './HoldingsControls';
 import DustCleanupBanner from './DustCleanupBanner';
-import SwipeRow from './SwipeRow';
+import PositionsTable from './PositionsTable';
+import PositionList from './PositionList';
+import { usePhone } from '../../../shared/hooks/useMediaQuery';
 import { useDustCleanup } from '../hooks/useDustCleanup';
 import { buildShortItems, type PortfolioItem } from '../utils/buildPositionItems';
 import { filterHoldings, sortHoldings, type ShareInputs } from '../utils/shared';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import type { TradeAction } from '../../../types';
 
-type RowProps = ComponentProps<typeof HoldingRow>;
+type DetailProps = ComponentProps<typeof PositionDetail>;
 type PositionTab = 'long' | 'short';
 
 interface PositionsPanelProps {
   portfolioItems: PortfolioItem[];
   onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
-  /** Opens the order form for a stock (swipe on phones). */
-  onOpenOrder?: (ticker: string, action: TradeAction) => void;
-  onLimitSell?: RowProps['onLimitSell'];
-  drip?: RowProps['drip'];
-  onToggleDrip?: RowProps['onToggleDrip'];
+  /** Opens the order form for a stock. */
+  onOpenOrder: (ticker: string, action: TradeAction) => void;
+  onLimitSell?: DetailProps['onLimitSell'];
+  drip?: DetailProps['drip'];
+  onToggleDrip?: DetailProps['onToggleDrip'];
 }
 
 const PositionsPanel = ({
@@ -41,7 +43,7 @@ const PositionsPanel = ({
   const { prices, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
   const { mutedClass } = themeClasses;
-  const [sellAmounts, setSellAmounts] = useState<ShareInputs>({});
+  const phone = usePhone();
   const [coverAmounts, setCoverAmounts] = useState<ShareInputs>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
   const [expandedShortTicker, setExpandedShortTicker] = useState<string | null>(null);
@@ -88,6 +90,13 @@ const PositionsPanel = ({
   );
 
   const totalValue = portfolioItems.reduce((sum, item) => sum + item.value, 0);
+  const actions = {
+    onOrder: onOpenOrder,
+    onSellAll: (ticker: string, shares: number) => onTrade(ticker, 'sell', shares),
+    onLimitSell,
+    drip,
+    onToggleDrip,
+  };
 
   if (portfolioItems.length === 0 && shortItems.length === 0) return null;
 
@@ -138,35 +147,20 @@ const PositionsPanel = ({
                   ~{formatCurrency(totalWeeklyDividends)} / week in dividends
                 </p>
               )}
-              {onOpenOrder && (
-                <p className={`md:hidden text-[11px] ${mutedClass} mb-2`}>
-                  Swipe a stock left to sell, right to buy more.
-                </p>
+              {phone ? (
+                <PositionList items={visibleItems} totalValue={totalValue} {...actions} />
+              ) : (
+                <PositionsTable
+                  items={visibleItems}
+                  totalValue={totalValue}
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={handleSortChange}
+                  expanded={expandedTicker}
+                  setExpanded={setExpandedTicker}
+                  {...actions}
+                />
               )}
-              <div className="space-y-2">
-                {visibleItems.map((item) => (
-                  <SwipeRow
-                    key={item.ticker}
-                    onSwipeLeft={onOpenOrder ? () => onOpenOrder(item.ticker, 'sell') : undefined}
-                    onSwipeRight={onOpenOrder ? () => onOpenOrder(item.ticker, 'buy') : undefined}
-                    colorBlindMode={colorBlindMode}
-                  >
-                    <HoldingRow
-                      item={item}
-                      isExpanded={expandedTicker === item.ticker}
-                      onToggle={(t) => setExpandedTicker(expandedTicker === t ? null : t)}
-                      totalValue={totalValue}
-                      sellAmounts={sellAmounts}
-                      setSellAmounts={setSellAmounts}
-                      onSell={(ticker, amount) => onTrade(ticker, 'sell', amount)}
-                      onLimitSell={onLimitSell}
-                      drip={drip}
-                      onToggleDrip={onToggleDrip}
-                      colorBlindMode={colorBlindMode}
-                    />
-                  </SwipeRow>
-                ))}
-              </div>
             </>
           )}
         </>

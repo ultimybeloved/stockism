@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// Characterization test: captures how PortfolioView renders today so the
-// component can be split into sub-components without changing behavior.
+// The portfolio page's main view: header, positions table with details and
+// history, the short tab, and the empty state.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
@@ -17,6 +17,7 @@ vi.mock('firebase/firestore', () => ({
   where: vi.fn(),
   orderBy: vi.fn(),
   limit: vi.fn(),
+  limitToLast: vi.fn(),
   doc: vi.fn(),
   serverTimestamp: vi.fn(),
   updateDoc: vi.fn(),
@@ -28,7 +29,9 @@ vi.mock('../../../context/AppContext', () => ({
   useMarket: () => h.ctx,
 }));
 
+import { MemoryRouter } from 'react-router-dom';
 import PortfolioView from './PortfolioView';
+import { getChangeColors } from '../../../utils/theme';
 
 const baseCtx = () => ({
   darkMode: false,
@@ -41,26 +44,36 @@ const baseCtx = () => ({
   costBasis: { JAKE: 40 },
   activeIPOs: [],
   showNotification: vi.fn(),
+  getColorBlindColors: (up: boolean) => getChangeColors(up, false),
 });
+
+const view = (value: number) =>
+  render(
+    <MemoryRouter>
+      <PortfolioView currentValue={value} onTrade={noop} />
+    </MemoryRouter>,
+  );
 
 const noop = () => {};
 
 afterEach(cleanup);
 
-describe('PortfolioModal', () => {
+describe('PortfolioView', () => {
   it('renders the header, value, and long/short tabs (short behind its tab)', async () => {
     h.ctx = baseCtx();
-    render(<PortfolioView currentValue={1000} onTrade={noop} />);
+    view(1000);
 
     expect(await screen.findByText(/Your Portfolio/)).toBeInTheDocument();
-    expect(screen.getByText('$1,000.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$1,000.00').length).toBeGreaterThan(0);
+    expect(screen.getByText('Open profit')).toBeInTheDocument();
+    expect(screen.getByText('Allocation')).toBeInTheDocument();
 
     // Chart section
     expect(screen.getByText(/Hide Chart/)).toBeInTheDocument();
     expect(screen.getByText('24h')).toBeInTheDocument();
 
     // Long tab is the default — its holding shows, the short does not yet
-    expect(screen.getByText('$JAKE')).toBeInTheDocument();
+    expect(screen.getAllByText('$JAKE').length).toBeGreaterThan(0);
     expect(screen.queryByText('$GAP')).not.toBeInTheDocument();
 
     // Switching to the Short tab reveals the short position
@@ -71,17 +84,18 @@ describe('PortfolioModal', () => {
 
   it('expands a long position to reveal its stats and sell controls', async () => {
     h.ctx = baseCtx();
-    render(<PortfolioView currentValue={1000} onTrade={noop} />);
+    view(1000);
 
-    fireEvent.click(await screen.findByText('$JAKE'));
-    expect(screen.getByText('Avg Cost / Share')).toBeInTheDocument();
-    expect(screen.getByText('Sell All')).toBeInTheDocument();
-    expect(screen.getByText('Stop Loss')).toBeInTheDocument();
+    const row = (await screen.findAllByText('$JAKE')).map((el) => el.closest('tr')).find(Boolean);
+    fireEvent.click(row!);
+    expect(screen.getByText('Avg cost', { selector: 'div' })).toBeInTheDocument();
+    expect(screen.getByText('Sell all')).toBeInTheDocument();
+    expect(screen.getByText(/Your history with \$JAKE/)).toBeInTheDocument();
   });
 
   it('expands a short position to reveal its stats and cover controls', async () => {
     h.ctx = baseCtx();
-    render(<PortfolioView currentValue={1000} onTrade={noop} />);
+    view(1000);
 
     fireEvent.click(await screen.findByRole('button', { name: /Short/ }));
     fireEvent.click(screen.getByText('$GAP'));
@@ -92,7 +106,7 @@ describe('PortfolioModal', () => {
 
   it('shows the empty state when there are no positions', async () => {
     h.ctx = { ...baseCtx(), holdings: {}, shorts: {}, activeIPOs: [] };
-    render(<PortfolioView currentValue={0} onTrade={noop} />);
+    view(0);
 
     expect(await screen.findByText(/No positions yet/)).toBeInTheDocument();
   });

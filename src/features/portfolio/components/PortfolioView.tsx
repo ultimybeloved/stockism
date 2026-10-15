@@ -1,6 +1,8 @@
-// The player's portfolio: value and its chart, IPO shares, positions and open
-// orders. A page of its own (/portfolio). Phones stack it in one column; wide
-// screens put the value, chart and orders on the left and positions on the right.
+// The player's portfolio, laid out like a brokerage account: value and chart,
+// account numbers and allocation, a positions table (each row opens its
+// details and your trade history in it), open orders and recent activity.
+// Phones get the same pieces in one column, with Positions / Activity / Orders
+// tabs instead of everything stacked.
 import { useState, useMemo } from 'react';
 import { CHARACTER_MAP } from '../../../characters';
 import { themeClasses } from '../../../utils/theme';
@@ -11,6 +13,10 @@ import PortfolioChart from './PortfolioChart';
 import IpoHoldingsList from './IpoHoldingsList';
 import PendingOrdersList from './PendingOrdersList';
 import PositionsPanel from './PositionsPanel';
+import PortfolioStats from './PortfolioStats';
+import AllocationBar from './AllocationBar';
+import ActivityPanel from './ActivityPanel';
+import { usePhone } from '../../../shared/hooks/useMediaQuery';
 import { usePortfolioChartData } from '../hooks/usePortfolioChartData';
 import { usePortfolioModalData } from '../hooks/usePortfolioModalData';
 import { buildPortfolioItems, buildShortItems } from '../utils/buildPositionItems';
@@ -39,7 +45,7 @@ interface PortfolioViewProps {
 const PortfolioView = ({
   currentValue,
   onTrade,
-  onOpenOrder,
+  onOpenOrder = () => {},
   onLimitSell,
   onOpenTradeHistory,
   ipoPurchases = {},
@@ -54,6 +60,8 @@ const PortfolioView = ({
   const [showChart, setShowChart] = useState(true);
   const [timeRange, setTimeRange] = useState('1d');
   const [hoveredPoint, setHoveredPoint] = useState<ChartHoverPoint | null>(null);
+  const phone = usePhone();
+  const [tab, setTab] = useState<'positions' | 'activity' | 'orders'>('positions');
 
   const { textClass, mutedClass, cardClass, cardEdgeClass, ghostBtnClass } = themeClasses;
 
@@ -77,7 +85,9 @@ const PortfolioView = ({
     [holdings, prices, priceHistory, costBasis, holdingCohorts, dividendTierOverrides, rarityTiers],
   );
 
-  const shortCount = useMemo(() => buildShortItems({ shorts, prices }).length, [shorts, prices]);
+  const shortItems = useMemo(() => buildShortItems({ shorts, prices }), [shorts, prices]);
+  const shortCount = shortItems.length;
+  const shortCollateral = shortItems.reduce((sum, i) => sum + i.margin, 0);
 
   // IPO holdings — only show active IPOs where user has purchases
   const ipoItems = useMemo((): IpoHoldingItem[] => {
@@ -112,94 +122,140 @@ const PortfolioView = ({
 
   const empty = portfolioItems.length === 0 && shortCount === 0 && ipoItems.length === 0;
 
+  const positions = (
+    <section className={`${cardClass} border rounded-sm p-4 min-w-0`}>
+      {empty ? (
+        <div className={`text-center py-8 ${mutedClass}`}>
+          <p className="text-lg mb-2">📭 No positions yet</p>
+          <p className="text-sm">Start trading to build your portfolio!</p>
+        </div>
+      ) : (
+        <>
+          <IpoHoldingsList items={ipoItems} />
+          <PositionsPanel
+            portfolioItems={portfolioItems}
+            onTrade={onTrade}
+            onOpenOrder={onOpenOrder}
+            onLimitSell={onLimitSell}
+            drip={drip}
+            onToggleDrip={onToggleDrip}
+          />
+        </>
+      )}
+    </section>
+  );
+  const orders = (
+    <section className={`${cardClass} border rounded-sm p-4 min-w-0`}>
+      {pendingOrders.length === 0 ? (
+        <p className={`text-sm ${mutedClass}`}>No open orders. Limit orders and stop losses you place show up here.</p>
+      ) : (
+        <PendingOrdersList
+          orders={pendingOrders}
+          prices={prices}
+          onCancel={handleCancelOrder}
+          loadingOrders={loadingOrders}
+        />
+      )}
+    </section>
+  );
+  const activity = (
+    <section className={`${cardClass} border rounded-sm p-4 min-w-0 lg:col-span-2`}>
+      <ActivityPanel onOpenTradeHistory={onOpenTradeHistory} />
+    </section>
+  );
+
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-6 lg:items-start space-y-4 lg:space-y-0">
-      {/* Value and chart */}
-      <section className={`${cardClass} border rounded-sm overflow-hidden lg:col-start-1 lg:row-start-1`}>
-        <div className={`p-4 border-b ${cardEdgeClass}`}>
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className={`text-lg font-semibold ${textClass}`}>Your Portfolio</h1>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className={`text-xl font-bold ${textClass}`}>
-                  {formatCurrency(hoveredPoint?.value ?? currentValue)}
-                </span>
-                {hasChartData && (
-                  <span
-                    className={`text-sm font-semibold ${colorBlindMode ? (header.isUp ? 'text-teal-500' : 'text-purple-500') : header.isUp ? 'text-green-500' : 'text-red-500'}`}
-                  >
-                    {header.isUp ? '▲' : '▼'} {formatCurrency(Math.abs(header.change))} ({formatChange(header.pct)})
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+        <section className={`${cardClass} border rounded-sm overflow-hidden lg:col-span-2`}>
+          <div className={`p-4 border-b ${cardEdgeClass}`}>
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className={`text-lg font-semibold ${textClass}`}>Your Portfolio</h1>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <span className={`text-xl font-bold ${textClass}`}>
+                    {formatCurrency(hoveredPoint?.value ?? currentValue)}
                   </span>
+                  {hasChartData && (
+                    <span
+                      className={`text-sm font-semibold ${colorBlindMode ? (header.isUp ? 'text-teal-500' : 'text-purple-500') : header.isUp ? 'text-green-500' : 'text-red-500'}`}
+                    >
+                      {header.isUp ? '▲' : '▼'} {formatCurrency(Math.abs(header.change))} ({formatChange(header.pct)})
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {onOpenTradeHistory && (
+                  <button
+                    onClick={onOpenTradeHistory}
+                    className={`px-2 py-1 text-xs font-semibold rounded-sm border ${ghostBtnClass}`}
+                  >
+                    Trade History
+                  </button>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {onOpenTradeHistory && (
-                <button
-                  onClick={onOpenTradeHistory}
-                  className={`px-2 py-1 text-xs font-semibold rounded-sm border ${ghostBtnClass}`}
-                >
-                  Trade History
-                </button>
-              )}
-            </div>
           </div>
-        </div>
 
-        {/* Portfolio Chart — hidden for brand-new accounts (no positions and no
+          {/* Portfolio Chart — hidden for brand-new accounts (no positions and no
             history yet), where it would just be a flat placeholder line */}
-        {!(empty && !loadingHistory && (portfolioHistory?.length || 0) < 2) && (
-          <PortfolioChart
-            chartData={chartData}
-            minValue={minValue}
-            maxValue={maxValue}
-            valueRange={valueRange}
-            isUp={isUp}
-            hoveredPoint={hoveredPoint}
-            setHoveredPoint={setHoveredPoint}
-            showChart={showChart}
-            setShowChart={setShowChart}
-            loadingHistory={loadingHistory}
-            timeRange={timeRange}
-            setTimeRange={setTimeRange}
-            timeRanges={TIME_RANGES}
-            colorBlindMode={colorBlindMode}
-          />
-        )}
-      </section>
-
-      {/* Positions: second on phones, the whole right column on wide screens */}
-      <section className={`${cardClass} border rounded-sm p-4 lg:col-start-2 lg:row-start-1 lg:row-span-2`}>
-        {empty ? (
-          <div className={`text-center py-8 ${mutedClass}`}>
-            <p className="text-lg mb-2">📭 No positions yet</p>
-            <p className="text-sm">Start trading to build your portfolio!</p>
-          </div>
-        ) : (
-          <>
-            <IpoHoldingsList items={ipoItems} />
-            <PositionsPanel
-              portfolioItems={portfolioItems}
-              onTrade={onTrade}
-              onOpenOrder={onOpenOrder}
-              onLimitSell={onLimitSell}
-              drip={drip}
-              onToggleDrip={onToggleDrip}
+          {!(empty && !loadingHistory && (portfolioHistory?.length || 0) < 2) && (
+            <PortfolioChart
+              chartData={chartData}
+              minValue={minValue}
+              maxValue={maxValue}
+              valueRange={valueRange}
+              isUp={isUp}
+              hoveredPoint={hoveredPoint}
+              setHoveredPoint={setHoveredPoint}
+              showChart={showChart}
+              setShowChart={setShowChart}
+              loadingHistory={loadingHistory}
+              timeRange={timeRange}
+              setTimeRange={setTimeRange}
+              timeRanges={TIME_RANGES}
+              colorBlindMode={colorBlindMode}
             />
-          </>
-        )}
-      </section>
-
-      {/* Open orders */}
-      {!empty && (
-        <section className="lg:col-start-1 lg:row-start-2">
-          <PendingOrdersList
-            orders={pendingOrders}
-            prices={prices}
-            onCancel={handleCancelOrder}
-            loadingOrders={loadingOrders}
-          />
+          )}
         </section>
+        <section className={`${cardClass} border rounded-sm p-4 space-y-4`}>
+          <PortfolioStats items={portfolioItems} shortCollateral={shortCollateral} currentValue={currentValue} />
+          <AllocationBar items={portfolioItems} cash={userData?.cash || 0} shortCollateral={shortCollateral} />
+        </section>
+      </div>
+
+      {phone ? (
+        <>
+          <div className="flex gap-1 sticky top-16 z-20 py-2 -mx-4 px-4 light:bg-amber-50 dark:bg-zinc-950">
+            {(
+              [
+                ['positions', 'Positions'],
+                ['activity', 'Activity'],
+                ['orders', `Orders${pendingOrders.length ? ` (${pendingOrders.length})` : ''}`],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`flex-1 py-2 text-sm font-semibold rounded-sm ${
+                  tab === id ? 'bg-orange-600 text-white' : `border ${ghostBtnClass}`
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {tab === 'positions' ? positions : tab === 'activity' ? activity : orders}
+        </>
+      ) : (
+        <>
+          {positions}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+            {orders}
+            {activity}
+          </div>
+        </>
       )}
     </div>
   );

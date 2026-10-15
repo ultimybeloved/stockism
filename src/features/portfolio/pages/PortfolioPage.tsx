@@ -47,7 +47,7 @@ const PortfolioPage = ({ onTrade, onLimitSell, onOpenTradeHistory, onToggleDrip,
 
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <PortfolioView
           currentValue={calculatePortfolioValue(userData, prices)}
           onTrade={onTrade}

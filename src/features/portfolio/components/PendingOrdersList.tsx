@@ -20,9 +20,9 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders }: PendingO
   if (!orders || orders.length === 0) return null;
 
   return (
-    <div className="mt-6">
+    <div>
       <div className="flex items-center gap-2 mb-3">
-        <h3 className={`text-lg font-bold ${textClass}`}>Pending Orders</h3>
+        <h3 className={`text-base font-bold ${textClass}`}>Open orders</h3>
         <span className="text-sm px-2 py-0.5 rounded light:bg-blue-100 light:text-blue-700 dark:bg-blue-900 dark:text-blue-200">
           {orders.length}
         </span>
