@@ -2151,6 +2151,11 @@ async function testConfirmedManipulator() {
     near(manip.executionPrice, honest.executionPrice),
     `${manip.executionPrice} vs ${honest.executionPrice}`,
   );
+  check(
+    'manipulator buy: their trade message reports the move the chart made',
+    near(manip.priceImpact, manip.newPrice - 100, 0.011),
+    `reported ${manip.priceImpact} chart ${manip.newPrice - 100}`,
+  );
   const hist = (await getUser('manip_s')).tickerTradeHistory[T].buy;
   check(
     'manipulator buy: the full impact counts against their daily allowance',

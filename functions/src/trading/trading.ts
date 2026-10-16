@@ -417,7 +417,11 @@ export const executeTrade = cf().https.onCall(
             success: true,
             executionPrice,
             newPrice,
-            priceImpact,
+            // What the player's trade message shows: how far the market actually
+            // moved. For a confirmed manipulator that is the scaled move, so the
+            // message agrees with the chart. Records and the daily allowance keep
+            // the full impact (impactPercent above).
+            priceImpact: priceImpact * moveFactor,
             totalCost,
             newCash,
             newHoldings,
