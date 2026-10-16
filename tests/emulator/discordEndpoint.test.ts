@@ -151,6 +151,7 @@ const ladderBody = (bet: number, discordId: string, guild = DISCORD_GUILD_ID) =>
 });
 const clickBody = (custom_id: string, discordId: string) => ({
   type: 3,
+  id: 'click-id',
   application_id: 'app-id',
   token: `tok-${Math.random()}`,
   guild_id: DISCORD_GUILD_ID,
@@ -195,7 +196,17 @@ async function runLadder() {
 
   sent.length = 0;
   const unlinked = await callEndpoint(clickBody('ladder:bet:left:odd:10:lad-owner', 'lad-owner'));
-  check('a bet takes the buttons off at once', unlinked[0].payload.type === 7 && buttonIds(unlinked).length === 0);
+  const ack = sent.find((c) => c.url.includes('/interactions/click-id/'));
+  check(
+    'a bet takes the buttons off at once, through the callback API',
+    ack && ack.body.type === 7 && JSON.stringify((ack.body.data as { components: unknown[] }).components) === '[]',
+    JSON.stringify(sent[0]),
+  );
+  check(
+    'the HTTP reply is held until the game is over, then sent once',
+    unlinked.length === 1 && unlinked[0].code === 204 && sent.some((c) => String(c.body.content).includes('Link this')),
+    JSON.stringify(unlinked),
+  );
   check(
     'not linked: the player is told privately how to link',
     await waitFor(() => sent.some((c) => c.method === 'post' && String(c.body.content).includes('Link this Discord'))),

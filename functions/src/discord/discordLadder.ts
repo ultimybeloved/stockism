@@ -31,6 +31,7 @@ const MAX_BET = 1_000_000_000;
 
 /** The parts of a button click this module reads. */
 interface ComponentInteraction extends Interaction {
+  id: string;
   application_id: string;
   token: string;
   data: Interaction['data'] & { custom_id?: string };
@@ -112,8 +113,36 @@ export const handleLadderButton = async (i: ComponentInteraction, res: Response)
   const amount = Number(parts[4]);
   const betText = `<@${owner}> bets **${money(amount)}** on **${bet.toUpperCase()}** from the ${side} X.`;
   // Take the buttons off straight away so a double click can't play twice.
-  res.json({ type: 7, data: { ...embed(betText, idleBoard(side)), components: [] } });
+  //
+  // Acknowledged through Discord's callback API rather than the HTTP reply, and
+  // the HTTP reply is held until the game is over. Cloud Functions counts a
+  // request as finished once it is answered and throttles the instance, which
+  // made the transaction and every frame after it crawl. If the callback fails,
+  // fall back to answering at once (the old, slower way).
+  const ack = { type: 7, data: { ...embed(betText, idleBoard(side)), components: [] } };
+  let held = true;
+  try {
+    await axios.post(`https://discord.com/api/v10/interactions/${i.id}/${i.token}/callback`, ack);
+  } catch (err) {
+    reportError(err, { where: 'discordLadder.ack', owner });
+    held = false;
+    res.json(ack);
+  }
+  try {
+    await playBet(i, owner, side, bet, amount, betText);
+  } finally {
+    if (held) res.status(204).send('');
+  }
+};
 
+const playBet = async (
+  i: ComponentInteraction,
+  owner: string,
+  side: Side,
+  bet: 'odd' | 'even',
+  amount: number,
+  betText: string,
+) => {
   // Put the buttons back and tell only the player why, for any refusal.
   const refuse = async (content: string, components?: object[]) => {
     await editMessage(i, pickBet(owner, amount, side));
@@ -154,9 +183,11 @@ export const handleLadderButton = async (i: ComponentInteraction, res: Response)
         ),
         components: [buttonRow(button(`Play again (${money(amount)})`, `ladder:again:${amount}:${owner}`, 1))],
       });
+    // One frame every STEP_MS, counting the time each edit takes.
     for (let f = 0; f < frames.length - 1; f++) {
+      const t0 = Date.now();
       await editMessage(i, embed(betText, frames[f]!));
-      await sleep(STEP_MS);
+      await sleep(Math.max(0, STEP_MS - (Date.now() - t0)));
     }
     await finish();
   } catch (err) {
