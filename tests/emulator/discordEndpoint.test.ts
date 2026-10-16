@@ -34,7 +34,7 @@ const { discordInteractions } =
   require('../../functions/src/discord/discordInteractions') as typeof import('../../functions/src/discord/discordInteractions');
 
 const TICKER = CHARACTERS[0].ticker;
-const { DISCORD_GUILD_ID } =
+const { DISCORD_GUILD_ID, LADDER_CHANNEL_IDS } =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 // The ladder edits its message through Discord's webhook API after replying.
@@ -117,6 +117,7 @@ const callEndpoint = (body: unknown, { sign = true } = {}) =>
 
 const commandBody = (name: string, options: { name: string; value: string }[] = [], discordId = 'endpoint-user') => ({
   type: 2,
+  id: 'cmd-id',
   application_id: 'app-id',
   token: `tok-${Math.random()}`,
   data: { name, options },
@@ -145,9 +146,10 @@ async function seed() {
     });
 }
 
-const ladderBody = (bet: number, discordId: string, guild = DISCORD_GUILD_ID) => ({
+const ladderBody = (bet: number, discordId: string, guild = DISCORD_GUILD_ID, channel = LADDER_CHANNEL_IDS[0]) => ({
   ...commandBody('ladder', [{ name: 'bet', value: String(bet) }], discordId),
   guild_id: guild,
+  channel_id: channel,
 });
 const clickBody = (custom_id: string, discordId: string) => ({
   type: 3,
@@ -170,6 +172,12 @@ async function runLadder() {
   console.log('\n--- /ladder ---');
   const away = await callEndpoint(ladderBody(10, 'lad-owner', 'some-partner-guild'));
   check('outside the Stockism server it refuses privately', away[0].payload.data?.flags === 64);
+
+  const general = await callEndpoint(ladderBody(10, 'lad-owner', DISCORD_GUILD_ID, 'general-chat'));
+  check(
+    'in any other channel it refuses privately',
+    general[0].payload.data?.flags === 64 && JSON.stringify(general[0].payload).includes('can only be played in'),
+  );
 
   const start = await callEndpoint(ladderBody(10, 'lad-owner'));
   check(
@@ -259,13 +267,20 @@ async function run() {
   console.log('\n--- Reply strategy ---');
   // Distinct callers throughout: the per-user cooldown would otherwise turn the
   // second call into a "slow down" reply and mask what is being tested.
-  // First interaction on this instance: no headroom assumed, must defer (type 5).
+  // First interaction on this instance: no headroom assumed, must defer (type 5),
+  // through the callback API, holding the HTTP reply until the edit is in.
+  sent.length = 0;
   const first = await callEndpoint(commandBody('price', [{ name: 'stock', value: TICKER }], 'endpoint-cold'));
   check('exactly one response sent', first.length === 1, JSON.stringify(first));
   check(
-    'first request on a cold instance defers (type 5)',
-    first[0].payload && first[0].payload.type === 5,
-    JSON.stringify(first[0].payload),
+    'first request on a cold instance defers (type 5) through the callback API',
+    sent[0]?.url.includes('/interactions/cmd-id/') && sent[0]?.body.type === 5,
+    JSON.stringify(sent[0]),
+  );
+  check(
+    'the HTTP reply waits until the real answer is edited in',
+    first[0].code === 204 && sent.some((c) => c.method === 'patch' && c.url.includes('@original')),
+    JSON.stringify(sent.map((c) => c.url)),
   );
 
   // Instance is now warm: the reads are fast, so it should answer in one shot.

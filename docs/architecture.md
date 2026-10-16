@@ -352,6 +352,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/haltAudit.ts` | haltPriceAudit (Thursday 21:05 UTC): flags untagged price points inside the halt, DMs the admin, silent when clean. Pure logic in `haltAuditCore.ts` (internal, unit-tested). Manual version: `npm run audit:halt` |
 | `functions/src/crews/crewMissions.ts` | claimCrewMission; progress writing lives in an internal module |
 | `functions/src/discord/discordMessages.ts` | Admin Discord tab: post, edit, delete and import bot messages. Payload shaping in `discordMessagePayload.ts` (internal) |
+| `functions/src/discord/discordAck.ts` | **Internal module.** holdAck: acknowledge an interaction through Discord's callback API and hold the HTTP reply until the work is done. Answering the HTTP request first throttles the instance; every deferred path must use this |
 | `functions/src/discord/discordLadder.ts` | **Internal module.** Discord `/ladder`: command, buttons (state in custom_id) and the edit-by-edit animation. Board frames in `ladderBoard.ts`; tiles from `scripts/pixel-ladder.cjs`, uploaded by `scripts/sync-ladder-emojis.cjs` into `shared/constants/ladderEmojis.ts` |
 | `functions/src/discord/discordCommands.ts` | **Internal module.** Companion-bot slash-command handlers, driven by discordInteractions.ts |
 | `functions/src/discord/discordRoles.ts` | **Internal module.** Crew head role preflight and sync (only adds/removes assignments, never edits roles) |

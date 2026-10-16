@@ -1,5 +1,6 @@
 // /ladder: the ladder game in the Discord bot. Internal module, routed by
-// discordInteractions.ts. Stockism server only, played in the open channel.
+// discordInteractions.ts. Stockism server only, played in the open in the
+// LADDER_CHANNEL_IDS channels only.
 //
 // Flow, all on one message:
 //   /ladder bet:N   -> empty board, buttons Left / Right
@@ -15,12 +16,13 @@
 import axios from 'axios';
 import * as functions from 'firebase-functions/v1';
 import type { Response } from 'express';
-import { DISCORD_GUILD_ID, DISCORD_INVITE_URL, SITE_URL } from '../shared/constants';
+import { DISCORD_GUILD_ID, DISCORD_INVITE_URL, LADDER_CHANNEL_IDS, SITE_URL } from '../shared/constants';
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import { runLadderGame, type LadderPlay } from '../ladder/ladderCore';
 import { buttonRow, callerDiscordId, findUserByDiscordId, linkButton, money, EPHEMERAL } from './discordCommands';
 import type { Interaction } from './discordCommands';
+import { holdAck } from './discordAck';
 import { idleBoard, playFrames, renderBoard, type Grid, type Side } from './ladderBoard';
 
 const COLOR = 0xf97316;
@@ -77,6 +79,9 @@ export const ladderCommand = (interaction: Interaction) => {
       buttonRow(linkButton('Join the Stockism Discord', DISCORD_INVITE_URL, 'link')),
     ]);
   }
+  if (!LADDER_CHANNEL_IDS.includes(String(interaction.channel_id))) {
+    return ephemeral(`The ladder can only be played in ${LADDER_CHANNEL_IDS.map((c) => `<#${c}>`).join(' and ')}.`);
+  }
   const owner = callerDiscordId(interaction);
   const amount = Math.floor(Number(interaction.data.options?.find((o) => o.name === 'bet')?.value));
   if (!owner) return ephemeral('Could not identify your Discord account.');
@@ -114,24 +119,15 @@ export const handleLadderButton = async (i: ComponentInteraction, res: Response)
   const betText = `<@${owner}> bets **${money(amount)}** on **${bet.toUpperCase()}** from the ${side} X.`;
   // Take the buttons off straight away so a double click can't play twice.
   //
-  // Acknowledged through Discord's callback API rather than the HTTP reply, and
-  // the HTTP reply is held until the game is over. Cloud Functions counts a
-  // request as finished once it is answered and throttles the instance, which
-  // made the transaction and every frame after it crawl. If the callback fails,
-  // fall back to answering at once (the old, slower way).
-  const ack = { type: 7, data: { ...embed(betText, idleBoard(side)), components: [] } };
-  let held = true;
-  try {
-    await axios.post(`https://discord.com/api/v10/interactions/${i.id}/${i.token}/callback`, ack);
-  } catch (err) {
-    reportError(err, { where: 'discordLadder.ack', owner });
-    held = false;
-    res.json(ack);
-  }
+  // Acknowledged through holdAck so the game runs at full speed after it.
+  const release = await holdAck(i, res, {
+    type: 7,
+    data: { ...embed(betText, idleBoard(side)), components: [] },
+  });
   try {
     await playBet(i, owner, side, bet, amount, betText);
   } finally {
-    if (held) res.status(204).send('');
+    release();
   }
 };
 

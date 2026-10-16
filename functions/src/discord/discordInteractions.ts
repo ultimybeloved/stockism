@@ -30,6 +30,7 @@ import type { DropPick } from './dailyDropRoll';
 import type { PricePoint } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
 import { ladderCommand, handleLadderButton } from './discordLadder';
+import { holdAck } from './discordAck';
 
 // Edit a deferred interaction reply. Discord kills any interaction that has not
 // been acknowledged within 3 seconds — and a cold start on this project loads
@@ -166,7 +167,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
       return;
     }
 
-    res.json({ type: 5, data: flags });
+    const release = await holdAck(interaction, res, { type: 5, data: flags });
 
     try {
       const deferred = await work;
@@ -178,6 +179,8 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
       } catch (editError) {
         logger.error('Failed to report slash command error to Discord:', editError);
       }
+    } finally {
+      release();
     }
     await stamp;
     return;
@@ -209,8 +212,8 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         });
       }
 
-      // Send deferred ephemeral response immediately (avoids 3-second timeout)
-      res.json({ type: 5, data: { flags: 64 } });
+      // Defer (ephemeral) at once: the claim takes longer than Discord's 3s.
+      const release = await holdAck(interaction, res, { type: 5, data: { flags: 64 } });
 
       const editOriginal = (payload: Record<string, unknown>) => editDeferredReply(appId, interactionToken, payload);
 
@@ -475,6 +478,8 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
         } catch (followUpErr) {
           logger.error('Failed to send error follow-up:', (followUpErr as Error).message);
         }
+      } finally {
+        release();
       }
       await stamp;
       return;
