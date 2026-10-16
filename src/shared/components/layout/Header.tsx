@@ -1,9 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../../firebase';
 import { ADMIN_UIDS } from '../../../constants';
-import { formatCurrency } from '../../../utils/formatters';
 import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useTheme, useSession, useMarket } from '../../../context/AppContext';
 import { isPreMarketWindow } from '../../../utils/marketHours';
@@ -15,6 +12,7 @@ import { themeClasses } from '../../../utils/theme';
 import { OPEN_SEARCH_EVENT } from './GlobalShortcuts';
 import { MOD_LABEL } from '../../hooks/useShortcuts';
 import PixelIcon from '../PixelIcon';
+import AccountMenu from './AccountMenu';
 
 export interface HeaderProps {
   setDarkMode: (dark: boolean) => void;
@@ -100,14 +98,6 @@ const Header = ({
 
   const isAdmin = user && ADMIN_UIDS.includes(user.uid);
   const { unreviewedCount, highSeverityCount } = useAdminAlerts(user);
-
-  const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
 
   const isActivePage = (path: string) => {
     return location.pathname === path;
@@ -322,51 +312,9 @@ const Header = ({
                 </button>
               )}
 
-              {/* User Info */}
+              {/* Account menu: portfolio, profile, achievements, sign out */}
               {user ? (
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => navigate(isActivePage('/profile') ? '/' : '/profile')}
-                    className={`flex items-center space-x-2 px-2 py-1 sm:px-3 sm:py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActivePage('/profile')
-                        ? 'bg-orange-600 text-white'
-                        : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    <PixelIcon name="profile" className="w-5 h-5 sm:w-6 sm:h-6" />
-                    <div className="text-right">
-                      <div
-                        className={`text-[10px] sm:text-xs ${
-                          isActivePage('/profile') ? 'text-white/70' : 'light:text-zinc-600 dark:text-zinc-400'
-                        }`}
-                      >
-                        {userData?.displayName || user.email?.split('@')[0] || 'Anonymous'}
-                      </div>
-                      <div
-                        className={`text-xs sm:text-sm font-semibold ${
-                          isActivePage('/profile')
-                            ? 'text-white'
-                            : userData?.colorBlindMode
-                              ? 'text-teal-600'
-                              : 'text-green-600'
-                        }`}
-                      >
-                        {formatCurrency(liveValue)}
-                      </div>
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={handleSignOut}
-                    className={`px-2 py-1 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
-                      userData?.colorBlindMode
-                        ? 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                        : 'light:text-red-600 light:hover:bg-amber-50 dark:text-red-400 dark:hover:bg-zinc-800'
-                    }`}
-                  >
-                    Sign Out
-                  </button>
-                </div>
+                <AccountMenu value={liveValue} />
               ) : (
                 <button
                   onClick={onShowLogin}
