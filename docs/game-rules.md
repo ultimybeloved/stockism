@@ -105,7 +105,7 @@ Two formats run side by side:
 
 A double-or-nothing side game. You pick a side and a bet, a random ladder resolves, and you either double your stake or lose it. Deposits from your main account are capped, and withdrawals are taxed: 5% on returning principal, a lifetime-progressive 15/30/45% on profit, plus 15% extra if you withdraw within 12 hours of depositing. A required tutorial spells out that the outcome is random and there is no strategy.
 
-It can also be played in the Stockism Discord with `/ladder bet:<dollars>` (official server only, and only in the mod-cmds and bot-spam channels; games are posted for everyone to see). It is the same game: same odds, the same ladder balance, cooldown and records. The player needs a linked Discord account, and only they can press their game's buttons. The board is drawn in emojis and the path lights up step by step; blue lands on ODD, red on EVEN.
+It can also be played in the Stockism Discord with `/ladder bet:<dollars>` (official server only, posted in the channel for everyone to see). It is the same game: same odds, the same ladder balance, cooldown and records. The player needs a linked Discord account, and only they can press their game's buttons. The board is drawn in emojis and the path lights up step by step; blue lands on ODD, red on EVEN.
 
 ### Seasons
 

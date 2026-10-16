@@ -1,6 +1,5 @@
 // /ladder: the ladder game in the Discord bot. Internal module, routed by
-// discordInteractions.ts. Stockism server only, played in the open in the
-// LADDER_CHANNEL_IDS channels only.
+// discordInteractions.ts. Stockism server only, played in the open channel.
 //
 // Flow, all on one message:
 //   /ladder bet:N   -> empty board, buttons Left / Right
@@ -16,7 +15,7 @@
 import axios from 'axios';
 import * as functions from 'firebase-functions/v1';
 import type { Response } from 'express';
-import { DISCORD_GUILD_ID, DISCORD_INVITE_URL, LADDER_CHANNEL_IDS, SITE_URL } from '../shared/constants';
+import { DISCORD_GUILD_ID, DISCORD_INVITE_URL, SITE_URL } from '../shared/constants';
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import { runLadderGame, type LadderPlay } from '../ladder/ladderCore';
@@ -78,9 +77,6 @@ export const ladderCommand = (interaction: Interaction) => {
     return ephemeral('The ladder is only in the official Stockism Discord.', [
       buttonRow(linkButton('Join the Stockism Discord', DISCORD_INVITE_URL, 'link')),
     ]);
-  }
-  if (!LADDER_CHANNEL_IDS.includes(String(interaction.channel_id))) {
-    return ephemeral(`The ladder can only be played in ${LADDER_CHANNEL_IDS.map((c) => `<#${c}>`).join(' and ')}.`);
   }
   const owner = callerDiscordId(interaction);
   const amount = Math.floor(Number(interaction.data.options?.find((o) => o.name === 'bet')?.value));

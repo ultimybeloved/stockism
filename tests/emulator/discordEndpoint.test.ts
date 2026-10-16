@@ -34,7 +34,7 @@ const { discordInteractions } =
   require('../../functions/src/discord/discordInteractions') as typeof import('../../functions/src/discord/discordInteractions');
 
 const TICKER = CHARACTERS[0].ticker;
-const { DISCORD_GUILD_ID, LADDER_CHANNEL_IDS } =
+const { DISCORD_GUILD_ID } =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 // The ladder edits its message through Discord's webhook API after replying.
@@ -146,10 +146,9 @@ async function seed() {
     });
 }
 
-const ladderBody = (bet: number, discordId: string, guild = DISCORD_GUILD_ID, channel = LADDER_CHANNEL_IDS[0]) => ({
+const ladderBody = (bet: number, discordId: string, guild = DISCORD_GUILD_ID) => ({
   ...commandBody('ladder', [{ name: 'bet', value: String(bet) }], discordId),
   guild_id: guild,
-  channel_id: channel,
 });
 const clickBody = (custom_id: string, discordId: string) => ({
   type: 3,
@@ -172,12 +171,6 @@ async function runLadder() {
   console.log('\n--- /ladder ---');
   const away = await callEndpoint(ladderBody(10, 'lad-owner', 'some-partner-guild'));
   check('outside the Stockism server it refuses privately', away[0].payload.data?.flags === 64);
-
-  const general = await callEndpoint(ladderBody(10, 'lad-owner', DISCORD_GUILD_ID, 'general-chat'));
-  check(
-    'in any other channel it refuses privately',
-    general[0].payload.data?.flags === 64 && JSON.stringify(general[0].payload).includes('can only be played in'),
-  );
 
   const start = await callEndpoint(ladderBody(10, 'lad-owner'));
   check(

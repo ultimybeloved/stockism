@@ -124,9 +124,6 @@ export const DIRECT_REPLY_BUDGET_MS = 1200;
 export const SITE_URL = 'https://stockism.app';
 // The official server's public invite (same link as the site footer).
 export const DISCORD_INVITE_URL = 'https://discord.gg/hpVm8nQMvY';
-// The only channels /ladder can be played in (mod-cmds and bot-spam), so it
-// can't flood the normal channels.
-export const LADDER_CHANNEL_IDS = ['1534465027581673513', '1501299875172712518'];
 // How many leaderboard rows a /leaderboard reply shows. Discord embeds get
 // unreadable past ~10 lines on mobile.
 export const DISCORD_LEADERBOARD_ROWS = 10;
