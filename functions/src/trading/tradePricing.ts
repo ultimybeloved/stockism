@@ -156,6 +156,19 @@ export function computePriceUpdates({
   return priceUpdates;
 }
 
+/**
+ * ETF prices for a batch of automated stock moves (the bots, the stabilizer).
+ * `moves` is { ticker: newPrice } and `prices` the prices BEFORE them. Only the
+ * parent-ETF follow-through: automated moves deliberately skip the trailing
+ * links between characters, or every small bot nudge would ripple through the
+ * linked stocks. Returns only the ETFs, never a ticker that was in `moves`.
+ */
+export function etfFollowUpdates(moves: Record<string, number>, prices: Prices): Record<string, number> {
+  const updates: Record<string, number> = { ...moves };
+  applyEtfPropagation({ ticker: '', currentPrice: 0, prices, priceUpdates: updates });
+  return Object.fromEntries(Object.entries(updates).filter(([t]) => !(t in moves) && CHARACTER_MAP[t]?.isETF));
+}
+
 // Track trailing effects in tickerTradeHistory so users can't bypass the 10%
 // limit by trading one ticker and getting free impact on related tickers.
 // Returns synthetic entries (shares: 0, just impact) for affected tickers:

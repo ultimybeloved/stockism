@@ -15,6 +15,7 @@ import {
 import { liquidityFor, calculateMarginalImpact, isTickerPaused } from '../shared/impact';
 import { isPriceProtected, priceHistoryRef, dailyClosesRef, monthIdOf } from '../shared/marketData';
 import { round2 } from '../shared/money';
+import { etfFollowUpdates } from '../trading/tradePricing';
 import { recordHeartbeat } from '../shared/activity';
 import type { PricePoint } from '../shared/types';
 import { netFlowByTicker, stabilizerShouldSkip } from './botRules';
@@ -222,6 +223,14 @@ export const marketMakerCycle = cf()
               `avg=${avgPrice.toFixed(2)} cur=${currentPrice.toFixed(2)} ` +
               `dev=${(deviation * 100).toFixed(1)}% new=${newPrice.toFixed(2)}`,
           );
+        }
+
+        // Parent ETFs follow, the same way they follow a player's trade.
+        const moved = Object.fromEntries(Object.keys(historyPoints).map((t) => [t, updates[`prices.${t}`]!]));
+        for (const [etf, next] of Object.entries(etfFollowUpdates(moved, freshPrices))) {
+          if (isTickerPaused(fresh.haltedTickers, etf, now) || next === freshPrices[etf]) continue;
+          updates[`prices.${etf}`] = next;
+          historyPoints[etf] = { timestamp: now, price: next, source: 'etf_follow' };
         }
 
         if (count > 0) {

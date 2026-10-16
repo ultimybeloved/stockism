@@ -170,3 +170,21 @@ describe('computePriceUpdates ETF propagation', () => {
     }
   });
 });
+
+describe('etfFollowUpdates (automated moves)', () => {
+  const { etfFollowUpdates } = require('./tradePricing') as typeof import('./tradePricing');
+  const etf = CHARACTERS.find((c) => c.isETF && c.trailingFactors?.length)!;
+  const member = etf.trailingFactors![0]!;
+
+  it('moves the parent ETF by the member move times its weight', () => {
+    const out = etfFollowUpdates({ [member.ticker]: 110 }, flatPrices());
+    expect(out[etf.ticker]).toBeCloseTo(100 * (1 + 0.1 * member.coefficient), 2);
+  });
+
+  it('never drags linked characters and never returns the moved stock itself', () => {
+    const out = etfFollowUpdates({ JIN: 110 }, flatPrices());
+    expect(Object.keys(out).every((t) => CHARACTER_MAP[t]?.isETF)).toBe(true);
+    expect(out.JIN).toBeUndefined();
+    expect(out.GAP).toBeUndefined();
+  });
+});

@@ -29,6 +29,7 @@ import { isTickerPaused } from '../shared/impact';
 import { priceHistoryRef, tickerStatsRef, appendPriceHistory, neglectFloorPrice } from '../shared/marketData';
 import { isRosterTicker } from '../shared/roster';
 import { round2 } from '../shared/money';
+import { etfFollowUpdates } from '../trading/tradePricing';
 import { recordHeartbeat } from '../shared/activity';
 import type { PricePoint } from '../shared/types';
 import { decayTarget, isNeglected } from './neglectDecayRules';
@@ -104,6 +105,15 @@ const applyWave = async (moves: PlannedMove[], clearOldFields: boolean) =>
       updates[`prices.${m.ticker}`] = next;
       points[m.ticker] = { timestamp: now, price: next, source: m.source };
       applied.push({ ticker: m.ticker, frac: next / p - 1, from: p, to: next });
+    }
+
+    // Parent ETFs follow, the same way they follow a player's trade. Tagged
+    // 'etf_follow' so the Bots screen does not count them as bot moves.
+    const moved = Object.fromEntries(applied.map((a) => [a.ticker, a.to]));
+    for (const [etf, next] of Object.entries(etfFollowUpdates(moved, prices))) {
+      if (isTickerPaused(fresh.haltedTickers, etf, now) || next === prices[etf]) continue;
+      updates[`prices.${etf}`] = next;
+      points[etf] = { timestamp: now, price: next, source: 'etf_follow' };
     }
 
     // The old bots kept their daily counters on the world-readable market doc.
