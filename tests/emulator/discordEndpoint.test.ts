@@ -34,11 +34,29 @@ const { discordInteractions } =
   require('../../functions/src/discord/discordInteractions') as typeof import('../../functions/src/discord/discordInteractions');
 
 const TICKER = CHARACTERS[0].ticker;
+const { DISCORD_GUILD_ID } =
+  require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
+
+// The ladder edits its message through Discord's webhook API after replying.
+// Capture those calls instead of sending them.
+const axios = require('../../functions/node_modules/axios');
+const sent: { method: string; url: string; body: Record<string, unknown> }[] = [];
+axios.patch = async (url: string, body: Record<string, unknown>) => {
+  sent.push({ method: 'patch', url, body });
+  return { status: 200 };
+};
+axios.post = async (url: string, body: Record<string, unknown>) => {
+  sent.push({ method: 'post', url, body });
+  return { status: 200 };
+};
 
 interface EndpointResponse {
   kind: string;
   code?: number;
-  payload: { type?: number; data?: { flags?: number; embeds?: unknown[] } };
+  payload: {
+    type?: number;
+    data?: { flags?: number; embeds?: unknown[]; components?: { components: { custom_id?: string }[] }[] };
+  };
   error?: unknown;
 }
 type Handler = (req: unknown, res: unknown) => unknown;
@@ -127,8 +145,90 @@ async function seed() {
     });
 }
 
+const ladderBody = (bet: number, discordId: string, guild = DISCORD_GUILD_ID) => ({
+  ...commandBody('ladder', [{ name: 'bet', value: String(bet) }], discordId),
+  guild_id: guild,
+});
+const clickBody = (custom_id: string, discordId: string) => ({
+  type: 3,
+  application_id: 'app-id',
+  token: `tok-${Math.random()}`,
+  guild_id: DISCORD_GUILD_ID,
+  data: { custom_id },
+  member: { user: { id: discordId } },
+});
+const buttonIds = (r: EndpointResponse[]) =>
+  (r[0]?.payload.data?.components || []).flatMap((row) => row.components.map((b) => b.custom_id));
+const waitFor = async (cond: () => boolean, ms = 15000) => {
+  const until = Date.now() + ms;
+  while (!cond() && Date.now() < until) await new Promise((r) => setTimeout(r, 100));
+  return cond();
+};
+
+async function runLadder() {
+  console.log('\n--- /ladder ---');
+  const away = await callEndpoint(ladderBody(10, 'lad-owner', 'some-partner-guild'));
+  check('outside the Stockism server it refuses privately', away[0].payload.data?.flags === 64);
+
+  const start = await callEndpoint(ladderBody(10, 'lad-owner'));
+  check(
+    'posts the board publicly (type 4, not ephemeral)',
+    start[0].payload.type === 4 && !start[0].payload.data?.flags,
+  );
+  check(
+    'offers Left and Right',
+    JSON.stringify(buttonIds(start)) ===
+      JSON.stringify(['ladder:side:left:10:lad-owner', 'ladder:side:right:10:lad-owner']),
+  );
+
+  const stranger = await callEndpoint(clickBody('ladder:side:left:10:lad-owner', 'lad-stranger'));
+  check(
+    "someone else's click is refused privately",
+    stranger[0].payload.type === 4 && stranger[0].payload.data?.flags === 64,
+  );
+
+  const side = await callEndpoint(clickBody('ladder:side:left:10:lad-owner', 'lad-owner'));
+  check(
+    'picking a side updates the message with ODD and EVEN',
+    side[0].payload.type === 7 && buttonIds(side).includes('ladder:bet:left:odd:10:lad-owner'),
+  );
+
+  sent.length = 0;
+  const unlinked = await callEndpoint(clickBody('ladder:bet:left:odd:10:lad-owner', 'lad-owner'));
+  check('a bet takes the buttons off at once', unlinked[0].payload.type === 7 && buttonIds(unlinked).length === 0);
+  check(
+    'not linked: the player is told privately how to link',
+    await waitFor(() => sent.some((c) => c.method === 'post' && String(c.body.content).includes('Link this Discord'))),
+    JSON.stringify(sent),
+  );
+
+  await db.collection('users').doc('lad-uid').set({ displayName: 'Ladderer', discordId: 'lad-linked', cash: 1000 });
+  sent.length = 0;
+  await callEndpoint(clickBody('ladder:bet:right:even:25:lad-linked', 'lad-linked'));
+  const done = await waitFor(() => sent.some((c) => JSON.stringify(c.body).includes('Landed on')));
+  check('linked: the game plays through to a result', done, JSON.stringify(sent.map((c) => c.body)));
+  const edits = sent.filter((c) => c.method === 'patch');
+  check('animates over several edits', edits.length >= 4, edits.length);
+  const ladder = (await db.collection('ladderGameUsers').doc('lad-uid').get()).data();
+  check(
+    'the bet is settled on the ladder balance',
+    ladder && [475, 525].includes(ladder.balance),
+    JSON.stringify(ladder),
+  );
+  check('ends with Play again', JSON.stringify(edits[edits.length - 1]?.body).includes('ladder:again:25:lad-linked'));
+
+  sent.length = 0;
+  await callEndpoint(clickBody('ladder:bet:right:even:100000:lad-linked', 'lad-linked'));
+  check(
+    'too big a bet is refused privately',
+    await waitFor(() => sent.some((c) => c.method === 'post' && String(c.body.content).includes('Not enough'))),
+    JSON.stringify(sent),
+  );
+}
+
 async function run() {
   await seed();
+  await runLadder();
 
   console.log('\n--- Signature verification ---');
   const unsigned = await callEndpoint(commandBody('leaderboard'), { sign: false });

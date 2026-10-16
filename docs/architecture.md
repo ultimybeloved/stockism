@@ -313,7 +313,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/orders/limitOrders.ts` | createLimitOrder + the sweep schedule; engine is in `limitOrderMatching.ts` (internal) |
 | `functions/src/missions/missions.ts` | Daily/weekly mission logic + dailyCheckin |
 | `functions/src/predictions/predictions.ts` | Prediction markets, IPO price jumps |
-| `functions/src/ladder/ladderGame.ts` | Ladder game mechanics and leaderboard |
+| `functions/src/ladder/ladderGame.ts` | Ladder game callable (playLadderGame) and leaderboard |
+| `functions/src/ladder/ladderCore.ts` | **Internal module.** runLadderGame: one ladder play in one transaction, shared by the site and Discord `/ladder` |
 | `functions/src/moderation/watchlist.ts` | IP watchlist, fraud detection |
 | `functions/src/admin/archiving.ts` | Data archiving and cleanup |
 | `functions/src/orders/marketOrders.ts` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
@@ -351,6 +352,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/haltAudit.ts` | haltPriceAudit (Thursday 21:05 UTC): flags untagged price points inside the halt, DMs the admin, silent when clean. Pure logic in `haltAuditCore.ts` (internal, unit-tested). Manual version: `npm run audit:halt` |
 | `functions/src/crews/crewMissions.ts` | claimCrewMission; progress writing lives in an internal module |
 | `functions/src/discord/discordMessages.ts` | Admin Discord tab: post, edit, delete and import bot messages. Payload shaping in `discordMessagePayload.ts` (internal) |
+| `functions/src/discord/discordLadder.ts` | **Internal module.** Discord `/ladder`: command, buttons (state in custom_id) and the edit-by-edit animation. Board frames in `ladderBoard.ts`; tiles from `scripts/pixel-ladder.cjs`, uploaded by `scripts/sync-ladder-emojis.cjs` into `shared/constants/ladderEmojis.ts` |
 | `functions/src/discord/discordCommands.ts` | **Internal module.** Companion-bot slash-command handlers, driven by discordInteractions.ts |
 | `functions/src/discord/discordRoles.ts` | **Internal module.** Crew head role preflight and sync (only adds/removes assignments, never edits roles) |
 | `functions/src/discord/dailyDropRoll.ts` | **Internal module.** The daily free-stock loot roll |

@@ -162,7 +162,12 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(`\n${err.message}`);
-  process.exit(1);
-});
+// sync-ladder-emojis.cjs reuses the PNG conversion.
+module.exports = { svgGrid, gridToPng };
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(`\n${err.message}`);
+    process.exit(1);
+  });
+}

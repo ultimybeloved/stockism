@@ -21,6 +21,7 @@ const { readBotToken, discord, getApp } = require('./discord-api.cjs');
 
 // Discord option types we use.
 const STRING = 3;
+const INTEGER = 4;
 const USER = 6;
 
 const COMMANDS = [
@@ -63,6 +64,20 @@ const COMMANDS = [
   {
     name: 'welcome',
     description: 'Claim your welcome week bonus (Stockism server only, once a day for 7 days)',
+  },
+  {
+    name: 'ladder',
+    description: 'Play the ladder game with your ladder balance (Stockism server only)',
+    options: [
+      {
+        type: INTEGER,
+        name: 'bet',
+        description: 'How many dollars to bet',
+        required: true,
+        min_value: 1,
+        max_value: 1000000000,
+      },
+    ],
   },
   {
     name: 'buy',
