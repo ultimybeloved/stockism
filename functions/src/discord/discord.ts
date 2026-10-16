@@ -482,7 +482,7 @@ const buildDailyDropMessage = () => ({
           type: 2, // Button
           style: 1, // Primary (blurple)
           label: 'Claim Free Stock',
-          emoji: pxButton('reroll'),
+          emoji: pxButton('dice'),
           custom_id: 'claim_daily_stock',
         },
         {

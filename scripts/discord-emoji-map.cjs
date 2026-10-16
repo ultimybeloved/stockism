@@ -45,7 +45,7 @@ module.exports = {
   '🔨': ['discord', 'hammer'],
   '📖': ['ui', 'book'],
   '🏴': ['ui', 'crews'],
-  '🎲': ['ui', 'reroll'],
+  '🎲': ['discord', 'dice'],
   '🍀': ['discord', 'clover'],
   '⭐': ['discord', 'star'],
   '⚡': ['discord', 'bolt'],

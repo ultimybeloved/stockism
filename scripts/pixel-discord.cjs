@@ -296,6 +296,57 @@ const icons = {
     rect(3, 15, 16, 16, 's');
     rect(15, 3, 16, 16, 's');
   },
+  // Daily drop claim: a red casino die, three faces showing.
+  dice: ({ px }) => {
+    fillPoly(
+      px,
+      [
+        [10, 1],
+        [19, 5.5],
+        [10, 10],
+        [1, 5.5],
+      ],
+      'R',
+    );
+    fillPoly(
+      px,
+      [
+        [1, 5.5],
+        [10, 10],
+        [10, 19],
+        [1, 14.5],
+      ],
+      'R',
+    );
+    fillPoly(
+      px,
+      [
+        [10, 10],
+        [19, 5.5],
+        [19, 14.5],
+        [10, 19],
+      ],
+      'r',
+    );
+    for (const [x, y] of [
+      [9, 5],
+      [10, 5],
+      [3, 9],
+      [4, 9],
+      [7, 14],
+      [8, 14],
+    ])
+      px(x, y, 'W');
+    for (const [x, y] of [
+      [12, 15],
+      [13, 15],
+      [14, 12],
+      [15, 12],
+      [16, 9],
+      [17, 9],
+    ])
+      px(x, y, 'W');
+  },
   rank4: placeDisc(4),
   rank5: placeDisc(5),
 };
