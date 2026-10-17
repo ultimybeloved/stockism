@@ -224,6 +224,8 @@ export interface UserData {
   crew?: string | null;
   isAdmin?: boolean;
   activeCosmetics?: ActiveCosmetics;
+  /** How the player wears cosmetics that come with a choice (rules/cosmetics). */
+  cosmeticStyle?: import('../rules/cosmetics').CosmeticStyle;
   ownedCosmetics?: string[];
   activeTitle?: string | null;
   ownedTitles?: string[];
@@ -324,6 +326,7 @@ export interface LeaderRow {
   crewHeadColor?: string;
   isPublic?: boolean;
   activeCosmetics?: ActiveCosmetics;
+  cosmeticStyle?: import('../rules/cosmetics').CosmeticStyle;
   title?: SeasonTitle;
   /** Bull / Bear frame direction, set by the server only when that frame is worn. */
   frameTrend?: 'up' | 'down' | null;

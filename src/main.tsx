@@ -8,6 +8,10 @@ import CrashScreen from './shared/components/CrashScreen';
 import './index.css';
 import './styles/seasonFrames.css';
 import './styles/titles.css';
+import './styles/cosmetics/art.css';
+import './styles/cosmetics/names.css';
+import './styles/cosmetics/effects.css';
+import './styles/cosmetics/backdrops.css';
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,

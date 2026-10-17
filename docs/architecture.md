@@ -266,6 +266,8 @@ Quick reference so you know where to look and where to add things.
 | `src/constants/economy.ts` | Frontend economy constants (dividend rates, hold times) |
 | `src/constants/achievements.ts` | Achievement definitions |
 | `src/constants/cosmetics.ts` | Cosmetic item definitions |
+| `src/shared/components/cosmetics/` | How a row wears cosmetics: `CosmeticLayers` (backdrop scene under the text, effect over it), `CosmeticName` (incl. `SplitFlap`), `TerminalQuotes`. Every row surface uses them with `getCosmeticStyles` (src/utils/cosmetics.ts). Markup in `src/constants/cosmeticMarkup.ts`, CSS in `src/styles/cosmetics/` |
+| `src/features/profile/components/pinshop/ShopTab.tsx` | The shop: search, category tabs, Showcase/Premium/Classics shelves (`ShopShelves`), buy bar. Layout rules in `features/profile/utils/shopCatalog.ts`, browsing state in `hooks/useShopSelection.ts` |
 | `src/characters.ts` | **Source of truth** for all character/ETF data — edit here only |
 | `src/features/admin/` | Admin command panel (full screen, desktop only, terminal look from `src/styles/adminTerminal.css`): `components/` (AdminPanel.tsx owns the hooks and sidebar, AdminContent.tsx draws the section; `shell/` UI kit and `terminal.ts` tokens; `home/`, `players/`, `player/` (the player file), `welcome/`, `money/`, `discordActivity/`, plus the older tabs), `hooks/` (state + handlers, one hook per domain), `utils/` (pure helpers; `adminNav.ts` lets any screen open a player file via PlayerLink) |
 | `src/features/ladder/` | Ladder game: `components/` (board, side panel, modals, shared style constants), `hooks/` (data listeners, game flow, banners, DOM animation) |

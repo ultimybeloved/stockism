@@ -226,6 +226,15 @@ export const PIN_COLLECTIONS: Record<string, PinCollection> = {
   },
   // j_high_og5 collection removed — it used ripped official collab art. Owners
   // were refunded (base price + 50%) via the one-time refundJHighPins admin op.
+  // The 2026-10 drop: original pixel art, always on sale.
+  shop_2026: {
+    id: 'shop_2026',
+    name: 'Shop Pins',
+    active: true,
+    limited: false,
+    expiresAt: null,
+    pins: ['black_card', 'ui_eye', 'mongkol_gold', 'newsboy_cap', 'polycoria', 'shiba', 'mongkol_red'],
+  },
 };
 
 export const SHOP_PINS: Record<string, ShopPin> = {
@@ -238,6 +247,62 @@ export const SHOP_PINS: Record<string, ShopPin> = {
     collection: 'alpha_rewards',
   },
   // J High pins (jay/jace/vasco/zack/daniel) removed — ripped official art.
+  black_card: {
+    id: 'black_card',
+    name: 'Black Card',
+    image: 'shop/black_card.svg',
+    description: 'A card for players who never check the price.',
+    price: 100000,
+    collection: 'shop_2026',
+  },
+  ui_eye: {
+    id: 'ui_eye',
+    name: 'Ultra-Instinct',
+    image: 'shop/ui_eye.svg',
+    description: 'An eye that sees every move coming.',
+    price: 75000,
+    collection: 'shop_2026',
+  },
+  mongkol_gold: {
+    id: 'mongkol_gold',
+    name: 'Gold Mongkol',
+    image: 'shop/mongkol_gold.svg',
+    description: "A gold fighter's headband.",
+    price: 50000,
+    collection: 'shop_2026',
+  },
+  newsboy_cap: {
+    id: 'newsboy_cap',
+    name: "Gapryong's Cap",
+    image: 'shop/newsboy_cap.svg',
+    description: 'A newsboy cap fit for a legend.',
+    price: 50000,
+    collection: 'shop_2026',
+  },
+  polycoria: {
+    id: 'polycoria',
+    name: 'Polycoria',
+    image: 'shop/polycoria.svg',
+    description: 'An eye with more than one pupil.',
+    price: 35000,
+    collection: 'shop_2026',
+  },
+  shiba: {
+    id: 'shiba',
+    name: 'Shiba',
+    image: 'shop/shiba.svg',
+    description: 'A very good boy.',
+    price: 10000,
+    collection: 'shop_2026',
+  },
+  mongkol_red: {
+    id: 'mongkol_red',
+    name: 'Red Mongkol',
+    image: 'shop/mongkol_red.svg',
+    description: "A red fighter's headband.",
+    price: 5000,
+    collection: 'shop_2026',
+  },
 };
 
 export const getActiveShopPins = () => {

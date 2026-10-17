@@ -71,10 +71,10 @@ describe('bundles', () => {
 
   it('charges 20% off only the pieces the player is missing', () => {
     const steel = BUNDLES.find((b) => b.id === 'bundle_steel')!;
-    expect(bundleQuote(steel, [], priceOf)).toEqual({ missing: steel.items, fullPrice: 75000, price: 60000 });
+    expect(bundleQuote(steel, [], priceOf)).toEqual({ missing: steel.items, fullPrice: 20000, price: 16000 });
     const partial = bundleQuote(steel, ['frame_steel', 'name_silver'], priceOf);
     expect(partial.missing).toEqual(['glow_silver', 'backdrop_onyx']);
-    expect(partial.price).toBe(32000);
+    expect(partial.price).toBe(8000);
     expect(bundleQuote(steel, steel.items, priceOf)).toMatchObject({ missing: [], price: 0 });
   });
 });

@@ -1,0 +1,10 @@
+The graffiti-*.woff2 files are letter subsets of these fonts, used by the
+Graffiti Wall backdrop. All three are licensed under the SIL Open Font
+License, Version 1.1: https://openfontlicense.org
+
+- Rubik Bubbles (graffiti-rubik-bubbles.woff2)
+- Sedgwick Ave Display (graffiti-sedgwick-ave-display.woff2)
+- Permanent Marker (graffiti-permanent-marker.woff2)
+
+Downloaded from Google Fonts (https://fonts.google.com), where each font's
+page lists its copyright holders.

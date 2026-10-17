@@ -3,11 +3,12 @@ import { changeDisplayNameFunction } from '../../../api/callables';
 import { getCosmeticStyles, getActiveTitle } from '../../../utils/cosmetics';
 import { frameTrend as frameTrendOf } from '../../../rules/cosmetics';
 import TitleText from '../../../shared/components/TitleText';
+import CosmeticLayers from '../../../shared/components/cosmetics/CosmeticLayers';
+import CosmeticName from '../../../shared/components/cosmetics/CosmeticName';
 import { validateUsername } from '../../../utils/username';
 import { themeClasses } from '../../../utils/theme';
 import { errorMessage } from '../../../utils/errors';
 import type { UserData } from '../../../types';
-import { useTheme } from '../../../context/AppContext';
 import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Profile card header: display name (with cosmetics), the customization
@@ -20,7 +21,6 @@ const ProfileHeader = ({
   userData: UserData | null;
   onOpenCustomization: () => void;
 }) => {
-  const { darkMode } = useTheme();
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
@@ -52,14 +52,12 @@ const ProfileHeader = ({
     setNameSaving(false);
   };
 
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass, frameStyle, frameTrend } = getCosmeticStyles(
-    userData?.activeCosmetics,
-    userData?.ownedCosmetics,
-    {
-      seedKey: userData?.displayName,
-      trend: frameTrendOf(userData?.portfolioValue, userData?.portfolioSnapshot24h),
-    },
-  );
+  const cosmetics = getCosmeticStyles(userData?.activeCosmetics, userData?.ownedCosmetics, {
+    seedKey: userData?.displayName,
+    trend: frameTrendOf(userData?.portfolioValue, userData?.portfolioSnapshot24h),
+    style: userData?.cosmeticStyle,
+  });
+  const { glowColor, rowClass, rowStyle, frameTrend, layers } = cosmetics;
   const activeTitle = getActiveTitle(userData);
 
   return (
@@ -67,16 +65,14 @@ const ProfileHeader = ({
       className={`relative p-4 border-b light:border-amber-200 dark:border-zinc-800 ${rowClass}`}
       data-trend={frameTrend}
       style={{
-        ...frameStyle,
+        ...rowStyle,
         ...(glowColor ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
-        ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
       }}
     >
+      <CosmeticLayers {...layers} seedKey={userData?.displayName} />
       <h2 className={`text-lg font-semibold ${textClass}`}>
         <PixelIcon name="profile" className="w-5 h-5 mr-1.5 align-[-3px]" />
-        <span className={nameClass} style={{ color: nameColor }}>
-          {userData?.displayName}
-        </span>
+        <CosmeticName name={userData?.displayName || ''} styles={cosmetics} />
       </h2>
       <TitleText title={activeTitle} className="text-sm" />
       <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>

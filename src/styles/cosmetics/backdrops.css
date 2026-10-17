@@ -1,0 +1,792 @@
+/* Backdrops from the 2026-10 drop, plus the Fade / Solid look of the plain
+   color backdrops. The animated ones paint inside .cos-bd (see effects.css),
+   which is a size container, so a backdrop can lay itself out for a phone row
+   (@container max-width 460px). Every animated backdrop is a dark scene, so its
+   row also gets the `dark` class and keeps light text in light mode.
+   Art (candles, skyline, bricks, sunset, banknote) is in art.css. */
+
+/* Graffiti lettering. Self-hosted subsets of three SIL Open Font License
+   fonts (Rubik Bubbles, Sedgwick Ave Display, Permanent Marker), cut down to
+   the letters the wall uses. */
+@font-face {
+  font-family: 'Cos Bubbles';
+  src: url('/fonts/graffiti-rubik-bubbles.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cos Spray';
+  src: url('/fonts/graffiti-sedgwick-ave-display.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cos Marker';
+  src: url('/fonts/graffiti-permanent-marker.woff2') format('woff2');
+  font-display: swap;
+}
+
+/* ---------- plain color backdrops: Fade (default) or Solid ----------
+   --cos-tint is the backdrop's color. */
+html .cos-tint-fade {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cos-tint) 44%, transparent),
+    color-mix(in srgb, var(--cos-tint) 18%, transparent) 60%,
+    transparent 96%
+  );
+}
+html .cos-tint-solid {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--cos-tint) 36%, transparent),
+    color-mix(in srgb, var(--cos-tint) 36%, transparent)
+  );
+}
+html:not(.dark) .cos-tint-fade {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cos-tint) 30%, transparent),
+    color-mix(in srgb, var(--cos-tint) 12%, transparent) 60%,
+    transparent 96%
+  );
+}
+html:not(.dark) .cos-tint-solid {
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--cos-tint) 22%, transparent),
+    color-mix(in srgb, var(--cos-tint) 22%, transparent)
+  );
+}
+
+/* Text on a busy backdrop gets a soft shadow so it stays readable. */
+.cos-busy {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Vault: brushed gold with a slow shine ---------- */
+.cos-bd-vault > .cos-bd {
+  background-image:
+    repeating-linear-gradient(90deg, rgba(250, 204, 21, 0.07) 0 2px, transparent 2px 5px),
+    linear-gradient(135deg, #3b2a0a, #1c1406 60%, #3b2a0a);
+}
+.cos-bd-vault .sheen {
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  left: 0;
+  background: linear-gradient(100deg, transparent, rgba(255, 251, 235, 0.2), transparent);
+  animation: cosSweep 9s ease-in-out infinite;
+}
+@keyframes cosSweep {
+  0%,
+  78% {
+    transform: translateX(-110%);
+  }
+  94%,
+  100% {
+    transform: translateX(360%);
+  }
+}
+
+/* ---------- Banknote: engraved linework, a rosette with the $, a foil thread,
+   a seal, microtext and the player's own serial number. Desktop: rosette just
+   past the name, foil near the value. Phone: the $ sits between rank and name,
+   the rest fits between the name and the value. ---------- */
+.cos-bd-note > .cos-bd {
+  background: radial-gradient(ellipse at 60% 50%, #134e3a, #0b2a1f 75%);
+}
+.cos-bd-note .holo {
+  top: 0;
+  bottom: 0;
+  right: 112px;
+  width: 6px;
+  opacity: 0.5;
+  background: linear-gradient(180deg, #67e8f9, #c084fc, #fde047, #4ade80, #67e8f9, #c084fc, #fde047, #4ade80, #67e8f9);
+  background-size: 100% 200%;
+  animation: cosFoil 8s ease-in-out infinite;
+}
+@keyframes cosFoil {
+  0%,
+  40% {
+    background-position: 0 0;
+  }
+  50%,
+  90% {
+    background-position: 0 100%;
+  }
+  100% {
+    background-position: 0 200%;
+  }
+}
+.cos-bd-note .waves {
+  inset: 0;
+  background: var(--cos-art-bn-waves) 0 0 / 120px 64px repeat-x;
+}
+.cos-bd-note .ros {
+  top: 50%;
+  left: 29%;
+  width: 60px;
+  height: 60px;
+  transform: translate(-50%, -50%);
+  background: var(--cos-art-rosette) center / contain no-repeat;
+}
+.cos-bd-note .seal {
+  left: 63%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
+  opacity: 0.45;
+  background: var(--cos-art-seal) center / contain no-repeat;
+}
+.cos-bd-note .serial {
+  font:
+    700 8px/1 ui-monospace,
+    Consolas,
+    monospace;
+  font-style: normal;
+  letter-spacing: 1.2px;
+  color: #6ee7b7;
+  opacity: 0.5;
+  white-space: nowrap;
+  text-shadow: none;
+}
+.cos-bd-note .s1 {
+  left: 44%;
+  top: 7px;
+}
+.cos-bd-note .s2 {
+  right: 134px;
+  bottom: 7px;
+}
+.cos-bd-note .micro {
+  left: 22%;
+  right: 126px;
+  bottom: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  font:
+    600 4.5px/1 system-ui,
+    sans-serif;
+  font-style: normal;
+  letter-spacing: 0.8px;
+  color: #34d399;
+  opacity: 0.35;
+  text-shadow: none;
+}
+@container (max-width: 460px) {
+  .cos-bd-note .ros {
+    left: 51px;
+    width: 50px;
+    height: 50px;
+  }
+  .cos-bd-note .holo {
+    right: 100px;
+  }
+  .cos-bd-note .serial {
+    font-size: 6.5px;
+    letter-spacing: 0.8px;
+  }
+  .cos-bd-note .s1 {
+    left: 41%;
+    top: 5px;
+  }
+  .cos-bd-note .s2 {
+    right: 108px;
+    bottom: 6px;
+  }
+  .cos-bd-note .seal {
+    left: auto;
+    right: 112px;
+    width: 20px;
+    height: 20px;
+    transform: translate(0, -50%);
+  }
+  .cos-bd-note .micro {
+    left: 41%;
+    right: 104px;
+    font-size: 4px;
+  }
+}
+/* Shop cards are narrower rows, so the extras sit further right there. */
+.cos-mini .cos-bd-note .holo {
+  right: 100px;
+}
+.cos-mini .cos-bd-note .s1 {
+  left: 52%;
+}
+.cos-mini .cos-bd-note .seal {
+  left: 71%;
+}
+.cos-mini .cos-bd-note .s2 {
+  right: 116px;
+}
+.cos-mini .cos-bd-note .micro {
+  left: 30%;
+  right: 112px;
+}
+@container (max-width: 460px) {
+  .cos-mini .cos-bd-note .holo {
+    right: 90px;
+  }
+  .cos-mini .cos-bd-note .s1 {
+    left: 49%;
+  }
+  .cos-mini .cos-bd-note .s2 {
+    right: 98px;
+  }
+  .cos-mini .cos-bd-note .seal {
+    left: auto;
+    right: 100px;
+  }
+  .cos-mini .cos-bd-note .micro {
+    left: 47%;
+    right: 96px;
+  }
+}
+
+/* ---------- Terminal: a trading terminal of quotes unique to the player
+   (TerminalQuotes.tsx), one quote ticking at a time ---------- */
+.cos-bd-term > .cos-bd {
+  background: #050505;
+}
+.cos-bd-term .term {
+  inset: 4px 6px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0 10px;
+  font:
+    10px/14.5px ui-monospace,
+    Consolas,
+    monospace;
+  opacity: 0.42;
+  text-shadow: none;
+  -webkit-mask: linear-gradient(90deg, transparent 0 24%, #000 42% 80%, transparent 92%);
+  mask: linear-gradient(90deg, transparent 0 24%, #000 42% 80%, transparent 92%);
+}
+.cos-bd-term .term span {
+  white-space: nowrap;
+  color: #fb923c;
+}
+.cos-bd-term .term b {
+  color: #fdba74;
+}
+.cos-bd-term .term em {
+  font-style: normal;
+  color: #e5e7eb;
+}
+.cos-bd-term .term u {
+  text-decoration: none;
+}
+.cos-bd-term .term .tu {
+  color: #4ade80;
+}
+.cos-bd-term .term .td {
+  color: #f87171;
+}
+.cos-bd-term .term span.hit {
+  animation: cosTermHit 1s ease-out;
+}
+@keyframes cosTermHit {
+  0% {
+    background: rgba(251, 146, 60, 0.6);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+/* ---------- Night Skyline: office windows switching on and off ---------- */
+.cos-bd-sky > .cos-bd {
+  background-image: var(--cos-art-skyline), linear-gradient(#0b1026, #1e1b4b);
+  background-size:
+    300px 100%,
+    auto;
+}
+.cos-bd-sky .win {
+  width: 3px;
+  height: 3px;
+  background: #fde68a;
+  opacity: 0;
+  animation: cosWindow var(--t) infinite;
+  animation-delay: var(--d);
+}
+@keyframes cosWindow {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  42%,
+  85% {
+    opacity: 0.85;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Trading Floor: faint candles, a new one ticks in every 6s ---------- */
+.cos-bd-floor > .cos-bd {
+  background-color: #18181b;
+  background-image: var(--cos-art-candles);
+  background-repeat: repeat-x;
+  background-position: 0 center;
+  animation: cosCandles 60s steps(10) infinite;
+}
+@keyframes cosCandles {
+  to {
+    background-position: -160px center;
+  }
+}
+
+/* ---------- Thunderstorm: three different bolts in different spots, plus a
+   sheet flash that only lights the clouds ---------- */
+.cos-bd-storm > .cos-bd {
+  background: linear-gradient(#0f172a, #1e293b);
+}
+.cos-bd-storm .cloud {
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(100, 116, 139, 0.45), transparent);
+}
+.cos-bd-storm .c1 {
+  width: 340px;
+  height: 90px;
+  left: -40px;
+  top: -40px;
+}
+.cos-bd-storm .c2 {
+  width: 300px;
+  height: 80px;
+  left: 35%;
+  top: -36px;
+}
+.cos-bd-storm .c3 {
+  width: 320px;
+  height: 90px;
+  right: -60px;
+  top: -30px;
+}
+.cos-bd-storm .bolt {
+  top: 0;
+  height: 100%;
+  opacity: 0;
+  filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 9px #7dd3fc);
+  animation: cosStrike 12s infinite;
+}
+.cos-bd-storm .lit {
+  inset: 0;
+  opacity: 0;
+  animation: cosStrike 12s infinite;
+}
+.cos-bd-storm .k1 {
+  left: 30%;
+  height: 90%;
+}
+.cos-bd-storm .l1 {
+  background: radial-gradient(ellipse at 32% 0%, rgba(224, 242, 254, 0.5), rgba(224, 242, 254, 0.1) 60%);
+}
+.cos-bd-storm .k2 {
+  left: 60%;
+  animation-delay: -4.6s;
+}
+.cos-bd-storm .l2 {
+  background: radial-gradient(ellipse at 62% 0%, rgba(224, 242, 254, 0.55), rgba(224, 242, 254, 0.12) 60%);
+  animation-delay: -4.6s;
+}
+.cos-bd-storm .k3 {
+  left: 76%;
+  height: 75%;
+  transform: scaleX(-1);
+  animation-delay: -8.3s;
+}
+.cos-bd-storm .l3 {
+  background: radial-gradient(ellipse at 78% 0%, rgba(224, 242, 254, 0.45), rgba(224, 242, 254, 0.1) 55%);
+  animation-delay: -8.3s;
+}
+.cos-bd-storm .l4 {
+  background: radial-gradient(ellipse 40% 90% at 45% 0%, rgba(203, 213, 225, 0.35), transparent 70%);
+  animation: cosSheet 12s infinite;
+  animation-delay: -1.8s;
+}
+@keyframes cosStrike {
+  0%,
+  84%,
+  100% {
+    opacity: 0;
+  }
+  85% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 0.1;
+  }
+  87.5% {
+    opacity: 0.9;
+  }
+  90% {
+    opacity: 0;
+  }
+}
+@keyframes cosSheet {
+  0%,
+  84%,
+  100% {
+    opacity: 0;
+  }
+  86% {
+    opacity: 1;
+  }
+  89% {
+    opacity: 0.2;
+  }
+  91% {
+    opacity: 0.7;
+  }
+  95% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Neon Alley: brick wall, a neon sign with one bad tube ---------- */
+.cos-bd-neon > .cos-bd {
+  background: linear-gradient(rgba(10, 4, 20, 0.65), rgba(10, 4, 20, 0.8)), var(--cos-art-bricks);
+}
+.cos-bd-neon .neon {
+  left: 41%;
+  top: 50%;
+  transform: translateY(-50%);
+  font:
+    700 22px/1 'Segoe Script',
+    'Brush Script MT',
+    cursive;
+  color: #fdf2f8;
+  text-shadow:
+    0 0 4px #f472b6,
+    0 0 10px #ec4899,
+    0 0 22px #db2777;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.cos-bd-neon .neon b {
+  font-weight: inherit;
+  text-shadow: inherit;
+  animation: cosTube 7s infinite;
+}
+@keyframes cosTube {
+  0%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+  71% {
+    opacity: 0.15;
+  }
+  72% {
+    opacity: 1;
+  }
+  73.5% {
+    opacity: 0.1;
+  }
+  76% {
+    opacity: 0.1;
+  }
+  77% {
+    opacity: 1;
+  }
+}
+.cos-bd-neon .neon2 {
+  left: 70%;
+  top: 12px;
+  font:
+    700 10px/1 system-ui,
+    sans-serif;
+  color: #cffafe;
+  letter-spacing: 2px;
+  padding: 2px 4px;
+  border: 1px solid #67e8f9;
+  border-radius: 3px;
+  box-shadow:
+    0 0 6px #22d3ee,
+    inset 0 0 6px #22d3ee;
+  text-shadow: 0 0 6px #22d3ee;
+  white-space: nowrap;
+}
+@container (max-width: 460px) {
+  .cos-bd-neon .neon {
+    left: 58%;
+    top: 62%;
+    transform: translate(-50%, -50%);
+    font-size: 15px;
+  }
+  .cos-bd-neon .neon2 {
+    left: 58%;
+    top: 5px;
+    transform: translateX(-50%);
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    padding: 1px 3px;
+  }
+}
+
+/* ---------- Chalkboard: a chart drawing itself, and some notes ---------- */
+.cos-bd-chalk > .cos-bd {
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(255, 255, 255, 0.06), transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(255, 255, 255, 0.05), transparent 40%), #1f3b2d;
+  box-shadow: inset 0 0 0 3px #6b4423;
+}
+.cos-bd-chalk .chalk {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.cos-bd-chalk .chalk .draw {
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  animation: cosChalk 12s infinite;
+}
+@keyframes cosChalk {
+  0%,
+  5% {
+    stroke-dashoffset: 260;
+    opacity: 1;
+  }
+  25%,
+  85% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  90% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  91%,
+  100% {
+    stroke-dashoffset: 260;
+    opacity: 0;
+  }
+}
+
+/* ---------- Graffiti Wall: bubble letters, a spray tag, marker scrawl, drips
+   and overspray. Spread out on a phone row. ---------- */
+.cos-bd-graf > .cos-bd {
+  background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.45)), var(--cos-art-bricks);
+}
+.cos-bd-graf .graf {
+  inset: 0;
+}
+.cos-bd-graf .graf > * {
+  position: absolute;
+}
+.cos-bd-graf .graf span {
+  white-space: nowrap;
+  line-height: 1;
+}
+.cos-bd-graf .g-hodl {
+  left: 27%;
+  top: 50%;
+  transform: translateY(-52%) rotate(-7deg);
+  font:
+    400 30px 'Cos Bubbles',
+    cursive;
+  color: #fde047;
+  opacity: 0.62;
+  -webkit-text-stroke: 1.5px #be185d;
+  text-shadow:
+    3px 3px 0 #831843,
+    0 0 10px rgba(253, 224, 71, 0.35);
+}
+.cos-bd-graf .g-moon {
+  left: 45%;
+  top: 50%;
+  transform: translateY(-48%) rotate(3deg);
+  font:
+    400 27px 'Cos Spray',
+    cursive;
+  color: #22d3ee;
+  opacity: 0.6;
+  text-shadow:
+    0 0 6px rgba(34, 211, 238, 0.6),
+    2px 2px 0 #164e63;
+}
+.cos-bd-graf .g-cash {
+  left: 72%;
+  top: 6px;
+  transform: rotate(-12deg);
+  font:
+    400 17px 'Cos Marker',
+    cursive;
+  color: #a3e635;
+  opacity: 0.45;
+  text-shadow: 0 0 5px rgba(163, 230, 53, 0.5);
+}
+.cos-bd-graf .g-tag {
+  left: 64%;
+  bottom: 4px;
+  transform: rotate(-4deg);
+  font:
+    400 12px 'Cos Marker',
+    cursive;
+  color: #f8fafc;
+  opacity: 0.32;
+}
+.cos-bd-graf .drip {
+  width: 2px;
+  border-radius: 0 0 2px 2px;
+  opacity: 0.45;
+}
+.cos-bd-graf .mist {
+  border-radius: 50%;
+  filter: blur(9px);
+  opacity: 0.18;
+}
+@container (max-width: 460px) {
+  .cos-bd-graf .g-hodl {
+    left: 37%;
+    top: 24%;
+    font-size: 17px;
+  }
+  .cos-bd-graf .g-moon {
+    left: 41%;
+    top: 72%;
+    font-size: 16px;
+  }
+  .cos-bd-graf .g-cash {
+    left: 63%;
+    top: 3px;
+    font-size: 12px;
+  }
+  .cos-bd-graf .g-tag {
+    left: 74%;
+    bottom: 1px;
+    font-size: 9px;
+  }
+}
+
+/* ---------- Shooting Stars ---------- */
+.cos-bd-stars > .cos-bd {
+  background: radial-gradient(ellipse at 70% 120%, #1e1b4b, #020617 70%);
+}
+.cos-bd-stars .st {
+  width: 1.5px;
+  height: 1.5px;
+  background: #fff;
+  border-radius: 50%;
+  opacity: var(--o);
+}
+.cos-bd-stars .st.tw {
+  width: 2px;
+  height: 2px;
+  animation: cosTwinkle var(--t) infinite;
+  animation-delay: var(--d);
+  box-shadow: 0 0 3px #fff;
+}
+@keyframes cosTwinkle {
+  0%,
+  80%,
+  100% {
+    opacity: var(--o);
+  }
+  85% {
+    opacity: 1;
+    transform: scale(1.8);
+  }
+  90% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+}
+.cos-bd-stars .shoot {
+  top: 8px;
+  left: 20%;
+  width: 70px;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, #fff);
+  opacity: 0;
+  transform: rotate(14deg);
+  animation: cosShoot 11s infinite;
+}
+@keyframes cosShoot {
+  0%,
+  80% {
+    opacity: 0;
+    transform: rotate(14deg) translateX(0);
+  }
+  81% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 0;
+    transform: rotate(14deg) translateX(260px);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Rooftop Sunset: pinned to the right so the water tower shows ---------- */
+.cos-bd-roof > .cos-bd {
+  background:
+    var(--cos-art-sunset) right bottom / auto 100% no-repeat,
+    linear-gradient(#1e1b4b 0%, #7c3aed 30%, #db2777 60%, #f97316 85%, #fbbf24);
+}
+
+/* ---------- Fight Night: ring ropes that shake now and then ---------- */
+.cos-bd-ring > .cos-bd {
+  background: radial-gradient(ellipse at 50% -40%, rgba(255, 255, 255, 0.18), transparent 60%), #111014;
+}
+.cos-bd-ring .post {
+  left: 6px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: linear-gradient(90deg, #52525b, #a1a1aa, #3f3f46);
+}
+.cos-bd-ring .rope {
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 3px;
+  opacity: 0.55;
+  animation: cosShake 8s infinite;
+  transform-origin: 0 50%;
+}
+.cos-bd-ring .r1 {
+  top: 12%;
+  background: linear-gradient(#fca5a5, #b91c1c);
+}
+.cos-bd-ring .r2 {
+  top: 49%;
+  opacity: 0.18;
+  background: linear-gradient(#ffffff, #a1a1aa);
+  animation-delay: 0.08s;
+}
+.cos-bd-ring .r3 {
+  top: 86%;
+  background: linear-gradient(#93c5fd, #1d4ed8);
+  animation-delay: 0.16s;
+}
+.cos-bd-ring .haze {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.08), transparent 70%);
+}
+@keyframes cosShake {
+  0%,
+  84%,
+  100% {
+    transform: translateY(0);
+  }
+  86% {
+    transform: translateY(-3px);
+  }
+  88% {
+    transform: translateY(2.5px);
+  }
+  90% {
+    transform: translateY(-1.5px);
+  }
+  92% {
+    transform: translateY(1px);
+  }
+  94% {
+    transform: translateY(0);
+  }
+}

@@ -12,6 +12,7 @@ import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';
 import { formatCurrency } from '../../../utils/formatters';
 import type { ActionHookDeps } from '../../../shared/hooks/types';
+import type { CosmeticStyle, CosmeticStyleKey } from '../../../rules/cosmetics';
 
 /** What a gift is: one shop item or a whole bundle. */
 export interface GiftTarget {
@@ -90,17 +91,19 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
   );
 
   const handlePurchaseCosmetic = useCallback(
-    async (cosmeticId: string) => {
-      if (!user || !userData) return;
+    async (cosmeticId: string): Promise<boolean> => {
+      if (!user || !userData) return false;
       try {
         await purchaseCosmeticFunction({ cosmeticId });
         setUserData((prev) =>
           prev ? { ...prev, ownedCosmetics: [...(prev.ownedCosmetics || []), cosmeticId] } : prev,
         );
         showNotification('success', 'Cosmetic purchased!');
+        return true;
       } catch (err) {
         reportUnexpected(err, { where: 'handlePurchaseCosmetic', cosmeticId });
         showNotification('error', errorMessage(err) || 'Purchase failed');
+        return false;
       }
     },
     [user, userData, showNotification, setUserData],
@@ -158,5 +161,25 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
     [user, setUserData],
   );
 
-  return { handlePinAction, handlePurchaseCosmetic, handlePurchaseBundle, handleGiftCosmetic, handleEquipCosmetic };
+  // How the player wears a cosmetic with a choice (Split Flap motion, Bull / Bear
+  // style, backdrop tint). The server only publishes values it knows.
+  const handleSetCosmeticStyle = useCallback(
+    async <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => {
+      if (!user) return;
+      await updateDoc(doc(db, 'users', user.uid), { [`cosmeticStyle.${key}`]: value });
+      setUserData((prev) =>
+        prev ? { ...prev, cosmeticStyle: { ...(prev.cosmeticStyle || {}), [key]: value } } : prev,
+      );
+    },
+    [user, setUserData],
+  );
+
+  return {
+    handlePinAction,
+    handlePurchaseCosmetic,
+    handlePurchaseBundle,
+    handleGiftCosmetic,
+    handleEquipCosmetic,
+    handleSetCosmeticStyle,
+  };
 }

@@ -110,6 +110,7 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
       bundle_purchase: 'Bundles',
       cosmetic_gift_sent: 'Gifts sent',
       cosmetic_gift_received: 'Gifts received',
+      shop_price_refund: 'Price drop refunds',
       pin_purchase: 'Pins',
       pin_slot_purchase: 'Pin slots',
       streak_saver_purchase: 'Streak savers',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getCosmeticStyles, titleTier } from './cosmetics';
-import { frameTrend, frameSeed } from '../rules/cosmetics';
+import { frameTrend, frameSeed, cleanCosmeticStyle } from '../rules/cosmetics';
 
 describe('getCosmeticStyles', () => {
   it('returns empty styles for no cosmetics', () => {
@@ -12,13 +12,39 @@ describe('getCosmeticStyles', () => {
     expect(r.rowClass).toBe('');
   });
 
-  it('static cosmetics expose their color and no class (behavior unchanged)', () => {
+  it('static cosmetics expose their color; a plain backdrop paints a tint class', () => {
     const r = getCosmeticStyles({ nameColor: 'name_gold', rowGlow: 'glow_gold', rowBackdrop: 'backdrop_royal' });
     expect(r.nameColor).toBe('#F59E0B');
     expect(r.nameClass).toBe('');
     expect(r.glowColor).toBe('#F59E0B');
     expect(r.backdropColor).toBe('#7C3AED');
-    expect(r.rowClass).toBe('');
+    expect(r.rowClass).toBe('cos-tint-fade');
+    expect(r.rowStyle).toMatchObject({ '--cos-tint': '#7C3AED' });
+    expect(r.layers).toEqual({ backdrop: null, glow: null });
+  });
+
+  it('the tint style picks Fade or Solid', () => {
+    const solid = getCosmeticStyles({ rowBackdrop: 'backdrop_royal' }, null, { style: { tint: 'solid' } });
+    expect(solid.rowClass).toBe('cos-tint-solid');
+  });
+
+  it('scene backdrops and effects come back as layers on a dark, isolated row', () => {
+    const r = getCosmeticStyles({ rowBackdrop: 'backdrop_vault', rowGlow: 'glow_rain' });
+    expect(r.layers).toEqual({ backdrop: 'backdrop_vault', glow: 'glow_rain' });
+    expect(r.rowClass.split(' ')).toEqual(
+      expect.arrayContaining(['cos-row', 'dark', 'cos-busy', 'cos-bd-vault', 'cos-g-rain']),
+    );
+    expect(r.glowColor).toBeUndefined();
+    const fxOnly = getCosmeticStyles({ rowGlow: 'glow_strength' });
+    expect(fxOnly.rowClass).toContain('cos-row');
+    expect(fxOnly.rowClass).not.toContain('dark');
+  });
+
+  it('names that draw their own markup are reported by id', () => {
+    const r = getCosmeticStyles({ nameColor: 'name_splitflap' }, null, { style: { flap: 'board' } });
+    expect(r.nameId).toBe('name_splitflap');
+    expect(r.flapStyle).toBe('board');
+    expect(getCosmeticStyles({}).flapStyle).toBe('random');
   });
 
   it('animated cosmetics expose a CSS class instead of an inline color', () => {
@@ -79,11 +105,35 @@ describe('frame personalisation', () => {
 
   it('only animated frames get a seed style and trend', () => {
     const framed = getCosmeticStyles({ rowFrame: 'frame_frost' }, null, { seedKey: 'Alice', trend: 'up' });
-    expect(framed.frameStyle).toMatchObject({ '--cos-seed': frameSeed('Alice').seconds });
+    expect(framed.rowStyle).toMatchObject({ '--cos-seed': frameSeed('Alice').seconds });
     expect(framed.frameTrend).toBe('up');
     const plain = getCosmeticStyles({ nameColor: 'name_gold' }, null, { seedKey: 'Alice', trend: 'up' });
-    expect(plain.frameStyle).toBeUndefined();
+    expect(plain.rowStyle).toEqual({});
     expect(plain.frameTrend).toBeUndefined();
+  });
+
+  it('the Split style shows both halves of Bull / Bear every day', () => {
+    const r = getCosmeticStyles({ rowFrame: 'frame_bullbear' }, null, { trend: 'up', style: { bullbear: 'split' } });
+    expect(r.frameTrend).toBe('split');
+    const daily = getCosmeticStyles({ rowFrame: 'frame_bullbear' }, null, {
+      trend: 'up',
+      style: { bullbear: 'daily' },
+    });
+    expect(daily.frameTrend).toBe('up');
+  });
+});
+
+describe('cleanCosmeticStyle', () => {
+  it('keeps known keys with known values and drops everything else', () => {
+    expect(cleanCosmeticStyle({ flap: 'scramble', bullbear: 'split', tint: 'solid' })).toEqual({
+      flap: 'scramble',
+      bullbear: 'split',
+      tint: 'solid',
+    });
+    expect(cleanCosmeticStyle({ flap: 'spin', tint: 7, admin: true })).toEqual({});
+    expect(cleanCosmeticStyle('junk')).toEqual({});
+    expect(cleanCosmeticStyle(null)).toEqual({});
+    expect(cleanCosmeticStyle(['flap'])).toEqual({});
   });
 });
 

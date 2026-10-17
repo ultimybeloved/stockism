@@ -1,10 +1,12 @@
 import { memo, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useTheme, useSession } from '../../../context/AppContext';
+import { useSession } from '../../../context/AppContext';
 import { getPublicProfileFunction } from '../../../api/callables';
 import { CREW_MAP } from '../../../crews';
 import { CHARACTER_MAP } from '../../../characters';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
+import CosmeticLayers from '../../../shared/components/cosmetics/CosmeticLayers';
+import CosmeticName from '../../../shared/components/cosmetics/CosmeticName';
 import { ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import type { PublicProfile } from '../../../api/types';
 import { formatCurrency } from '../../../utils/formatters';
@@ -20,7 +22,6 @@ import CrewPin from '../../../shared/components/CrewPin';
 
 const PublicProfilePage = () => {
   const { username } = useParams();
-  const { darkMode } = useTheme();
   const { user } = useSession();
   const viewerIsAdmin = user && ADMIN_UIDS.includes(user.uid);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
@@ -89,11 +90,12 @@ const PublicProfilePage = () => {
   if (!profile) return null;
 
   const crew = profile.crew ? CREW_MAP[profile.crew] : null;
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass, frameStyle, frameTrend } = getCosmeticStyles(
-    profile.activeCosmetics,
-    null,
-    { seedKey: profile.displayName, trend: profile.frameTrend },
-  );
+  const cosmetics = getCosmeticStyles(profile.activeCosmetics, null, {
+    seedKey: profile.displayName,
+    trend: profile.frameTrend,
+    style: profile.cosmeticStyle,
+  });
+  const { glowColor, rowClass, rowStyle, frameTrend, layers } = cosmetics;
   const profileTitle = profile.title;
   const crewColor = crew?.color || '#6b7280';
 
@@ -124,17 +126,15 @@ const PublicProfilePage = () => {
         className={`relative ${cardClass} border rounded-sm p-4 ${rowClass}`}
         data-trend={frameTrend}
         style={{
-          ...frameStyle,
+          ...rowStyle,
           ...(glowColor ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
-          ...(backdropColor ? { backgroundColor: darkMode ? `${backdropColor}18` : `${backdropColor}12` } : {}),
         }}
       >
+        <CosmeticLayers {...layers} seedKey={profile.displayName} />
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h1 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
-              <span className={nameClass} style={nameClass ? undefined : { color: nameColor }}>
-                {profile.displayName || 'Anonymous Trader'}
-              </span>
+              <CosmeticName name={profile.displayName || 'Anonymous Trader'} styles={cosmetics} />
               <PinDisplay userData={profile} size="sm" />
             </h1>
             <TitleText title={profileTitle} className="text-sm" />

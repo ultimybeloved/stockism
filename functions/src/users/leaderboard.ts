@@ -14,7 +14,7 @@ import {
   snapshotNetWorth,
   maxEventPositionsValue,
 } from '../shared/equity';
-import { BULLBEAR_FRAME_ID, frameTrend } from '../shared/rules/cosmetics';
+import { BULLBEAR_FRAME_ID, cleanCosmeticStyle, frameTrend } from '../shared/rules/cosmetics';
 import { round2 } from '../shared/money';
 
 import {
@@ -50,6 +50,8 @@ const LEADERBOARD_FIELDS = [
   'previousDisplayName',
   'nameChangedAt',
   'activeCosmetics',
+  // Split Flap / Bull / Bear / backdrop tint choices, checked below.
+  'cosmeticStyle',
   'isPublic',
   'isBot',
   'portfolioSnapshot7d',
@@ -113,6 +115,7 @@ const sanitizeDisplayFields = (userData: DocumentData) => {
     displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
     displayedShopPins: asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)),
     activeCosmetics,
+    cosmeticStyle: cleanCosmeticStyle(userData.cosmeticStyle),
     title,
     // Only wearers of the Bull / Bear frame get a direction, so the board
     // doesn't publish everyone's day.

@@ -686,6 +686,8 @@ export interface PublicProfile {
   displayedAchievementPins: string[];
   displayedShopPins: string[];
   activeCosmetics: import('../types').ActiveCosmetics | null;
+  /** Checked style choices (rules/cosmetics cleanCosmeticStyle). */
+  cosmeticStyle?: import('../rules/cosmetics').CosmeticStyle;
   /** Only a title the server granted; never the raw client-written one. */
   title: import('../types').SeasonTitle | null;
   /** Bull / Bear frame direction; null unless that frame is worn. */

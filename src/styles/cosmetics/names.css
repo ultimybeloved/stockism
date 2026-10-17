@@ -1,0 +1,697 @@
+/* Name effects from the 2026-10 drop. The class sits on the span around the
+   player's name (CosmeticName). Most paint a gradient through the letters with
+   background-clip: text, so a text-shadow would muddy them: every effect here
+   turns it off.
+
+   Light mode ("not inside .dark", same test as Tailwind's light: variant):
+   bright effects keep their colors inside a dark halo, like the season titles;
+   a few pale ones switch to deeper colors instead. A row with a dark backdrop
+   carries the dark class itself, so names on it keep the dark-mode look. */
+
+/* ---------- flowing gradients ----------
+   Palindromic gradients (first stop = last stop) moved one full tile, so the
+   loop has no seam. */
+html :is(.cos-name-wildfire, .cos-name-glacier, .cos-name-toxic, .cos-name-sunset, .cos-name-ocean, .cos-name-sakura) {
+  font-weight: 800;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  background-size: 200% auto;
+  text-shadow: none;
+  animation: cosNameFlow var(--cos-flow, 4s) linear infinite;
+}
+@keyframes cosNameFlow {
+  to {
+    background-position: 200% center;
+  }
+}
+.cos-name-wildfire {
+  background-image: linear-gradient(90deg, #991b1b, #ef4444, #f97316, #fde047, #f97316, #ef4444, #991b1b);
+  --cos-flow: 2.6s;
+}
+.cos-name-glacier {
+  background-image: linear-gradient(90deg, #7dd3fc, #e0f2fe, #ffffff, #bae6fd, #38bdf8, #7dd3fc);
+  --cos-flow: 5s;
+}
+.cos-name-glacier:where(:not(.dark, .dark *)) {
+  background-image: linear-gradient(90deg, #0369a1, #0ea5e9, #38bdf8, #0284c7, #075985, #0369a1);
+}
+.cos-name-toxic {
+  background-image: linear-gradient(90deg, #4d7c0f, #a3e635, #ecfccb, #84cc16, #4d7c0f);
+  --cos-flow: 3.4s;
+}
+.cos-name-toxic:where(:not(.dark, .dark *)) {
+  background-image: linear-gradient(90deg, #365314, #65a30d, #a3e635, #4d7c0f, #365314);
+}
+.cos-name-sunset {
+  background-image: linear-gradient(90deg, #f472b6, #fb923c, #fbbf24, #fb7185, #c084fc, #f472b6);
+  --cos-flow: 6s;
+}
+.cos-name-ocean {
+  background-image: linear-gradient(90deg, #1d4ed8, #0ea5e9, #2dd4bf, #0ea5e9, #1d4ed8);
+  --cos-flow: 5s;
+}
+.cos-name-sakura {
+  background-image: linear-gradient(90deg, #f9a8d4, #fdf2f8, #fbcfe8, #f472b6, #f9a8d4);
+  --cos-flow: 5s;
+}
+.cos-name-sakura:where(:not(.dark, .dark *)) {
+  background-image: linear-gradient(90deg, #db2777, #f472b6, #be185d, #ec4899, #db2777);
+}
+
+/* ---------- chrome: mirror metal top to bottom, a highlight flowing across ---------- */
+html .cos-name-chrome {
+  font-weight: 800;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.9) 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.9) 75%,
+      transparent 100%
+    ),
+    linear-gradient(180deg, #ffffff 0%, #eef2f7 22%, #c4ccd8 45%, #8d99ab 62%, #b8c2d0 80%, #f8fafc 100%);
+  background-size:
+    200% 100%,
+    100% 100%;
+  animation: cosChromeFlow 4s linear infinite;
+}
+html .cos-name-chrome:where(:not(.dark, .dark *)) {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.7) 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.7) 75%,
+      transparent 100%
+    ),
+    linear-gradient(180deg, #94a3b8 0%, #64748b 40%, #334155 62%, #64748b 85%, #94a3b8 100%);
+}
+@keyframes cosChromeFlow {
+  from {
+    background-position:
+      0% 0,
+      0 0;
+  }
+  to {
+    background-position:
+      200% 0,
+      0 0;
+  }
+}
+
+/* ---------- the dark halo for bright names in light mode ---------- */
+:is(.cos-name-shimmer, .cos-name-holo, .cos-name-galaxy, .cos-name-neon, .cos-name-cash):where(:not(.dark, .dark *)) {
+  filter: drop-shadow(0 0 1.5px rgba(15, 23, 42, 0.9)) drop-shadow(0 0 5px rgba(15, 23, 42, 0.6));
+}
+
+/* ---------- holographic: foil colors keep drifting; every 7s a white light
+   catch sweeps the letters and a small sparkle pops at the end. One keyframe
+   drives both layers so they never fight. ---------- */
+html .cos-name-holo {
+  position: relative;
+  display: inline-block;
+  font-weight: 800;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  background-image:
+    linear-gradient(
+      115deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.75) 38%,
+      #fff 46% 54%,
+      rgba(255, 255, 255, 0.75) 62%,
+      transparent 80%
+    ),
+    linear-gradient(115deg, #e879f9, #67e8f9, #fde047, #86efac, #a78bfa, #e879f9);
+  background-size:
+    45% 100%,
+    300% auto;
+  background-repeat: no-repeat, repeat;
+  animation: cosHolo 7s linear infinite;
+}
+@keyframes cosHolo {
+  0% {
+    background-position:
+      -90% 0,
+      0% center;
+  }
+  76% {
+    background-position:
+      -90% 0,
+      228% center;
+    animation-timing-function: ease-in-out;
+  }
+  88% {
+    background-position:
+      190% 0,
+      264% center;
+    animation-timing-function: linear;
+  }
+  100% {
+    background-position:
+      190% 0,
+      300% center;
+  }
+}
+.cos-name-holo::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  top: -5px;
+  width: 9px;
+  height: 9px;
+  opacity: 0;
+  transform: scale(0.3) rotate(0);
+  background: #fff;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  filter: drop-shadow(0 0 2px #a5f3fc);
+  animation: cosSparkle 7s infinite;
+}
+@keyframes cosSparkle {
+  0%,
+  86% {
+    opacity: 0;
+    transform: scale(0.3) rotate(0);
+  }
+  89% {
+    opacity: 1;
+    transform: scale(1.15) rotate(45deg);
+  }
+  93%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3) rotate(90deg);
+  }
+}
+
+/* ---------- galaxy: space colors with stars drifting through the letters ---------- */
+html .cos-name-galaxy {
+  font-weight: 800;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  background-image:
+    radial-gradient(circle at 20% 30%, #fff 0 0.8px, transparent 1.4px),
+    radial-gradient(circle at 70% 70%, #fff 0 0.7px, transparent 1.3px),
+    radial-gradient(circle at 45% 55%, #fde68a 0 0.6px, transparent 1.2px),
+    linear-gradient(90deg, #818cf8, #c084fc, #f472b6, #a78bfa, #60a5fa, #818cf8);
+  background-size:
+    14px 12px,
+    19px 15px,
+    23px 17px,
+    200% auto;
+  animation: cosGalaxy 8s linear infinite;
+}
+@keyframes cosGalaxy {
+  to {
+    background-position:
+      28px 0,
+      -38px 0,
+      23px 0,
+      200% center;
+  }
+}
+
+/* ---------- neon sign: a lit tube that flickers now and then ---------- */
+html .cos-name-neon {
+  font-weight: 700;
+  color: #fdf2f8;
+  text-shadow:
+    0 0 3px #f472b6,
+    0 0 8px #ec4899,
+    0 0 16px #db2777;
+  animation: cosNeon 7s infinite;
+}
+html .cos-name-neon:where(:not(.dark, .dark *)) {
+  text-shadow:
+    0 0 3px #f472b6,
+    0 0 8px #ec4899;
+}
+@keyframes cosNeon {
+  0%,
+  84%,
+  100% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.35;
+  }
+  86% {
+    opacity: 1;
+  }
+  87.5% {
+    opacity: 0.25;
+  }
+  89% {
+    opacity: 1;
+  }
+}
+
+/* ---------- corrupted: clean for ~5s, then a burst. Red and cyan copies of the
+   name (data-t) tear off in slices, the name jolts, a scan bar rolls through. ---------- */
+html .cos-name-corrupted {
+  position: relative;
+  display: inline-block;
+  font-weight: 800;
+  color: #f4f4f5;
+  text-shadow: none;
+  animation: cosGlMain 6s infinite steps(1);
+}
+html .cos-name-corrupted:where(:not(.dark, .dark *)) {
+  color: #18181b;
+}
+.cos-name-corrupted::before,
+.cos-name-corrupted::after {
+  content: attr(data-t);
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.cos-name-corrupted::before {
+  color: #ff2d6f;
+  animation: cosGlA 6s infinite steps(1);
+}
+.cos-name-corrupted::after {
+  color: #22d3ee;
+  animation: cosGlB 6s infinite steps(1);
+}
+.cos-name-corrupted > i {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  height: 3px;
+  top: 0;
+  background: rgba(255, 255, 255, 0.55);
+  mix-blend-mode: difference;
+  opacity: 0;
+  animation: cosGlScan 6s infinite linear;
+}
+@keyframes cosGlMain {
+  0%,
+  85% {
+    transform: none;
+    opacity: 1;
+  }
+  86% {
+    transform: translateX(2px) skewX(-12deg);
+  }
+  87.5% {
+    transform: translateX(-3px);
+    opacity: 0.6;
+  }
+  89% {
+    transform: translateX(1px) scaleY(1.15);
+    opacity: 1;
+  }
+  90.5% {
+    transform: translateX(-1px) skewX(10deg);
+  }
+  92% {
+    transform: translateX(3px);
+    opacity: 0.7;
+  }
+  93.5%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes cosGlA {
+  0%,
+  85% {
+    opacity: 0;
+  }
+  86% {
+    opacity: 0.9;
+    clip-path: inset(10% 0 60% 0);
+    transform: translateX(-5px);
+  }
+  87.5% {
+    clip-path: inset(55% 0 20% 0);
+    transform: translateX(4px);
+  }
+  89% {
+    clip-path: inset(30% 0 45% 0);
+    transform: translateX(-7px);
+  }
+  90.5% {
+    clip-path: inset(70% 0 5% 0);
+    transform: translateX(3px);
+  }
+  92% {
+    clip-path: inset(0 0 75% 0);
+    transform: translateX(-4px);
+  }
+  93.5%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes cosGlB {
+  0%,
+  85% {
+    opacity: 0;
+  }
+  86% {
+    opacity: 0.9;
+    clip-path: inset(60% 0 15% 0);
+    transform: translateX(5px);
+  }
+  87.5% {
+    clip-path: inset(15% 0 65% 0);
+    transform: translateX(-3px);
+  }
+  89% {
+    clip-path: inset(45% 0 30% 0);
+    transform: translateX(6px);
+  }
+  90.5% {
+    clip-path: inset(5% 0 80% 0);
+    transform: translateX(-5px);
+  }
+  92% {
+    clip-path: inset(75% 0 0 0);
+    transform: translateX(4px);
+  }
+  93.5%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes cosGlScan {
+  0%,
+  85% {
+    opacity: 0;
+    top: -10%;
+  }
+  85.5% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 1;
+    top: 100%;
+  }
+  93.5%,
+  100% {
+    opacity: 0;
+    top: 100%;
+  }
+}
+
+/* ---------- cash: green keeps flowing; every 4.5s a gold shine sweeps the
+   letters and two gold $ float off the name. The $ land in a different spot
+   each payout (three spots each), so the pattern only repeats every 13.5s. ---------- */
+html .cos-name-cash {
+  position: relative;
+  display: inline-block;
+  font-weight: 800;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow: none;
+  background-image:
+    linear-gradient(
+      110deg,
+      transparent 20%,
+      rgba(254, 240, 138, 0.8) 38%,
+      #fffbeb 46% 54%,
+      rgba(254, 240, 138, 0.8) 62%,
+      transparent 80%
+    ),
+    linear-gradient(90deg, #15803d, #4ade80, #bbf7d0, #4ade80, #15803d);
+  background-size:
+    45% 100%,
+    200% auto;
+  background-repeat: no-repeat, repeat;
+  animation: cosCash 4.5s linear infinite;
+}
+@keyframes cosCash {
+  0% {
+    background-position:
+      -90% 0,
+      0% center;
+  }
+  78% {
+    background-position:
+      -90% 0,
+      156% center;
+    animation-timing-function: ease-in-out;
+  }
+  90% {
+    background-position:
+      190% 0,
+      180% center;
+    animation-timing-function: linear;
+  }
+  100% {
+    background-position:
+      190% 0,
+      200% center;
+  }
+}
+.cos-name-cash::before,
+.cos-name-cash::after {
+  content: '$';
+  position: absolute;
+  top: -5px;
+  font:
+    800 13px/1 system-ui,
+    sans-serif;
+  color: #fde047;
+  -webkit-text-fill-color: #fde047;
+  text-shadow: 0 0 4px rgba(250, 204, 21, 0.8);
+  opacity: 0;
+  animation: cosCashPopA 13.5s infinite ease-out;
+}
+.cos-name-cash::after {
+  font-size: 11px;
+  animation-name: cosCashPopB;
+  animation-delay: 0.2s;
+}
+@keyframes cosCashPopA {
+  0%,
+  27.67% {
+    opacity: 0;
+    left: 12%;
+    top: -5px;
+    transform: translateY(4px) scale(0.6);
+  }
+  28.67% {
+    opacity: 1;
+    left: 12%;
+    top: -5px;
+    transform: translateY(-4px) scale(1);
+  }
+  32.33% {
+    opacity: 0;
+    left: 12%;
+    top: -5px;
+    transform: translateY(-14px) scale(0.9);
+  }
+  33.33%,
+  61% {
+    opacity: 0;
+    left: 62%;
+    top: -8px;
+    transform: translateY(4px) scale(0.6);
+  }
+  62% {
+    opacity: 1;
+    left: 62%;
+    top: -8px;
+    transform: translateY(-4px) scale(1);
+  }
+  65.67% {
+    opacity: 0;
+    left: 62%;
+    top: -8px;
+    transform: translateY(-14px) scale(0.9);
+  }
+  66.67%,
+  94.33% {
+    opacity: 0;
+    left: 34%;
+    top: -2px;
+    transform: translateY(4px) scale(0.6);
+  }
+  95.33% {
+    opacity: 1;
+    left: 34%;
+    top: -2px;
+    transform: translateY(-4px) scale(1);
+  }
+  99% {
+    opacity: 0;
+    left: 34%;
+    top: -2px;
+    transform: translateY(-14px) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes cosCashPopB {
+  0%,
+  27.67% {
+    opacity: 0;
+    left: 80%;
+    top: -3px;
+    transform: translateY(4px) scale(0.6);
+  }
+  28.67% {
+    opacity: 1;
+    left: 80%;
+    top: -3px;
+    transform: translateY(-4px) scale(1);
+  }
+  32.33% {
+    opacity: 0;
+    left: 80%;
+    top: -3px;
+    transform: translateY(-14px) scale(0.9);
+  }
+  33.33%,
+  61% {
+    opacity: 0;
+    left: 22%;
+    top: -6px;
+    transform: translateY(4px) scale(0.6);
+  }
+  62% {
+    opacity: 1;
+    left: 22%;
+    top: -6px;
+    transform: translateY(-4px) scale(1);
+  }
+  65.67% {
+    opacity: 0;
+    left: 22%;
+    top: -6px;
+    transform: translateY(-14px) scale(0.9);
+  }
+  66.67%,
+  94.33% {
+    opacity: 0;
+    left: 98%;
+    top: -7px;
+    transform: translateY(4px) scale(0.6);
+  }
+  95.33% {
+    opacity: 1;
+    left: 98%;
+    top: -7px;
+    transform: translateY(-4px) scale(1);
+  }
+  99% {
+    opacity: 0;
+    left: 98%;
+    top: -7px;
+    transform: translateY(-14px) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- split flap: each letter is a flip-board tile. SplitFlap.tsx flips
+   them: the top half of the old letter falls forward, then the bottom half of
+   the new letter lands. The hinge is two small notches at the tile edges. ---------- */
+html .cos-name-flap {
+  display: inline-flex;
+  gap: 1px;
+  vertical-align: middle;
+  font-family: ui-monospace, Consolas, monospace;
+  font-weight: 700;
+  color: #fef3c7;
+  text-shadow: none;
+}
+.cos-name-flap .tile {
+  position: relative;
+  display: inline-block;
+  min-width: 0.72em;
+  text-align: center;
+}
+.cos-name-flap .tile > span {
+  display: block;
+}
+.cos-name-flap .sz {
+  visibility: hidden;
+  padding: 1px;
+}
+.cos-name-flap .h,
+.cos-name-flap .fl {
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: 2px;
+  text-align: center;
+  background: linear-gradient(#2e2e33 0 50%, #232327 50% 100%);
+  box-shadow: inset 0 0 0 1px #0a0a0c;
+  backface-visibility: hidden;
+}
+.cos-name-flap .top,
+.cos-name-flap .ft {
+  clip-path: inset(0 0 50% 0);
+}
+.cos-name-flap .bot,
+.cos-name-flap .fb {
+  clip-path: inset(50% 0 0 0);
+}
+.cos-name-flap .fl {
+  visibility: hidden;
+}
+.cos-name-flap .flipping .fl {
+  visibility: visible;
+}
+.cos-name-flap .flipping .ft {
+  animation: cosFlapTop calc(var(--ms) / 2) ease-in both;
+}
+.cos-name-flap .flipping .fb {
+  animation: cosFlapBot calc(var(--ms) / 2) ease-out calc(var(--ms) / 2) both;
+}
+.cos-name-flap .tile::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  z-index: 2;
+  background: linear-gradient(90deg, #0a0a0c 0 2px, transparent 2px calc(100% - 2px), #0a0a0c calc(100% - 2px));
+}
+@keyframes cosFlapTop {
+  from {
+    transform: perspective(60px) rotateX(0);
+  }
+  to {
+    transform: perspective(60px) rotateX(-90deg);
+    filter: brightness(0.55);
+  }
+}
+@keyframes cosFlapBot {
+  from {
+    transform: perspective(60px) rotateX(90deg);
+    filter: brightness(1.5);
+  }
+  to {
+    transform: perspective(60px) rotateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html :is([class*='cos-name-'], [class*='cos-name-'] *, [class*='cos-name-']::before, [class*='cos-name-']::after) {
+    animation: none !important;
+  }
+}

@@ -87,6 +87,7 @@ const AppModals = ({
   handleDisableMargin,
   handleEnableMargin,
   handleEquipCosmetic,
+  handleSetCosmeticStyle,
   limitOrderRequest,
   setLimitOrderRequest,
   handleMarginTutorialComplete,
@@ -191,6 +192,7 @@ const AppModals = ({
           onPurchaseBundle={handlePurchaseBundle}
           onGiftCosmetic={handleGiftCosmetic}
           onEquipCosmetic={handleEquipCosmetic}
+          onSetCosmeticStyle={handleSetCosmeticStyle}
           portfolioValue={portfolioValue}
         />
       )}

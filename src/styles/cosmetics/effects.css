@@ -1,0 +1,557 @@
+/* Effects (rowGlow) and the layers every 2026-10 effect and backdrop draws.
+
+   A row wearing one gets `cos-row` plus the item's class, and CosmeticLayers
+   puts two layers inside it:
+   - .cos-bd, the backdrop: under the row's text (z-index -1 inside the
+     isolated row, so it still paints over the row's own background).
+   - .cos-fx, the effect: over the row's text, never catching clicks.
+   Effects never paint the row's background, which would hide a backdrop;
+   tints go on .cos-fx with mix-blend-mode: screen. Row frames own the row's
+   ::before and ::after, so nothing here touches those. */
+
+.cos-row {
+  isolation: isolate;
+}
+.cos-bd,
+.cos-fx {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.cos-bd {
+  z-index: -1;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.cos-fx {
+  z-index: 2;
+}
+.cos-bd > *,
+.cos-fx > * {
+  position: absolute;
+}
+
+/* ---------- Mastery series: one aura, six colors ----------
+   --c is the aura color, --hi the hot core of each wisp. */
+.cos-g-mastery {
+  box-shadow:
+    0 0 16px rgb(var(--c) / 0.45),
+    0 0 0 1px rgb(var(--c) / 0.55);
+}
+.cos-g-mastery > .cos-fx {
+  background: radial-gradient(ellipse at 50% 130%, rgb(var(--c) / 0.3), transparent 70%);
+  mix-blend-mode: screen;
+}
+.cos-g-mastery > .cos-fx::before {
+  content: '';
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  top: -2px;
+  height: 6px;
+  border-radius: 50%;
+  filter: blur(3px);
+  background: rgb(var(--c) / 0.6);
+}
+.cos-g-mastery .mw {
+  bottom: calc(100% - 5px);
+  width: var(--w, 15px);
+  height: var(--h);
+  margin-left: calc(var(--w, 15px) / -2);
+  opacity: 0;
+  filter: blur(3px);
+  border-radius: 50% 50% 45% 45%;
+  transform-origin: 50% 100%;
+  background: linear-gradient(
+    0deg,
+    rgb(var(--hi) / 0.95),
+    rgb(var(--c) / 0.78) 40%,
+    rgb(var(--c) / 0.25) 75%,
+    transparent
+  );
+  animation: cosLick var(--t) infinite ease-out;
+  animation-delay: calc(var(--d) * -1);
+}
+.cos-m-def {
+  --c: 226 232 240;
+  --hi: 255 255 255;
+}
+.cos-m-str {
+  --c: 220 38 38;
+  --hi: 254 202 202;
+}
+.cos-m-str .mw {
+  --w: 19px;
+}
+/* speed: quick, thin and straight up */
+.cos-m-spd {
+  --c: 56 189 248;
+  --hi: 224 242 254;
+}
+.cos-m-spd .mw {
+  --w: 11px;
+}
+/* endurance: slow and steady, barely sways */
+.cos-m-end {
+  --c: 74 222 128;
+  --hi: 220 252 231;
+}
+.cos-m-end .mw {
+  --w: 17px;
+  animation-name: cosRise;
+}
+.cos-m-tec {
+  --c: 244 114 182;
+  --hi: 252 231 243;
+}
+.cos-m-tec .mw {
+  --w: 9px;
+  filter: blur(2px);
+}
+/* overcome: surges taller, pulses brighter */
+.cos-m-ovc {
+  --c: 147 51 234;
+  --hi: 233 213 255;
+}
+.cos-m-ovc .mw {
+  animation-name: cosSurge;
+}
+@keyframes cosLick {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.7, 0.2);
+  }
+  30% {
+    opacity: 0.8;
+    transform: translateY(-5%) scale(1, 1);
+  }
+  65% {
+    opacity: 0.4;
+    transform: translate(2px, -25%) scale(0.7, 0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-2px, -50%) scale(0.4, 0.5);
+  }
+}
+@keyframes cosRise {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.8, 0.3);
+  }
+  35% {
+    opacity: 0.7;
+    transform: translateY(-4%) scale(1, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-40%) scale(0.6, 0.7);
+  }
+}
+@keyframes cosSurge {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.7, 0.2);
+  }
+  25% {
+    opacity: 0.95;
+    transform: translateY(-5%) scale(1.1, 1.25);
+  }
+  45% {
+    opacity: 0.5;
+  }
+  55% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-2px, -60%) scale(0.4, 0.6);
+  }
+}
+
+/* ---------- Make It Rain: someone off-screen throws a wad of cash in from the
+   left; it spreads across the row, tumbles and falls out the bottom, staying
+   inside the row. Between throws a green (left) and gold (right) glow breathes.
+   cqw = the effect layer's width, so the throw spans any row. ---------- */
+.cos-g-rain {
+  box-shadow:
+    -10px 0 18px -6px rgba(34, 197, 94, 0.55),
+    10px 0 18px -6px rgba(250, 204, 21, 0.5),
+    0 0 0 1px rgba(134, 239, 172, 0.3);
+  animation: cosRainGlow 5s ease-in-out infinite;
+}
+.cos-g-rain > .cos-fx {
+  overflow: hidden;
+  container-type: inline-size;
+}
+.cos-g-rain > .cos-fx::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.14), transparent 30% 70%, rgba(250, 204, 21, 0.12));
+  mix-blend-mode: screen;
+}
+@keyframes cosRainGlow {
+  0%,
+  100% {
+    box-shadow:
+      -10px 0 18px -6px rgba(34, 197, 94, 0.55),
+      10px 0 18px -6px rgba(250, 204, 21, 0.45),
+      0 0 0 1px rgba(134, 239, 172, 0.3);
+  }
+  50% {
+    box-shadow:
+      -12px 0 22px -6px rgba(34, 197, 94, 0.75),
+      12px 0 22px -6px rgba(250, 204, 21, 0.7),
+      0 0 0 1px rgba(253, 224, 71, 0.45);
+  }
+}
+.cos-g-rain .rw {
+  left: 0;
+  top: var(--y0);
+  animation: cosRainX 12s infinite backwards;
+  animation-delay: var(--d);
+}
+.cos-g-rain .ry {
+  display: block;
+  perspective: 160px;
+  animation: cosRainY 12s infinite backwards;
+  animation-delay: var(--d);
+}
+.cos-g-rain .bf {
+  display: block;
+  width: 22px;
+  height: 11px;
+  margin: -5.5px -11px;
+  border-radius: 1.5px;
+  transform-style: preserve-3d;
+  background: linear-gradient(#a7f3d0, #4ade80 40%, #22c55e);
+  box-shadow:
+    inset 0 0 0 1px #15803d,
+    inset 0 0 0 2.5px rgba(220, 252, 231, 0.6);
+  color: #14532d;
+  font:
+    800 8px/11px system-ui,
+    sans-serif;
+  font-style: normal;
+  text-align: center;
+  text-shadow: none;
+  animation: cosFlutter var(--f) ease-in-out infinite alternate;
+}
+@keyframes cosRainX {
+  0%,
+  70% {
+    transform: translateX(-30px);
+    animation-timing-function: cubic-bezier(0.12, 0.75, 0.3, 1);
+  }
+  100% {
+    transform: translateX(calc(var(--x) * 1cqw));
+  }
+}
+@keyframes cosRainY {
+  0%,
+  70% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.3, 0, 0.7, 0.5);
+  }
+  100% {
+    transform: translateY(var(--fall));
+  }
+}
+@keyframes cosFlutter {
+  from {
+    transform: rotate(var(--r0)) rotateX(15deg) rotateY(-65deg);
+  }
+  to {
+    transform: rotate(var(--r1)) rotateX(65deg) rotateY(55deg);
+  }
+}
+
+/* ---------- Gold Rush: a gold glow, and sparks on their own uneven timers.
+   Mostly small sparks and dots that drift off the edge while they sputter;
+   only a couple of big four-point ones. ---------- */
+.cos-g-rush {
+  box-shadow:
+    0 0 18px rgba(234, 179, 8, 0.35),
+    0 0 0 1px rgba(234, 179, 8, 0.35);
+}
+.cos-g-rush .spark {
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  opacity: 0;
+  background: radial-gradient(circle, #fff 0 1px, #fde047 1.5px, transparent 3px);
+  animation: cosSputter var(--t) infinite;
+  animation-delay: var(--d);
+}
+.cos-g-rush .spark::before,
+.cos-g-rush .spark::after {
+  content: '';
+  position: absolute;
+  left: 2.5px;
+  top: -3px;
+  width: 1px;
+  height: 12px;
+  background: #fde047;
+}
+.cos-g-rush .spark::after {
+  transform: rotate(90deg);
+}
+.cos-g-rush .spark.dot {
+  background: radial-gradient(circle, #fff 0 0.8px, #fde047 1.4px, transparent 2.6px);
+}
+.cos-g-rush .spark.dot::before,
+.cos-g-rush .spark.dot::after {
+  display: none;
+}
+@keyframes cosSputter {
+  0%,
+  62% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.3);
+  }
+  65% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 0.15), calc(var(--dy) * 0.15)) scale(var(--s));
+  }
+  68% {
+    opacity: 0.25;
+    transform: translate(calc(var(--dx) * 0.35), calc(var(--dy) * 0.35)) scale(calc(var(--s) * 0.7));
+  }
+  71% {
+    opacity: 0.9;
+    transform: translate(calc(var(--dx) * 0.55), calc(var(--dy) * 0.55)) scale(var(--s));
+  }
+  76% {
+    opacity: 0.4;
+    transform: translate(calc(var(--dx) * 0.8), calc(var(--dy) * 0.8)) scale(calc(var(--s) * 0.8));
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(0.3);
+  }
+}
+
+/* ---------- Spotlight: a stage light from above ---------- */
+.cos-g-spot {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 -6px 16px -6px rgba(255, 250, 230, 0.25);
+}
+.cos-g-spot > .cos-fx {
+  background-image: radial-gradient(
+    ellipse 22% 160% at 18% -30%,
+    rgba(255, 250, 230, 0.3),
+    rgba(255, 250, 230, 0.08) 55%,
+    transparent 75%
+  );
+  mix-blend-mode: screen;
+}
+
+/* ---------- Paparazzi: camera flashes, and the row lights up with some ---------- */
+.cos-g-pap .flash {
+  width: 40px;
+  height: 40px;
+  margin: -20px;
+  opacity: 0;
+  animation: cosFlash var(--t) infinite;
+  animation-delay: var(--d);
+  background: radial-gradient(
+    circle,
+    #fff 0 3px,
+    rgba(255, 255, 255, 0.7) 5px,
+    rgba(255, 255, 255, 0.15) 12px,
+    transparent 20px
+  );
+}
+.cos-g-pap .flash::before,
+.cos-g-pap .flash::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  margin-top: -0.75px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+}
+.cos-g-pap .flash::after {
+  transform: rotate(90deg);
+}
+.cos-g-pap .pop {
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.14);
+  opacity: 0;
+  animation: cosPop 6s infinite;
+}
+@keyframes cosFlash {
+  0%,
+  94%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  95% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  98% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@keyframes cosPop {
+  0%,
+  94%,
+  100% {
+    opacity: 0;
+  }
+  95% {
+    opacity: 1;
+  }
+  98% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Premiere: two searchlights sweeping up from the row ---------- */
+.cos-g-premiere {
+  box-shadow: 0 0 0 1px rgba(254, 249, 195, 0.15);
+}
+.cos-g-premiere .beam {
+  bottom: 30%;
+  width: 46px;
+  height: 92px;
+  margin-left: -25px;
+  transform-origin: 50% 100%;
+  z-index: -1;
+  background: linear-gradient(
+    0deg,
+    rgba(254, 249, 195, 0),
+    rgba(254, 249, 195, 0.24) 25%,
+    rgba(254, 249, 195, 0.08) 70%,
+    transparent
+  );
+  clip-path: polygon(40% 100%, 60% 100%, 100% 0, 0 0);
+}
+.cos-g-premiere .bl {
+  left: 22%;
+  animation: cosBeamL 10s ease-in-out infinite;
+}
+.cos-g-premiere .br {
+  left: 78%;
+  animation: cosBeamR 10s ease-in-out infinite;
+}
+@keyframes cosBeamL {
+  0%,
+  30% {
+    transform: rotate(-28deg);
+  }
+  40%,
+  80% {
+    transform: rotate(18deg);
+  }
+  90%,
+  100% {
+    transform: rotate(-28deg);
+  }
+}
+@keyframes cosBeamR {
+  0%,
+  30% {
+    transform: rotate(28deg);
+  }
+  40%,
+  80% {
+    transform: rotate(-18deg);
+  }
+  90%,
+  100% {
+    transform: rotate(28deg);
+  }
+}
+
+/* ---------- Static Shock: branching bolts that flicker through 3 shapes in a
+   split second, and the row charges up when they hit ---------- */
+.cos-g-shock {
+  box-shadow:
+    0 0 10px rgba(56, 189, 248, 0.22),
+    0 0 0 1px rgba(125, 211, 252, 0.35);
+}
+.cos-g-shock > .cos-fx::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: cosCharge 6.4s infinite;
+}
+.cos-g-shock .zap {
+  width: 96px;
+  height: 44px;
+  margin: -22px -48px;
+  transform: rotate(var(--a));
+  overflow: visible;
+  filter: drop-shadow(0 0 2px #bae6fd) drop-shadow(0 0 5px #38bdf8) drop-shadow(0 0 12px #0284c7);
+}
+.cos-g-shock .zap g {
+  opacity: 0;
+  animation: cosZap var(--t) infinite;
+}
+.cos-g-shock .zap g:nth-child(1) {
+  animation-delay: var(--d);
+}
+.cos-g-shock .zap g:nth-child(2) {
+  animation-delay: calc(var(--d) + 0.07s);
+}
+.cos-g-shock .zap g:nth-child(3) {
+  animation-delay: calc(var(--d) + 0.14s);
+}
+.cos-g-shock .zap .glow {
+  fill: none;
+  stroke: #38bdf8;
+  stroke-width: 3.4;
+  opacity: 0.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.cos-g-shock .zap .core {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+@keyframes cosZap {
+  0%,
+  90%,
+  100% {
+    opacity: 0;
+  }
+  90.05%,
+  91.1% {
+    opacity: 1;
+  }
+  91.15% {
+    opacity: 0;
+  }
+}
+@keyframes cosCharge {
+  0%,
+  89%,
+  100% {
+    box-shadow: inset 0 0 14px rgba(125, 211, 252, 0);
+  }
+  90.5% {
+    box-shadow: inset 0 0 14px rgba(125, 211, 252, 0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.cos-row, .cos-bd, .cos-fx, .cos-bd *, .cos-fx *, .cos-fx::before, .cos-fx::after) {
+    animation: none !important;
+  }
+}

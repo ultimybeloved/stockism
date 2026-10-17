@@ -134,10 +134,10 @@ async function main() {
       friendAfter.ownedCosmetics.includes(id),
     ),
   );
-  check('bundle gift charges the whole set', bundleGift.price === 60000, JSON.stringify(bundleGift));
+  check('bundle gift charges the whole set', bundleGift.price === 16000, JSON.stringify(bundleGift));
   check(
     'bundle gift charged the giver exactly',
-    Math.abs((await db.collection('users').doc(UID).get()).data().cash - (cashBefore - 60000)) < 0.01,
+    Math.abs((await db.collection('users').doc(UID).get()).data().cash - (cashBefore - 16000)) < 0.01,
   );
   const giftLog = (await db.collection('giftLog').where('fromUid', '==', UID).get()).docs.map((d: Loose) => d.data());
   check(

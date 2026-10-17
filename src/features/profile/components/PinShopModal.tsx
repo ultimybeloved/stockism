@@ -14,6 +14,7 @@ import type { Cosmetic } from '../../../constants/cosmetics';
 import type { Bundle } from '../../../rules/shop';
 import type { StreakSaverPlan } from '../../../rules/economy';
 import type { PinAction, GiftTarget } from '../hooks/usePinShop';
+import type { CosmeticStyle, CosmeticStyleKey } from '../../../rules/cosmetics';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import { pixelatedIfSvg } from '../../../constants/crests';
 import PixelIcon from '../../../shared/components/PixelIcon';
@@ -21,7 +22,12 @@ import PixelIcon from '../../../shared/components/PixelIcon';
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
   | { type: 'pin'; item: ShopPin; price: number }
-  | { type: 'cosmetic'; item: Cosmetic; price: number }
+  | {
+      type: 'cosmetic';
+      item: Cosmetic;
+      price: number;
+      /** The style picked in the shop, saved once it's bought. */ style?: CosmeticStyle;
+    }
   | { type: 'bundle'; item: Bundle; price: number; count: number }
   | { type: 'slot'; item: 'achievement' | 'shop'; price: number }
   | { type: 'perk'; item: StreakSaverPlan; name: string; price: number };
@@ -29,10 +35,12 @@ export type PendingPurchase =
 interface PinShopModalProps {
   onClose: () => void;
   onPurchase: (action: PinAction, payload: unknown, cost?: number) => Promise<void>;
-  onPurchaseCosmetic: (cosmeticId: string) => Promise<void>;
+  /** Resolves true once the purchase went through. */
+  onPurchaseCosmetic: (cosmeticId: string) => Promise<boolean>;
   onPurchaseBundle: (bundleId: string) => Promise<void>;
   onGiftCosmetic: (target: GiftTarget, recipient: string) => Promise<string | null>;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => Promise<void>;
+  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => Promise<void>;
   portfolioValue: number;
 }
 
@@ -47,6 +55,7 @@ const PinShopModal = ({
   onPurchaseBundle,
   onGiftCosmetic,
   onEquipCosmetic,
+  onSetCosmeticStyle,
   portfolioValue,
 }: PinShopModalProps) => {
   useEscapeKey(onClose);
@@ -57,6 +66,8 @@ const PinShopModal = ({
   const [purchasing, setPurchasing] = useState(false);
   const [gift, setGift] = useState<GiftTarget | null>(null);
   const [tryOn, setTryOn] = useState<Cosmetic[] | null>(null); // shop cosmetics being previewed on the row
+  const [tryPin, setTryPin] = useState<ShopPin | null>(null);
+  const [previewStyle, setPreviewStyle] = useState<CosmeticStyle | null>(null);
 
   const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
   const cash = userData?.cash || 0;
@@ -72,7 +83,13 @@ const PinShopModal = ({
       } else if (confirmPurchase.type === 'perk') {
         await onPurchase('buyStreakSaver', confirmPurchase.item, confirmPurchase.price);
       } else if (confirmPurchase.type === 'cosmetic') {
-        await onPurchaseCosmetic(confirmPurchase.item.id);
+        const ok = await onPurchaseCosmetic(confirmPurchase.item.id);
+        // Keep the style they picked while shopping (Split Flap, Bull / Bear, tint).
+        if (ok) {
+          for (const [key, value] of Object.entries(confirmPurchase.style || {})) {
+            await onSetCosmeticStyle(key as CosmeticStyleKey, value as never);
+          }
+        }
       } else if (confirmPurchase.type === 'bundle') {
         await onPurchaseBundle(confirmPurchase.item.id);
       }
@@ -104,7 +121,7 @@ const PinShopModal = ({
           </p>
         </div>
 
-        <RowPreview portfolioValue={portfolioValue} tryOn={tryOn} />
+        <RowPreview portfolioValue={portfolioValue} tryOn={tryOn} tryPin={tryPin} previewStyle={previewStyle} />
 
         {/* Tabs */}
         <div className={`flex border-b ${cardEdgeClass} mt-3`}>
@@ -120,6 +137,8 @@ const PinShopModal = ({
               onClick={() => {
                 setActiveTab(tab);
                 setTryOn(null);
+                setTryPin(null);
+                setPreviewStyle(null);
               }}
               className={`flex-1 py-2 text-xs font-semibold ${
                 activeTab === tab ? 'text-orange-500 border-b-2 border-orange-500' : mutedClass
@@ -130,27 +149,33 @@ const PinShopModal = ({
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        {activeTab === 'shop' && (
+          <ShopTab
+            cash={cash}
+            onEquipCosmetic={onEquipCosmetic}
+            onSetCosmeticStyle={onSetCosmeticStyle}
+            onRequestPurchase={setConfirmPurchase}
+            onRequestGift={(cosmetic, price) =>
+              setGift({ kind: 'cosmetic', id: cosmetic.id, name: cosmetic.name, price })
+            }
+            onTryOn={setTryOn}
+            onTryPin={setTryPin}
+            onPreviewStyle={setPreviewStyle}
+          />
+        )}
+        <div className={`flex-1 overflow-y-auto p-4 ${activeTab === 'shop' ? 'hidden' : ''}`}>
           {activeTab === 'look' && (
-            <MyLookTab onPinAction={onPurchase} onEquipCosmetic={onEquipCosmetic} onClose={onClose} />
-          )}
-          {activeTab === 'shop' && (
-            <ShopTab
-              cash={cash}
+            <MyLookTab
+              onPinAction={onPurchase}
               onEquipCosmetic={onEquipCosmetic}
-              onRequestPurchase={setConfirmPurchase}
-              onRequestGift={(cosmetic, price) =>
-                setGift({ kind: 'cosmetic', id: cosmetic.id, name: cosmetic.name, price })
-              }
-              onTryOn={setTryOn}
+              onSetCosmeticStyle={onSetCosmeticStyle}
+              onClose={onClose}
             />
           )}
           {activeTab === 'bundles' && (
             <div className="space-y-6">
               <ShopDeals
-                show="bundles"
                 cash={cash}
-                featuredId={null}
                 onRequestPurchase={setConfirmPurchase}
                 onRequestGift={setGift}
                 onTryOn={setTryOn}

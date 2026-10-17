@@ -154,6 +154,7 @@ async function main() {
   await check('set achievement pin order', 'allowed', { displayedAchievementPins: ['x'] });
   await check('toggle crew pin', 'allowed', { displayCrewPin: true });
   await check('equip a cosmetic', 'allowed', { 'activeCosmetics.banner': 'gold' });
+  await check('set a cosmetic style choice', 'allowed', { 'cosmeticStyle.flap': 'scramble' });
   await check('equip a title actually earned', 'allowed', { activeTitle: 'season_1_gold' });
   await check('clear the equipped title', 'allowed', { activeTitle: null });
 

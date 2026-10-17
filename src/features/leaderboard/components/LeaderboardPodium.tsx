@@ -5,6 +5,8 @@ import { CREW_MAP } from '../../../crews';
 import { formatCompactCurrency } from '../../../utils/formatters';
 import PinDisplay from '../../../shared/components/PinDisplay';
 import TitleText from '../../../shared/components/TitleText';
+import CosmeticLayers from '../../../shared/components/cosmetics/CosmeticLayers';
+import CosmeticName from '../../../shared/components/cosmetics/CosmeticName';
 import { getCosmeticStyles } from '../../../utils/cosmetics';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { CSSProperties, Ref } from 'react';
@@ -48,11 +50,12 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
   const isCurrentUser = user && leader.id === user.uid;
   const userCrewColor = userData?.crew ? CREW_MAP[userData.crew]?.color : '#6b7280';
   const crew = leader.crew ? CREW_MAP[leader.crew] : null;
-  const { nameColor, nameClass, glowColor, backdropColor, rowClass, frameStyle, frameTrend } = getCosmeticStyles(
-    leader.activeCosmetics,
-    null,
-    { seedKey: leader.displayName, trend: leader.frameTrend },
-  );
+  const cosmetics = getCosmeticStyles(leader.activeCosmetics, null, {
+    seedKey: leader.displayName,
+    trend: leader.frameTrend,
+    style: leader.cosmeticStyle,
+  });
+  const { glowColor, rowClass, rowStyle, frameTrend, layers } = cosmetics;
   // place is always 1, 2 or 3.
   const placeStyle = PLACE_STYLES[place]!;
   const isFirst = place === 1;
@@ -61,20 +64,15 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
 
   // --cgp feeds the crown-glow keyframes in index.css.
   const style: CSSProperties & { '--cgp'?: string } = {};
-  if (backdropColor) style.backgroundColor = darkMode ? `${backdropColor}18` : `${backdropColor}12`;
   const shadows = [];
   if (glowColor) shadows.push(`0 0 18px ${glowColor}50`);
   if (isCurrentUser) shadows.push(`0 0 0 2px ${userCrewColor}`);
   if (shadows.length) style.boxShadow = shadows.join(', ');
   if (crownGlow && crew) style['--cgp'] = crew.color;
 
-  const nameStyle = nameClass
-    ? undefined
-    : {
-        color:
-          nameColor ||
-          (leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined),
-      };
+  const crownColor =
+    leader.isCrewHead && crew ? getReadableCrewColor(leader.crewHeadColor || crew.color, darkMode) : undefined;
+  const name = leader.displayName || 'Anonymous Trader';
   const gain = leader.weeklyGain || 0;
 
   return (
@@ -84,8 +82,9 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
         isFirst ? 'flex-[1.15] py-3 sm:py-4' : 'flex-1 py-2.5 sm:py-3'
       } ${darkMode ? placeStyle.dark : placeStyle.light} ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''}`}
       data-trend={frameTrend}
-      style={{ ...frameStyle, ...style }}
+      style={{ ...rowStyle, ...style }}
     >
+      <CosmeticLayers {...layers} seedKey={leader.displayName} />
       {isFirst && <div className={`podium-sheen${darkMode ? '' : ' podium-sheen-light'}`} aria-hidden="true" />}
       <PixelIcon name={placeStyle.medal} className={isFirst ? 'w-9 h-9 mx-auto block' : 'w-7 h-7 mx-auto block'} />
       {/* Name gets the full card width; pins/globe live on their own row below
@@ -94,17 +93,11 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
         className={`font-semibold ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${textClass} truncate mt-1`}
       >
         {leader.isPublic ? (
-          <Link
-            to={`/u/${(leader.displayName || '').toLowerCase()}`}
-            className={`hover:underline ${nameClass}`}
-            style={nameStyle}
-          >
-            {leader.displayName || 'Anonymous Trader'}
+          <Link to={`/u/${(leader.displayName || '').toLowerCase()}`} className="hover:underline">
+            <CosmeticName name={name} styles={cosmetics} fallbackColor={crownColor} />
           </Link>
         ) : (
-          <span className={nameClass} style={nameStyle}>
-            {leader.displayName || 'Anonymous Trader'}
-          </span>
+          <CosmeticName name={name} styles={cosmetics} fallbackColor={crownColor} />
         )}
       </div>
       <TitleText title={leader.title} className="text-[11px]" />

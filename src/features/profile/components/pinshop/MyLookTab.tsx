@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../../../constants/cosmetics';
 import { SHOP_PINS, CREW_MAP } from '../../../../crews';
@@ -8,12 +9,38 @@ import { useSession } from '../../../../context/AppContext';
 import type { PinAction } from '../../hooks/usePinShop';
 import AchievementIcon from '../../../../shared/components/AchievementIcon';
 import { crewPinSrc, PIXELATED, pixelatedIfSvg } from '../../../../constants/crests';
+import { COSMETIC_MAP } from '../../../../constants/cosmetics';
+import { SPLIT_FLAP_ID } from '../../../../constants/cosmeticLayers';
+import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '../../../../rules/cosmetics';
+import StyleSwitch from './StyleSwitch';
 
 interface MyLookTabProps {
   onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => void;
+  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => unknown;
   onClose: () => void;
 }
+
+const FLAP_OPTIONS = [
+  ['random', 'Random'],
+  ['scramble', 'Scramble'],
+  ['board', 'Arrivals'],
+] as const;
+const BULLBEAR_OPTIONS = [
+  ['daily', 'Daily'],
+  ['split', 'Split'],
+] as const;
+const TINT_OPTIONS = [
+  ['fade', 'Fade'],
+  ['solid', 'Solid'],
+] as const;
+
+const StyleRow = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="flex items-center justify-between gap-3">
+    <span className={`text-xs ${themeClasses.mutedClass}`}>{label}</span>
+    {children}
+  </div>
+);
 
 // These pin lists are client-writable, so anything that isn't a list is ignored.
 const asList = (value: unknown): string[] => (Array.isArray(value) ? value : []);
@@ -21,7 +48,7 @@ const asList = (value: unknown): string[] => (Array.isArray(value) ? value : [])
 // My Look tab: everything the user wears in one place — owned cosmetics
 // (tap a swatch to equip, tap again to take off), achievement pins, shop pins,
 // and the crew pin. Buying lives in the Shop tab.
-const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) => {
+const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }: MyLookTabProps) => {
   const { userData } = useSession();
   const { textClass, mutedClass, borderClass } = themeClasses;
 
@@ -37,6 +64,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) =>
     earnedAchievements.includes(id),
   );
 
+  const style = userData?.cosmeticStyle || {};
   const maxAchievementSlots = getMaxAchievementSlots(userData);
   const maxShopSlots = getMaxShopSlots(userData);
   const ownedByType = COSMETIC_TYPES.map(
@@ -90,6 +118,47 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onClose }: MyLookTabProps) =>
               );
             })}
             <p className={`text-xs ${mutedClass}`}>Tap to equip one, tap again to take it off.</p>
+            {/* Style choices for owned items that come with one */}
+            {(ownedCosmetics.includes(SPLIT_FLAP_ID) ||
+              ownedCosmetics.includes(BULLBEAR_FRAME_ID) ||
+              ownedCosmetics.some(
+                (id) => COSMETIC_MAP[id]?.type === 'rowBackdrop' && !COSMETIC_MAP[id]?.effectClass,
+              )) && (
+              <div className="space-y-2 pt-1">
+                {ownedCosmetics.includes(SPLIT_FLAP_ID) && (
+                  <StyleRow label="Split Flap">
+                    <StyleSwitch
+                      label="Split Flap style"
+                      options={FLAP_OPTIONS}
+                      value={style.flap || 'random'}
+                      onChange={(v) => onSetCosmeticStyle('flap', v)}
+                    />
+                  </StyleRow>
+                )}
+                {ownedCosmetics.includes(BULLBEAR_FRAME_ID) && (
+                  <StyleRow label="Bull / Bear">
+                    <StyleSwitch
+                      label="Bull / Bear style"
+                      options={BULLBEAR_OPTIONS}
+                      value={style.bullbear || 'daily'}
+                      onChange={(v) => onSetCosmeticStyle('bullbear', v)}
+                    />
+                  </StyleRow>
+                )}
+                {ownedCosmetics.some(
+                  (id) => COSMETIC_MAP[id]?.type === 'rowBackdrop' && !COSMETIC_MAP[id]?.effectClass,
+                ) && (
+                  <StyleRow label="Color backdrops">
+                    <StyleSwitch
+                      label="Color backdrop style"
+                      options={TINT_OPTIONS}
+                      value={style.tint || 'fade'}
+                      onChange={(v) => onSetCosmeticStyle('tint', v)}
+                    />
+                  </StyleRow>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <p className={`text-sm ${mutedClass}`}>Nothing owned yet. Grab something in the Shop tab!</p>

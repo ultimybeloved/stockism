@@ -1,342 +1,194 @@
-import { useState } from 'react';
-import { COSMETICS, COSMETIC_MAP, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../../../constants/cosmetics';
-import { PIN_SLOT_COSTS, getActiveShopPins } from '../../../../crews';
-import { formatCurrency } from '../../../../utils/formatters';
+import { useMemo, useState } from 'react';
+import { COSMETICS } from '../../../../constants/cosmetics';
 import { themeClasses } from '../../../../utils/theme';
+import { formatCurrency } from '../../../../utils/formatters';
 import { useSession } from '../../../../context/AppContext';
-
-import type { Cosmetic } from '../../../../constants/cosmetics';
-import type { PendingPurchase } from '../PinShopModal';
-import ShopDeals, { useFeaturedId } from './ShopDeals';
-import ShopPerks from './ShopPerks';
 import { featuredPrice } from '../../../../rules/shop';
-import { pixelatedIfSvg } from '../../../../constants/crests';
-
-type GlowVariant = 'standard' | 'pulse';
+import { searchShop, shopItems, shopPins, type ShopCategory } from '../../utils/shopCatalog';
+import { styleKeyOf, useShopSelection } from '../../hooks/useShopSelection';
+import { useFeaturedId } from './ShopDeals';
+import ShopCategoryTabs from './ShopCategoryTabs';
+import ShopShelves from './ShopShelves';
+import ShopPinGrid from './ShopPinGrid';
+import ShopSearchResults from './ShopSearchResults';
+import ShopPerks from './ShopPerks';
+import ShopBuyBar, { type BuyBarAction } from './ShopBuyBar';
+import type { Cosmetic, CosmeticType } from '../../../../constants/cosmetics';
+import type { CosmeticStyle, CosmeticStyleKey } from '../../../../rules/cosmetics';
+import type { ShopPin } from '../../../../crews';
+import type { PendingPurchase } from '../PinShopModal';
 
 interface ShopTabProps {
   cash: number;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => unknown;
+  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => unknown;
   onRequestPurchase: (purchase: PendingPurchase) => void;
   /** Opens the gift dialog for a shop item at the price the giver would pay. */
   onRequestGift: (cosmetic: Cosmetic, price: number) => void;
-  /** Previews cosmetics on the sample row (one item or a bundle); null clears it. */
+  /** Previews cosmetics on the sample row (one per slot); null clears it. */
   onTryOn: (cosmetics: Cosmetic[] | null) => void;
+  onTryPin: (pin: ShopPin | null) => void;
+  onPreviewStyle: (style: CosmeticStyle) => void;
 }
 
-// Shop tab: everything money can buy. Cosmetics render as compact swatch rows
-// (tap a swatch to open a detail panel with description + buy/equip) instead of
-// a card per item. Pin collections only appear when one is actually on sale.
-// Extra pin slots live at the bottom. Equipping mostly happens in My Look, but
-// owned items can be equipped from the detail panel so buying flows straight
-// into wearing.
+const COUNTS: Partial<Record<ShopCategory, number>> = {
+  nameColor: COSMETICS.filter((c) => !c.earned && c.type === 'nameColor').length,
+  rowGlow: COSMETICS.filter((c) => !c.earned && c.type === 'rowGlow').length,
+  rowBackdrop: COSMETICS.filter((c) => !c.earned && c.type === 'rowBackdrop').length,
+  rowFrame: COSMETICS.filter((c) => !c.earned && c.type === 'rowFrame').length,
+  pin: shopPins().length,
+};
 
-const PULSE_PREFIX = 'glow_pulse_';
-const toPulse = (id: string) => (id.startsWith(PULSE_PREFIX) ? id : id.replace('glow_', PULSE_PREFIX));
-const toStandard = (id: string) => id.replace(PULSE_PREFIX, 'glow_');
-
-const ShopTab = ({ cash, onEquipCosmetic, onRequestPurchase, onRequestGift, onTryOn }: ShopTabProps) => {
+// Shop tab: a search box, the category tabs, and one category at a time on
+// three price shelves (Showcase, Premium, Classics). Tapping anything tries it
+// on the preview row (mixed with whatever else is being tried) and puts it in
+// the buy bar under the list. Pins and perks get their own tabs.
+const ShopTab = ({
+  cash,
+  onEquipCosmetic,
+  onSetCosmeticStyle,
+  onRequestPurchase,
+  onRequestGift,
+  onTryOn,
+  onTryPin,
+  onPreviewStyle,
+}: ShopTabProps) => {
   const { userData } = useSession();
-  const { textClass, mutedClass, borderClass } = themeClasses;
-  const ownedCosmetics = userData?.ownedCosmetics || [];
-  const activeCosmetics = userData?.activeCosmetics || {};
-  const ownedPins = userData?.ownedShopPins || [];
-
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { textClass, mutedClass, inputClass } = themeClasses;
   const featuredId = useFeaturedId();
-  const priceOf = (c: Cosmetic) => (c.id === featuredId ? featuredPrice(c.price) : c.price);
-  // Row glows exist in a standard and a pulsing variant of every color; the
-  // toggle swaps the whole section between the two sets. Opens on whichever
-  // set holds the equipped glow. Switching also re-targets the open detail
-  // panel to the paired color so the selection follows the toggle.
-  const [glowVariant, setGlowVariant] = useState<GlowVariant>(() =>
-    COSMETIC_MAP[activeCosmetics.rowGlow ?? '']?.effectClass ? 'pulse' : 'standard',
-  );
+  const sel = useShopSelection({ featuredId, onTryOn, onTryPin, onPreviewStyle });
+  const [category, setCategory] = useState<ShopCategory>('nameColor');
+  const [query, setQuery] = useState('');
+  const results = useMemo(() => searchShop(query), [query]);
 
-  const switchGlowVariant = (variant: GlowVariant) => {
-    setGlowVariant(variant);
-    if (selectedId && COSMETIC_MAP[selectedId]?.type === 'rowGlow') {
-      const paired = variant === 'pulse' ? toPulse(selectedId) : toStandard(selectedId);
-      if (COSMETIC_MAP[paired]) {
-        setSelectedId(paired);
-        onTryOn([COSMETIC_MAP[paired]]);
-      }
+  const ownedCosmetics = useMemo(() => new Set(userData?.ownedCosmetics || []), [userData?.ownedCosmetics]);
+  const ownedPins = useMemo(() => new Set(userData?.ownedShopPins || []), [userData?.ownedShopPins]);
+  const allOwned = useMemo(() => new Set([...ownedCosmetics, ...ownedPins]), [ownedCosmetics, ownedPins]);
+  const featured = featuredId ? COSMETICS.find((c) => c.id === featuredId) : null;
+
+  // The buy bar: what its main button does for the item tapped last.
+  const bar = (() => {
+    const a = sel.active;
+    if (!a) return null;
+    if (a.kind === 'pin') {
+      const owned = ownedPins.has(a.item.id);
+      return {
+        name: owned ? `${a.item.name} (owned)` : a.item.name,
+        price: a.item.price,
+        action: (owned ? null : 'buy') as BuyBarAction,
+        run: () => onRequestPurchase({ type: 'pin', item: a.item, price: a.item.price }),
+      };
     }
-  };
+    const c = a.item;
+    const key = styleKeyOf(c);
+    const price = sel.salePriceOf(c) ?? c.price;
+    const owned = ownedCosmetics.has(c.id);
+    const equipped = userData?.activeCosmetics?.[c.type as CosmeticType] === c.id;
+    const restyle = !!key && sel.previewStyleFor(key) !== sel.savedStyle(key);
+    const styleNow = key ? ({ [key]: sel.previewStyleFor(key) } as CosmeticStyle) : undefined;
+    const saveStyle = () => key && onSetCosmeticStyle(key, sel.previewStyleFor(key));
+    const action: BuyBarAction = !owned ? 'buy' : !equipped ? 'equip' : restyle ? 'restyle' : 'unequip';
+    return {
+      name: c.name,
+      price,
+      listPrice: price !== c.price ? c.price : undefined,
+      action,
+      gift: () => onRequestGift(c, price),
+      run: () => {
+        if (action === 'buy') onRequestPurchase({ type: 'cosmetic', item: c, price, style: styleNow });
+        else if (action === 'equip') {
+          onEquipCosmetic(c.type, c.id);
+          saveStyle();
+        } else if (action === 'restyle') saveStyle();
+        else onEquipCosmetic(c.type, null);
+      },
+    };
+  })();
 
-  const pinCollections = getActiveShopPins();
-  const panelClass = `mt-2 p-3 rounded-sm border ${borderClass} flex items-center justify-between gap-3`;
-  const buyBtnClass = (enabled: boolean) =>
-    `shrink-0 px-3 py-1.5 text-xs font-semibold rounded-sm ${
-      enabled
-        ? 'bg-orange-600 hover:bg-orange-700 text-white'
-        : 'light:bg-slate-100 light:text-slate-400 light:cursor-not-allowed dark:bg-zinc-800 dark:text-zinc-500 dark:cursor-not-allowed'
-    }`;
-
-  const renderDetailPanel = (cosmetic: Cosmetic) => {
-    const owned = ownedCosmetics.includes(cosmetic.id);
-    const equipped = activeCosmetics[cosmetic.type] === cosmetic.id;
-    const price = priceOf(cosmetic);
-    const canAfford = cash >= price;
-    return (
-      <div className={panelClass}>
-        <div className="min-w-0">
-          <div
-            className={`text-sm font-semibold ${cosmetic.type === 'nameColor' && cosmetic.effectClass ? cosmetic.effectClass : textClass}`}
-            style={cosmetic.type === 'nameColor' && !cosmetic.effectClass ? { color: cosmetic.color } : undefined}
-          >
-            {cosmetic.name}
-          </div>
-          <div className={`text-xs ${mutedClass}`}>{cosmetic.description}</div>
-          {price !== cosmetic.price && !owned && (
-            <div className="text-xs font-semibold text-orange-500">
-              Featured this week, 25% off{' '}
-              <span className={`line-through ${mutedClass}`}>{formatCurrency(cosmetic.price)}</span>
-            </div>
-          )}
-        </div>
-        <button
-          onClick={() => onRequestGift(cosmetic, price)}
-          title="Buy this for another player"
-          className="shrink-0 px-2 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
-        >
-          🎁 Gift
-        </button>
-        {owned ? (
-          <button
-            onClick={() => onEquipCosmetic(cosmetic.type, equipped ? null : cosmetic.id)}
-            className={`shrink-0 px-3 py-1.5 text-xs font-semibold rounded-sm ${
-              equipped
-                ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                : 'light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200'
-            }`}
-          >
-            {equipped ? 'Equipped ✓' : 'Equip'}
-          </button>
-        ) : (
-          <button
-            onClick={() => canAfford && onRequestPurchase({ type: 'cosmetic', item: cosmetic, price })}
-            disabled={!canAfford}
-            className={buyBtnClass(canAfford)}
-          >
-            {formatCurrency(price)}
-          </button>
-        )}
-      </div>
-    );
+  const shelfProps = {
+    selectedIds: sel.selectedIds,
+    owned: ownedCosmetics,
+    featuredId,
+    salePriceOf: sel.salePriceOf,
+    style: sel.style,
+    onStyle: sel.updateStyle,
+    pulsing: sel.pulsing,
+    onPulsing: sel.switchPulsing,
+    onPick: (c: Cosmetic) => sel.pickCosmetic(c),
   };
 
   return (
-    <div className="space-y-6">
-      <ShopDeals
-        show="featured"
-        cash={cash}
-        featuredId={featuredId}
-        onRequestPurchase={onRequestPurchase}
-        onTryOn={(items) => {
-          setSelectedId(null);
-          onTryOn(items);
-        }}
-      />
-
-      {/* Cosmetics — swatch grid per type */}
-      {COSMETIC_TYPES.map((type) => {
-        const items = COSMETICS.filter(
-          (c) =>
-            !c.earned &&
-            c.type === type &&
-            (type !== 'rowGlow' || (glowVariant === 'pulse' ? !!c.effectClass : !c.effectClass)),
-        ).sort((a, b) => a.price - b.price);
-        const selectedItem = items.find((i) => i.id === selectedId);
-        const minPrice = Math.min(...items.map((i) => i.price));
-        return (
-          <div key={type}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className={`font-semibold ${textClass}`}>
-                {COSMETIC_TYPE_LABELS[type]}
-                <span className={`ml-2 text-xs font-normal ${mutedClass}`}>from {formatCurrency(minPrice)}</span>
-              </h3>
-              {type === 'rowGlow' && (
-                <div className="flex gap-1">
-                  {(
-                    [
-                      ['standard', 'Standard'],
-                      ['pulse', 'Pulsing'],
-                    ] as const
-                  ).map(([variant, label]) => (
-                    <button
-                      key={variant}
-                      onClick={() => switchGlowVariant(variant)}
-                      className={`px-3 py-1 text-xs font-semibold rounded-sm ${
-                        glowVariant === variant
-                          ? 'bg-orange-600 text-white'
-                          : 'light:bg-slate-100 light:text-slate-500 light:hover:text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {items.map((cosmetic) => {
-                const owned = ownedCosmetics.includes(cosmetic.id);
-                const selected = selectedId === cosmetic.id;
-                return (
-                  <button
-                    key={cosmetic.id}
-                    onClick={() => {
-                      const next = selected ? null : cosmetic.id;
-                      setSelectedId(next);
-                      onTryOn(next ? [cosmetic] : null);
-                    }}
-                    title={cosmetic.name}
-                    className={`relative w-9 h-9 rounded-full border-2 p-0.5 ${selected ? 'border-orange-500' : 'border-transparent'}`}
-                  >
-                    {/* Explicit size, not absolute inset: cos-frame-* classes set
-                        position:relative and would collapse an absolute span. */}
-                    <span
-                      className={`cos-swatch block w-full h-full rounded-full ${cosmetic.type !== 'nameColor' ? cosmetic.effectClass || '' : ''}`}
-                      style={{ backgroundColor: cosmetic.color }}
-                    />
-                    {owned ? (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-600 text-white text-[9px] flex items-center justify-center font-bold">
-                        ✓
-                      </span>
-                    ) : (
-                      cosmetic.id === featuredId && (
-                        <span
-                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-zinc-900 text-[9px] flex items-center justify-center font-bold"
-                          title="Featured this week"
-                        >
-                          %
-                        </span>
-                      )
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            {selectedItem ? (
-              renderDetailPanel(selectedItem)
-            ) : (
-              <p className={`mt-2 text-xs ${mutedClass}`}>Tap a color to see it.</p>
-            )}
+    <div className="flex flex-col flex-1 min-h-0">
+      <label className="relative mx-4 mt-3 shrink-0 block">
+        <span className="sr-only">Search the shop</span>
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 stroke-current ${mutedClass}`}
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="M20 20l-4-4" />
+        </svg>
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search the shop"
+          className={`w-full rounded-md border py-2 pl-8 pr-3 text-[13px] outline-none ${inputClass}`}
+        />
+      </label>
+      {!query && <ShopCategoryTabs value={category} counts={COUNTS} onChange={setCategory} />}
+      <div
+        className={`flex-1 min-h-0 overflow-y-auto mx-4 px-3.5 pb-4 border light:border-amber-200 dark:border-zinc-800 ${
+          query ? 'mt-2.5 rounded-t-md' : 'border-t-0'
+        } ${bar ? '' : 'mb-4 rounded-b-md'}`}
+      >
+        {!query && featured && featured.type === category && !ownedCosmetics.has(featured.id) && (
+          <button
+            type="button"
+            onClick={() => sel.pickCosmetic(featured, true)}
+            className="mt-3 w-full rounded-md border border-amber-400/60 px-3 py-2 text-left text-xs light:bg-amber-50 dark:bg-amber-500/5"
+          >
+            <span className="font-semibold text-orange-500">Featured this week: </span>
+            <span className={`font-semibold ${textClass}`}>{featured.name}</span>
+            <span className={mutedClass}> is 25% off, {formatCurrency(featuredPrice(featured.price))}.</span>
+          </button>
+        )}
+        {query ? (
+          <ShopSearchResults
+            results={results}
+            selectedIds={sel.selectedIds}
+            selectedPinId={sel.pin?.id || null}
+            owned={allOwned}
+            salePriceOf={sel.salePriceOf}
+            style={sel.style}
+            onStyle={sel.updateStyle}
+            onPick={sel.pick}
+          />
+        ) : category === 'perk' ? (
+          <ShopPerks cash={cash} onRequestPurchase={onRequestPurchase} />
+        ) : category === 'pin' ? (
+          <div className="pt-4">
+            <ShopPinGrid pins={shopPins()} selectedId={sel.pin?.id || null} owned={ownedPins} onPick={sel.pickPin} />
           </div>
-        );
-      })}
-
-      {/* Pin collections — only when something is actually on sale */}
-      {pinCollections.length > 0 &&
-        pinCollections.map((collection) => (
-          <div key={collection.id}>
-            <div className="flex items-center gap-2 mb-3">
-              <h3 className={`font-semibold ${textClass}`}>{collection.name}</h3>
-              {collection.limited && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-500 font-semibold">
-                  Limited
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {collection.pins.map((pin) => {
-                const owned = ownedPins.includes(pin.id);
-                const bestStreak = Math.max(userData?.maxCheckinStreak || 0, userData?.checkinStreak || 0);
-                const streakMet = !pin.requiredCheckinStreak || bestStreak >= pin.requiredCheckinStreak;
-                const canBuy = cash >= pin.price && streakMet && !owned;
-                return (
-                  <div
-                    key={pin.id}
-                    className={`p-3 rounded-sm border ${owned ? 'border-orange-500 bg-orange-500/10' : borderClass}`}
-                  >
-                    <div className="text-center mb-2 flex items-center justify-center h-8">
-                      <img
-                        src={`/pins/${pin.image}`}
-                        alt={pin.name}
-                        className="w-8 h-8 object-contain"
-                        style={pixelatedIfSvg(pin.image)}
-                      />
-                    </div>
-                    <div className={`text-sm font-semibold text-center ${textClass}`}>{pin.name}</div>
-                    <div className={`text-xs text-center ${mutedClass} mb-2`}>{pin.description}</div>
-                    {owned ? (
-                      <div className="text-xs text-center text-orange-500 font-semibold">Owned</div>
-                    ) : (
-                      <>
-                        {pin.requiredCheckinStreak && !streakMet && (
-                          <div className="text-xs text-center mb-1 light:text-red-500 dark:text-red-400">
-                            Requires {pin.requiredCheckinStreak}-day streak
-                          </div>
-                        )}
-                        <button
-                          onClick={() => canBuy && onRequestPurchase({ type: 'pin', item: pin, price: pin.price })}
-                          disabled={!canBuy}
-                          title={
-                            pin.requiredCheckinStreak && !streakMet
-                              ? `Best streak: ${bestStreak}/${pin.requiredCheckinStreak} days`
-                              : undefined
-                          }
-                          className={`w-full py-1 text-xs rounded-sm font-semibold ${
-                            canBuy
-                              ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                              : 'bg-slate-600 text-zinc-400 cursor-not-allowed'
-                          }`}
-                        >
-                          {formatCurrency(pin.price)}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-      <ShopPerks cash={cash} onRequestPurchase={onRequestPurchase} />
-
-      {/* Extra pin slots */}
-      <div>
-        <h3 className={`font-semibold ${textClass} mb-2`}>Extra Pin Slots</h3>
-        <div className="flex flex-wrap gap-3">
-          {!userData?.extraAchievementSlot && (
-            <button
-              onClick={() =>
-                cash >= PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT &&
-                onRequestPurchase({ type: 'slot', item: 'achievement', price: PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT })
-              }
-              disabled={cash < PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT}
-              className={`px-4 py-2 rounded-sm border text-sm ${
-                cash >= PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT
-                  ? 'border-orange-500 text-orange-500 hover:bg-orange-500/10'
-                  : 'border-zinc-700 text-zinc-500 cursor-not-allowed'
-              }`}
-            >
-              +1 Achievement Slot ({formatCurrency(PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT)})
-            </button>
-          )}
-          {!userData?.extraShopSlot && (
-            <button
-              onClick={() =>
-                cash >= PIN_SLOT_COSTS.EXTRA_SHOP_SLOT &&
-                onRequestPurchase({ type: 'slot', item: 'shop', price: PIN_SLOT_COSTS.EXTRA_SHOP_SLOT })
-              }
-              disabled={cash < PIN_SLOT_COSTS.EXTRA_SHOP_SLOT}
-              className={`px-4 py-2 rounded-sm border text-sm ${
-                cash >= PIN_SLOT_COSTS.EXTRA_SHOP_SLOT
-                  ? 'border-orange-500 text-orange-500 hover:bg-orange-500/10'
-                  : 'border-zinc-700 text-zinc-500 cursor-not-allowed'
-              }`}
-            >
-              +1 Shop Slot ({formatCurrency(PIN_SLOT_COSTS.EXTRA_SHOP_SLOT)})
-            </button>
-          )}
-          {userData?.extraAchievementSlot && userData?.extraShopSlot && (
-            <p className={`text-sm ${mutedClass}`}>All extra slots purchased!</p>
-          )}
-        </div>
+        ) : shopItems(category).length ? (
+          <ShopShelves type={category} {...shelfProps} />
+        ) : null}
       </div>
+      {bar && (
+        <ShopBuyBar
+          name={bar.name}
+          price={bar.price}
+          listPrice={'listPrice' in bar ? bar.listPrice : undefined}
+          action={bar.action}
+          canAfford={cash >= bar.price}
+          onAction={bar.run}
+          onGift={'gift' in bar ? bar.gift : undefined}
+        />
+      )}
     </div>
   );
 };

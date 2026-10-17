@@ -14,10 +14,10 @@ export const TAPE_SLOT = 56;
 export const TAPE_SLOTS = 8;
 const TAPE_WIDTH = TAPE_SLOT * TAPE_SLOTS;
 
-const TICKERS = CHARACTERS.filter((c) => !c.isETF && c.ticker.length <= 4).map((c) => c.ticker);
+export const TICKERS = CHARACTERS.filter((c) => !c.isETF && c.ticker.length <= 4).map((c) => c.ticker);
 
 // mulberry32: tiny seeded generator, plenty for picking quotes.
-const rng = (seed: number) => () => {
+export const rng = (seed: number) => () => {
   seed = (seed + 0x6d2b79f5) | 0;
   let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;

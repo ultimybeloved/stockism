@@ -12,7 +12,13 @@ import {
   liveCheckinStreak,
   canBuyStreakSaver,
 } from '../shared/rules/economy';
-import { getDailyMissions, getCrewWeeklyMissions, getCrewMultiplier } from '../shared/crews';
+import {
+  getDailyMissions,
+  getCrewWeeklyMissions,
+  getCrewMultiplier,
+  PIN_COLLECTIONS,
+  SHOP_PINS,
+} from '../shared/crews';
 import { writeFeedEntry } from '../shared/notifications';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
@@ -275,10 +281,9 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
     checkDiscordWall(userData);
 
     if (action === 'buyPin') {
-      // J High pins were pulled (ripped official art). No purchasable shop pins
-      // currently exist; any buy attempt is rejected below as an invalid pin.
-      const PIN_CATALOG: Record<string, { price: number; requiredCheckinStreak?: number }> = {};
-      const pinInfo = PIN_CATALOG[pinId];
+      // Only pins in a collection that is on sale (src/crews.ts, synced here).
+      const shopPin = SHOP_PINS[pinId as string];
+      const pinInfo = shopPin && PIN_COLLECTIONS[shopPin.collection]?.active ? shopPin : undefined;
       if (!pinInfo) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid pin.');
       }
