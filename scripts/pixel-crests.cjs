@@ -21,6 +21,12 @@ const CREW_PAL = {
   f: '#f3c404',
   z: '#5865f2',
   x: '#000000',
+  // Fist Gang's red fist: highlight, base, shade, crease, thumbnail.
+  1: '#ff8a8f',
+  2: '#e43b44',
+  3: '#a22633',
+  4: '#5c0f1c',
+  5: '#f8c8b8',
 };
 
 // Grid centre: cells 0-19 measured at their middles, so the true centre is 10.
@@ -78,34 +84,68 @@ const crests = {
     for (let y = 0; y < 20; y++)
       for (let x = 0; x < 20; x++) {
         const d = Math.abs(x + 0.5 - 10) + Math.abs(y + 0.5 - 10);
-        if (d <= 9.6) px(x, y, d > 7.6 ? (y < 10 ? 'Y' : 'd') : 'e');
+        if (d <= 9.6) px(x, y, d > 8.1 ? (y < 10 ? 'Y' : 'd') : 'e');
       }
-    // Big bold letters so it still reads at name size; they poke into the rim.
-    const B = ['XXXX.', 'XX..X', 'XX..X', 'XXXX.', 'XX..X', 'XX..X', 'XX..X', 'XXXX.'];
-    const D = ['XXXX.', 'XX..X', 'XX..X', 'XX..X', 'XX..X', 'XX..X', 'XX..X', 'XXXX.'];
-    bmp(px, 4, 6, B, 'W');
-    bmp(px, 11, 6, D, 'W');
+    // Letters nearly the crest's full height so they read at name size, with
+    // a dark drop under them to lift them off the red.
+    const B = [
+      'XXXXX.',
+      'XXXXXX',
+      'XX..XX',
+      'XX..XX',
+      'XX.XXX',
+      'XXXXX.',
+      'XXXXX.',
+      'XX.XXX',
+      'XX..XX',
+      'XX..XX',
+      'XXXXXX',
+      'XXXXX.',
+    ];
+    const D = [
+      'XXXXX.',
+      'XXXXXX',
+      'XX..XX',
+      'XX..XX',
+      'XX..XX',
+      'XX..XX',
+      'XX..XX',
+      'XX..XX',
+      'XX..XX',
+      'XX..XX',
+      'XXXXXX',
+      'XXXXX.',
+    ];
+    bmp(px, 4, 5, B, 'E');
+    bmp(px, 11, 5, D, 'E');
+    bmp(px, 3, 4, B, 'W');
+    bmp(px, 10, 4, D, 'W');
   },
-  // A raised fist inside a heart.
-  fist_gang: ({ disc, rect, px }) => {
-    disc(C, C, 8.6, 'e');
-    disc(C, C, 7.6, 'E');
-    // A big raised fist: four knuckled fingers, thumb wrapped across, wrist.
-    for (const x of [4, 7, 10, 13]) {
-      rect(x, 4, x + 1, 9, 'W');
-      px(x + 1, 4, 'S');
-      rect(x, 7, x + 1, 7, 'S');
-    }
-    for (const x of [6, 9, 12]) rect(x, 5, x, 9, 'N');
-    rect(3, 10, 14, 12, 'W');
-    rect(3, 10, 10, 10, 'N');
-    rect(3, 12, 10, 12, 'S');
-    px(11, 11, 'S');
-    rect(6, 13, 12, 17, 'W');
-    rect(12, 13, 12, 17, 'S');
-    rect(4, 13, 13, 13, 'W');
-    rect(4, 13, 5, 13, 'S');
-  },
+  // A raised red fist in three-quarter view: the lit face shows the knuckles,
+  // the shaded side has the thumb wrapped round. No circle.
+  fist_gang: ({ px }) =>
+    paint(px, 0, 0, [
+      '....................',
+      '......1112..........',
+      '....11222221122.....',
+      '...1222242222223....',
+      '...1222242224222333.',
+      '...1222242224223333.',
+      '...1222242224223333.',
+      '...4444444444443333.',
+      '...1222122212223333.',
+      '...1222222222223333.',
+      '..45555333333333333.',
+      '..4333333333333333..',
+      '...33333333333333...',
+      '....3222222223333...',
+      '.....222222223333...',
+      '.....122222223333...',
+      '.....122222223333...',
+      '.....122222223333...',
+      '.....122222223333...',
+      '.....122222223333...',
+    ]),
   // A clawed paw print under a crown.
   god_dog: ({ disc, px }) => {
     disc(C, C, 8.6, 'u');
