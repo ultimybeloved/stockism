@@ -48,7 +48,12 @@ export const soundVolume = () => {
   const v = Number(read(VOLUME_KEY));
   return read(VOLUME_KEY) !== null && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : DEFAULT_VOLUME;
 };
-export const setSoundsEnabled = (on: boolean) => write(ENABLED_KEY, on ? 'on' : 'off');
+// Fired when the switch flips, so the header button and Settings stay in step.
+export const SOUNDS_CHANGED_EVENT = 'stockism:sounds-changed';
+export const setSoundsEnabled = (on: boolean) => {
+  write(ENABLED_KEY, on ? 'on' : 'off');
+  window.dispatchEvent(new Event(SOUNDS_CHANGED_EVENT));
+};
 export const setSoundVolume = (v: number) => write(VOLUME_KEY, String(v));
 
 let ctx: AudioContext | null = null;

@@ -13,6 +13,8 @@ import { OPEN_SEARCH_EVENT } from './GlobalShortcuts';
 import { MOD_LABEL } from '../../hooks/useShortcuts';
 import PixelIcon from '../PixelIcon';
 import AccountMenu from './AccountMenu';
+import { useSoundsEnabled } from '../../hooks/useSoundsEnabled';
+import { playSound, setSoundsEnabled } from '../../../utils/sounds';
 
 export interface HeaderProps {
   setDarkMode: (dark: boolean) => void;
@@ -33,6 +35,7 @@ const Header = ({
   onToggleNotifications,
 }: HeaderProps) => {
   const { darkMode } = useTheme();
+  const soundOn = useSoundsEnabled();
   const { user, userData } = useSession();
   const { prices } = useMarket();
   const newCharacters = useNewCharacters();
@@ -192,6 +195,18 @@ const Header = ({
                 aria-label="Toggle dark mode"
               >
                 <PixelIcon name={darkMode ? 'sun' : 'moon'} className="w-5 h-5 block" />
+              </button>
+              <button
+                onClick={() => {
+                  setSoundsEnabled(!soundOn);
+                  if (!soundOn) playSound('coin');
+                }}
+                className="p-2 rounded-md transition-colors light:hover:bg-amber-50 dark:hover:bg-zinc-800"
+                aria-label={soundOn ? 'Turn sound effects off' : 'Turn sound effects on'}
+                aria-pressed={soundOn}
+                title={soundOn ? 'Sound effects on' : 'Sound effects off'}
+              >
+                <PixelIcon name={soundOn ? 'sound_on' : 'sound_off'} className="w-5 h-5 block" />
               </button>
 
               {/* Pre-Market Orders Button */}

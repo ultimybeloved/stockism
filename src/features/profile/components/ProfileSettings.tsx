@@ -5,7 +5,8 @@ import { themeClasses } from '../../../utils/theme';
 import { STARTING_CASH } from '../../../constants/economy';
 import { WELCOME_STREAK_TOTAL } from '../../../rules/welcome';
 import { useDiscordLink } from '../hooks/useDiscordLink';
-import { playSound, setSoundVolume, setSoundsEnabled, soundVolume, soundsEnabled } from '../../../utils/sounds';
+import { playSound, setSoundVolume, setSoundsEnabled, soundVolume } from '../../../utils/sounds';
+import { useSoundsEnabled } from '../../../shared/hooks/useSoundsEnabled';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
 
@@ -14,7 +15,7 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
   const { textClass, mutedClass } = themeClasses;
   const { beginDiscordLink, unlinkDiscord, linking, error: linkError } = useDiscordLink();
   // Sounds are a per-device choice, kept in this browser rather than the account.
-  const [soundOn, setSoundOn] = useState(soundsEnabled);
+  const soundOn = useSoundsEnabled();
   const [volume, setVolume] = useState(soundVolume);
 
   return (
@@ -62,7 +63,6 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
             onClick={() => {
               const next = !soundOn;
               setSoundsEnabled(next);
-              setSoundOn(next);
               if (next) playSound('coin');
             }}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${

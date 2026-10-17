@@ -50,6 +50,17 @@ const rankMedal =
     bmp(px, 8, 10, DIGITS[n], ink);
   };
 
+// The speaker both sound toggle icons share: a box and a flared cone.
+const speaker = ({ rect }) => {
+  rect(1, 7, 4, 12, 'Y');
+  rect(1, 11, 4, 12, 'y');
+  for (let x = 5; x <= 10; x++) {
+    const o = x - 4;
+    rect(x, 7 - o, x, 12 + o, 'Y');
+    rect(x, 10, x, 12 + o, 'y');
+  }
+};
+
 const icons = {
   // Leaderboard: a gold trophy on a wooden plinth.
   trophy: ({ rect, px }) => {
@@ -165,6 +176,20 @@ const icons = {
       px(x + 1, y, 'S');
       px(x, y - 1, 'S');
       px(x, y + 1, 'S');
+    }
+  },
+  // Sound effects toggle: a speaker with sound waves, or crossed out.
+  sound_on: (t) => {
+    speaker(t);
+    for (const r of [4.6, 7.6]) t.disc(9, C, r, 'B', (x, y) => x >= 12 && !t.inDisc(x, y, 9, C, r - 1.3));
+  },
+  sound_off: (t) => {
+    speaker(t);
+    for (const o of [0, 1]) {
+      t.line(13 + o, 7, 18, 12 - o, 'R');
+      t.line(13, 7 + o, 18 - o, 12, 'R');
+      t.line(18 - o, 7, 13, 12 - o, 'R');
+      t.line(18, 7 + o, 13 + o, 12, 'R');
     }
   },
   // Notifications: a ringing bell.
