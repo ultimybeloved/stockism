@@ -154,6 +154,8 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
       admin_set_holding: 'Holding edits',
       admin_grant_cosmetic: 'Cosmetics granted',
       admin_revoke_cosmetic: 'Cosmetics revoked',
+      admin_grant_pin: 'Pins granted',
+      admin_revoke_pin: 'Pins revoked',
       admin_ladder_transfer: 'Ladder transfers',
       admin_transfer_in: 'Account transfers in',
       admin_transfer_out: 'Account transfers out',

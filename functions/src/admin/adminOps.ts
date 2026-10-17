@@ -11,6 +11,7 @@ import * as admin from 'firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { REINSTATE_CASH_DEFAULT, COSMETIC_CATALOG } from '../shared/constants';
+import { SHOP_PINS } from '../shared/crews';
 import { grantedValueUpdate } from '../shared/equity';
 import { notifyCashGrant, notifyCosmeticGrant } from './adminCashNotify';
 import { applyCashChange, parseCashRequest } from './adminCashCore';
@@ -108,17 +109,30 @@ export const adminSetCash = cf().https.onCall(async (data, context) => {
 });
 
 /**
- * Admin grant/revoke a cosmetic on a user (for giveaways). No cash is charged.
- * Revoking also unequips the cosmetic if it's the active one for its slot, so
- * the user isn't left displaying something they no longer own.
+ * Admin grant/revoke a cosmetic or a shop pin on a user (for giveaways). No
+ * cash is charged. Pass `cosmeticId` or `pinId`. Revoking also takes the item
+ * off (unequips the cosmetic, or stops displaying the pin), so the user isn't
+ * left showing something they no longer own.
  */
 export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
   requireAdmin(context);
 
-  const { userId, cosmeticId, revoke } = data || {};
-  const cosmetic = COSMETIC_CATALOG[cosmeticId];
-  if (!userId || !cosmetic) {
-    throw new functions.https.HttpsError('invalid-argument', 'Valid userId and cosmeticId required');
+  const { userId, cosmeticId, pinId, revoke } = data || {};
+  const cosmetic = cosmeticId ? COSMETIC_CATALOG[cosmeticId] : undefined;
+  const pin = !cosmeticId && pinId ? SHOP_PINS[pinId] : undefined;
+  const item = cosmetic
+    ? {
+        id: cosmeticId as string,
+        name: cosmetic.name,
+        price: cosmetic.price,
+        field: 'ownedCosmetics',
+        kind: 'cosmetic',
+      }
+    : pin
+      ? { id: pin.id, name: pin.name, price: pin.price, field: 'ownedShopPins', kind: 'pin' }
+      : null;
+  if (!userId || !item) {
+    throw new functions.https.HttpsError('invalid-argument', 'Valid userId and cosmeticId or pinId required');
   }
 
   const userRef = db.collection('users').doc(userId);
@@ -130,54 +144,58 @@ export const adminGrantCosmetic = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('not-found', 'User not found');
     }
 
-    const owned = userSnap.data()!.ownedCosmetics || [];
-    discordId = userSnap.data()!.discordId;
-    displayName = userSnap.data()!.displayName;
+    const userData = userSnap.data()!;
+    const owned: string[] = Array.isArray(userData[item.field]) ? userData[item.field] : [];
+    discordId = userData.discordId;
+    displayName = userData.displayName;
 
     if (revoke) {
-      if (!owned.includes(cosmeticId)) {
-        throw new functions.https.HttpsError('failed-precondition', 'User does not own this cosmetic');
+      if (!owned.includes(item.id)) {
+        throw new functions.https.HttpsError('failed-precondition', `User does not own this ${item.kind}`);
       }
-      const updates: Record<string, unknown> = { ownedCosmetics: FieldValue.arrayRemove(cosmeticId) };
-      const active = userSnap.data()!.activeCosmetics || {};
-      if (active[cosmetic.type] === cosmeticId) {
-        updates[`activeCosmetics.${cosmetic.type}`] = FieldValue.delete();
+      const updates: Record<string, unknown> = { [item.field]: FieldValue.arrayRemove(item.id) };
+      if (cosmetic) {
+        const active = userData.activeCosmetics || {};
+        if (active[cosmetic.type] === item.id) updates[`activeCosmetics.${cosmetic.type}`] = FieldValue.delete();
+      } else if (Array.isArray(userData.displayedShopPins) && userData.displayedShopPins.includes(item.id)) {
+        updates.displayedShopPins = FieldValue.arrayRemove(item.id);
       }
       transaction.update(userRef, updates);
       recordLedger(transaction, {
         uid: userId,
-        type: 'admin_revoke_cosmetic',
+        type: cosmetic ? 'admin_revoke_cosmetic' : 'admin_revoke_pin',
         account: 'cosmetics',
-        amount: -cosmetic.price,
-        ref: cosmeticId,
+        amount: -item.price,
+        ref: item.id,
         detail: { by: context.auth!.uid },
       });
-      return { success: true, userId, cosmeticId, revoked: true };
+      return { success: true, userId, itemId: item.id, revoked: true };
     }
 
-    if (owned.includes(cosmeticId)) {
-      throw new functions.https.HttpsError('already-exists', 'User already owns this cosmetic');
+    if (owned.includes(item.id)) {
+      throw new functions.https.HttpsError('already-exists', `User already owns this ${item.kind}`);
     }
-    transaction.update(userRef, { ownedCosmetics: FieldValue.arrayUnion(cosmeticId) });
+    transaction.update(userRef, { [item.field]: FieldValue.arrayUnion(item.id) });
     recordLedger(transaction, {
       uid: userId,
-      type: 'admin_grant_cosmetic',
+      type: cosmetic ? 'admin_grant_cosmetic' : 'admin_grant_pin',
       account: 'cosmetics',
-      amount: cosmetic.price,
-      ref: cosmeticId,
+      amount: item.price,
+      ref: item.id,
       detail: { by: context.auth!.uid },
     });
-    return { success: true, userId, cosmeticId, granted: true };
+    return { success: true, userId, itemId: item.id, granted: true };
   });
+  const verb = revoke ? 'revoke' : 'grant';
   await logAdminAction(context, {
-    action: revoke ? 'revoke_cosmetic' : 'grant_cosmetic',
+    action: `${verb}_${item.kind}`,
     uid: userId,
     name: displayName,
-    before: revoke ? cosmeticId : null,
-    after: revoke ? null : cosmeticId,
-    detail: { cosmeticId, cosmeticName: cosmetic.name },
+    before: revoke ? item.id : null,
+    after: revoke ? null : item.id,
+    detail: cosmetic ? { cosmeticId: item.id, cosmeticName: item.name } : { pinId: item.id, pinName: item.name },
   });
-  if (result.granted) await notifyCosmeticGrant(userId, discordId, cosmeticId, cosmetic.name);
+  if (result.granted) await notifyCosmeticGrant(userId, discordId, item.id, item.name);
   return result;
 });
 

@@ -18,6 +18,8 @@ const UserAdminActions = ({
   handleUnlinkDiscord,
   handleGrantCosmetic,
   handleRevokeCosmetic,
+  handleGrantPin,
+  handleRevokePin,
   handleChangeDisplayName,
   newDisplayName,
   setNewDisplayName,
@@ -82,6 +84,8 @@ const UserAdminActions = ({
         selectedUser={selectedUser}
         handleGrantCosmetic={handleGrantCosmetic}
         handleRevokeCosmetic={handleRevokeCosmetic}
+        handleGrantPin={handleGrantPin}
+        handleRevokePin={handleRevokePin}
       />
 
       {/* Display Name Editor */}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CREWS } from '../../../../crews';
+import CrewPin from '../../../../shared/components/CrewPin';
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../../constants/achievements';
 import { CHARACTERS } from '../../../../characters';
 import type { AdminCommonProps } from '../types';
@@ -44,20 +45,29 @@ const UserFieldEditor = ({
             </span>
             {selectedUser.isCrewHead && <span className="ml-1 text-amber-400">(crew head)</span>}
           </label>
-          <select
-            aria-label="Crew"
-            value={selectedUser.crew || ''}
-            onChange={(e) => handleSetCrew(selectedUser.id, name, e.target.value, CREWS[e.target.value]?.name)}
-            disabled={loading}
-            className={`w-full ${fieldClass}`}
-          >
-            <option value="">— no crew —</option>
-            {Object.values(CREWS).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.emblem} {c.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Crew">
+            {[null, ...Object.values(CREWS)].map((c) => {
+              const id = c?.id || '';
+              const current = (selectedUser.crew || '') === id;
+              return (
+                <button
+                  key={id || 'none'}
+                  type="button"
+                  onClick={() => !current && handleSetCrew(selectedUser.id, name, id, c?.name)}
+                  disabled={loading}
+                  aria-pressed={current}
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded border disabled:opacity-50 ${
+                    current
+                      ? 'border-teal-500 ring-1 ring-teal-500'
+                      : 'light:border-slate-300 dark:border-slate-500 light:hover:border-slate-500 dark:hover:border-slate-300'
+                  } light:bg-white light:text-slate-900 dark:bg-slate-700 dark:text-white`}
+                >
+                  {c && <CrewPin crew={c} className="w-4 h-4" />}
+                  {c ? c.name : 'No crew'}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Achievements */}

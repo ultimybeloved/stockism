@@ -22,6 +22,8 @@ const ACTION_LABELS: Record<string, string> = {
   remove_achievement: 'Remove achievement',
   grant_cosmetic: 'Grant cosmetic',
   revoke_cosmetic: 'Revoke cosmetic',
+  grant_pin: 'Grant pin',
+  revoke_pin: 'Revoke pin',
   transfer_to_ladder: 'Ladder transfer',
   remove_coord_profit: 'Remove coordination profit',
   season_exclude: 'Exclude from Plat/Diamond',

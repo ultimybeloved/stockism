@@ -144,9 +144,12 @@ export const startDiscordLinkFunction = callable<void, Api.StartDiscordLinkRespo
 // Disconnect your own Discord (Profile → Discord → Unlink)
 export const unlinkOwnDiscordFunction = callable<void>('unlinkOwnDiscord');
 // Admin: grant/revoke a cosmetic on a user (giveaways)
-export const adminGrantCosmeticFunction = callable<{ userId: string; cosmeticId: string; revoke?: boolean }>(
-  'adminGrantCosmetic',
-);
+export const adminGrantCosmeticFunction = callable<{
+  userId: string;
+  cosmeticId?: string;
+  pinId?: string;
+  revoke?: boolean;
+}>('adminGrantCosmetic');
 // Admin: direct edits to one user's game state (see functions/src/admin/adminUserEdit.js)
 export const adminChangeDisplayNameFunction = callable<{ userId: string; displayName: string }>(
   'adminChangeDisplayName',

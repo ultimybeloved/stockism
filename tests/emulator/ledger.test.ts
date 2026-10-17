@@ -32,7 +32,7 @@ const { depositToLadderGame, withdrawFromLadderGame } =
   require('../../functions/src/ladder/ladderTransfers') as typeof import('../../functions/src/ladder/ladderTransfers');
 const { playLadderGame } =
   require('../../functions/src/ladder/ladderGame') as typeof import('../../functions/src/ladder/ladderGame');
-const { adminSetCash } =
+const { adminSetCash, adminGrantCosmetic } =
   require('../../functions/src/admin/adminOps') as typeof import('../../functions/src/admin/adminOps');
 const { giftCosmetic } =
   require('../../functions/src/users/cosmeticGifts') as typeof import('../../functions/src/users/cosmeticGifts');
@@ -144,6 +144,31 @@ async function main() {
     'every gift is in the admin gift log',
     giftLog.length === 2 && giftLog.every((g: Loose) => g.toUid === FRIEND),
     JSON.stringify(giftLog),
+  );
+
+  // Admin pin gifts: land in ownedShopPins, book a non-cash entry, and a
+  // take-back also stops the pin being displayed.
+  await run(adminGrantCosmetic, { userId: FRIEND, pinId: 'shiba' }, ADMIN_UID);
+  await db
+    .collection('users')
+    .doc(FRIEND)
+    .update({ displayedShopPins: ['shiba'] });
+  const pinned = (await db.collection('users').doc(FRIEND).get()).data();
+  check('admin pin grant lands the pin', pinned.ownedShopPins?.includes('shiba'), JSON.stringify(pinned));
+  await run(adminGrantCosmetic, { userId: FRIEND, pinId: 'shiba', revoke: true }, ADMIN_UID);
+  const unpinned = (await db.collection('users').doc(FRIEND).get()).data();
+  check(
+    'admin pin take-back removes and undisplays it',
+    !unpinned.ownedShopPins.includes('shiba') && !unpinned.displayedShopPins.includes('shiba'),
+    JSON.stringify(unpinned),
+  );
+  const pinEntries = (await db.collection('ledger').where('uid', '==', FRIEND).get()).docs
+    .map((d: Loose) => d.data())
+    .filter((e: Loose) => e.ref === 'shiba');
+  check(
+    'admin pin grant and take-back are booked off the cash account',
+    pinEntries.length === 2 && pinEntries.every((e: Loose) => e.account === 'cosmetics'),
+    JSON.stringify(pinEntries),
   );
 
   const user = (await db.collection('users').doc(UID).get()).data();
