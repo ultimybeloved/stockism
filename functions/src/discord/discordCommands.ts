@@ -26,11 +26,16 @@ import {
   SITE_URL,
   LEADERBOARD_CACHE_TTL,
 } from '../shared/constants';
-import { getDailyMissions, getCrewWeeklyMissions, CREWS } from '../shared/crews';
+import { getDailyMissions, getWeeklyMissions, CREWS, CALL_MISSION } from '../shared/crews';
 import type { Mission } from '../shared/crews';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { UserData } from '../shared/types';
-import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from '../missions/missionChecks';
+import {
+  isDailyMissionDone,
+  isWeeklyMissionDone,
+  missionContext,
+  type WeeklyProgress,
+} from '../missions/missionChecks';
 import { countRankAbove, netWorthOf } from '../shared/equity';
 import { getWeekId } from '../shared/tradeRecords';
 import { crewEmoji, pxe, pxButton } from '../shared/discordApi';
@@ -418,22 +423,12 @@ const cmdMissions = async (interaction: Interaction) => {
   if (!found) return signupPitch('Link your account to track your missions here.');
 
   const { data } = found;
-  if (!data.crew) {
-    return {
-      embeds: [
-        {
-          color: BRAND_COLOR,
-          title: `${pxe('missions')} Missions`,
-          description: 'Pick a crew on the website to start getting missions.',
-        },
-      ],
-      components: [buttonRow(linkButton('Choose a crew', `${SITE_URL}/profile`, 'crews'))],
-    };
-  }
-
-  const { prices } = await readMarket();
-  const today = new Date().toISOString().split('T')[0]!;
-  const weekId = getWeekId();
+  const crew: string | null = data.crew || null;
+  const market = (await marketRef().get()).data();
+  const now = Date.now();
+  const ctx = missionContext(data as UserData, market, now);
+  const today = new Date(now).toISOString().split('T')[0]!;
+  const weekId = getWeekId(now);
 
   const dailyProgress = (data.dailyMissions || {})[today] || {};
   const weeklyProgress = (data.weeklyMissions || {})[weekId] || {};
@@ -441,23 +436,21 @@ const cmdMissions = async (interaction: Interaction) => {
 
   const render = (
     missions: Mission[],
-    progress: DocumentData,
-    checks: Record<string, ((p: never, u: UserData, prices?: Record<string, number> | null) => boolean) | undefined>,
+    done: (id: string) => boolean,
     claimedMap: Record<string, boolean> | undefined,
   ) =>
     missions
       .map((m) => {
+        if (m.id === CALL_MISSION.id) return callLine(weeklyProgress.call);
         const claimed = !!(claimedMap || {})[m.id];
-        const check = checks[m.id];
-        const done = check ? check(progress as never, data as UserData, prices) : false;
-        const icon = pxe(claimed ? 'success' : done ? 'gift' : 'todo');
-        const suffix = claimed ? '' : done ? ' — **ready to claim**' : '';
-        return `${icon} ${m.name || m.id}${suffix}`;
+        const ready = !claimed && done(m.id);
+        const icon = pxe(claimed ? 'success' : ready ? 'gift' : 'todo');
+        return `${icon} ${m.name || m.id}${ready ? ' (**ready to claim**)' : ''}`;
       })
       .join('\n') || 'None assigned.';
 
-  const daily = getDailyMissions(today, data.crew, seed);
-  const weekly = getCrewWeeklyMissions(data.crew, weekId, seed);
+  const daily = getDailyMissions(today, crew, seed);
+  const weekly = getWeeklyMissions(crew, weekId, seed);
 
   return {
     embeds: [
@@ -465,14 +458,32 @@ const cmdMissions = async (interaction: Interaction) => {
         color: BRAND_COLOR,
         title: `${pxe('missions')} Your Missions`,
         fields: [
-          { name: 'Daily', value: render(daily, dailyProgress, DAILY_MISSION_CHECKS, dailyProgress.claimed) },
-          { name: 'Weekly', value: render(weekly, weeklyProgress, WEEKLY_MISSION_CHECKS, weeklyProgress.claimed) },
+          {
+            name: 'Daily',
+            value: render(daily, (id) => isDailyMissionDone(id, dailyProgress, ctx), dailyProgress.claimed),
+          },
+          {
+            name: 'Weekly',
+            value: render(weekly, (id) => isWeeklyMissionDone(id, weeklyProgress, ctx), weeklyProgress.claimed),
+          },
         ],
-        footer: { text: 'Claim rewards on the website' },
+        footer: {
+          text: crew ? 'Claim rewards on the website' : 'Join a crew on the website for crew missions and Rivalries',
+        },
       },
     ],
     components: [buttonRow(linkButton('Claim rewards', SITE_URL, 'gift'))],
   };
+};
+
+// The Call's line: not made yet, made, or scored.
+const callLine = (call: WeeklyProgress['call']) => {
+  if (!call) return `${pxe('todo')} Your Call: pick a stock, up or down, on the website`;
+  const pick = `**${call.ticker}** ${call.direction}`;
+  if (!call.result) return `${pxe('todo')} Your Call: ${pick} (scored at the next chapter)`;
+  return call.paid
+    ? `${pxe('success')} Your Call: ${pick}, paid $${call.paid}`
+    : `${pxe('todo')} Your Call: ${pick}, no win`;
 };
 
 // ---------------------------------------------------------------------------

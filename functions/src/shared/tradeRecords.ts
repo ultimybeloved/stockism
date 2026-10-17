@@ -2,35 +2,31 @@
 
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import {
-  CREW_MEMBERS,
-  ALL_CREW_TICKERS,
-  ANIMAL_TICKERS,
-  UNDERDOG_PRICE_THRESHOLD,
-  TRADE_RECORD_ACTIONS,
-} from './constants';
+import { ANIMAL_TICKERS, TRADE_RECORD_ACTIONS } from './constants';
+import { missionWeekId, missionMinTrade, sharesHeldAtLeast } from './rules/missions';
+import type { DailyProgress } from './rules/missionProgress';
 import { round2 } from './money';
 import { tickerStatsRef, buildTickerFlowUpdate } from './marketData';
 import type { UserData } from './types';
 import { recordLedger } from './ledger';
 const db = admin.firestore();
 
-// Monday-based week ID (YYYY-MM-DD of the week's Monday) — keys weeklyMissions.
-export const getWeekId = (now = new Date()) => {
-  const weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-  if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
-  return weekStart.toISOString().split('T')[0]!;
-};
+// The mission week id (the Thursday it began) that keys weeklyMissions. One
+// clock for every week-based system since 2026-10-22 (rules/missions).
+export const getWeekId = (now: Date | number = Date.now()) => missionWeekId(now);
 
 // Mission/stat credit for a filled trade — shared by executeTrade, limit-order
-// fills, and the pre-market auction so queued orders count the same as live
-// trades. Returns { updates, animalProfitTotal }: `updates` is a field-path
+// fills, the stop-loss sweep and the pre-market auction so every fill counts
+// the same. Returns { updates, animalProfitTotal }: `updates` is a field-path
 // fragment that must be merged into the SAME user write as the balance change;
 // `animalProfitTotal` is non-null only on an animal-ticker sell with a cost
 // basis (executeTrade feeds it to the achievement context).
-// `marketPrice` is the pre-impact market price (underdog check), while
-// `executionPrice` is what the user actually paid/received per share.
+// `marketPrice` is the pre-impact market price, `executionPrice` what the user
+// actually paid/received per share. `userData` is the doc BEFORE this fill.
+//
+// Only raw facts are written here (what was bought, for how much, what was sold
+// out of shares held a day or more). Whether they still count is judged at claim
+// time by rules/missionProgress, which needs the shares to still be held.
 export const buildTradeCreditUpdates = ({
   userData,
   ticker,
@@ -39,6 +35,7 @@ export const buildTradeCreditUpdates = ({
   totalValue,
   executionPrice,
   marketPrice,
+  viaLimitOrder = false,
   now = Date.now(),
 }: {
   userData: UserData;
@@ -48,38 +45,32 @@ export const buildTradeCreditUpdates = ({
   totalValue: number;
   executionPrice: number;
   marketPrice: number;
+  /** A limit order (not a stop-loss or the opening auction) filled this. */
+  viaLimitOrder?: boolean;
   now?: number;
 }) => {
-  const todayDate = new Date(now).toISOString().split('T')[0];
-  const weekId = getWeekId(new Date(now));
+  const todayDate = new Date(now).toISOString().split('T')[0]!;
+  const weekId = getWeekId(now);
+  const day = `dailyMissions.${todayDate}`;
+  const week = `weeklyMissions.${weekId}`;
+  const minTrade = missionMinTrade((userData.portfolioValue || 0) - (userData.marginUsed || 0));
   const updates: Record<string, unknown> = {
     totalTrades: FieldValue.increment(1),
-    [`dailyMissions.${todayDate}.tradesCount`]: FieldValue.increment(1),
-    [`dailyMissions.${todayDate}.tradeVolume`]: FieldValue.increment(shares),
-    [`weeklyMissions.${weekId}.tradeValue`]: FieldValue.increment(totalValue),
-    [`weeklyMissions.${weekId}.tradeVolume`]: FieldValue.increment(shares),
-    [`weeklyMissions.${weekId}.tradeCount`]: FieldValue.increment(1),
-    [`weeklyMissions.${weekId}.tradingDays.${todayDate}`]: true,
+    [`${week}.tradeCount`]: FieldValue.increment(1),
   };
   let animalProfitTotal: number | null = null;
 
   if (action === 'buy') {
-    updates[`dailyMissions.${todayDate}.boughtAny`] = true;
-
-    const userCrew = userData.crew;
-    if (userCrew) {
-      const crewMembers = CREW_MEMBERS[userCrew] || [];
-      if (crewMembers.includes(ticker)) {
-        updates[`dailyMissions.${todayDate}.boughtCrewMember`] = true;
-        updates[`dailyMissions.${todayDate}.crewSharesBought`] = FieldValue.increment(shares);
-      }
-      if (!crewMembers.includes(ticker) && ALL_CREW_TICKERS.has(ticker)) {
-        updates[`dailyMissions.${todayDate}.boughtRival`] = true;
-      }
+    const prevLow = (userData.dailyMissions as Record<string, DailyProgress> | undefined)?.[todayDate]?.buys?.[ticker]
+      ?.low;
+    updates[`${day}.buys.${ticker}.shares`] = FieldValue.increment(shares);
+    updates[`${day}.buys.${ticker}.value`] = FieldValue.increment(totalValue);
+    updates[`${day}.buys.${ticker}.low`] = round2(Math.min(prevLow ?? marketPrice, marketPrice));
+    if (viaLimitOrder) {
+      updates[`${day}.limitBuys.${ticker}.shares`] = FieldValue.increment(shares);
+      updates[`${day}.limitBuys.${ticker}.value`] = FieldValue.increment(totalValue);
     }
-    if (marketPrice < UNDERDOG_PRICE_THRESHOLD) {
-      updates[`dailyMissions.${todayDate}.boughtUnderdog`] = true;
-    }
+    if (totalValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
 
     // Lowest price while holding (for Diamond Hands achievement)
     const currentHoldings = userData.holdings?.[ticker] || 0;
@@ -90,7 +81,18 @@ export const buildTradeCreditUpdates = ({
   }
 
   if (action === 'sell') {
-    updates[`dailyMissions.${todayDate}.soldAny`] = true;
+    // Shares leave oldest first, so the old part of this sale is whatever the
+    // position held a day or more, up to the sale size.
+    const oldShares = sharesHeldAtLeast(userData.holdingCohorts?.[ticker], userData.holdings?.[ticker] || 0, now);
+    const oldValue = round2(Math.min(shares, oldShares) * executionPrice);
+    if (oldValue > 0) {
+      updates[`${day}.heldSoldValue`] = FieldValue.increment(oldValue);
+      if (executionPrice < (userData.costBasis?.[ticker] || 0)) {
+        updates[`${day}.heldLossValue`] = FieldValue.increment(oldValue);
+      }
+      if (viaLimitOrder) updates[`${day}.limitSoldValue`] = FieldValue.increment(oldValue);
+    }
+    if (oldValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
 
     // Animal Instinct: track cumulative profit from animal characters
     if (ANIMAL_TICKERS.has(ticker)) {

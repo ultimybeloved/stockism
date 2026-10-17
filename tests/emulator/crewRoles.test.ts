@@ -231,10 +231,12 @@ it('crew head roles', async () => {
 
   const { getWeekId } =
     require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
-  // Must match how the job itself resolves "last week" (marketWeekly.js:220),
-  // otherwise the seeded activity lands in the wrong bucket and nobody
-  // qualifies as active.
-  const prevWeekId = getWeekId(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
+  const { missionWeekStartMs } =
+    require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
+  // Must match how the job itself resolves "last week" (crewRankings.ts: the
+  // last full week), otherwise the seeded activity lands in the wrong bucket
+  // and nobody qualifies as active.
+  const prevWeekId = getWeekId(missionWeekStartMs() - 1);
   // The job only considers members who were active last week.
   const activeLastWeek = { weeklyMissions: { [prevWeekId]: { tradeCount: 3 } } };
 

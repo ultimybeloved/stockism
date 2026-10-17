@@ -19,6 +19,7 @@ import {
 import { grantedSince, snapshotNetWorth } from '../shared/equity';
 import { eventPositionsValue } from '../shared/lmsr';
 import { checkDiscordWall, checkBanned } from '../shared/accountGuards';
+import { getWeekId } from '../shared/tradeRecords';
 import type { Cohort, ShortPosition } from '../shared/types';
 
 type Holdings = Record<string, number>;
@@ -123,11 +124,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   if (openEvent || userData.eventPositionsValue) updateData.eventPositionsValue = eventValue;
 
   // Initialize weekly mission startPortfolioValue if not set
-  const syncNow = new Date();
-  const syncWeekStart = new Date(syncNow);
-  syncWeekStart.setDate(syncWeekStart.getDate() - syncWeekStart.getDay() + 1);
-  if (syncWeekStart > syncNow) syncWeekStart.setDate(syncWeekStart.getDate() - 7);
-  const syncWeekId = syncWeekStart.toISOString().split('T')[0]!;
+  const syncWeekId = getWeekId();
   const weeklyData = userData.weeklyMissions?.[syncWeekId];
   if (!weeklyData || weeklyData.startPortfolioValue === undefined) {
     updateData[`weeklyMissions.${syncWeekId}.startPortfolioValue`] = portfolioValue;

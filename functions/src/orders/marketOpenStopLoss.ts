@@ -35,7 +35,6 @@ import { round2 } from '../shared/money';
 import { spreadFor } from '../shared/roster';
 import { exitLoyaltyDiscount } from '../shared/characters';
 import type { LimitOrder, PricePoint, UserData } from '../shared/types';
-import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 import { computePriceUpdates, buildTrailingEntries } from '../trading/tradePricing';
 import { pruneHistoryMap, appendTradeEntries } from '../trading/tradeState';
 import { readOrderNetwork, networkImpactSpent, writeNetworkFill } from './orderNetwork';
@@ -282,17 +281,6 @@ export const runStopLossSweep = async ({
         executeSweepFill(transaction, { order, orderDoc, marketRef, openingPrice, marketMove }),
       );
 
-      // Crew mission progress (fire-and-forget, same as executeTrade)
-      if (fill.crew) {
-        updateCrewMissionProgress(
-          fill.crew,
-          order.userId,
-          'sell',
-          fill.fillShares,
-          order.ticker,
-          fill.executedPrice * fill.fillShares,
-        );
-      }
       await writeNotification(order.userId, {
         type: 'trade',
         title: 'Stop Loss Filled',

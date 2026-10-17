@@ -29,7 +29,6 @@ interface OpenSummary {
   stopLossFilled: number;
   stopLossSkipped: number;
 }
-import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
 import { computePriceUpdates } from '../trading/tradePricing';
@@ -429,18 +428,6 @@ export const runMarketOpenProcessing = async (trigger: string) => {
 
           fillShares = localFillShares;
         });
-
-        // Crew mission progress (fire-and-forget, same as executeTrade)
-        if (feedCrew) {
-          updateCrewMissionProgress(
-            feedCrew,
-            order.userId,
-            order.action,
-            fillShares,
-            order.ticker,
-            executionPrice * fillShares,
-          );
-        }
 
         const partialNote = fillShares < order.shares ? ` (filled ${fillShares} of ${order.shares})` : '';
         await writeNotification(order.userId, {

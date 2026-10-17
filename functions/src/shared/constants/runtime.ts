@@ -35,8 +35,9 @@ export const APP_CHECK_ENFORCED = true;
 const ADDED_2026_09_28 = Date.UTC(2026, 8, 29);
 const ADDED_2026_10_11 = Date.UTC(2026, 9, 12);
 const ADDED_2026_10_14 = Date.UTC(2026, 9, 15);
+const ADDED_2026_10_22 = Date.UTC(2026, 9, 23);
 export const WATCHED_SCHEDULED_JOBS = [
-  // Weekly (Thursday/Monday): 8 days covers a full cycle plus a missed run.
+  // Weekly (Thursday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
   { job: 'payDividends', maxAgeHours: 8 * 24, label: 'Dividend payout' },
   { job: 'weeklyMarketSummary', maxAgeHours: 8 * 24, label: 'Weekly market report' },
@@ -90,4 +91,6 @@ export const WATCHED_SCHEDULED_JOBS = [
     label: 'Big price move Discord post',
     watchedSince: ADDED_2026_10_14,
   },
+  { job: 'weeklyCallsLock', maxAgeHours: 8 * 24, label: 'Weekly Call price lock', watchedSince: ADDED_2026_10_22 },
+  { job: 'weeklyCallsResolve', maxAgeHours: 8 * 24, label: 'Weekly Call scoring', watchedSince: ADDED_2026_10_22 },
 ];

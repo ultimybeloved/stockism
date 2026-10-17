@@ -259,6 +259,7 @@ export const applyBuyFill = (transaction: admin.firestore.Transaction, ctx: Fill
     totalValue: totalCost,
     executionPrice: executedPrice,
     marketPrice: freshPrice,
+    viaLimitOrder: true,
     now,
   });
 
@@ -374,6 +375,8 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
     totalValue: totalRevenue,
     executionPrice: executedPrice,
     marketPrice: freshPrice,
+    // Stop-losses fill here too; only a limit sell counts for Order Filled.
+    viaLimitOrder: order.type === 'SELL',
     now,
   });
 

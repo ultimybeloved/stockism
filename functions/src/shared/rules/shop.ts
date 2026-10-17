@@ -69,12 +69,15 @@ export const bundleQuote = (
 };
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-// A Monday, 00:00 UTC. Shop weeks run Monday to Monday in UTC.
-const SHOP_EPOCH = Date.UTC(2024, 0, 1);
+// A Thursday, 21:00 UTC. Shop weeks run from the Thursday reopen to the next,
+// like the mission week (rules/missions). They ran Monday to Monday until
+// 2026-10-22; the switch landed on a week boundary, so no item was cut short
+// beyond that one shorter week.
+const SHOP_EPOCH = Date.UTC(2023, 11, 28, 21, 0);
 
 export const shopWeek = (now: number = Date.now()): number => Math.floor((now - SHOP_EPOCH) / WEEK_MS);
 
-/** When the current featured item ends (next Monday 00:00 UTC). */
+/** When the current featured item ends (the next Thursday reopen). */
 export const shopWeekEndsAt = (now: number = Date.now()): number => SHOP_EPOCH + (shopWeek(now) + 1) * WEEK_MS;
 
 // mulberry32, seeded per rotation cycle.

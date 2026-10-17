@@ -76,6 +76,7 @@ export const claimMissionRewardFunction = callable<Api.ClaimMissionRewardRequest
   'claimMissionReward',
 );
 export const rerollMissionsFunction = callable<void, Api.RerollMissionsResponse>('rerollMissions');
+export const makeWeeklyCallFunction = callable<Api.MakeWeeklyCallRequest, Api.MakeWeeklyCallResponse>('makeWeeklyCall');
 export const purchasePinFunction = callable<Api.PurchasePinRequest>('purchasePin');
 export const placeBetFunction = callable<Api.PlaceBetRequest>('placeBet');
 export const claimPredictionPayoutFunction = callable<
@@ -109,7 +110,6 @@ export const chargeMarginInterestFunction = callable<Record<string, never>, Api.
   'chargeMarginInterest',
 );
 // Server-side portfolio sync
-export const claimCrewMissionFunction = callable<{ missionId: string }>('claimCrewMission');
 export const syncPortfolioFunction = callable<void, Api.SyncPortfolioResponse>('syncPortfolio');
 // Admin: remove achievement from user
 export const removeAchievementFunction = callable<{ userId: string; achievementId: string }>('removeAchievement');

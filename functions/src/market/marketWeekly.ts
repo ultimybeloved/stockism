@@ -141,8 +141,8 @@ async function runWeeklyMarketSummary() {
       .sort((a, b) => b.portfolioValue - a.portfolioValue)
       .slice(0, 5);
 
-    // The shop's featured item turns over at this same moment (Monday 00:00
-    // UTC), so the report announces the new one.
+    // The shop's featured item turns over at the Thursday reopen, just before
+    // this runs, so the report announces the new one.
     const featuredId = featuredCosmeticId(COSMETIC_PRICE_LIST, now + 60 * 1000);
     const featured = featuredId ? COSMETIC_CATALOG[featuredId] : null;
 
@@ -186,7 +186,7 @@ async function runWeeklyMarketSummary() {
           ? [
               {
                 name: `${pxe('shop')} Featured in the Shop This Week`,
-                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until next Monday.`,
+                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until the next Thursday reopen.`,
                 inline: false,
               },
             ]
@@ -207,7 +207,7 @@ async function runWeeklyMarketSummary() {
 }
 
 export const weeklyMarketSummary = cf()
-  .pubsub.schedule('0 0 * * 1')
+  .pubsub.schedule('10 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     const result = await runWeeklyMarketSummary();
@@ -231,10 +231,10 @@ export const triggerWeeklyMarketSummary = cf().https.onCall(async (data, context
 });
 
 /**
- * Weekly Leaderboard - Runs Mondays at 01:00 UTC
+ * Weekly Leaderboard - Runs at the Thursday reopen (21:15 UTC)
  */
 export const weeklyLeaderboard = cf()
-  .pubsub.schedule('0 1 * * 1')
+  .pubsub.schedule('15 21 * * 4')
   .timeZone('UTC')
   .onRun(async (_context) => {
     try {
@@ -296,7 +296,7 @@ export const weeklyLeaderboard = cf()
 // up to 18 Discord round-trips. Billed on actual runtime, so the headroom is
 // free unless something is genuinely slow.
 export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
-  .pubsub.schedule('30 1 * * 1')
+  .pubsub.schedule('5 21 * * 4')
   .timeZone('UTC')
   .onRun(async (_context) => {
     try {
@@ -313,7 +313,7 @@ export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
 /**
  * Admin-only manual re-run. Seeds/refreshes market/crewStats (underdog
  * multipliers) and optionally re-posts the Discord rankings. Useful right
- * after a deploy or if the Monday run failed.
+ * after a deploy or if the Thursday run failed.
  * Pass { skipDiscord: true } to only recompute the stats doc.
  * Pass { rolesOnly: true } to only re-sync the crew head Discord roles, or
  * { rolesOnly: true, dryRun: true } to just check the Discord setup.

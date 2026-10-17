@@ -14,10 +14,11 @@ import {
 } from '../shared/rules/economy';
 import {
   getDailyMissions,
-  getCrewWeeklyMissions,
+  getWeeklyMissions,
   getCrewMultiplier,
   PIN_COLLECTIONS,
   SHOP_PINS,
+  CALL_MISSION,
 } from '../shared/crews';
 import { writeFeedEntry } from '../shared/notifications';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
@@ -28,8 +29,11 @@ import { getLadderChips } from '../shared/ladderMath';
 
 // Mission completion rules live in ./missionChecks so the Discord bot's
 // /missions command reads the exact same logic instead of a second copy.
-import { DAILY_MISSION_CHECKS, WEEKLY_MISSION_CHECKS } from './missionChecks';
+import { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchievementFor } from './missionChecks';
 import { recordLedger } from '../shared/ledger';
+import { getWeekId } from '../shared/tradeRecords';
+import { nextRivalry, rivalryQualified } from '../shared/rules/missionProgress';
+import { noteRivalryActivity } from '../shared/rivalries';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -50,7 +54,7 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
   const marketRef = db.collection('market').doc('current');
   const crewStatsRef = db.collection('market').doc('crewStats');
 
-  return db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (transaction) => {
     const [userDoc, marketDoc, crewStatsDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(marketRef),
@@ -61,15 +65,11 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
-    const prices = marketDoc.exists ? marketDoc.data()!.prices || {} : {};
-
-    // Get today's date and week ID
-    const now = new Date();
-    const today = now.toISOString().split('T')[0]!;
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-    if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
-    const weekId = weekStart.toISOString().split('T')[0]!;
+    const now = Date.now();
+    const ctx = missionContext(userData, marketDoc.exists ? marketDoc.data() : null, now);
+    const today = new Date(now).toISOString().split('T')[0]!;
+    const weekId = getWeekId(now);
+    const crew: string | null = userData.crew || null;
 
     // Check if already claimed
     if (type === 'daily') {
@@ -80,17 +80,18 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
       if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
     }
 
+    // The Call is paid when the halt scores it, never claimed.
+    if (missionId === CALL_MISSION.id) {
+      throw new functions.https.HttpsError('failed-precondition', 'Your Call pays out by itself when it is scored.');
+    }
+
     // The mission must actually be assigned to this user today/this week.
     // The client only shows assigned missions; without this check a direct
-    // call could claim every mission in the catalog each day.
-    if (!userData.crew) {
-      throw new functions.https.HttpsError('failed-precondition', 'Must be in a crew.');
-    }
+    // call could claim every mission in the catalog each day. Players without
+    // a crew get missions too since 2026-10-22, from the non-crew pool.
     const rerollSeed = userData.weeklyMissions?.[weekId]?.rerollSeed || 0;
     const assignedMissions =
-      type === 'daily'
-        ? getDailyMissions(today, userData.crew, rerollSeed)
-        : getCrewWeeklyMissions(userData.crew, weekId, rerollSeed);
+      type === 'daily' ? getDailyMissions(today, crew, rerollSeed) : getWeeklyMissions(crew, weekId, rerollSeed);
     const assignedMission = assignedMissions.find((m) => m.id === missionId);
     if (!assignedMission) {
       throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
@@ -98,28 +99,17 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
 
     // Server-defined reward (ignoring client-provided values entirely),
     // scaled by the crew's underdog multiplier for this week.
-    const crewMultiplier = getCrewMultiplier(crewStatsDoc.exists ? crewStatsDoc.data() : null, userData.crew);
+    const crewMultiplier = crew ? getCrewMultiplier(crewStatsDoc.exists ? crewStatsDoc.data() : null, crew) : 1;
     const reward = Math.round(assignedMission.reward * crewMultiplier);
 
     // Verify mission is actually completed server-side
-    if (type === 'daily') {
-      const dailyProgress = userData.dailyMissions?.[today] || {};
-      const checker = DAILY_MISSION_CHECKS[missionId];
-      if (!checker) {
-        throw new functions.https.HttpsError('invalid-argument', 'Unknown daily mission.');
-      }
-      if (!checker(dailyProgress, userData, prices)) {
-        throw new functions.https.HttpsError('failed-precondition', 'Mission not completed yet.');
-      }
-    } else {
-      const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
-      const checker = WEEKLY_MISSION_CHECKS[missionId];
-      if (!checker) {
-        throw new functions.https.HttpsError('invalid-argument', 'Unknown weekly mission.');
-      }
-      if (!checker(weeklyProgress, userData, prices)) {
-        throw new functions.https.HttpsError('failed-precondition', 'Mission not completed yet.');
-      }
+    const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+    const done =
+      type === 'daily'
+        ? isDailyMissionDone(missionId, userData.dailyMissions?.[today] || {}, ctx)
+        : isWeeklyMissionDone(missionId, weeklyProgress, ctx);
+    if (!done) {
+      throw new functions.https.HttpsError('failed-precondition', 'Mission not completed yet.');
     }
 
     const newTotal = (userData.totalMissionsCompleted || 0) + 1;
@@ -135,16 +125,13 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     } else {
       updates[`weeklyMissions.${weekId}.claimed.${missionId}`] = true;
     }
+    // Rivalries: every mission finished in a crew counts toward its week.
+    const rivalry = crew ? nextRivalry(weeklyProgress, crew) : null;
+    if (rivalry) updates[`weeklyMissions.${weekId}.rivalry`] = rivalry;
 
     // Check mission achievements
-    const achievements = userData.achievements || [];
-    if (newTotal >= 100 && !achievements.includes('MISSION_100')) {
-      updates.achievements = FieldValue.arrayUnion('MISSION_100');
-    } else if (newTotal >= 50 && !achievements.includes('MISSION_50')) {
-      updates.achievements = FieldValue.arrayUnion('MISSION_50');
-    } else if (newTotal >= 10 && !achievements.includes('MISSION_10')) {
-      updates.achievements = FieldValue.arrayUnion('MISSION_10');
-    }
+    const earned = missionAchievementFor(newTotal, userData.achievements);
+    if (earned) updates.achievements = FieldValue.arrayUnion(earned);
 
     transaction.update(userRef, updates);
     recordLedger(transaction, {
@@ -161,12 +148,21 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
       type: 'mission_complete',
       userId: uid,
       displayName: userData.displayName || 'Anonymous',
-      crew: userData.crew || null,
+      crew,
       message: `completed a ${type} mission (+$${reward})`,
     });
 
-    return { success: true, reward, newTotal };
+    return {
+      success: true,
+      reward,
+      newTotal,
+      rivalry: crew && rivalry ? { weekId, crew, qualified: rivalryQualified({ rivalry }, crew) } : null,
+    };
   });
+
+  const { rivalry, ...response } = result;
+  if (rivalry) await noteRivalryActivity(rivalry.weekId, rivalry.crew, uid, rivalry.qualified);
+  return response;
 });
 
 /**
@@ -191,18 +187,9 @@ export const rerollMissions = cf().https.onCall(async (data, context) => {
     checkBanned(userData);
     checkDiscordWall(userData);
 
-    // Must have a crew
-    if (!userData.crew) {
-      throw new functions.https.HttpsError('failed-precondition', 'Must be in a crew.');
-    }
-
-    // Calculate week ID (same as claimMissionReward logic)
-    const now = new Date();
-    const today = now.toISOString().split('T')[0]!;
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-    if (weekStart > now) weekStart.setDate(weekStart.getDate() - 7);
-    const weekId = weekStart.toISOString().split('T')[0]!;
+    const now = Date.now();
+    const today = new Date(now).toISOString().split('T')[0]!;
+    const weekId = getWeekId(now);
 
     const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
 
@@ -400,7 +387,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'dailyCheckin');
 
   try {
-    return await db.runTransaction(async (transaction) => {
+    const { response, crew, weekId } = await db.runTransaction(async (transaction) => {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await transaction.get(userRef);
 
@@ -435,11 +422,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
       const saver = streakSaverActive(userData);
       const checkinReward = checkinRewardFor(newStreak, saver);
 
-      // Compute week ID for weekly missions
-      const weekStartDate = new Date(now);
-      weekStartDate.setDate(weekStartDate.getDate() - weekStartDate.getDay() + 1);
-      if (weekStartDate > now) weekStartDate.setDate(weekStartDate.getDate() - 7);
-      const checkinWeekId = weekStartDate.toISOString().split('T')[0]!;
+      const checkinWeekId = getWeekId(now);
 
       // Update user document
       const updates: Record<string, unknown> = {
@@ -521,13 +504,20 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
       recordLedger(transaction, { uid, type: 'checkin_ladder_topup', account: 'ladder', amount: ladderTopUpAmount });
 
       return {
-        success: true,
-        reward: checkinReward,
-        newStreak,
-        ladderTopUpAmount,
-        totalCheckins: updates.totalCheckins,
+        response: {
+          success: true,
+          reward: checkinReward,
+          newStreak,
+          ladderTopUpAmount,
+          totalCheckins: updates.totalCheckins,
+        },
+        crew: (userData.crew as string | undefined) || null,
+        weekId: checkinWeekId,
       };
     });
+    // Checking in makes you an active member for your crew's rivalry.
+    if (crew) await noteRivalryActivity(weekId, crew, uid);
+    return response;
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {
       throw error;

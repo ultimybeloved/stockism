@@ -7,7 +7,6 @@
 
 import { writeNotification, writeFeedEntry } from '../shared/notifications';
 import type { LimitOrder } from '../shared/types';
-import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 
 /** "Stop Loss" / "BUY limit order" — one label, used by both notifications. */
 const orderLabel = (order: LimitOrder, { capitalized = false } = {}) => {
@@ -45,8 +44,8 @@ export const notifyExpired = async (order: LimitOrder, orderId: string) => {
 };
 
 /**
- * Everything that happens once a fill is committed: the user's notification,
- * crew mission credit, and the public feed entry.
+ * Everything that happens once a fill is committed: the user's notification
+ * and the public feed entry.
  */
 export const publishFill = async (
   order: LimitOrder,
@@ -54,10 +53,9 @@ export const publishFill = async (
   {
     fillShares,
     executedPrice,
-    tradeValue,
     displayName,
     crew,
-  }: { fillShares: number; executedPrice: number; tradeValue: number; displayName: string; crew?: string | null },
+  }: { fillShares: number; executedPrice: number; displayName: string; crew?: string | null },
 ) => {
   const label = orderLabel(order);
   await writeNotification(order.userId, {
@@ -68,11 +66,6 @@ export const publishFill = async (
   });
 
   const action = order.type === 'BUY' ? 'buy' : order.type === 'COVER' ? 'cover' : 'sell';
-
-  // Fire-and-forget, same as executeTrade.
-  if (crew && (action === 'buy' || action === 'sell')) {
-    updateCrewMissionProgress(crew, order.userId, action, fillShares, order.ticker, tradeValue);
-  }
 
   const message =
     order.type === 'STOP_LOSS'

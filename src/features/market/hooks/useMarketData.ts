@@ -3,6 +3,7 @@ import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { CHARACTERS } from '../../../characters';
 import { useActiveIPOs } from '../../ipo/hooks/useActiveIPOs';
+import { setRivalryWinners } from '../../../shared/hooks/useRivalryGlow';
 import type { AppContextValue, MarketData, MarketStatus } from '../../../context/AppContext';
 import type { EventMarketDoc, PriceHistory, PricePoint, PriceMap } from '../../../types';
 
@@ -178,7 +179,7 @@ export function useMarketData() {
 
   // Two small docs read once per session, not subscribed: reviewChanges only
   // changes at the weekly review (the tab derives it locally if missing or
-  // stale) and crewStats only on Monday's recompute, so live listeners on
+  // stale) and crewStats only at the Thursday reopen, so live listeners on
   // either would be wasted reads.
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +190,10 @@ export function useMarketData() {
         })
         .catch((err) => console.warn(`Failed to load ${id}:`, err?.message));
     once('reviewChanges', setStoredReviewChanges);
-    once('crewStats', setCrewStats);
+    once<AppContextValue['crewStats']>('crewStats', (stats) => {
+      setCrewStats(stats);
+      setRivalryWinners(stats?.rivalryWinners);
+    });
     return () => {
       cancelled = true;
     };
