@@ -1,0 +1,215 @@
+/* My Look swatches (32px circles) for the effects that only play now and then
+   across a full row, so a cropped slice of the real thing is mostly empty.
+   Each gets a small looping badge in its own colors instead. The Mastery
+   effects don't need one: CosmeticSwatch plays them on a tiny row. */
+
+.cos-sw {
+  position: relative;
+  overflow: hidden;
+  background: #18181b;
+}
+.cos-sw::before,
+.cos-sw::after {
+  content: '';
+  position: absolute;
+}
+
+/* Make It Rain: a green bill and a gold one tumbling, green left / gold right glow */
+.cos-sw-rain {
+  box-shadow:
+    inset 6px 0 8px -4px rgba(34, 197, 94, 0.7),
+    inset -6px 0 8px -4px rgba(250, 204, 21, 0.6);
+}
+.cos-sw-rain::before,
+.cos-sw-rain::after {
+  content: '$';
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 9px;
+  margin: -4.5px -8px;
+  border-radius: 1px;
+  background: linear-gradient(#a7f3d0, #4ade80 40%, #22c55e);
+  box-shadow: inset 0 0 0 1px #15803d;
+  color: #14532d;
+  font:
+    800 7px/9px system-ui,
+    sans-serif;
+  text-align: center;
+  animation: cosSwRain 2.4s ease-in-out infinite;
+}
+.cos-sw-rain::after {
+  background: linear-gradient(#fef9c3, #fde047 40%, #eab308);
+  box-shadow: inset 0 0 0 1px #a16207;
+  color: #713f12;
+  animation-delay: -1.2s;
+}
+@keyframes cosSwRain {
+  0% {
+    transform: translate(-10px, -14px) rotate(-30deg);
+    opacity: 0;
+  }
+  20%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(6px, 14px) rotate(40deg);
+    opacity: 0;
+  }
+}
+
+/* Gold Rush: a gold glow and a spark that sputters in a couple of spots */
+.cos-sw-goldrush {
+  box-shadow: inset 0 0 9px rgba(234, 179, 8, 0.55);
+}
+.cos-sw-goldrush::before,
+.cos-sw-goldrush::after {
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px;
+  background:
+    radial-gradient(circle, #fff 0 1px, #fde047 1.5px, transparent 3.5px),
+    linear-gradient(#fde047, #fde047) 50% 0 / 1px 100% no-repeat,
+    linear-gradient(#fde047, #fde047) 0 50% / 100% 1px no-repeat;
+  opacity: 0;
+  animation: cosSwSpark 1.9s infinite;
+}
+.cos-sw-goldrush::after {
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  animation-duration: 2.6s;
+  animation-delay: -0.9s;
+}
+@keyframes cosSwSpark {
+  0% {
+    transform: translate(-6px, 4px) scale(0.4);
+    opacity: 0;
+  }
+  10%,
+  22% {
+    transform: translate(-5px, 3px) scale(1);
+    opacity: 1;
+  }
+  32%,
+  50% {
+    opacity: 0;
+    transform: translate(5px, -6px) scale(0.4);
+  }
+  58%,
+  68% {
+    opacity: 1;
+    transform: translate(6px, -5px) scale(0.9);
+  }
+  78%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Spotlight: a soft cone from the top left */
+.cos-sw-spotlight {
+  background:
+    radial-gradient(
+      ellipse 60% 140% at 30% -20%,
+      rgba(255, 250, 230, 0.85),
+      rgba(255, 250, 230, 0.2) 55%,
+      transparent 78%
+    ),
+    #18181b;
+}
+
+/* Paparazzi: camera flashes popping, and the edge lights up with them */
+.cos-sw-paparazzi {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+.cos-sw-paparazzi::before {
+  inset: 0;
+  background: radial-gradient(circle at 60% 40%, #fff 0 2px, rgba(255, 255, 255, 0.7) 4px, transparent 14px);
+  opacity: 0;
+  animation: cosSwFlash 2.2s infinite;
+}
+.cos-sw-paparazzi::after {
+  inset: 0;
+  background: radial-gradient(circle at 30% 65%, #fff 0 1.5px, rgba(255, 255, 255, 0.6) 3px, transparent 10px);
+  opacity: 0;
+  animation: cosSwFlash 1.7s infinite -0.9s;
+}
+@keyframes cosSwFlash {
+  0%,
+  40% {
+    opacity: 0;
+  }
+  43% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Premiere: two searchlight beams sweeping */
+.cos-sw-premiere::before,
+.cos-sw-premiere::after {
+  left: 50%;
+  bottom: 0;
+  width: 14px;
+  height: 34px;
+  margin-left: -7px;
+  transform-origin: 50% 100%;
+  background: linear-gradient(0deg, rgba(254, 249, 195, 0.1), rgba(254, 249, 195, 0.55) 40%, transparent);
+  clip-path: polygon(42% 100%, 58% 100%, 100% 0, 0 0);
+  animation: cosSwSweep 3.2s ease-in-out infinite alternate;
+}
+.cos-sw-premiere::after {
+  animation-direction: alternate-reverse;
+}
+@keyframes cosSwSweep {
+  from {
+    transform: rotate(-32deg);
+  }
+  to {
+    transform: rotate(32deg);
+  }
+}
+
+/* Static Shock: a blue edge and a bolt that flickers */
+.cos-sw-shock {
+  box-shadow: inset 0 0 7px rgba(56, 189, 248, 0.5);
+}
+.cos-sw-shock::before {
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 20px;
+  margin: -10px -6px;
+  background: #e0f2fe;
+  clip-path: polygon(55% 0, 10% 55%, 45% 55%, 30% 100%, 90% 40%, 55% 40%, 75% 0);
+  filter: drop-shadow(0 0 2px #38bdf8);
+  animation: cosSwZap 2.6s infinite;
+}
+@keyframes cosSwZap {
+  0%,
+  60%,
+  68%,
+  100% {
+    opacity: 0.25;
+  }
+  62%,
+  66%,
+  72% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cos-sw::before,
+  .cos-sw::after {
+    animation: none !important;
+    opacity: 1;
+  }
+}

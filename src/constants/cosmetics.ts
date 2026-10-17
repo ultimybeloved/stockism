@@ -927,10 +927,10 @@ export const COSMETICS: Cosmetic[] = [
 export const COSMETIC_MAP: Record<string, Cosmetic> = Object.fromEntries(COSMETICS.map((c) => [c.id, c]));
 
 export const COSMETIC_TYPE_LABELS: Record<CosmeticType, string> = {
-  nameColor: '✏️ Name Color',
-  rowGlow: '✨ Effect',
-  rowBackdrop: '🎨 Row Backdrop',
-  rowFrame: '🔥 Row Frame',
+  nameColor: 'Name Color',
+  rowGlow: 'Effect',
+  rowBackdrop: 'Row Backdrop',
+  rowFrame: 'Row Frame',
 };
 
 export const COSMETIC_TYPES: CosmeticType[] = ['nameColor', 'rowGlow', 'rowFrame', 'rowBackdrop'];

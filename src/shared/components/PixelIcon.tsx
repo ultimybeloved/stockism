@@ -1,10 +1,18 @@
 import { PIXELATED } from '../../constants/crests';
 
+interface PixelIconProps {
+  name: string;
+  className?: string;
+  alt?: string;
+  /** 'discord' borrows an icon drawn for the bot (public/pins/discord). */
+  set?: 'ui' | 'discord';
+}
+
 // A pixel-art site icon from public/pins/ui/ (drawn by scripts/pixel-ui.cjs),
 // used where the site once showed an emoji. Decorative unless given alt text.
-const PixelIcon = ({ name, className = 'w-4 h-4', alt = '' }: { name: string; className?: string; alt?: string }) => (
+const PixelIcon = ({ name, className = 'w-4 h-4', alt = '', set = 'ui' }: PixelIconProps) => (
   <img
-    src={`/pins/ui/${name}.svg`}
+    src={`/pins/${set}/${name}.svg`}
     alt={alt}
     aria-hidden={alt ? undefined : true}
     className={`inline-block shrink-0 ${className}`}

@@ -461,6 +461,17 @@ html .cos-name-cash {
       200% center;
   }
 }
+/* Name lines cut off long names (overflow: hidden), which also cut the $ off
+   the moment it rose above the letters. Give that box room above the name
+   without moving anything, and let clicks through the extra room. */
+.truncate:has(.cos-name-cash) {
+  padding-top: 24px;
+  margin-top: -24px;
+  pointer-events: none;
+}
+.truncate:has(.cos-name-cash) > * {
+  pointer-events: auto;
+}
 .cos-name-cash::before,
 .cos-name-cash::after {
   content: '$';

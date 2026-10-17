@@ -13,6 +13,7 @@ import { COSMETIC_MAP } from '../../../../constants/cosmetics';
 import { SPLIT_FLAP_ID } from '../../../../constants/cosmeticLayers';
 import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '../../../../rules/cosmetics';
 import StyleSwitch from './StyleSwitch';
+import CosmeticSwatch from './CosmeticSwatch';
 
 interface MyLookTabProps {
   onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
@@ -91,7 +92,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
               return (
                 <div key={type}>
                   <p className={`text-xs ${mutedClass} mb-1`}>
-                    {COSMETIC_TYPE_LABELS[type]}
+                    <b className={textClass}>{COSMETIC_TYPE_LABELS[type]}</b>
                     {equipped && <span className="text-orange-500 font-semibold"> · {equipped.name}</span>}
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -106,10 +107,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
                         >
                           {/* Explicit size, not absolute inset: cos-frame-* classes set
                               position:relative and would collapse an absolute span. */}
-                          <span
-                            className={`cos-swatch block w-full h-full rounded-full ${cosmetic.type !== 'nameColor' ? cosmetic.effectClass || '' : ''}`}
-                            style={{ backgroundColor: cosmetic.color }}
-                          />
+                          <CosmeticSwatch cosmetic={cosmetic} style={style} seedKey={userData?.displayName} />
                         </button>
                       );
                     })}

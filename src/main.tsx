@@ -12,6 +12,7 @@ import './styles/cosmetics/art.css';
 import './styles/cosmetics/names.css';
 import './styles/cosmetics/effects.css';
 import './styles/cosmetics/backdrops.css';
+import './styles/cosmetics/swatches.css';
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,

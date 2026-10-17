@@ -127,11 +127,11 @@ const PinShopModal = ({
         <div className={`flex border-b ${cardEdgeClass} mt-3`}>
           {(
             [
-              ['look', '✨ My Look'],
-              ['shop', '🛒 Shop'],
-              ['bundles', '🎁 Bundles'],
+              ['look', 'My Look', 'palette', 'ui'],
+              ['shop', 'Shop', 'shop', 'discord'],
+              ['bundles', 'Bundles', 'gift', 'discord'],
             ] as const
-          ).map(([tab, label]) => (
+          ).map(([tab, label, icon, set]) => (
             <button
               key={tab}
               onClick={() => {
@@ -144,6 +144,7 @@ const PinShopModal = ({
                 activeTab === tab ? 'text-orange-500 border-b-2 border-orange-500' : mutedClass
               }`}
             >
+              <PixelIcon name={icon} set={set} className="w-4 h-4 mr-1.5 align-[-3px]" />
               {label}
             </button>
           ))}
