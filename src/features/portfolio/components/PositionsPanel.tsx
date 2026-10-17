@@ -9,6 +9,7 @@ import { useSession, useMarket } from '../../../context/AppContext';
 import ShortRow from './ShortRow';
 import HoldingsControls from './HoldingsControls';
 import DustCleanupBanner from './DustCleanupBanner';
+import PixelIcon from '../../../shared/components/PixelIcon';
 import PositionsTable from './PositionsTable';
 import PositionList from './PositionList';
 import { usePhone } from '../../../shared/hooks/useMediaQuery';
@@ -29,6 +30,8 @@ interface PositionsPanelProps {
   onLimitSell?: DetailProps['onLimitSell'];
   drip?: DetailProps['drip'];
   onToggleDrip?: DetailProps['onToggleDrip'];
+  /** Opens the sell-a-group window. */
+  onGroupSell?: () => void;
 }
 
 const PositionsPanel = ({
@@ -38,11 +41,12 @@ const PositionsPanel = ({
   onLimitSell,
   drip = {},
   onToggleDrip,
+  onGroupSell,
 }: PositionsPanelProps) => {
   const { userData, holdings, shorts, showNotification } = useSession();
   const { prices, marketData } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
-  const { mutedClass } = themeClasses;
+  const { mutedClass, ghostBtnClass } = themeClasses;
   const phone = usePhone();
   const [coverAmounts, setCoverAmounts] = useState<ShareInputs>({});
   const [expandedTicker, setExpandedTicker] = useState<string | null>(null);
@@ -105,8 +109,8 @@ const PositionsPanel = ({
       <div className="flex gap-1 mb-3">
         {(
           [
-            { key: 'long', label: '📈 Long', count: portfolioItems.length },
-            { key: 'short', label: '📉 Short', count: shortItems.length },
+            { key: 'long', label: 'Long', icon: 'trade', set: 'ui', count: portfolioItems.length },
+            { key: 'short', label: 'Short', icon: 'chart_down', set: 'discord', count: shortItems.length },
           ] as const
         ).map((t) => (
           <button
@@ -118,6 +122,7 @@ const PositionsPanel = ({
                 : 'light:bg-amber-50 light:text-slate-500 light:hover:bg-amber-100 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
             }`}
           >
+            <PixelIcon name={t.icon} set={t.set} className="w-4 h-4 mr-1 align-[-3px]" />
             {t.label} <span className="text-xs font-normal">({t.count})</span>
           </button>
         ))}
@@ -142,11 +147,22 @@ const PositionsPanel = ({
             <p className={`text-sm text-center py-4 ${mutedClass}`}>No holdings match your search.</p>
           ) : (
             <>
-              {totalWeeklyDividends > 0 && (
-                <p className={`text-xs ${mutedClass} mb-2 text-right`}>
-                  ~{formatCurrency(totalWeeklyDividends)} / week in dividends
-                </p>
-              )}
+              <div className="flex items-center justify-between gap-2 mb-2">
+                {onGroupSell && portfolioItems.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={onGroupSell}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-sm border ${ghostBtnClass}`}
+                  >
+                    Sell a group
+                  </button>
+                ) : (
+                  <span />
+                )}
+                {totalWeeklyDividends > 0 && (
+                  <p className={`text-xs ${mutedClass}`}>~{formatCurrency(totalWeeklyDividends)} / week in dividends</p>
+                )}
+              </div>
               {phone ? (
                 <PositionList items={visibleItems} totalValue={totalValue} {...actions} />
               ) : (

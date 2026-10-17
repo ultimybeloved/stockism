@@ -13,6 +13,7 @@ import PortfolioChart from './PortfolioChart';
 import IpoHoldingsList from './IpoHoldingsList';
 import PendingOrdersList from './PendingOrdersList';
 import PositionsPanel from './PositionsPanel';
+import GroupSellSheet from './GroupSellSheet';
 import PortfolioStats from './PortfolioStats';
 import AllocationBar from './AllocationBar';
 import ActivityPanel from './ActivityPanel';
@@ -58,6 +59,9 @@ const PortfolioView = ({
   const { prices, priceHistory, activeIPOs = [], rarityTiers } = useMarket();
   const colorBlindMode = userData?.colorBlindMode || false;
   const [showChart, setShowChart] = useState(true);
+  // Lives here, not in the positions panel: selling the last stock swaps the
+  // panel for the empty state, and the sale's summary must stay on screen.
+  const [groupSellOpen, setGroupSellOpen] = useState(false);
   const [timeRange, setTimeRange] = useState('1d');
   const [hoveredPoint, setHoveredPoint] = useState<ChartHoverPoint | null>(null);
   const phone = usePhone();
@@ -139,9 +143,11 @@ const PortfolioView = ({
             onLimitSell={onLimitSell}
             drip={drip}
             onToggleDrip={onToggleDrip}
+            onGroupSell={() => setGroupSellOpen(true)}
           />
         </>
       )}
+      {groupSellOpen && <GroupSellSheet items={portfolioItems} onClose={() => setGroupSellOpen(false)} />}
     </section>
   );
   const orders = (

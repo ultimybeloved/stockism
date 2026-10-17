@@ -8,6 +8,7 @@ import { formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { CREW_MAP } from '../../../crews';
 import CrewFilter from '../components/CrewFilter';
+import PlayerSearch from '../components/PlayerSearch';
 import { formatCurrency } from '../../../utils/formatters';
 import LeaderboardPodium from '../components/LeaderboardPodium';
 import LeaderboardRow from '../components/LeaderboardRow';
@@ -77,6 +78,8 @@ const LeaderboardPage = () => {
             <PixelIcon name="trophy" className="w-5 h-5 mr-1.5 align-[-3px]" />
             Leaderboard
           </h2>
+
+          <PlayerSearch />
 
           {/* Crew Filter */}
           <CrewFilter crewFilter={crewFilter} setCrewFilter={setCrewFilter} chipClass={chipClass} />

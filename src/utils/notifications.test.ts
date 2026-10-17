@@ -4,6 +4,7 @@ import {
   getNotificationCategory,
   getNotificationMeta,
   hasExpandableDetail,
+  getNotificationDisplay,
 } from './notifications';
 
 describe('getNotificationRoute', () => {
@@ -67,5 +68,39 @@ describe('hasExpandableDetail', () => {
 
   it('is false for short messages with no breakdown', () => {
     expect(hasExpandableDetail({ message: 'Short one', data: {} })).toBe(false);
+  });
+});
+
+describe('getNotificationDisplay', () => {
+  it('swaps a leading emoji for its pixel icon', () => {
+    const d = getNotificationDisplay({ type: 'system', title: '🎁 You got a gift' });
+    expect(d).toMatchObject({ title: 'You got a gift', pixel: 'gift', set: 'discord' });
+  });
+
+  it('handles emoji with a variation selector', () => {
+    expect(getNotificationDisplay({ type: 'system', title: '⚠️ Halt price audit' })).toMatchObject({
+      title: 'Halt price audit',
+      pixel: 'warning',
+    });
+  });
+
+  it('drops an unknown emoji and keeps the type icon', () => {
+    expect(getNotificationDisplay({ type: 'trade', title: '🦄 Odd' })).toMatchObject({ title: 'Odd', pixel: 'trade' });
+  });
+
+  it('gives bets and markets the crystal ball', () => {
+    const d = getNotificationDisplay({
+      type: 'announcement',
+      title: 'New weekly prediction!',
+      data: { predictionId: 'p1' },
+    });
+    expect(d).toMatchObject({ title: 'New weekly prediction!', pixel: 'crystal' });
+  });
+
+  it('leaves plain titles alone', () => {
+    expect(getNotificationDisplay({ type: 'dividend', title: 'Dividends paid' })).toMatchObject({
+      title: 'Dividends paid',
+      pixel: 'dividend',
+    });
   });
 });

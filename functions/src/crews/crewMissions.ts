@@ -14,7 +14,6 @@ import {
 } from '../shared/constants';
 import { getCrewMultiplier } from '../shared/crews';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
-import { writeNotification } from '../shared/notifications';
 import { touchLastActive } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
 import type { UserData } from '../shared/types';
@@ -161,13 +160,6 @@ export const claimCrewMission = cf().https.onCall(async (data: { missionId?: unk
     } else {
       tx.set(missionRef, { crew, weekId, claimed: { [uid]: { [missionId]: true } } });
     }
-  });
-
-  await writeNotification(uid, {
-    type: 'achievement',
-    title: 'Crew Mission Complete',
-    message: `You earned $${reward} from your crew's mission.`,
-    data: {},
   });
 
   return { success: true, reward };

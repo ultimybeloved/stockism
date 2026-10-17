@@ -269,6 +269,8 @@ Quick reference so you know where to look and where to add things.
 | `src/shared/components/cosmetics/` | How a row wears cosmetics: `CosmeticLayers` (backdrop scene under the text, effect over it), `CosmeticName` (incl. `SplitFlap`), `TerminalQuotes`. Every row surface uses them with `getCosmeticStyles` (src/utils/cosmetics.ts). Markup in `src/constants/cosmeticMarkup.ts`, CSS in `src/styles/cosmetics/` |
 | `src/features/profile/components/pinshop/ShopTab.tsx` | The shop: search, category tabs, Showcase/Premium/Classics shelves (`ShopShelves`), buy bar. Layout rules in `features/profile/utils/shopCatalog.ts`, browsing state in `hooks/useShopSelection.ts` |
 | `src/features/profile/components/pinshop/CosmeticSwatch.tsx` | My Look's circles: names as "Aa", scene backdrops and Masteries as a cropped mini row, badges for the other scene effects (`styles/cosmetics/swatches.css`) |
+| `src/features/portfolio/components/GroupSellSheet.tsx` | Sell a group: pick by rarity, crew or by hand; `hooks/useGroupSell` sells each stock through the normal `executeTrade`, 3.3s apart (the trade cooldown) |
+| `src/features/leaderboard/components/PlayerSearch.tsx` | Leaderboard name search (`searchPlayers`) |
 | `src/characters.ts` | **Source of truth** for all character/ETF data — edit here only |
 | `src/features/admin/` | Admin command panel (full screen, desktop only, terminal look from `src/styles/adminTerminal.css`): `components/` (AdminPanel.tsx owns the hooks and sidebar, AdminContent.tsx draws the section; `shell/` UI kit and `terminal.ts` tokens; `home/`, `players/`, `player/` (the player file), `welcome/`, `money/`, `discordActivity/`, plus the older tabs), `hooks/` (state + handlers, one hook per domain), `utils/` (pure helpers; `adminNav.ts` lets any screen open a player file via PlayerLink) |
 | `src/features/ladder/` | Ladder game: `components/` (board, side panel, modals, shared style constants), `hooks/` (data listeners, game flow, banners, DOM animation) |
@@ -299,6 +301,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/users/userProfile.ts` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
 | `functions/src/market/market.ts` | Daily Discord summary, pre-halt price snapshot, chapter recap + review rebuild, market open/close alerts, manual halt (setMarketHalt). 595 lines, near the 600 limit |
 | `functions/src/users/leaderboard.ts` | Rankings, leaderboard computation |
+| `functions/src/users/playerSearch.ts` | `searchPlayers`: name prefix search on `displayNameLower`, bots and banned left out |
 | `functions/src/market/dividends.ts` | Dividend payouts |
 | `functions/src/market/alerts.ts` | Price alerts |
 | `functions/src/discord/discord.ts` | Discord OAuth and account linking (≤352 lines) |

@@ -53,6 +53,47 @@ const DEFAULT_META: NotificationMeta = { icon: '📢', pixel: 'announce', colorK
 
 export const FILTER_TABS = ['All', 'Trades', 'Alerts', 'Rewards'];
 
+type PixelSet = 'ui' | 'discord' | 'crests';
+
+// Some titles start with an emoji (older ones, and a few writers still add
+// one). Those get our pixel version in the icon slot instead.
+const TITLE_EMOJI_PIXEL: Record<string, { name: string; set?: PixelSet }> = {
+  '🔮': { name: 'crystal' },
+  '🎁': { name: 'gift', set: 'discord' },
+  '💰': { name: 'cash' },
+  '💵': { name: 'cash' },
+  '🔱': { name: 'crew_head', set: 'crests' },
+  '⚠': { name: 'warning' },
+  '🏆': { name: 'trophy' },
+  '📈': { name: 'trade' },
+  '📢': { name: 'announce' },
+  '🔔': { name: 'bell' },
+};
+const LEADING_EMOJI = /^\s*(\p{Extended_Pictographic})️?\s*/u;
+
+/**
+ * The title with any leading emoji taken off, and the pixel icon to show for
+ * the row: the emoji's pixel version if we have one, else the type's icon.
+ */
+export const getNotificationDisplay = (
+  notification: AppNotification | null | undefined,
+): { title: string; pixel?: string; set?: PixelSet; icon: string } => {
+  const meta = getNotificationMeta(notification);
+  // Anything about a bet or market gets the crystal ball, whatever its type.
+  const data = notification?.data || {};
+  const fallback = data.predictionId || data.marketId ? 'crystal' : meta.pixel;
+  const raw = notification?.title || '';
+  const match = raw.match(LEADING_EMOJI);
+  if (!match) return { title: raw, pixel: fallback, icon: meta.icon };
+  const swap = TITLE_EMOJI_PIXEL[match[1]!];
+  return {
+    title: raw.slice(match[0].length),
+    pixel: swap?.name || fallback,
+    set: swap?.set,
+    icon: meta.icon,
+  };
+};
+
 // Lookup metadata for a notification, falling back to a safe default for any
 // unknown/new type so the UI never breaks.
 export const getNotificationMeta = (notification: AppNotification | null | undefined): NotificationMeta =>

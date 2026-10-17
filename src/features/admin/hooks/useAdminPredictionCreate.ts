@@ -119,7 +119,7 @@ export function useAdminPredictionCreate({
             : `Created long-term market: "${question.trim()}"`,
         );
         await announcePrediction(
-          '🔮 New long-term market!',
+          'New long-term market!',
           opensAt
             ? `"${question.trim()}" opens ${new Date(opensAt).toLocaleString()}. Buy outcome shares on the Predictions page.`
             : `"${question.trim()}" is live now. Buy outcome shares on the Predictions page.`,
@@ -163,7 +163,7 @@ export function useAdminPredictionCreate({
 
       showMessage('success', `Created prediction: "${question.trim()}"`);
       await announcePrediction(
-        '🔮 New weekly prediction!',
+        'New weekly prediction!',
         `"${question.trim()}" is live. Place your bet on the Predictions page.`,
         newId,
       );

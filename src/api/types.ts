@@ -676,6 +676,15 @@ export type TrackedDiscordMessage = import('../features/admin/utils/discordDraft
   [key: string]: unknown;
 };
 
+/** searchPlayers: one leaderboard search result. */
+export interface PlayerSearchResult {
+  displayName: string;
+  crew: string | null;
+  isPublic: boolean;
+  /** Null for a private profile. */
+  netWorth: number | null;
+}
+
 /** getPublicProfile: what anyone can see about a player whose profile is public. */
 export interface PublicProfile {
   displayName: string;

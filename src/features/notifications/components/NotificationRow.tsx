@@ -1,6 +1,6 @@
 import { themeClasses } from '../../../utils/theme';
 import { formatTimeAgo, formatCurrency } from '../../../utils/formatters';
-import { getNotificationMeta } from '../../../utils/notifications';
+import { getNotificationMeta, getNotificationDisplay } from '../../../utils/notifications';
 import { LOYALTY_TIER_LABEL } from '../../../characters';
 import type { StoredNotification } from '../../../utils/notifications';
 import PixelIcon from '../../../shared/components/PixelIcon';
@@ -41,6 +41,7 @@ export default function NotificationRow({
 }: NotificationRowProps) {
   const { textClass, mutedClass } = themeClasses;
   const meta = getNotificationMeta(notification);
+  const display = getNotificationDisplay(notification);
   const data = notification.data || {};
   const accent = expanded || !notification.read ? ACCENT[meta.colorKey] || ACCENT.gray : 'border-l-transparent';
 
@@ -67,15 +68,15 @@ export default function NotificationRow({
       className={`w-full text-left px-4 py-3 transition-colors border-l-2 cursor-pointer ${accent} ${rowBg}`}
     >
       <div className="flex items-start gap-3">
-        {meta.pixel ? (
-          <PixelIcon name={meta.pixel} className="w-5 h-5 mt-0.5" />
+        {display.pixel ? (
+          <PixelIcon name={display.pixel} set={display.set} className="w-5 h-5 mt-0.5" />
         ) : (
-          <span className="text-base mt-0.5 shrink-0">{meta.icon}</span>
+          <span className="text-base mt-0.5 shrink-0">{display.icon}</span>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span className={`text-sm truncate ${!notification.read ? 'font-semibold' : 'font-medium'} ${textClass}`}>
-              {notification.title}
+              {display.title}
               {actionable && <span className={`ml-1 text-[10px] ${mutedClass}`}>↗</span>}
             </span>
             <div className="flex items-center gap-1 shrink-0">

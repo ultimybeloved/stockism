@@ -60,6 +60,9 @@ export const getLeaderboardFunction = callable<Api.GetLeaderboardRequest, Api.Ge
 export const getPublicProfileFunction = callable<{ username: string | undefined }, Api.PublicProfile>(
   'getPublicProfile',
 );
+export const searchPlayersFunction = callable<{ query: string }, { players: Api.PlayerSearchResult[] }>(
+  'searchPlayers',
+);
 // Discord alert functions
 export const achievementAlertFunction = callable<Api.AchievementAlertRequest>('achievementAlert');
 export const ipoAnnouncementAlertFunction = callable<Api.IpoAnnouncementRequest>('ipoAnnouncementAlert');
