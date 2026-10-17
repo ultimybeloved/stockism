@@ -52,7 +52,7 @@ export function useAdminPriceMaintenance({
         after: Object.fromEntries(changed.map((t) => [t, updatedPrices[t]])),
       });
 
-      showMessage('success', `✅ Synced ${changed.length} prices to match latest history!`);
+      showMessage('success', `Synced ${changed.length} prices to match latest history!`);
     } catch (err) {
       console.error(err);
       showMessage('error', 'Failed to sync prices: ' + errorMessage(err));
@@ -79,7 +79,7 @@ export function useAdminPriceMaintenance({
         showMessage('info', `No cliffs found — all ${data.tickersSkipped} charts look clean.`);
       } else {
         const names = (data.fixed || []).map((f) => `${f.ticker} (${f.percentChange}%)`).join(', ');
-        showMessage('success', `✅ Fixed ${data.tickersFixed} chart${data.tickersFixed === 1 ? '' : 's'}: ${names}`);
+        showMessage('success', `Fixed ${data.tickersFixed} chart${data.tickersFixed === 1 ? '' : 's'}: ${names}`);
       }
     } catch (err) {
       console.error(err);

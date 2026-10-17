@@ -3,6 +3,7 @@ import { adminReturnDistributionFunction } from '../../../../api/callables';
 import { errorMessage } from '../../../../utils/errors';
 import type { AdminCommonProps } from '../types';
 import type { ReturnDistributionReport } from '../../../../api/types';
+import AdminIcon from '../AdminIcon';
 
 type Row = ReturnDistributionReport['overall'] & { id: string; label: string };
 
@@ -102,7 +103,10 @@ const ReturnDistributionPanel = ({ textClass, mutedClass }: Pick<AdminCommonProp
   return (
     <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
       <div className="flex justify-between items-start gap-2 mb-1">
-        <h3 className={`font-semibold ${textClass}`}>📐 30-Day Return Distribution</h3>
+        <h3 className={`font-semibold ${textClass}`}>
+          <AdminIcon name="chart" />
+          30-Day Return Distribution
+        </h3>
         <button
           onClick={run}
           disabled={loading}

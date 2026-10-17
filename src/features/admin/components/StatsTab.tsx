@@ -7,6 +7,7 @@ import type { AdminCommonProps } from './types';
 import type { useAdminStats } from '../hooks/useAdminStats';
 import type { useAdminPriceMaintenance } from '../hooks/useAdminPriceMaintenance';
 import type { useAdminOrphans } from '../hooks/useAdminOrphans';
+import AdminIcon from './AdminIcon';
 
 const StatsTab = ({
   textClass,
@@ -29,7 +30,10 @@ const StatsTab = ({
     <div className="space-y-4">
       <div className="p-3 rounded-sm light:bg-cyan-50 dark:bg-cyan-900/20">
         <div className="flex justify-between items-center">
-          <p className={`text-sm ${mutedClass}`}>📈 Market overview and platform statistics</p>
+          <p className={`text-sm ${mutedClass}`}>
+            <AdminIcon name="trade" />
+            Market overview and platform statistics
+          </p>
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={handleFixPriceCliffs}
@@ -37,14 +41,28 @@ const StatsTab = ({
               className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
               title="Remove the false starting jump from any chart that has one"
             >
-              {loading ? '...' : '📉 Fix Chart Cliffs'}
+              {loading ? (
+                '...'
+              ) : (
+                <>
+                  <AdminIcon name="chart_down" />
+                  Fix Chart Cliffs
+                </>
+              )}
             </button>
             <button
               onClick={loadMarketStats}
               disabled={statsLoading}
               className="px-3 py-1 text-xs bg-cyan-600 hover:bg-cyan-700 text-white rounded-sm disabled:opacity-50"
             >
-              {statsLoading ? '...' : '🔄 Refresh Stats'}
+              {statsLoading ? (
+                '...'
+              ) : (
+                <>
+                  <AdminIcon name="reroll" />
+                  Refresh Stats
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -64,7 +82,10 @@ const StatsTab = ({
         <>
           {/* User Stats */}
           <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-            <h3 className={`font-semibold mb-3 ${textClass}`}>👥 Users</h3>
+            <h3 className={`font-semibold mb-3 ${textClass}`}>
+              <AdminIcon name="crews" />
+              Users
+            </h3>
             <div className="grid grid-cols-3 gap-4">
               <div className="text-center">
                 <p className={`text-2xl font-bold ${textClass}`}>{marketStats.totalUsers}</p>
@@ -83,7 +104,10 @@ const StatsTab = ({
 
           {/* Financial Stats */}
           <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-            <h3 className={`font-semibold mb-3 ${textClass}`}>💰 Financials</h3>
+            <h3 className={`font-semibold mb-3 ${textClass}`}>
+              <AdminIcon name="cash" />
+              Financials
+            </h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
                 <span className={mutedClass}>Total Cash in System:</span>
@@ -138,7 +162,10 @@ const StatsTab = ({
 
           {/* Activity Stats */}
           <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-            <h3 className={`font-semibold mb-3 ${textClass}`}>📊 Activity</h3>
+            <h3 className={`font-semibold mb-3 ${textClass}`}>
+              <AdminIcon name="chart" />
+              Activity
+            </h3>
 
             {/* 24h Activity */}
             <div className="p-3 rounded-sm mb-3 light:bg-cyan-50 dark:bg-cyan-900/20">
@@ -218,7 +245,10 @@ const StatsTab = ({
 
           {/* Top Held Characters */}
           <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-            <h3 className={`font-semibold ${textClass}`}>🏆 Most Held Characters</h3>
+            <h3 className={`font-semibold ${textClass}`}>
+              <AdminIcon name="trophy" />
+              Most Held Characters
+            </h3>
             <p className={`text-xs mb-3 ${mutedClass}`}>Real players only, bots excluded</p>
             <div className="space-y-2">
               {marketStats.topHeld.map((item, i) => {
@@ -245,7 +275,10 @@ const StatsTab = ({
           <div className="grid grid-cols-2 gap-4">
             {/* Top Gainers */}
             <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-              <h3 className="font-semibold mb-3 text-green-500">📈 Top Gainers</h3>
+              <h3 className="font-semibold mb-3 text-green-500">
+                <AdminIcon name="trade" />
+                Top Gainers
+              </h3>
               <div className="space-y-1">
                 {marketStats.topGainers.map((item) => (
                   <div key={item.ticker} className="flex justify-between text-sm">
@@ -258,7 +291,10 @@ const StatsTab = ({
 
             {/* Top Losers */}
             <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-              <h3 className="font-semibold mb-3 text-red-500">📉 Top Losers</h3>
+              <h3 className="font-semibold mb-3 text-red-500">
+                <AdminIcon name="chart_down" />
+                Top Losers
+              </h3>
               <div className="space-y-1">
                 {marketStats.topLosers.map((item) => (
                   <div key={item.ticker} className="flex justify-between text-sm">
@@ -272,7 +308,10 @@ const StatsTab = ({
 
           {/* Crew Membership */}
           <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-            <h3 className={`font-semibold mb-3 ${textClass}`}>🏴 Crew Membership</h3>
+            <h3 className={`font-semibold mb-3 ${textClass}`}>
+              <AdminIcon name="crews" />
+              Crew Membership
+            </h3>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(marketStats.crewCounts)
                 .sort((a, b) => b[1] - a[1])
@@ -296,7 +335,10 @@ const StatsTab = ({
 
       {/* Orphan Cleanup Section */}
       <div className="p-4 rounded-sm light:bg-red-50 light:border light:border-red-200 dark:bg-red-900/20 dark:border dark:border-red-800">
-        <h3 className="font-semibold mb-3 text-red-500">🧹 Orphaned Account Cleanup</h3>
+        <h3 className="font-semibold mb-3 text-red-500">
+          <AdminIcon name="broom" />
+          Orphaned Account Cleanup
+        </h3>
         <p className={`text-xs ${mutedClass} mb-3`}>
           Find and remove user documents that have zero activity (no trades, no checkins, default $1000 cash). These are
           likely bot accounts or users who were deleted from Firebase Auth.
@@ -307,7 +349,14 @@ const StatsTab = ({
           disabled={loading}
           className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50 mr-2"
         >
-          {loading ? 'Scanning...' : '🔍 Scan for Orphans'}
+          {loading ? (
+            'Scanning...'
+          ) : (
+            <>
+              <AdminIcon name="inspect" />
+              Scan for Orphans
+            </>
+          )}
         </button>
 
         {orphanScanComplete && (
@@ -323,7 +372,8 @@ const StatsTab = ({
                 disabled={loading}
                 className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-sm disabled:opacity-50"
               >
-                🗑️ Delete All ({orphanedUsers.length})
+                <AdminIcon name="trash" />
+                Delete All ({orphanedUsers.length})
               </button>
             </div>
 
@@ -342,8 +392,9 @@ const StatsTab = ({
                   <button
                     onClick={() => deleteOrphanedUser(u.id)}
                     className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded-sm"
+                    aria-label="Delete"
                   >
-                    🗑️
+                    <AdminIcon name="trash" className="w-4 h-4 block" />
                   </button>
                 </div>
               ))}

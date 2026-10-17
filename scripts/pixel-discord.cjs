@@ -174,13 +174,18 @@ const icons = {
     rect(3, 12, 16, 17, 'e');
     for (let y = 12; y <= 17; y++) for (let x = 3; x <= 16; x++) if ((x + y) % 3 === 0) px(x, y, 'E');
   },
-  // The shop: a pink shopping bag.
-  shop: ({ rect, disc }) => {
-    disc(C, 7, 4, 'T', (x, y) => y <= 7);
-    disc(C, 7, 2.6, null, (x, y) => y <= 7);
-    rect(3, 7, 16, 18, 'q');
-    rect(11, 7, 16, 18, 'Q');
-    rect(3, 7, 16, 8, 'P');
+  // The shop: a little storefront with a striped awning.
+  shop: ({ rect, px }) => {
+    rect(2, 9, 17, 18, 'O');
+    rect(12, 9, 17, 18, 'n');
+    rect(4, 11, 9, 18, 'm');
+    rect(5, 12, 8, 18, 'b');
+    px(8, 15, 'Y');
+    rect(11, 11, 15, 15, 'c');
+    rect(11, 15, 15, 15, 'W');
+    rect(1, 3, 18, 7, 'W');
+    for (let x = 1; x <= 18; x++) if (Math.floor((x - 1) / 3) % 2 === 0) rect(x, 3, x, 7, 'R');
+    for (let x = 1; x <= 18; x += 3) px(x + 1, 8, Math.floor((x - 1) / 3) % 2 === 0 ? 'r' : 'S');
   },
   // Moderation look-ups: a magnifying glass.
   inspect: ({ disc, line }) => {

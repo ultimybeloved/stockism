@@ -34,7 +34,7 @@ export const PIXEL_EMOJIS = {
   rank4: '<:px_rank4:1559893773138395136>',
   rank5: '<:px_rank5:1559893774065344554>',
   rocket: '<:px_rocket:1559893760866000976>',
-  shop: '<:px_shop:1559893787084595212>',
+  shop: '<:px_shop:1560886732516233287>',
   slot: '<:px_slot:1559893761675362338>',
   star: '<:px_star:1559893794504183808>',
   success: '<:px_success:1559893753966104646>',

@@ -3,6 +3,7 @@ import type { AdminCommonProps } from '../types';
 import type { useAdminRecoveryTools } from '../../hooks/useAdminRecoveryTools';
 import type { Character } from '../../../../characters';
 import type { PriceMap } from '../../../../types';
+import AdminIcon from '../AdminIcon';
 
 const RecoveryPriceHistory = ({
   textClass,
@@ -26,7 +27,10 @@ const RecoveryPriceHistory = ({
     prices: PriceMap;
   }) => (
   <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-    <h3 className={`font-semibold mb-2 ${textClass}`}>🔍 Price History</h3>
+    <h3 className={`font-semibold mb-2 ${textClass}`}>
+      <AdminIcon name="inspect" />
+      Price History
+    </h3>
 
     {/* Ticker selector for investigation */}
     <div className="mb-3">

@@ -6,6 +6,7 @@ import type { AdminCommonProps } from './types';
 import type { useAdminHolders } from '../hooks/useAdminHolders';
 import type { PriceMap } from '../../../types';
 import { useTheme } from '../../../context/AppContext';
+import AdminIcon from './AdminIcon';
 
 const HoldersTab = ({
   textClass,
@@ -26,7 +27,8 @@ const HoldersTab = ({
     <div className="space-y-4">
       <div className="p-3 rounded-sm light:bg-purple-50 dark:bg-slate-700/50">
         <p className={`text-sm ${mutedClass}`}>
-          📊 View every long holder and short seller of a character. Click a character to load both sides.
+          <AdminIcon name="chart" />
+          View every long holder and short seller of a character. Click a character to load both sides.
         </p>
       </div>
 
@@ -91,7 +93,14 @@ const HoldersTab = ({
                 disabled={holdersLoading}
                 className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-sm disabled:opacity-50"
               >
-                {holdersLoading ? '...' : '🔄 Refresh'}
+                {holdersLoading ? (
+                  '...'
+                ) : (
+                  <>
+                    <AdminIcon name="reroll" />
+                    Refresh
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -116,7 +125,7 @@ const HoldersTab = ({
                     >
                       <div>
                         <span className={`font-semibold ${textClass}`}>
-                          {idx === 0 && '👑 '}
+                          {idx === 0 && <AdminIcon name="crew_head" />}
                           {holder.displayName}
                         </span>
                         {holder.costBasis && (

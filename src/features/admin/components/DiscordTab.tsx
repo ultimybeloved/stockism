@@ -5,6 +5,7 @@ import AnnounceCard from './AnnounceCard';
 import type { AdminCommonProps } from './types';
 import type { useAdminDiscordMessages } from '../hooks/useAdminDiscordMessages';
 import { useTheme } from '../../../context/AppContext';
+import AdminIcon from './AdminIcon';
 
 type DiscordTabProps = Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminDiscordMessages>;
 
@@ -42,7 +43,10 @@ export default function DiscordTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className={`font-semibold ${textClass}`}>💬 Discord Messages</h3>
+          <h3 className={`font-semibold ${textClass}`}>
+            <AdminIcon name="chat" />
+            Discord Messages
+          </h3>
           <p className={`text-xs ${mutedClass}`}>
             Posts as the Stockism bot. Anything sent here can be edited later, in place.
           </p>

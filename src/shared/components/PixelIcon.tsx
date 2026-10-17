@@ -4,8 +4,8 @@ interface PixelIconProps {
   name: string;
   className?: string;
   alt?: string;
-  /** 'discord' borrows an icon drawn for the bot (public/pins/discord). */
-  set?: 'ui' | 'discord';
+  /** Another folder under public/pins: the bot's icons, the admin set, or the crests. */
+  set?: 'ui' | 'discord' | 'admin' | 'crests';
 }
 
 // A pixel-art site icon from public/pins/ui/ (drawn by scripts/pixel-ui.cjs),

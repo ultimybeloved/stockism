@@ -47,7 +47,7 @@ const PredictionExtendForm = ({
             <option value="">-- Choose prediction --</option>
             {predictions.map((p) => {
               const isClosed = p.endsAt !== undefined && p.endsAt < Date.now();
-              const status = p.resolved ? '✅ Resolved' : isClosed ? '🔒 Closed' : '⏳ Active';
+              const status = p.resolved ? 'Resolved' : isClosed ? 'Closed' : 'Active';
               return (
                 <option key={p.id} value={p.id}>
                   {status} - {p.question}

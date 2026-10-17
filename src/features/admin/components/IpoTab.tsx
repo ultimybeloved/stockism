@@ -8,6 +8,7 @@ import { errorMessage } from '../../../utils/errors';
 import type { AdminCommonProps } from './types';
 import type { SetMessage } from '../utils/adminShared';
 import type { useAdminIpo } from '../hooks/useAdminIpo';
+import AdminIcon from './AdminIcon';
 
 const IpoTab = ({
   textClass,
@@ -62,7 +63,8 @@ const IpoTab = ({
     <div className="space-y-4">
       <div className="p-3 rounded-sm light:bg-orange-50 dark:bg-slate-700/50">
         <p className={`text-sm ${mutedClass}`}>
-          🚀 <strong>IPO System:</strong> Create limited-time offerings for new characters.
+          <AdminIcon name="rocket" />
+          <strong>IPO System:</strong> Create limited-time offerings for new characters.
           <br />• Hype Phase: from creation until your chosen start time. Announcement only, no buying
           <br />• IPO Window (24h default): configurable shares and per-user limits
           <br />• After IPO: Price jumps 15%, normal trading begins
@@ -114,7 +116,8 @@ const IpoTab = ({
             </select>
             {ipoEligibleCharacters.length === 0 && (
               <p className={`text-xs ${mutedClass} mt-1`}>
-                💡 To add a new character for IPO, add them to characters.ts with{' '}
+                <AdminIcon name="bulb" />
+                To add a new character for IPO, add them to characters.ts with{' '}
                 <code className="bg-slate-700 px-1 rounded">ipoRequired: true</code>
               </p>
             )}
@@ -211,7 +214,14 @@ const IpoTab = ({
             disabled={loading || !ipoTicker}
             className="w-full py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-sm disabled:opacity-50"
           >
-            {loading ? 'Creating...' : '🚀 Create IPO'}
+            {loading ? (
+              'Creating...'
+            ) : (
+              <>
+                <AdminIcon name="rocket" />
+                Create IPO
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -263,11 +273,23 @@ const IpoTab = ({
                             inBuyingPhase ? 'text-green-400' : inHypePhase ? 'text-orange-400' : mutedClass
                           }`}
                         >
-                          {inHypePhase
-                            ? `🔥 Hype Phase - IPO starts in ${formatTime(timeUntilStart)}`
-                            : inBuyingPhase
-                              ? `📈 LIVE - ${ipo.sharesRemaining ?? ipo.totalShares ?? 150}/${ipo.totalShares || 150} left - Ends in ${formatTime(timeUntilEnd)}`
-                              : '✓ Completed'}
+                          {inHypePhase ? (
+                            <>
+                              <AdminIcon name="fire" />
+                              Hype Phase - IPO starts in {formatTime(timeUntilStart)}
+                            </>
+                          ) : inBuyingPhase ? (
+                            <>
+                              <AdminIcon name="trade" />
+                              LIVE - {ipo.sharesRemaining ?? ipo.totalShares ?? 150}/{ipo.totalShares || 150} left -
+                              Ends in {formatTime(timeUntilEnd)}
+                            </>
+                          ) : (
+                            <>
+                              <AdminIcon name="success" />
+                              Completed
+                            </>
+                          )}
                         </div>
                       </div>
                       <button

@@ -2,6 +2,7 @@ import EventMarketFields from './EventMarketFields';
 import { WEEKLY_PREDICTION_SEED_MAX } from '../../../constants/economy';
 import type { AdminCommonProps } from './types';
 import type { useAdminPredictionCreate } from '../hooks/useAdminPredictionCreate';
+import AdminIcon from './AdminIcon';
 
 // Predictions tab, "Create New Prediction" section: weekly (cash) and long-term
 // (event shares) forms. Extracted from PredictionsTab to keep it under the
@@ -34,7 +35,10 @@ const PredictionCreateForm = ({
 }: AdminCommonProps & Omit<ReturnType<typeof useAdminPredictionCreate>, 'getEndTime'>) => {
   return (
     <div className="p-4 rounded-sm light:bg-slate-50 dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-      <h3 className={`font-semibold ${textClass} mb-3`}>➕ Create New Prediction</h3>
+      <h3 className={`font-semibold ${textClass} mb-3`}>
+        <AdminIcon name="plus" />
+        Create New Prediction
+      </h3>
       <div className="space-y-3">
         <div>
           <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Type</label>
@@ -128,7 +132,8 @@ const PredictionCreateForm = ({
                 className="w-4 h-4 cursor-pointer"
               />
               <label htmlFor="mayExtend" className={`text-sm cursor-pointer ${textClass}`}>
-                ⏳ Result may need an extra week to confirm
+                <AdminIcon name="hourglass" />
+                Result may need an extra week to confirm
               </label>
             </div>
 
@@ -176,7 +181,19 @@ const PredictionCreateForm = ({
           disabled={loading}
           className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
-          {loading ? 'Creating...' : predictionType === 'event' ? '➕ Create Long-Term Market' : '➕ Create Prediction'}
+          {loading ? (
+            'Creating...'
+          ) : predictionType === 'event' ? (
+            <>
+              <AdminIcon name="plus" />
+              Create Long-Term Market
+            </>
+          ) : (
+            <>
+              <AdminIcon name="plus" />
+              Create Prediction
+            </>
+          )}
         </button>
       </div>
     </div>

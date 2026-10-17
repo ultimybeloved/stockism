@@ -6,6 +6,7 @@ import type { LoadedAdminUser } from '../../utils/adminShared';
 import type { useAdminUserOps } from '../../hooks/useAdminUserOps';
 import type { useAdminCosmetics } from '../../hooks/useAdminCosmetics';
 import { useTheme } from '../../../../context/AppContext';
+import AdminIcon from '../AdminIcon';
 
 // Extracted from UsersTab.jsx, which was past the 400-line component limit.
 const UserAdminActions = ({
@@ -90,7 +91,10 @@ const UserAdminActions = ({
 
       {/* Display Name Editor */}
       <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
-        <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>⚙️ Manual Tools</h4>
+        <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>
+          <AdminIcon name="gear" />
+          Manual Tools
+        </h4>
         <div className="space-y-2">
           <div>
             <label className={`text-xs ${mutedClass} block mb-1`}>Change Display Name:</label>

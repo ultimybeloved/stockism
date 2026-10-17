@@ -2,6 +2,7 @@ import { useStockSplit } from '../../hooks/useStockSplit';
 import { PreflightTable, PhaseProgress } from './RecoveryRenameStatus';
 import type { AdminCommonProps } from '../types';
 import type { ShowMessage } from '../../utils/adminShared';
+import AdminIcon from '../AdminIcon';
 
 // Admin front end for the stock split engine (functions/src/market/stockSplit.js).
 const RecoverySplitStock = ({
@@ -26,7 +27,10 @@ const RecoverySplitStock = ({
 
   return (
     <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-      <h3 className={`font-semibold mb-2 ${textClass}`}>✂️ Split Stock</h3>
+      <h3 className={`font-semibold mb-2 ${textClass}`}>
+        <AdminIcon name="scissors" />
+        Split Stock
+      </h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         N-for-1: the price is divided by N and every holder gets N times the shares, so nobody&apos;s money changes.
         Shorts, open orders, alerts, dividend lots, chart history and the index all move with it.
@@ -75,7 +79,14 @@ const RecoverySplitStock = ({
 
       <div className="flex gap-2 mb-3">
         <button onClick={dryRun} className={btn('blue')} disabled={busy || !ticker.trim()}>
-          {busy ? 'Working...' : '🔍 Dry Run'}
+          {busy ? (
+            'Working...'
+          ) : (
+            <>
+              <AdminIcon name="inspect" />
+              Dry Run
+            </>
+          )}
         </button>
         {incomplete ? (
           <>
@@ -88,7 +99,14 @@ const RecoverySplitStock = ({
           </>
         ) : (
           <button onClick={execute} className={btn('red')} disabled={busy || !result?.dryRun || result?.blocked}>
-            {busy ? 'Splitting...' : '✂️ Execute Split'}
+            {busy ? (
+              'Splitting...'
+            ) : (
+              <>
+                <AdminIcon name="scissors" />
+                Execute Split
+              </>
+            )}
           </button>
         )}
       </div>
@@ -111,7 +129,8 @@ const RecoverySplitStock = ({
 
       {result?.success && (
         <p className="text-sm font-semibold text-green-400 mt-2">
-          ✅ ${result.ticker} split {result.ratio}-for-1 and verified. The market is still halted: reopen it when ready.
+          <AdminIcon name="success" />${result.ticker} split {result.ratio}-for-1 and verified. The market is still
+          halted: reopen it when ready.
         </p>
       )}
     </div>

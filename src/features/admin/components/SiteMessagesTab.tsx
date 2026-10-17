@@ -11,6 +11,7 @@ const TONES = [
 
 import type { AdminCommonProps } from './types';
 import type { useAdminSiteMessages } from '../hooks/useAdminSiteMessages';
+import AdminIcon from './AdminIcon';
 
 const SiteMessagesTab = ({
   textClass,
@@ -35,7 +36,10 @@ const SiteMessagesTab = ({
   return (
     <div className={card}>
       <div className="flex justify-between items-start mb-1">
-        <h3 className={`font-semibold ${textClass}`}>📣 Site Messages</h3>
+        <h3 className={`font-semibold ${textClass}`}>
+          <AdminIcon name="announce" />
+          Site Messages
+        </h3>
         <button onClick={loadSiteMessages} disabled={siteMessagesLoading} className={smallBtn}>
           {siteMessagesLoading ? 'Working...' : siteMessagesLoaded ? 'Reload' : 'Load'}
         </button>

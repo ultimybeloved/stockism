@@ -6,6 +6,7 @@
 
 import type { PreflightCheck, RenameJournal, RenameTickerResponse } from '../../../../api/types';
 import type { AdminCommonProps } from '../types';
+import AdminIcon from '../AdminIcon';
 
 type PanelTheme = Pick<AdminCommonProps, 'textClass' | 'mutedClass'>;
 
@@ -53,7 +54,9 @@ export const PreflightTable = ({
               i > 0 ? 'light:border-t light:border-slate-200 dark:border-t dark:border-slate-700' : ''
             }`}
           >
-            <span className="shrink-0">{c.pass ? '✅' : '❌'}</span>
+            <span className="shrink-0">
+              <AdminIcon name={c.pass ? 'success' : 'error'} className="w-4 h-4 inline-block align-[-3px]" />
+            </span>
             <div className="min-w-0">
               <p className={c.pass ? textClass : 'text-red-400 font-semibold'}>{c.label}</p>
               {(!c.pass || c.detail) && <p className={`${mutedClass} mt-0.5 break-words`}>{c.detail}</p>}
@@ -74,7 +77,10 @@ export const DryRunBreakdown = ({
   const total = Object.values(result.breakdown).reduce((s, n) => s + (n || 0), 0);
   return (
     <div className="p-3 rounded-sm light:bg-blue-50 light:border light:border-blue-300 dark:bg-blue-900/30 dark:border dark:border-blue-700">
-      <p className="text-sm font-semibold mb-2 text-blue-400">🔍 Dry run preview</p>
+      <p className="text-sm font-semibold mb-2 text-blue-400">
+        <AdminIcon name="inspect" />
+        Dry run preview
+      </p>
       <p className={`text-xs mb-2 ${textClass}`}>
         <strong>${result.oldTicker}</strong> → <strong>${result.newTicker}</strong>
       </p>
@@ -119,7 +125,8 @@ export const PhaseProgress = ({ journal, textClass, mutedClass }: PanelTheme & {
         {entries.map(([name, p]) => (
           <div key={name} className="flex justify-between gap-2 text-xs">
             <span className={p.status === 'complete' ? mutedClass : textClass}>
-              {p.status === 'complete' ? '✅' : p.status === 'paused' ? '⏸️' : '⬜'} {PHASE_LABELS[name] || name}
+              <AdminIcon name={p.status === 'complete' ? 'success' : p.status === 'paused' ? 'pause' : 'todo'} />
+              {PHASE_LABELS[name] || name}
             </span>
             <span className={`${mutedClass} shrink-0 tabular-nums`}>{p.done || 0}</span>
           </div>

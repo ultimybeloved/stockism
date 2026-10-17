@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../../firebase';
 import type { AdminCommonProps } from '../types';
+import AdminIcon from '../AdminIcon';
 
 /** admin/featureUsage: how many players have touched each feature. */
 interface FeatureUsageReport {
@@ -59,7 +60,10 @@ const FeatureUsagePanel = ({ textClass, mutedClass }: Pick<AdminCommonProps, 'te
 
   return (
     <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
-      <h3 className={`font-semibold ${textClass} mb-1`}>📊 Feature Usage (last 7 days)</h3>
+      <h3 className={`font-semibold ${textClass} mb-1`}>
+        <AdminIcon name="chart" />
+        Feature Usage (last 7 days)
+      </h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         {state === 'ready'
           ? `Distinct players out of ${total}. Updated ${new Date(report!.generatedAt as number).toLocaleDateString()}.`

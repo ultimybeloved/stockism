@@ -1,15 +1,16 @@
+import AdminIcon, { type AdminIconName } from '../AdminIcon';
 import type { AdminCommonProps } from '../types';
 import type { WatchlistAlert } from '../../../../api/types';
 
-const ALERT_ICONS: Record<string, string> = {
-  alt_suspected: '🕵️',
-  account_blocked: '🚫',
-  account_linked: '🔗',
-  new_ip_detected: '🌐',
-  duplicate_username: '📛',
-  user_added: '👁️',
-  user_removed: '❌',
-  ip_added: '📍',
+const ALERT_ICONS: Record<string, AdminIconName> = {
+  alt_suspected: 'inspect',
+  account_blocked: 'blocked',
+  account_linked: 'link',
+  new_ip_detected: 'globe',
+  duplicate_username: 'nametag',
+  user_added: 'eye',
+  user_removed: 'error',
+  ip_added: 'mappin',
 };
 
 const ALERT_COLORS: Record<string, string> = {
@@ -55,7 +56,9 @@ const WatchlistAlerts = ({
       <div className="space-y-1 max-h-60 overflow-y-auto">
         {alerts.map((alert) => (
           <div key={alert.id} className={`text-xs p-1.5 rounded light:bg-white dark:bg-slate-800 ${mutedClass}`}>
-            <span className={`font-semibold ${alertColor(alert)}`}>{ALERT_ICONS[alert.type] || '📋'}</span>{' '}
+            <span className={`font-semibold ${alertColor(alert)}`}>
+              <AdminIcon name={ALERT_ICONS[alert.type] || 'missions'} className="w-4 h-4 inline-block align-[-3px]" />
+            </span>{' '}
             {alert.details}
             <span className="ml-1 opacity-50">{alert.timestamp ? new Date(alert.timestamp).toLocaleString() : ''}</span>
             {alert.reviewed === false && (

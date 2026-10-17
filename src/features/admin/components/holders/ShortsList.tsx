@@ -3,6 +3,7 @@
 // critical here is one the server is about to liquidate.
 import type { AdminCommonProps } from '../types';
 import type { ShortHolderRow } from '../../hooks/useAdminHolders';
+import AdminIcon from '../AdminIcon';
 
 type ShortsListProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   shortsData: ShortHolderRow[];
@@ -25,7 +26,7 @@ const ShortsList = ({ textClass, mutedClass, shortsData }: ShortsListProps) => {
             <div className="flex justify-between items-start">
               <div>
                 <span className={`font-semibold ${textClass}`}>
-                  {idx === 0 && '🩳 '}
+                  {idx === 0 && <AdminIcon name="chart_down" />}
                   {s.displayName}
                 </span>
                 {s.isCritical ? (

@@ -3,6 +3,7 @@ import type { AdminCommonProps } from '../types';
 import type { DiscordChannel } from '../../../../api/types';
 import type { MessageDraft } from '../../utils/discordDraft';
 import type { useAdminDiscordMessages } from '../../hooks/useAdminDiscordMessages';
+import AdminIcon from '../AdminIcon';
 
 type DiscordHook = ReturnType<typeof useAdminDiscordMessages>;
 
@@ -50,7 +51,19 @@ export default function MessageComposer({
   return (
     <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
       <div className="flex items-center justify-between mb-3">
-        <h3 className={`font-semibold ${textClass}`}>{editing ? '✏️ Editing a live message' : '💬 New message'}</h3>
+        <h3 className={`font-semibold ${textClass}`}>
+          {editing ? (
+            <>
+              <AdminIcon name="pencil" />
+              Editing a live message
+            </>
+          ) : (
+            <>
+              <AdminIcon name="chat" />
+              New message
+            </>
+          )}
+        </h3>
         {editing && (
           <button onClick={onNew} className={`text-xs underline ${mutedClass} hover:text-teal-500`}>
             Start a new one instead

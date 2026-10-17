@@ -10,6 +10,7 @@ import {
 } from '../../../crews';
 import { formatUTCDateTime } from '../../../utils/formatters';
 import { errorMessage } from '../../../utils/errors';
+import AdminIcon from './AdminIcon';
 
 // Pre-filled only while a free-switch event is running, with the crew name,
 // rate and deadline read from the event itself so the text can never disagree
@@ -54,7 +55,10 @@ export default function AnnounceCard() {
 
   return (
     <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-      <h3 className={`font-semibold mb-1 ${textClass}`}>📢 Announce to Everyone</h3>
+      <h3 className={`font-semibold mb-1 ${textClass}`}>
+        <AdminIcon name="announce" />
+        Announce to Everyone
+      </h3>
       <p className={`text-xs mb-3 ${mutedClass}`}>
         Sends a notification to every user&apos;s bell. Edit the text, then send.
       </p>

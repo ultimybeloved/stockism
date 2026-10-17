@@ -1,6 +1,7 @@
 import type { AdminCommonProps } from './types';
 import { TRADE_LOAD_CAP, type useAdminTrades } from '../hooks/useAdminTrades';
 import type { AdminTradeType } from '../utils/adminTradeRows';
+import AdminIcon from './AdminIcon';
 
 const TYPE_BADGE: Record<AdminTradeType, string> = {
   BUY: 'BUY',
@@ -48,7 +49,8 @@ const TradesTab = ({
     <div className="space-y-4">
       <div className="p-3 rounded-sm light:bg-yellow-50 dark:bg-yellow-900/20">
         <p className={`text-sm ${mutedClass}`}>
-          💹 Every trade across all users: manual trades, limit and stop-loss fills, pre-market auction fills, IPO buys,
+          <AdminIcon name="trade" />
+          Every trade across all users: manual trades, limit and stop-loss fills, pre-market auction fills, IPO buys,
           forced margin closes and bot trades. Filter by time period, trade type, or ticker.
         </p>
       </div>
@@ -124,7 +126,14 @@ const TradesTab = ({
             disabled={tradesLoading}
             className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-sm disabled:opacity-50"
           >
-            {tradesLoading ? 'Loading...' : '🔍 Load Trades'}
+            {tradesLoading ? (
+              'Loading...'
+            ) : (
+              <>
+                <AdminIcon name="inspect" />
+                Load Trades
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -205,7 +214,9 @@ const TradesTab = ({
                     <p className={textClass}>
                       <span className="font-semibold">{trade.userName}</span>
                       {trade.isBot && (
-                        <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-purple-600 text-white">🤖</span>
+                        <span title="Bot" className="ml-1">
+                          <AdminIcon name="robot" className="w-4 h-4 inline-block align-[-3px]" />
+                        </span>
                       )}
                       {trade.type === 'LIQUIDATION' ? (
                         <span className={mutedClass}> was liquidated by a margin call</span>

@@ -11,6 +11,7 @@ import type { renameTickerFunction as RenameTickerFn } from '../../../api/callab
 import type { Character } from '../../../characters';
 import type { PriceMap } from '../../../types';
 import { useTheme } from '../../../context/AppContext';
+import AdminIcon from './AdminIcon';
 
 type RecoveryTabProps = AdminCommonProps &
   ReturnType<typeof useAdminBankruptcy> &
@@ -67,7 +68,10 @@ const RecoveryTab = ({
       {/* Bankrupt Users */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <div className="flex justify-between items-center mb-2">
-          <h3 className={`font-semibold ${textClass}`}>💔 Bankrupt Users</h3>
+          <h3 className={`font-semibold ${textClass}`}>
+            <AdminIcon name="bankrupt" />
+            Bankrupt Users
+          </h3>
           <button
             onClick={loadBankruptUsers}
             disabled={loading}
@@ -117,7 +121,10 @@ const RecoveryTab = ({
 
       {/* Manual Backup */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-        <h3 className={`font-semibold mb-2 ${textClass}`}>💾 Manual Backup</h3>
+        <h3 className={`font-semibold mb-2 ${textClass}`}>
+          <AdminIcon name="save" />
+          Manual Backup
+        </h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Create an instant backup of all market data (prices, price history, liquidity). Backups are stored in Firebase
           Storage.
@@ -127,13 +134,23 @@ const RecoveryTab = ({
           disabled={loading}
           className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
-          {loading ? 'Creating Backup...' : '💾 Create Manual Backup'}
+          {loading ? (
+            'Creating Backup...'
+          ) : (
+            <>
+              <AdminIcon name="save" />
+              Create Manual Backup
+            </>
+          )}
         </button>
       </div>
 
       {/* Restore from Backup */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-        <h3 className="font-semibold mb-2 text-orange-500">🔄 Restore Price History</h3>
+        <h3 className="font-semibold mb-2 text-orange-500">
+          <AdminIcon name="reroll" />
+          Restore Price History
+        </h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Restore price history from a backup. Current prices will be kept, only historical data is restored.
         </p>
@@ -143,7 +160,14 @@ const RecoveryTab = ({
           disabled={loadingBackups}
           className="w-full px-4 py-2 mb-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
         >
-          {loadingBackups ? 'Loading...' : '📋 List Available Backups'}
+          {loadingBackups ? (
+            'Loading...'
+          ) : (
+            <>
+              <AdminIcon name="missions" />
+              List Available Backups
+            </>
+          )}
         </button>
 
         {backups.length > 0 && (
@@ -175,7 +199,10 @@ const RecoveryTab = ({
 
       {/* User Data Transfer */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-        <h3 className={`font-semibold mb-2 ${textClass}`}>👤 Transfer User Data</h3>
+        <h3 className={`font-semibold mb-2 ${textClass}`}>
+          <AdminIcon name="profile" />
+          Transfer User Data
+        </h3>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Copy all data from one user account to another. Useful when a user lost access to their email. The new user's
           data will be COMPLETELY OVERWRITTEN.
@@ -221,9 +248,12 @@ const RecoveryTab = ({
               4. Copy the User ID from the top of their profile
               <br />
               <br />
-              <strong className="text-orange-500">⚠️ Warning:</strong> This will copy ALL data (cash, holdings,
-              achievements, transactions, etc.) from the old account to the new account. Any data on the new account
-              will be lost.
+              <strong className="text-orange-500">
+                <AdminIcon name="warning" />
+                Warning:
+              </strong>{' '}
+              This will copy ALL data (cash, holdings, achievements, transactions, etc.) from the old account to the new
+              account. Any data on the new account will be lost.
             </p>
           </div>
 
@@ -232,7 +262,14 @@ const RecoveryTab = ({
             disabled={transferring || !oldUserId.trim() || !newUserId.trim()}
             className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-sm disabled:opacity-50"
           >
-            {transferring ? 'Transferring...' : '🔄 Transfer User Data'}
+            {transferring ? (
+              'Transferring...'
+            ) : (
+              <>
+                <AdminIcon name="reroll" />
+                Transfer User Data
+              </>
+            )}
           </button>
         </div>
       </div>

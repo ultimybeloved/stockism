@@ -6,6 +6,7 @@ import { CHARACTERS } from '../../../../characters';
 import type { AdminCommonProps } from '../types';
 import type { LoadedAdminUser } from '../../utils/adminShared';
 import type { useAdminUserEdit } from '../../hooks/useAdminUserEdit';
+import AdminIcon from '../AdminIcon';
 
 // The odd one-off user fixes that used to mean opening the Firebase console:
 // crew, achievements, margin, and a single holding.
@@ -34,7 +35,10 @@ const UserFieldEditor = ({
 
   return (
     <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
-      <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>🛠️ Direct Edits</h4>
+      <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>
+        <AdminIcon name="hammer" />
+        Direct Edits
+      </h4>
       <div className="space-y-3">
         {/* Crew */}
         <div>

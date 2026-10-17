@@ -6,6 +6,7 @@
 import { localDailyTime } from '../../../../utils/localTime';
 import type { AdminCommonProps } from '../types';
 import type { AltScanResponse } from '../../../../api/types';
+import AdminIcon from '../AdminIcon';
 
 type AltScanCardProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass'> & {
   scanning: boolean;
@@ -46,7 +47,8 @@ const AltScanCard = ({ textClass, mutedClass, scanning, result, runScan }: AltSc
           {(result.findings || []).map((f) => (
             <div key={f.key} className={`text-xs p-1.5 rounded light:bg-white dark:bg-slate-800 ${mutedClass}`}>
               <span className={f.severity === 'high' ? 'text-red-400 font-semibold' : 'text-amber-400 font-semibold'}>
-                {f.severity === 'high' ? '🔴' : '🟡'} {f.names?.join('  +  ')}
+                <AdminIcon name={f.severity === 'high' ? 'dot_red' : 'dot_yellow'} />
+                {f.names?.join('  +  ')}
               </span>
               <div className="opacity-75">
                 {f.sharedNetworks} shared network(s)

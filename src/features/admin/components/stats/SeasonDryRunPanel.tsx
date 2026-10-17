@@ -5,6 +5,7 @@ import { localWeeklyTime } from '../../../../utils/localTime';
 import { errorMessage } from '../../../../utils/errors';
 import type { AdminCommonProps } from '../types';
 import type { SeasonDryRunReport } from '../../../../api/types';
+import AdminIcon from '../AdminIcon';
 
 // The season rehearsal. A snapshot is taken every Thursday while no season is
 // running, and this scores those snapshots with the real tier rules, so the
@@ -42,7 +43,10 @@ const SeasonDryRunPanel = ({ textClass, mutedClass }: Pick<AdminCommonProps, 'te
   return (
     <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
       <div className="flex justify-between items-start gap-2 mb-1">
-        <h3 className={`font-semibold ${textClass}`}>🎭 Season Dry Run</h3>
+        <h3 className={`font-semibold ${textClass}`}>
+          <AdminIcon name="season" />
+          Season Dry Run
+        </h3>
         <div className="flex gap-2">
           <button
             onClick={() => call('report', () => adminSeasonDryRunReportFunction({}))}

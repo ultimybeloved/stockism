@@ -3,6 +3,7 @@
 // nothing in common with the ticker-rollback tooling it used to sit above.
 import type { AdminCommonProps } from '../types';
 import type { useAdminDiagnostics } from '../../hooks/useAdminDiagnostics';
+import AdminIcon from '../AdminIcon';
 
 const DropAuditPanel = ({
   textClass,
@@ -22,7 +23,10 @@ const DropAuditPanel = ({
     <>
       {/* Drop Audit Section */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-        <h3 className={`font-semibold mb-3 ${textClass}`}>🎁 Drop Audit</h3>
+        <h3 className={`font-semibold mb-3 ${textClass}`}>
+          <AdminIcon name="gift" />
+          Drop Audit
+        </h3>
         <div className="flex gap-2 items-end">
           <div className="flex-1">
             <label className={`text-xs ${mutedClass} block mb-1`}>Username or UID</label>

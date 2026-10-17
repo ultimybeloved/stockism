@@ -8,6 +8,7 @@ import type { ShowMessage } from '../../utils/adminShared';
 import type { useAdminRecoveryTools } from '../../hooks/useAdminRecoveryTools';
 import type { RenameJournal, RenameTickerRequest, RenameTickerResponse } from '../../../../api/types';
 import type { renameTickerFunction as RenameTickerFn } from '../../../../api/callables';
+import AdminIcon from '../AdminIcon';
 
 // Admin front end for the ticker rename engine (functions/src/market/tickerRename.js).
 //
@@ -141,7 +142,10 @@ const RecoveryRenameTicker = ({
 
   return (
     <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-      <h3 className={`font-semibold mb-2 ${textClass}`}>🔄 Rename Ticker</h3>
+      <h3 className={`font-semibold mb-2 ${textClass}`}>
+        <AdminIcon name="reroll" />
+        Rename Ticker
+      </h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         Rewrites the ticker everywhere the game computes on it: prices, history, holdings, loyalty lots, open orders,
         alerts and the index. Records that are only history keep the old name and resolve through an alias. Always dry
@@ -197,7 +201,14 @@ const RecoveryRenameTicker = ({
           className={btn('blue')}
           disabled={renaming || !renameOldTicker.trim() || !renameNewTicker.trim()}
         >
-          {renaming ? 'Working...' : '🔍 Dry Run'}
+          {renaming ? (
+            'Working...'
+          ) : (
+            <>
+              <AdminIcon name="inspect" />
+              Dry Run
+            </>
+          )}
         </button>
         {incomplete ? (
           <>
@@ -214,7 +225,14 @@ const RecoveryRenameTicker = ({
             className={btn('red')}
             disabled={renaming || !renameResult?.dryRun || renameResult?.blocked}
           >
-            {renaming ? 'Executing...' : '⚡ Execute Rename'}
+            {renaming ? (
+              'Executing...'
+            ) : (
+              <>
+                <AdminIcon name="bolt" />
+                Execute Rename
+              </>
+            )}
           </button>
         )}
       </div>
@@ -232,7 +250,10 @@ const RecoveryRenameTicker = ({
 
       {renameResult?.success && (
         <div className="p-3 rounded-sm light:bg-green-50 light:border light:border-green-300 dark:bg-green-900/30 dark:border dark:border-green-700">
-          <p className="text-sm font-semibold text-green-400 mb-1">✅ Rename complete and verified</p>
+          <p className="text-sm font-semibold text-green-400 mb-1">
+            <AdminIcon name="success" />
+            Rename complete and verified
+          </p>
           <p className={`text-xs ${textClass}`}>
             ${renameResult.oldTicker} → ${renameResult.newTicker}.{' '}
             {renameResult.marketHalted

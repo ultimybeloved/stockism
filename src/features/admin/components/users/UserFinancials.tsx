@@ -3,6 +3,7 @@ import { sharesOf } from '../../../../utils/holdings';
 import type { AdminCommonProps } from '../types';
 import type { LoadedAdminUser } from '../../utils/adminShared';
 import type { PriceMap, UserData } from '../../../../types';
+import AdminIcon from '../AdminIcon';
 
 const UserFinancials = ({
   textClass,
@@ -30,7 +31,10 @@ const UserFinancials = ({
       return (
         <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
           <div className="flex items-center justify-between mb-2">
-            <h4 className={`text-xs font-semibold uppercase ${mutedClass}`}>🔄 Sync Status</h4>
+            <h4 className={`text-xs font-semibold uppercase ${mutedClass}`}>
+              <AdminIcon name="reroll" />
+              Sync Status
+            </h4>
             <button
               onClick={() => handleSyncSingleUser(selectedUser.id)}
               disabled={loading}
@@ -62,7 +66,17 @@ const UserFinancials = ({
             <div>
               <div className={`text-xs ${mutedClass}`}>Status</div>
               <div className={`font-bold text-xs ${isOutOfSync ? 'text-orange-500' : 'text-green-500'}`}>
-                {isOutOfSync ? '⚠️ Out of Sync' : '✅ Synced'}
+                {isOutOfSync ? (
+                  <>
+                    <AdminIcon name="warning" />
+                    Out of Sync
+                  </>
+                ) : (
+                  <>
+                    <AdminIcon name="success" />
+                    Synced
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -137,7 +151,10 @@ const UserFinancials = ({
 
       return (
         <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
-          <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-3`}>💰 Money Breakdown</h4>
+          <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-3`}>
+            <AdminIcon name="cash" />
+            Money Breakdown
+          </h4>
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">

@@ -36,6 +36,7 @@ import type { useAdminPredictionCreate } from '../hooks/useAdminPredictionCreate
 import type { useAdminPredictionManage } from '../hooks/useAdminPredictionManage';
 import type { useAdminBets } from '../hooks/useAdminBets';
 import type { PredictionDoc } from '../../../types';
+import AdminIcon from './AdminIcon';
 
 const PredictionsTab = ({
   textClass,
@@ -95,7 +96,10 @@ const PredictionsTab = ({
       {/* SECTION 1: Resolve Pending Predictions */}
       {unresolvedPredictions.length > 0 && (
         <div className="p-4 rounded-sm border-2 border-amber-500 light:bg-amber-50 dark:bg-amber-900/20">
-          <h3 className="font-semibold text-amber-500 mb-3">⏳ Pending Resolution ({unresolvedPredictions.length})</h3>
+          <h3 className="font-semibold text-amber-500 mb-3">
+            <AdminIcon name="hourglass" />
+            Pending Resolution ({unresolvedPredictions.length})
+          </h3>
           <div className="space-y-2 mb-3">
             {unresolvedPredictions.map((p) => (
               <button
@@ -138,7 +142,7 @@ const PredictionsTab = ({
                           : 'light:border-slate-300 light:hover:border-green-500 dark:border-slate-600 dark:text-slate-300 dark:hover:border-green-500'
                       }`}
                     >
-                      {isSelected ? '✓ ' : ''}
+                      {isSelected && <AdminIcon name="success" />}
                       {opt}
                     </button>
                   );
@@ -151,7 +155,14 @@ const PredictionsTab = ({
                   disabled={loading}
                   className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-sm disabled:opacity-50"
                 >
-                  {loading ? 'Resolving...' : `✅ Confirm Winner(s): "${selectedOutcomes.join('" & "')}"`}
+                  {loading ? (
+                    'Resolving...'
+                  ) : (
+                    <>
+                      <AdminIcon name="success" />
+                      Confirm Winner(s): &quot;{selectedOutcomes.join('" & "')}&quot;
+                    </>
+                  )}
                 </button>
               )}
 
@@ -160,7 +171,8 @@ const PredictionsTab = ({
                 disabled={loading}
                 className="w-full mt-2 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-sm disabled:opacity-50"
               >
-                🚫 Cancel & Refund Everyone
+                <AdminIcon name="blocked" />
+                Cancel & Refund Everyone
               </button>
             </>
           )}
@@ -217,13 +229,23 @@ const PredictionsTab = ({
       {/* SECTION 4: All Predictions List */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
         <div className="flex justify-between items-center mb-3">
-          <h3 className={`font-semibold ${textClass}`}>📋 All Predictions ({predictions.length})</h3>
+          <h3 className={`font-semibold ${textClass}`}>
+            <AdminIcon name="missions" />
+            All Predictions ({predictions.length})
+          </h3>
           <button
             onClick={loadAllBets}
             disabled={betsLoading}
             className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-sm disabled:opacity-50"
           >
-            {betsLoading ? '...' : '🔄 Refresh Bets'}
+            {betsLoading ? (
+              '...'
+            ) : (
+              <>
+                <AdminIcon name="reroll" />
+                Refresh Bets
+              </>
+            )}
           </button>
         </div>
 
@@ -239,7 +261,22 @@ const PredictionsTab = ({
                       <span
                         className={`text-xs font-semibold ${p.cancelled ? 'text-zinc-400' : p.resolved ? 'text-green-500' : 'text-amber-500'}`}
                       >
-                        {p.cancelled ? '🚫 Cancelled' : p.resolved ? '✅ Resolved' : '⏳ Active'}
+                        {p.cancelled ? (
+                          <>
+                            <AdminIcon name="blocked" />
+                            Cancelled
+                          </>
+                        ) : p.resolved ? (
+                          <>
+                            <AdminIcon name="success" />
+                            Resolved
+                          </>
+                        ) : (
+                          <>
+                            <AdminIcon name="hourglass" />
+                            Active
+                          </>
+                        )}
                       </span>
                     </div>
                     <div className={`font-semibold ${textClass} mt-1`}>{p.question}</div>
@@ -280,7 +317,10 @@ const PredictionsTab = ({
       {/* SECTION 5: Bets Summary */}
       {allBets.length > 0 && (
         <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">
-          <h3 className={`font-semibold ${textClass} mb-3`}>🎲 Bets Summary ({allBets.length} total bets)</h3>
+          <h3 className={`font-semibold ${textClass} mb-3`}>
+            <AdminIcon name="dice" />
+            Bets Summary ({allBets.length} total bets)
+          </h3>
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {(() => {
               const byPrediction: Record<

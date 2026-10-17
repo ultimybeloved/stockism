@@ -3,6 +3,7 @@ import type { AdminCommonProps } from './types';
 import type { useAdminMarketTools } from '../hooks/useAdminMarketTools';
 import type { PriceMap } from '../../../types';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import AdminIcon from './AdminIcon';
 
 type PriceAdjustModalProps = Omit<AdminCommonProps, 'inputClass'> &
   Pick<
@@ -62,7 +63,10 @@ const PriceAdjustModal = ({
         {/* Modal Header */}
         <div className="p-4 border-b light:border-slate-200 dark:border-slate-700">
           <div className="flex justify-between items-center">
-            <h2 className={`text-lg font-semibold ${textClass}`}>💰 Adjust Character Prices</h2>
+            <h2 className={`text-lg font-semibold ${textClass}`}>
+              <AdminIcon name="cash" />
+              Adjust Character Prices
+            </h2>
             <button
               aria-label="Close"
               onClick={() => setShowPriceModal(false)}

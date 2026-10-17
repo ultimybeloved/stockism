@@ -7,6 +7,7 @@ import { errorMessage } from '../../../utils/errors';
 import { formatDateTime } from '../../../utils/localTime';
 import type { AdminCommonProps } from './types';
 import type { AdminLogEntry } from '../../../api/types';
+import AdminIcon from './AdminIcon';
 
 type AdminHistoryCardProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'inputClass'>;
 
@@ -118,7 +119,10 @@ const AdminHistoryCard = ({ textClass, mutedClass, inputClass }: AdminHistoryCar
     <div className="p-3 rounded-sm light:bg-slate-50 dark:bg-slate-700/50">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <h3 className={`text-sm font-bold mb-1 ${textClass}`}>📜 Admin History</h3>
+          <h3 className={`text-sm font-bold mb-1 ${textClass}`}>
+            <AdminIcon name="book" />
+            Admin History
+          </h3>
           <p className={`text-xs ${mutedClass}`}>
             Every admin change to a player or the market since 2026-10-11, with what it was before. To undo a mistake,
             set the "Before" value back with the same tool.

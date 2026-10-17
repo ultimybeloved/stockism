@@ -112,7 +112,7 @@ export function useAdminIpo({ showMessage, setLoading }: Pick<AdminHookDeps, 'sh
 
       showMessage(
         'success',
-        `🚀 IPO created for $${ipoTicker}! Hype phase starts now, buying opens ${ipoStartsAt <= now ? 'immediately' : formatDateTime(ipoStartsAt)}`,
+        `IPO created for $${ipoTicker}! Hype phase starts now, buying opens ${ipoStartsAt <= now ? 'immediately' : formatDateTime(ipoStartsAt)}`,
       );
       setIpoTicker('');
       loadIPOs();

@@ -1,6 +1,7 @@
 import { formatDateTime } from '../../../utils/localTime';
 import type { AdminCommonProps } from './types';
 import type { useAdminCashLog } from '../hooks/useAdminCashLog';
+import AdminIcon from './AdminIcon';
 
 const money = (n: unknown) =>
   `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -30,7 +31,10 @@ export default function CashLogCard({
     <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
       <div className="flex items-start justify-between mb-3 gap-3">
         <div>
-          <h3 className={`font-semibold ${textClass}`}>💸 Cash I Have Handed Out</h3>
+          <h3 className={`font-semibold ${textClass}`}>
+            <AdminIcon name="cash" />
+            Cash I Have Handed Out
+          </h3>
           <p className={`text-xs ${mutedClass}`}>
             Every manual balance change. Your memo stays private, players only see the amount.
           </p>

@@ -140,11 +140,10 @@ export function useAdminMarketTools({
       }
 
       const changePercent = (((targetPrice - currentPrice) / currentPrice) * 100).toFixed(1);
-      const direction = targetPrice > currentPrice ? '📈' : '📉';
 
       showMessage(
         'success',
-        `${direction} ${character.name}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${Number(changePercent) > 0 ? '+' : ''}${changePercent}%)`,
+        `${character.name}: $${currentPrice.toFixed(2)} → $${targetPrice.toFixed(2)} (${Number(changePercent) > 0 ? '+' : ''}${changePercent}%)`,
       );
 
       // Reset modal

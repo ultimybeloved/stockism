@@ -48,7 +48,7 @@ export function useAdminBackups({
   const handleRestoreBackup = async (backupName: string) => {
     if (
       !window.confirm(
-        `⚠️ RESTORE FROM BACKUP?\n\nThis will restore price history from:\n${backupName}\n\nCurrent prices will be synced to match the latest history point.`,
+        `RESTORE FROM BACKUP?\n\nThis will restore price history from:\n${backupName}\n\nCurrent prices will be synced to match the latest history point.`,
       )
     ) {
       return;
@@ -57,7 +57,7 @@ export function useAdminBackups({
     setRestoringBackup(true);
     try {
       const result = await restoreBackupFunction({ backupName });
-      showMessage('success', `✅ Restored ${result.data.tickersRestored} tickers from backup!`);
+      showMessage('success', `Restored ${result.data.tickersRestored} tickers from backup!`);
 
       // Now sync current prices to match latest history
       await handleSyncPricesToHistory();
@@ -126,7 +126,7 @@ export function useAdminBackups({
       // shares can never end up on both.
       if (
         !confirm(
-          `⚠️ TRANSFER ACCOUNT ⚠️
+          `TRANSFER ACCOUNT
 
 Move ALL data from the old account to the new one?
 

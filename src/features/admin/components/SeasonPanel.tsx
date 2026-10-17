@@ -6,6 +6,7 @@ import SeasonCoordFlags from './season/SeasonCoordFlags';
 import type { AdminCommonProps } from './types';
 import type { useAdminSeason } from '../hooks/useAdminSeason';
 import { useTheme } from '../../../context/AppContext';
+import AdminIcon from './AdminIcon';
 
 const SeasonPanel = ({
   textClass,
@@ -46,7 +47,10 @@ const SeasonPanel = ({
 
   return (
     <div className="p-3 rounded-sm light:bg-slate-100 dark:bg-slate-700/50">
-      <h3 className={`font-semibold ${textClass} mb-1`}>🏅 Season</h3>
+      <h3 className={`font-semibold ${textClass} mb-1`}>
+        <AdminIcon name="season" />
+        Season
+      </h3>
 
       {active ? (
         <>

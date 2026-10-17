@@ -8,6 +8,7 @@ import { formatDateTime } from '../../../../utils/localTime';
 import { formatCurrency } from '../../../../utils/formatters';
 import type { AdminCommonProps } from '../types';
 import type { GiftLogEntry } from '../../../../api/types';
+import AdminIcon from '../AdminIcon';
 
 type GiftLogCardProps = Pick<AdminCommonProps, 'textClass' | 'mutedClass' | 'inputClass'>;
 
@@ -47,7 +48,10 @@ const GiftLogCard = ({ textClass, mutedClass, inputClass }: GiftLogCardProps) =>
     <div className="p-3 rounded-sm light:bg-indigo-50 dark:bg-slate-700/50">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div>
-          <h3 className={`text-sm font-bold mb-1 ${textClass}`}>🎁 Gift Log</h3>
+          <h3 className={`text-sm font-bold mb-1 ${textClass}`}>
+            <AdminIcon name="gift" />
+            Gift Log
+          </h3>
           <p className={`text-xs ${mutedClass}`}>
             Who gifted what to whom. A flag means the two accounts share a connection (signup, trades or gifts), were
             paired by the alt scan, are linked on the watchlist, or the receiver is under a week old.
