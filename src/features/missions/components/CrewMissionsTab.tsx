@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { playSound } from '../../../utils/sounds';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { claimCrewMissionFunction } from '../../../api/callables';
@@ -104,6 +105,7 @@ export default function CrewMissionsTab() {
     setClaiming(missionId);
     try {
       await claimCrewMissionFunction({ missionId });
+      playSound('coin');
     } catch (err) {
       setClaimError(errorMessage(err) || 'Claim failed.');
     } finally {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { playSound } from '../../../utils/sounds';
 import { createAnimatePath } from './animatePath';
 import type { TrackTimeout } from './animatePath';
 import type { LadderOutcome, LadderSide } from '../../../api/types';
@@ -68,6 +69,7 @@ export function useLadderAnimation({ setDisplayBalance }: { setDisplayBalance: (
       rungs.forEach((rung, idx) => {
         trackTimeout(() => {
           rung.style.opacity = '1';
+          playSound('rung');
           if (idx === rungs.length - 1) {
             trackTimeout(resolve, 150);
           }

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { HttpsCallableResult } from 'firebase/functions';
 import { executeTradeFunction } from '../../../api/callables';
 import { fireTradeConfetti } from '../../../utils/confetti';
+import { playSound } from '../../../utils/sounds';
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP, achievementToast } from '../../../constants/achievements';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import { formatCurrency } from '../../../utils/formatters';
@@ -35,6 +36,7 @@ export function useTradeManagement({
         return;
       }
       if (isWeeklyHalt() || marketData?.marketHalted) {
+        playSound('error');
         showNotification(
           'error',
           marketData?.marketHalted
@@ -44,6 +46,7 @@ export function useTradeManagement({
         return;
       }
       if ((userData.cash || 0) < 0 && (action === 'buy' || action === 'short')) {
+        playSound('error');
         showNotification('error', 'You cannot open new positions while in debt. Request a bailout to start fresh.');
         return;
       }
@@ -62,6 +65,7 @@ export function useTradeManagement({
           // Always reported: hitting the instance cap is a capacity signal about
           // the whole game, not a problem with this one trade.
           reportError(firstError, { where: 'handleTrade.capacity', ticker, action, amount });
+          playSound('error');
           showNotification('warning', 'Too many players are trading right now. Wait a moment and try again.');
           setLoadingKey('trade', false);
           return;
@@ -75,12 +79,14 @@ export function useTradeManagement({
             // Contention that survives a retry is the signal that the market doc
             // is genuinely saturated, so this one is always reported.
             reportError(retryError, { where: 'handleTrade.retryFailed', ticker, action, amount });
+            playSound('error');
             showNotification('warning', 'Market was busy. Please try again.');
             setLoadingKey('trade', false);
             return;
           }
         } else {
           reportUnexpected(firstError, { where: 'handleTrade', ticker, action, amount });
+          playSound('error');
           showNotification(
             'error',
             isInfraError(firstError) ? 'Cannot execute trade at this time. Please try again.' : firstMsg,
@@ -162,6 +168,9 @@ export function useTradeManagement({
             );
           }
         }
+
+        // An achievement toast plays its own fanfare instead.
+        if (earnedAchievements.length === 0) playSound(action);
 
         const totalValue = Math.abs(totalCost || executionPrice * amount);
         setTradeAnimation({ ticker, action, big: totalValue >= 1000, timestamp: Date.now() });

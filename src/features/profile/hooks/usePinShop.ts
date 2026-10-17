@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { playSound } from '../../../utils/sounds';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import {
@@ -50,6 +51,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
               : prev,
           );
           const pin = SHOP_PINS[pinId]!;
+          playSound('purchase');
           showNotification('success', `Purchased ${pin.name}!`, `/pins/${pin.image}`);
         } else if (action === 'setShopPins') {
           await updateDoc(userRef, { displayedShopPins: payload });
@@ -65,6 +67,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
           // extraAchievementSlot boolean, which is what the slot math reads.
           const slotKey = payload === 'shop' ? 'extraShopSlot' : 'extraAchievementSlot';
           setUserData((prev) => (prev ? { ...prev, [slotKey]: true, cash: (prev.cash || 0) - (cost || 0) } : prev));
+          playSound('purchase');
           showNotification('success', `Unlocked extra ${payload} pin slot!`);
         } else if (action === 'buyStreakSaver') {
           const res = await purchasePinFunction({ action: 'buyStreakSaver', plan: payload as string });
@@ -78,6 +81,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
                 }
               : prev,
           );
+          playSound('purchase');
           showNotification('success', 'Streak saver on. Every check-in pays the top reward.');
         }
       } catch (err) {
@@ -98,6 +102,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
         setUserData((prev) =>
           prev ? { ...prev, ownedCosmetics: [...(prev.ownedCosmetics || []), cosmeticId] } : prev,
         );
+        playSound('purchase');
         showNotification('success', 'Cosmetic purchased!');
         return true;
       } catch (err) {
@@ -117,6 +122,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
         setUserData((prev) =>
           prev ? { ...prev, ownedCosmetics: [...new Set([...(prev.ownedCosmetics || []), ...data.items])] } : prev,
         );
+        playSound('purchase');
         showNotification('success', 'Bundle purchased!');
       } catch (err) {
         reportUnexpected(err, { where: 'handlePurchaseBundle', bundleId });
@@ -135,6 +141,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
           ...(target.kind === 'bundle' ? { bundleId: target.id } : { cosmeticId: target.id }),
           recipient,
         });
+        playSound('purchase');
         showNotification('success', `Gift sent to ${data.recipientName} for ${formatCurrency(data.price)}!`);
         return null;
       } catch (err) {

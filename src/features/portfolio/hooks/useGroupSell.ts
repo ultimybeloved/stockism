@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { playSound } from '../../../utils/sounds';
 import { executeTradeFunction } from '../../../api/callables';
 import { errorMessage, isContentionError } from '../../../utils/errors';
 
@@ -53,6 +54,7 @@ export function useGroupSell() {
       if (i > 0) await wait(GAP_MS);
       if (stopped.current) break;
       const result = await sellOne(lines[i]!);
+      playSound(result.ok ? 'sell' : 'error');
       setResults((prev) => [...prev, result]);
     }
     setRunning(false);

@@ -3,10 +3,20 @@ import { doc, collection, query, where, orderBy, limit, onSnapshot, updateDoc, d
 import { db } from '../../../firebase';
 import { createPriceAlertFunction, deletePriceAlertFunction } from '../../../api/callables';
 import { errorMessage } from '../../../utils/errors';
+import { playSound, type SoundName } from '../../../utils/sounds';
 import type { User } from 'firebase/auth';
 import type { AppContextValue } from '../../../context/AppContext';
 import type { StoredNotification } from '../../../utils/notifications';
 import type { PriceAlert } from '../../../types';
+
+// What a notification sounds like when it lands while the site is open.
+const ARRIVAL_SOUND: Record<string, SoundName> = {
+  alert: 'alert',
+  margin: 'margin',
+  dividend: 'coin',
+  achievement: 'achievement',
+  season_end: 'levelup',
+};
 
 // The user's bell notifications and price alerts: live subscriptions plus
 // the read/clear/delete and create/delete handlers.
@@ -31,11 +41,21 @@ export function useUserAlerts({
       orderBy('createdAt', 'desc'),
       limit(50),
     );
+    // The first snapshot is the backlog; only later arrivals make a sound.
+    let first = true;
     const unsub = onSnapshot(
       notifQuery,
       (snap) => {
         const notifs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StoredNotification);
         setUserNotifications(notifs);
+        if (!first && !snap.metadata.hasPendingWrites) {
+          const arrived = snap.docChanges().find((c) => c.type === 'added' && !c.doc.data().read);
+          if (arrived) {
+            const type = arrived.doc.data().type as string;
+            playSound(ARRIVAL_SOUND[type] || 'notify', { background: true });
+          }
+        }
+        first = false;
       },
       (err) => {
         console.error('Notification subscription error:', err);

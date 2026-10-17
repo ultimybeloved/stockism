@@ -1,16 +1,21 @@
+import { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { themeClasses } from '../../../utils/theme';
 import { STARTING_CASH } from '../../../constants/economy';
 import { WELCOME_STREAK_TOTAL } from '../../../rules/welcome';
 import { useDiscordLink } from '../hooks/useDiscordLink';
+import { playSound, setSoundVolume, setSoundsEnabled, soundVolume, soundsEnabled } from '../../../utils/sounds';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
 
-// Profile settings card: color-blind mode, public profile toggle, Discord link.
+// Profile settings card: color-blind mode, sounds, public profile toggle, Discord link.
 const ProfileSettings = ({ userData, user }: { userData: UserData; user: User }) => {
   const { textClass, mutedClass } = themeClasses;
   const { beginDiscordLink, unlinkDiscord, linking, error: linkError } = useDiscordLink();
+  // Sounds are a per-device choice, kept in this browser rather than the account.
+  const [soundOn, setSoundOn] = useState(soundsEnabled);
+  const [volume, setVolume] = useState(soundVolume);
 
   return (
     <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
@@ -41,6 +46,56 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
             }`}
           />
         </button>
+      </div>
+
+      {/* Sounds */}
+      <div className="mt-3 pt-3 border-t border-zinc-700/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={`text-sm font-semibold ${textClass}`}>Sound Effects</p>
+            <p className={`text-xs ${mutedClass}`}>Sounds for trades, rewards and alerts on this device</p>
+          </div>
+          <button
+            role="switch"
+            aria-checked={soundOn}
+            aria-label="Sound effects"
+            onClick={() => {
+              const next = !soundOn;
+              setSoundsEnabled(next);
+              setSoundOn(next);
+              if (next) playSound('coin');
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              soundOn ? 'bg-orange-600' : 'light:bg-slate-300 dark:bg-zinc-700'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                soundOn ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {soundOn && (
+          <label className={`flex items-center gap-3 mt-2 text-xs ${mutedClass}`}>
+            Volume
+            <input
+              type="range"
+              min={0.05}
+              max={1}
+              step={0.05}
+              value={volume}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setSoundVolume(v);
+                setVolume(v);
+              }}
+              onPointerUp={() => playSound('coin')}
+              onKeyUp={() => playSound('coin')}
+              className="flex-1 accent-orange-600"
+            />
+          </label>
+        )}
       </div>
 
       {/* Public Profile */}

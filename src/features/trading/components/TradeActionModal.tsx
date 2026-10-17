@@ -3,16 +3,15 @@ import { SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../../../co
 import { formatCurrency } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import { calculateMarginStatus } from '../../../utils/calculations';
-import { getDynamicPrices, getMaxShares, getTradeCount, roundShares } from '../../../utils/tradeLimits';
-import { createLimitOrderFunction } from '../../../api/callables';
+import { getDynamicPrices, getMaxShares, getTradeCount } from '../../../utils/tradeLimits';
+import { submitLimitOrder } from '../utils/submitLimitOrder';
 import MarginImpactPreview from './MarginImpactPreview';
 import TradeAmountInput from './TradeAmountInput';
 import LimitOrderControls from './LimitOrderControls';
-import { isWeeklyHalt, getMarketClosedState } from '../../../utils/marketHours';
+import { getMarketClosedState } from '../../../utils/marketHours';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
-import { errorMessage } from '../../../utils/errors';
 import type { Character } from '../../../characters';
 import type { ShortPosition, TradeAction } from '../../../types';
 import { useSheetRef } from '../../../shared/hooks/useSwipeToClose';
@@ -252,49 +251,19 @@ const TradeActionModal = ({
     }
 
     if (isLimitOrder || isStopLoss) {
-      // Block limit order creation during trading halt
-      if (isWeeklyHalt()) {
-        showNotification('error', 'Market is closed for chapter review. Orders cannot be created during trading halt.');
-        return;
-      }
-
-      // Handle limit order / stop loss creation
-      const priceNum = parseFloat(limitPrice);
-      if (isNaN(priceNum) || priceNum <= 0) {
-        showNotification('error', `Please enter a valid ${isStopLoss ? 'stop' : 'limit'} price`);
-        return;
-      }
-
-      if (priceNum > price * 10) {
-        showNotification('error', `${isStopLoss ? 'Stop' : 'Limit'} price cannot exceed 10x current price`);
-        return;
-      }
-
-      const orderType = isStopLoss ? 'STOP_LOSS' : action.toUpperCase();
-
       setSubmitting(true);
-      try {
-        await createLimitOrderFunction({
-          ticker: character.ticker,
-          type: orderType,
-          // Buys are whole-cent share counts; exits keep their fractional size so
-          // a dust position can be queued in full.
-          shares: roundShares(amountNum, action === 'sell'),
-          limitPrice: priceNum,
-          allowPartialFills,
-        });
-
-        showNotification(
-          'success',
-          `${isStopLoss ? 'Stop loss' : 'Limit order'} created! View your orders in Portfolio.`,
-        );
-        onClose();
-      } catch (error) {
-        console.error('Error creating order:', error);
-        showNotification('error', `Failed to create order: ${errorMessage(error)}`);
-      } finally {
-        setSubmitting(false);
-      }
+      const created = await submitLimitOrder({
+        ticker: character.ticker,
+        action,
+        isStopLoss,
+        limitPrice,
+        price,
+        amount: amountNum,
+        allowPartialFills,
+        showNotification,
+      });
+      setSubmitting(false);
+      if (created) onClose();
     } else {
       // Handle immediate trade
       onTrade(character.ticker, action, amountNum);

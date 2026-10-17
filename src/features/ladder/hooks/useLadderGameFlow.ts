@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { playSound } from '../../../utils/sounds';
 import { playLadderGameFunction } from '../../../api/callables';
 import { useSession } from '../../../context/AppContext';
 import { useLadderAnimation } from './useLadderAnimation';
@@ -160,6 +161,7 @@ export function useLadderGameFlow({
   };
 
   const showResult = (gameResult: LadderOutcome, won: boolean, betAmt: number, payout: number) => {
+    playSound(won ? 'ladderWin' : 'ladderLose');
     presentResult(gameResult, won, betAmt, payout);
     setFrozenHistory(null); // Unfreeze history to show new result
 

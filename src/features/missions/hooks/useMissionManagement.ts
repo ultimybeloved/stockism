@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { playSound } from '../../../utils/sounds';
 import { claimMissionRewardFunction, rerollMissionsFunction } from '../../../api/callables';
 import { fireDailyRewardConfetti, fireWeeklyRewardConfetti } from '../../../utils/confetti';
 import { ACHIEVEMENTS, achievementToast } from '../../../constants/achievements';
@@ -43,6 +44,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         if (earnedAchievement) {
           showNotification('achievement', ...achievementToast(earnedAchievement));
         } else {
+          playSound('coin');
           showNotification('success', `Claimed ${formatCurrency(reward)} mission reward!`);
         }
       } catch (err) {
@@ -122,6 +124,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         if (earnedAchievement) {
           showNotification('achievement', ...achievementToast(earnedAchievement));
         } else {
+          playSound('coin');
           showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);
         }
       } catch (err) {

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { playSound } from '../../../utils/sounds';
 import { dailyCheckinFunction, bailoutFunction } from '../../../api/callables';
 import { fireDailyRewardConfetti } from '../../../utils/confetti';
 import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS } from '../../../crews';
@@ -38,6 +39,8 @@ export function useDailyOperations({ user, userData, showNotification, setUserDa
           : prev,
       );
       fireDailyRewardConfetti();
+      // A kept streak sparkles; a first day or a restart is just the coin.
+      playSound(newStreak > 1 ? 'sparkle' : 'coin');
       let notificationMsg = `Daily check-in: +${formatCurrency(reward)}!`;
       if (ladderTopUpAmount > 0) notificationMsg += ` | Ladder Game topped up to $100`;
       showNotification('success', notificationMsg);
