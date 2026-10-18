@@ -84,6 +84,7 @@ export const adminGetPlayerFile = cf({ memory: '512MB' }).https.onCall(async (da
     history,
     notifications,
     confirmedManipulator,
+    pastDiscords,
   ] = await Promise.all([
     part('auth', uid, null, async () => {
       const rec = await admin.auth().getUser(uid);
@@ -165,6 +166,11 @@ export const adminGetPlayerFile = cf({ memory: '512MB' }).https.onCall(async (da
       const snap = await db.collection('botState').doc('manipulators').get();
       return !!snap.data()?.uids?.[uid];
     }),
+    // Discords the player unlinked themselves (the binding is keyed by Discord
+    // ID). Admin unlinks and moves are in adminActions instead.
+    part('pastDiscords', uid, [], async () =>
+      docs(await db.collection('discordBindings').where('uid', '==', uid).limit(50).get()),
+    ),
   ]);
 
   return {
@@ -189,6 +195,7 @@ export const adminGetPlayerFile = cf({ memory: '512MB' }).https.onCall(async (da
     history,
     notifications,
     confirmedManipulator,
+    pastDiscords,
   };
 });
 
