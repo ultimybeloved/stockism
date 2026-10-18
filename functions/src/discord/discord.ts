@@ -155,6 +155,12 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
       } catch (error) {
         existingUser = null;
       }
+      // Only an account that proved it owns the address may be matched.
+      // Otherwise someone could sign up with another person's email and a
+      // password, wait for them to log in with Discord, and share their account.
+      if (existingUser && !existingUser.emailVerified) {
+        return void res.redirect('https://stockism.app/?discord_error=email_unverified');
+      }
 
       if (existingUser) {
         firebaseUid = existingUser.uid;

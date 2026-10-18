@@ -95,6 +95,16 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     if (!assignedMission) {
       throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
     }
+    // Claims are capped by count, not just by id: the set depends on the crew,
+    // so switching crews mid-day handed out a fresh set to claim again.
+    const claimedMap =
+      type === 'daily' ? userData.dailyMissions?.[today]?.claimed : userData.weeklyMissions?.[weekId]?.claimed;
+    if (Object.values(claimedMap || {}).filter(Boolean).length >= assignedMissions.length) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `You've claimed all your ${type} missions. New ones ${type === 'daily' ? 'tomorrow' : 'next week'}.`,
+      );
+    }
 
     // Server-defined reward (ignoring client-provided values entirely),
     // scaled by the crew's underdog multiplier for this week.
