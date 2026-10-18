@@ -47,6 +47,12 @@ export function useAuthUser({
         Sentry.captureException(error);
         showNotification('error', 'Discord sign-in failed. Please try again.');
       });
+    } else if (discordError === 'email_unverified') {
+      showNotification(
+        'error',
+        "Your Discord email belongs to a Stockism account that hasn't verified it yet. Sign in with that email and verify it first.",
+      );
+      window.history.replaceState({}, document.title, window.location.pathname);
     } else if (discordError) {
       showNotification('error', 'Discord sign-in failed. Please try again or use a different sign-in method.');
       window.history.replaceState({}, document.title, window.location.pathname);
