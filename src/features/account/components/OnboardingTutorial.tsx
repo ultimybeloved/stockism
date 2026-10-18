@@ -10,14 +10,14 @@ const STEPS = [
     title: 'Welcome to Stockism!',
     image: '/pins/ui/stockism.svg',
     description:
-      'You start with $1,000 in cash, raised to $3,000 when you link Discord. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.',
+      'You start with $1,000 in cash, raised to $3,000 when you link Discord. Then run /welcome in the Stockism Discord once a day for a week to collect $7,000 more. Trade Lookism characters like stocks. Buy low, sell high, and grow your portfolio. Every character has a live price that changes based on what players do.',
     spotlight: false,
   },
   {
     title: 'Join a Crew',
     image: '/pins/ui/crews.svg',
     description:
-      'Pick a crew to join! Each crew gives you unique missions and bonus rewards. Work together with your crewmates to climb the leaderboard and earn extra cash.',
+      'Pick a crew to join! Every week your crew faces another in a Rivalry, and members who finish 5 missions get paid, more if the crew wins. Smaller crews earn bigger rewards.',
     spotlight: 'down',
   },
   {
@@ -31,7 +31,7 @@ const STEPS = [
     title: 'Complete Missions',
     image: '/pins/ui/missions.svg',
     description:
-      "Check your missions daily! You'll get daily and weekly challenges that earn you bonus cash when completed. Missions reset on a timer so keep coming back.",
+      'Three new daily missions every day, plus weekly ones, all paid in cash. Each week you also make a Call: pick a stock and say up or down for the next chapter. Get it right and it pays up to $1,000.',
     spotlight: false,
   },
   {

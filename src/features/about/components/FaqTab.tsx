@@ -106,6 +106,18 @@ const FaqTab = () => {
       </div>
 
       <div>
+        <h3 className="font-semibold text-orange-500 mb-1">How do missions work?</h3>
+        <p className={`text-sm ${mutedClass}`}>
+          You get 3 daily missions and 2 weekly ones, paid in cash. They need real trades: a trade counts if it&apos;s
+          worth at least 1% of your net worth (between $50 and $500), a buy only while you still hold the shares, and a
+          sell only on shares you held a day or more. The week runs from one Thursday reopen to the next. One weekly
+          mission is your Call: from the reopen to the end of Saturday, pick a stock and say up or down. It&apos;s
+          scored during the next chapter halt, when nobody can trade, and pays by itself. In a crew, finishing 5
+          missions in a week also earns your Rivalry reward.
+        </p>
+      </div>
+
+      <div>
         <h3 className="font-semibold text-orange-500 mb-1">How do predictions work?</h3>
         <p className={`text-sm ${mutedClass}`}>
           Place bets on story outcomes (e.g., "Will X defeat Y?"). All bets go into a pool, and winners split the entire
