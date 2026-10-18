@@ -493,7 +493,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
     await writeNotification(order.userId, {
       type: 'trade',
       title: 'Pre-Market Order Expired',
-      message: `Your ${order.action} of ${order.shares} $${order.ticker} missed its opening auction and was cancelled. No cash or shares were taken.`,
+      message: `Your ${order.action} of ${order.shares} $${order.ticker} missed its opening auction and was canceled. No cash or shares were taken.`,
       data: { ticker: order.ticker, orderId: doc.id },
     });
     summary.pmExpired++;

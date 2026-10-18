@@ -192,7 +192,7 @@ export const claimPredictionPayout = cf().https.onCall(async (data, context) => 
     const prediction = predictionsList.find((p: { id: string }) => p.id === predictionId);
     if (!prediction) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
     if (prediction.cancelled)
-      throw new functions.https.HttpsError('failed-precondition', 'This prediction was cancelled.');
+      throw new functions.https.HttpsError('failed-precondition', 'This prediction was canceled.');
     if (!prediction.resolved) throw new functions.https.HttpsError('failed-precondition', 'Not resolved yet.');
     predictionLabel = prediction.question || prediction.title || predictionLabel;
 
@@ -469,7 +469,7 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
       await sendDiscordMessage(null, [
         {
           title: `${pxe('party')} IPO Sold Out!`,
-          description: `**${result.ticker}** IPO sold out! Price jumped to $${newPrice.toFixed(2)} — now trading normally.`,
+          description: `**${result.ticker}** IPO sold out! Price jumped to $${newPrice.toFixed(2)}. Now trading normally.`,
           color: 0x00ff00,
           fields: [
             { name: 'Shares Sold', value: `${result.ipoTotalShares}/${result.ipoTotalShares}`, inline: true },

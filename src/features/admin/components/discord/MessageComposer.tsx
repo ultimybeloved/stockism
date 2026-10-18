@@ -167,7 +167,7 @@ export default function MessageComposer({
             <div>
               <label className={labelCls}>Colour</label>
               <input
-                aria-label="Box colour"
+                aria-label="Box color"
                 type="color"
                 value={draft.embed.color}
                 onChange={(e) => onPatchEmbed({ color: e.target.value })}

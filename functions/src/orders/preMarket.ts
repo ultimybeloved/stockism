@@ -303,7 +303,7 @@ export const cancelPreMarketOrder = cf().https.onCall(async (data: { orderId?: u
       throw new functions.https.HttpsError('permission-denied', "Cannot cancel another user's order.");
     }
     if (order.status !== 'PENDING') {
-      throw new functions.https.HttpsError('failed-precondition', 'Order is not pending and cannot be cancelled.');
+      throw new functions.https.HttpsError('failed-precondition', 'Order is not pending and cannot be canceled.');
     }
 
     tx.update(orderRef, {

@@ -200,7 +200,7 @@ const cmdLeaderboard = async () => {
     .slice(0, DISCORD_LEADERBOARD_ROWS)
     .map(
       (e: DocumentData, i: number) =>
-        `${rankLabel(i)} **${safeEcho(e.displayName || 'Anonymous', 32)}** — ${money(e.portfolioValue)}`,
+        `${rankLabel(i)} **${safeEcho(e.displayName || 'Anonymous', 32)}**: ${money(e.portfolioValue)}`,
     );
 
   const generatedAt = snap.data()!.generatedAt || 0;
@@ -391,7 +391,7 @@ const cmdPortfolio = async (interaction: Interaction) => {
   if (rows.length === 0) {
     description = 'You do not own any stocks yet.';
   } else {
-    description = shown.map((r) => `**${r.ticker}** ${r.shares}× — ${money(r.value)}`).join('\n');
+    description = shown.map((r) => `**${r.ticker}** ${r.shares}×: ${money(r.value)}`).join('\n');
     if (rest.length > 0) {
       const restValue = rest.reduce((s, r) => s + r.value, 0);
       description += `\n*+ ${rest.length} more worth ${money(restValue)}*`;
@@ -518,7 +518,7 @@ const cmdBuy = async (interaction: Interaction) => {
         description: price != null ? `Currently **${money(price)}** per share.` : 'Not trading yet.',
         footer: {
           text: marketHalted
-            ? 'Market is halted for chapter review — you can still queue an order'
+            ? 'Market is halted for chapter review. You can still queue an order'
             : 'Trades happen on the website so you can see the price impact first',
         },
       },
