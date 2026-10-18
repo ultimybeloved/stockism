@@ -19,6 +19,7 @@ import { reportError } from '../shared/sentry';
 import { getWeekId } from '../shared/tradeRecords';
 import { callPicksOpen, type CallDirection } from '../shared/rules/missions';
 import { lockCallBaseline, resolveWeeklyCalls } from './callResolution';
+import { recordChapterMarker } from '../market/chapterMarkers';
 const db = admin.firestore();
 
 export const makeWeeklyCall = cf().https.onCall(async (data, context) => {
@@ -89,6 +90,13 @@ export const weeklyCallsResolve = cf({ timeoutSeconds: 300 })
       await recordHeartbeat('weeklyCallsResolve');
     } catch (err) {
       reportError(err, { where: 'weeklyCallsResolve' });
+    }
+    // The chart marker for this chapter, off the same price lock. Separate, so
+    // a Calls failure can't cost the marker or the other way round.
+    try {
+      await recordChapterMarker();
+    } catch (err) {
+      reportError(err, { where: 'recordChapterMarker' });
     }
     return null;
   });

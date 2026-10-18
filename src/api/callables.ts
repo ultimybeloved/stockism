@@ -309,6 +309,10 @@ export const adminCutAccountFunction = callable<
   { uid: string; target: number; note?: string; dm?: boolean; preview: boolean },
   Panel.CutAccountResponse
 >('adminCutAccount');
+export const adminSetChapterNoteFunction = callable<
+  { weekId: string; label: string; note: string },
+  { success: boolean }
+>('adminSetChapterNote');
 export const adminCoTradersFunction = callable<{ uid: string; days: number }, Panel.CoTradersResponse>(
   'adminCoTraders',
 );

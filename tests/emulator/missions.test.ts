@@ -37,6 +37,8 @@ const { dailyCheckin, claimMissionReward, rerollMissions } =
   require('../../functions/src/missions/missions') as typeof import('../../functions/src/missions/missions');
 const { makeWeeklyCall } =
   require('../../functions/src/missions/weeklyCalls') as typeof import('../../functions/src/missions/weeklyCalls');
+const { recordChapterMarker, adminSetChapterNote } =
+  require('../../functions/src/market/chapterMarkers') as typeof import('../../functions/src/market/chapterMarkers');
 const { lockCallBaseline, resolveWeeklyCalls } =
   require('../../functions/src/missions/callResolution') as typeof import('../../functions/src/missions/callResolution');
 const { settleRivalryWeek } =
@@ -54,7 +56,7 @@ const { missionWeekId, callPicksOpen } =
   require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
 const { getLadderChips } =
   require('../../functions/src/shared/ladderMath') as typeof import('../../functions/src/shared/ladderMath');
-const { CHECKIN_STREAK_REWARDS, CREW_MEMBERS } =
+const { CHECKIN_STREAK_REWARDS, CREW_MEMBERS, ADMIN_UID } =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -707,6 +709,21 @@ async function callsSection() {
     'the callers board ranks the big Call first and is public-safe',
     board?.rows?.[0]?.uid === 'c_big' && board.rows.every((r: Loose) => !('cash' in r)),
     board?.rows,
+  );
+
+  const marker = await recordChapterMarker();
+  check(
+    'the chapter marker records what the review did',
+    marker.moves[MINE] === 5 && marker.moves[THEIRS] === 20 && !(SPARE in marker.moves),
+    marker.moves,
+  );
+  await adminSetChapterNote.run({ weekId: wk, label: 'Chapter 1', note: 'Test' }, { auth: { uid: ADMIN_UID } });
+  await recordChapterMarker();
+  const markers = (await db.collection('market').doc('chapterMarkers').get()).data()?.markers || [];
+  check(
+    'a re-run keeps one marker per week and the admin note',
+    markers.filter((m: Loose) => m.weekId === wk).length === 1 && markers[0].label === 'Chapter 1',
+    markers,
   );
 
   const again = await resolveWeeklyCalls();

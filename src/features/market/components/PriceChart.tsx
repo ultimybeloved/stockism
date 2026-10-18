@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef, type MouseEvent, type TouchEvent } from 'react';
 import { useTheme, useSession } from '../../../context/AppContext';
 import { usePriceHistory } from '../hooks/usePriceHistory';
+import { useChapterMarkers } from '../hooks/useChapterMarkers';
+import { chapterMarkerTitle, type ChapterMarker } from '../../../rules/chapterMarkers';
 import { formatAxisLabels } from '../../../utils/formatters';
 import { ADMIN_UIDS } from '../../../constants';
 import type { PricePoint } from '../../../types';
@@ -41,6 +43,8 @@ const getX = (i: number, total: number) => PAD_X + (i / Math.max(total - 1, 1)) 
 const getY = (price: number, min: number, range: number) => PAD_Y + CHART_H - ((price - min) / range) * CHART_H;
 
 const LONG_TERM = new Set<string>(['1m', '3m', '1y', 'all']);
+const MARKER_COLOR = '#a855f7';
+const shortDate = (ms: number) => new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
 const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'area', onHover }: PriceChartProps) => {
   const { darkMode } = useTheme();
@@ -59,7 +63,8 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     loadReviewDetail: isAdmin,
     showReviewDetail: isAdmin && showReviewSteps,
   });
-  const [hoveredPoint, setHoveredPoint] = useState<(ChartPoint & { x: number; y: number }) | null>(null);
+  const [hoveredPoint, setHoveredPoint] = useState<(ChartPoint & { x: number; y: number; i: number }) | null>(null);
+  const chapterMarkers = useChapterMarkers();
   const chartRef = useRef<SVGSVGElement>(null);
 
   const currentData = useMemo(() => {
@@ -114,6 +119,25 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     return data;
   }, [fullHistory, basePrice, currentPrice, timeRange]);
 
+  // Chapter reviews inside the shown range, at the first point from the halt on.
+  // The x axis is by point, not by time, so a marker sits on its point.
+  const markers = useMemo(() => {
+    const first = currentData[0]?.timestamp ?? 0;
+    const last = currentData[currentData.length - 1]?.timestamp ?? 0;
+    const out: { m: ChapterMarker; i: number }[] = [];
+    for (const m of chapterMarkers) {
+      if (m.at < first || m.at > last) continue;
+      const i = currentData.findIndex((p) => p.timestamp >= m.at);
+      if (i > 0) out.push({ m, i });
+    }
+    return out;
+  }, [chapterMarkers, currentData]);
+  const markerNear = (i: number) => {
+    const reach = Math.max(1, Math.round(currentData.length / 60));
+    return markers.find((k) => Math.abs(k.i - i) <= reach)?.m || null;
+  };
+  const hoveredMarker = hoveredPoint ? markerNear(hoveredPoint.i) : null;
+
   const prices = currentData.map((d) => d.price);
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
@@ -159,7 +183,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     );
     const p = currentData[idx];
     if (p) {
-      const point = { ...p, x: getX(idx, currentData.length), y: getY(p.price, minPrice, priceRange) };
+      const point = { ...p, i: idx, x: getX(idx, currentData.length), y: getY(p.price, minPrice, priceRange) };
       setHoveredPoint(point);
       onHover?.(p);
     }
@@ -246,6 +270,17 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
             );
           })}
 
+        {/* Chapter reviews: a dashed line and a flag; hover or tap it for what happened */}
+        {markers.map(({ m, i }) => {
+          const x = getX(i, currentData.length);
+          return (
+            <g key={m.weekId} opacity={hoveredMarker?.weekId === m.weekId ? 1 : 0.55}>
+              <line x1={x} y1={PAD_Y} x2={x} y2={PAD_Y + CHART_H} stroke={MARKER_COLOR} strokeDasharray="3 4" />
+              <path d={`M ${x} ${PAD_Y - 14} h 12 l -3 4 l 3 4 h -12 z`} fill={MARKER_COLOR} />
+            </g>
+          );
+        })}
+
         {/* Hover dot + line */}
         {hoveredPoint && (
           <>
@@ -296,6 +331,17 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
         >
           <div className="font-bold text-orange-400">${hoveredPoint.price.toFixed(2)}</div>
           <div className="text-xs opacity-60">{hoveredPoint.fullDate}</div>
+          {hoveredMarker && (
+            <div className="mt-1 pt-1 border-t border-purple-500/30 max-w-56 whitespace-normal">
+              <div className="text-xs font-semibold text-purple-500">
+                {chapterMarkerTitle(hoveredMarker, shortDate(hoveredMarker.at))}:{' '}
+                {hoveredMarker.moves[ticker] !== undefined
+                  ? `${hoveredMarker.moves[ticker]! > 0 ? '+' : ''}${hoveredMarker.moves[ticker]}%`
+                  : 'no change'}
+              </div>
+              {hoveredMarker.note && <div className="text-xs opacity-80">{hoveredMarker.note}</div>}
+            </div>
+          )}
         </div>
       )}
     </div>
