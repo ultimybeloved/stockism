@@ -84,13 +84,13 @@ export const CREW_HEAD_ROLE_IDS = {
 export const CREW_EMOJIS = {
   ALLIED: '<:stockism_allied:1466671644427948208>',
   BIG_DEAL: '<:stockism_bigdeal:1466671715701493951>',
-  FIST_GANG: '<:stockism_gapryongkimfistgang:1466671819955372199>',
+  FIST_GANG: '<:crew_fist_gang:1561192198316236915>',
   GOD_DOG: '<:stockism_goddog:1466671860392525844>',
-  SECRET_FRIENDS: '<:stockism_gookimsecretfriends:1466671940340023540>',
   HOSTEL: '<:stockism_hostel:1466671994971099321>',
+  KITAE_UNION: '<:kitaeunion:1535475594329071787>',
+  SECRET_FRIENDS: '<:stockism_gookimsecretfriends:1466671940340023540>',
   WTJC: '<:stockism_whitetigerjobcenterwtjc:1466672073005993985>',
   WORKERS: '<:stockism_workers:1466672134393954324>',
-  KITAE_UNION: '<:kitaeunion:1535475594329071787>',
   YAMAZAKI: '<:stockism_yamazakisyndicate:1466672168921337866>',
 };
 // Matches `<:name:123...>` and `<a:name:123...>`. Anything in CREW_EMOJIS that
