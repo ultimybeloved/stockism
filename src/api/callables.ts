@@ -305,6 +305,13 @@ export const adminWelcomeTrackerFunction = callable<void, Panel.WelcomeTrackerRe
 export const adminDiscordActivityFunction = callable<void, Panel.DiscordActivityResponse>('adminDiscordActivity');
 export const adminMoneyFlowFunction = callable<{ days: number }, Panel.MoneyFlowResponse>('adminMoneyFlow');
 export const adminBulkActionFunction = callable<Panel.BulkActionRequest, Panel.BulkActionResponse>('adminBulkAction');
+export const adminCutAccountFunction = callable<
+  { uid: string; target: number; note?: string; dm?: boolean; preview: boolean },
+  Panel.CutAccountResponse
+>('adminCutAccount');
+export const adminCoTradersFunction = callable<{ uid: string; days: number }, Panel.CoTradersResponse>(
+  'adminCoTraders',
+);
 export const adminMarketGuardFunction = callable<Panel.MarketGuardRequest, Panel.MarketGuardResponse>(
   'adminMarketGuard',
 );

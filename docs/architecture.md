@@ -358,6 +358,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/adminMarketGuard.ts` | adminMarketGuard: list, confirm or remove manipulators (admin click only), guard log, most-flagged accounts |
 | `functions/src/admin/adminBulk.ts` | adminBulkAction: cash grant or bell/DM message to picked players; cash goes through adminCashCore one player at a time |
 | `functions/src/admin/adminCashCore.ts` | **Internal module.** One admin cash change (memo, transaction, ledger, cash log, history, notification), shared by adminSetCash and bulk grants |
+| `functions/src/admin/adminEnforcement.ts` | adminCutAccount (shrink an account to a target net worth, preview first; math in `cutAccountMath.ts`, internal, unit-tested) and adminCoTraders (who trades the same stock the same way within 10 minutes of a player), both from the player file. `npm run test:enforcement` |
 | `functions/src/admin/adminGiftLog.ts` | adminListGifts: the gift log with same-connection / alt-scan / watchlist flags, for spotting alts feeding a main |
 | `functions/src/admin/haltAudit.ts` | haltPriceAudit (Thursday 21:05 UTC): flags untagged price points inside the halt, DMs the admin, silent when clean. Pure logic in `haltAuditCore.ts` (internal, unit-tested). Manual version: `npm run audit:halt` |
 | `functions/src/discord/discordMessages.ts` | Admin Discord tab: post, edit, delete and import bot messages. Payload shaping in `discordMessagePayload.ts` (internal) |
