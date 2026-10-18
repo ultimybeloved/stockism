@@ -225,8 +225,23 @@ export const rerollMissions = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Not enough cash. Need $50.');
     }
 
-    // Generate random seed offset
-    const rerollSeed = Math.floor(Math.random() * 100000) + 1;
+    // A random seed offset, re-drawn until the $50 actually buys something new:
+    // a different weekly mission and not the same three dailies.
+    const crew: string | null = userData.crew || null;
+    const weeklyBefore = getWeeklyMissions(crew, weekId)[1]?.id;
+    const dailyKey = (seed: number) =>
+      getDailyMissions(today, crew, seed)
+        .map((m) => m.id)
+        .sort()
+        .join();
+    const dailyBefore = dailyKey(0);
+    let rerollSeed = 0;
+    for (let tries = 0; tries < 50; tries++) {
+      rerollSeed = Math.floor(Math.random() * 100000) + 1;
+      if (getWeeklyMissions(crew, weekId, rerollSeed)[1]?.id !== weeklyBefore && dailyKey(rerollSeed) !== dailyBefore) {
+        break;
+      }
+    }
 
     const updates: Record<string, unknown> = {
       cash: cash - 50,

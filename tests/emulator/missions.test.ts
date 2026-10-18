@@ -565,6 +565,10 @@ async function main() {
       rerollUser.weeklyMissions[weekId()].rerollSeed === reroll.rerollSeed,
   );
   check(
+    'the reroll hands out a different weekly mission',
+    getWeeklyMissions(CREW, weekId(), reroll.rerollSeed)[1]?.id !== getWeeklyMissions(CREW, weekId())[1]?.id,
+  );
+  check(
     'a second reroll in the same week is refused',
     (await rejects(() => rerollMissions.run({}, ctx('r_ok')), /already rerolled/i)) === true,
   );
