@@ -423,7 +423,7 @@ async function main() {
     'no new bets on a cancelled prediction',
     (await rejects(() => bet('c_one', 'p_cancel', 'Yes', 10), /ended/i)) === true,
   );
-  check('and no payout claims', (await rejects(() => claim('c_two', 'p_cancel'), /cancelled/i)) === true);
+  check('and no payout claims', (await rejects(() => claim('c_two', 'p_cancel'), /canceled/i)) === true);
   const history = (await db.collection('adminLog').where('action', '==', 'cancel_prediction').get()).docs.map(
     (d: Loose) => d.data(),
   );
