@@ -117,6 +117,24 @@ export const createUser = cf().https.onCall(async (data, context) => {
   // key the trade path uses.
   const signupTrackingKey = ipTrackingKey(signupIp);
 
+  // Connections blocked for good (blockedNetworks/{ipTrackingKey}, server-only):
+  // every connection only a banned group ever used (scripts/ban-group.cjs).
+  if (signupTrackingKey && uid !== ADMIN_UID) {
+    const blocked = await db.collection('blockedNetworks').doc(signupTrackingKey).get();
+    if (blocked.exists) {
+      await db.collection('watchlist_alerts').add({
+        type: 'signup_blocked',
+        relatedUID: uid,
+        ip: signupIp,
+        action: 'blocked',
+        details: `Blocked signup "${trimmed}" from a blocked network (${blocked.data()?.reason || 'banned group'})`,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+      await cleanupBlockedAuthUser(uid);
+      throw new functions.https.HttpsError('permission-denied', 'Sign-ups are not available from this network.');
+    }
+  }
+
   // Per-IP signup controls (admin exempt) are enforced INSIDE the create
   // transaction below, not here. The old version read the IP count before the
   // transaction and only recorded the new account afterward, so a burst of
