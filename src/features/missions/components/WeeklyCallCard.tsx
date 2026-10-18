@@ -12,6 +12,7 @@ const RESULT_TEXT = {
   big: 'Big call! Paid',
   win: 'You called it. Paid',
   push: 'It barely moved, so this one is a push.',
+  break: 'Nothing moved this chapter, so every Call got a consolation.',
   loss: 'It went the other way.',
 } as const;
 

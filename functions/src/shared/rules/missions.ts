@@ -169,7 +169,7 @@ export const earnedGrowthPct = (
 // halt began against the price at the 20:55 lock, before the opening auction.
 // Nobody can trade in that window, so no player can move their own Call.
 export type CallDirection = 'up' | 'down';
-export type CallResult = 'big' | 'win' | 'push' | 'loss';
+export type CallResult = 'big' | 'win' | 'push' | 'loss' | 'break';
 
 export const scoreCall = (direction: CallDirection, before: number, after: number): CallResult => {
   if (!(before > 0) || !(after > 0)) return 'push';
@@ -181,4 +181,18 @@ export const scoreCall = (direction: CallDirection, before: number, after: numbe
 };
 
 export const callReward = (result: CallResult | null | undefined) =>
-  result === 'big' ? WEEKLY_CALL.bigReward : result === 'win' ? WEEKLY_CALL.reward : 0;
+  result === 'big'
+    ? WEEKLY_CALL.bigReward
+    : result === 'win'
+      ? WEEKLY_CALL.reward
+      : result === 'break'
+        ? WEEKLY_CALL.breakReward
+        : 0;
+
+/** A chapter break: not one stock moved 1% between the halt lock and the result. */
+export const isCallBreakWeek = (before: Record<string, number>, after: Record<string, number>) =>
+  !Object.keys(before).some((t) => {
+    const p0 = before[t] || 0;
+    const p1 = after[t] || 0;
+    return p0 > 0 && p1 > 0 && Math.abs(p1 / p0 - 1) >= WEEKLY_CALL.minMove;
+  });

@@ -414,6 +414,8 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
 export const WEEKLY_CALL = {
   reward: 500,
   bigReward: 1000,
+  /** Paid on every Call when no stock moved during the halt (a chapter break). */
+  breakReward: 250,
   minMove: 0.01,
   bigMove: 0.1,
 };

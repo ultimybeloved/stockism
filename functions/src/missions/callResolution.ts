@@ -11,7 +11,7 @@ import { reportError } from '../shared/sentry';
 import { writeNotification } from '../shared/notifications';
 import { getWeekId } from '../shared/tradeRecords';
 import { noteRivalryActivity } from '../shared/rivalries';
-import { scoreCall, callReward } from '../shared/rules/missions';
+import { scoreCall, callReward, isCallBreakWeek } from '../shared/rules/missions';
 import { nextRivalry, rivalryQualified, type WeeklyProgress } from '../shared/rules/missionProgress';
 import { missionAchievementFor } from './missionChecks';
 const db = admin.firestore();
@@ -29,6 +29,7 @@ const RESULT_TEXT = {
   win: 'You called it.',
   push: 'It barely moved, so this one is a push.',
   loss: 'It went the other way.',
+  break: 'Nothing moved this chapter, so every Call gets a consolation.',
 } as const;
 
 /** Score and pay every Call of the week. Safe to re-run: a scored Call is skipped. */
@@ -46,6 +47,7 @@ export async function resolveWeeklyCalls(now = Date.now()) {
   const before: Record<string, number> = base.prices || {};
   const after: Record<string, number> = marketSnap.data()?.prices || {};
   const crewStats = statsSnap.exists ? statsSnap.data() : null;
+  const breakWeek = isCallBreakWeek(before, after);
 
   const callers = await db
     .collection('users')
@@ -65,7 +67,7 @@ export async function resolveWeeklyCalls(now = Date.now()) {
 
         const p0 = before[call.ticker] || 0;
         const p1 = after[call.ticker] || 0;
-        const result = scoreCall(call.direction, p0, p1);
+        const result = breakWeek ? 'break' : scoreCall(call.direction, p0, p1);
         const crew: string | null = user.crew || null;
         const reward = Math.round(callReward(result) * (crew ? getCrewMultiplier(crewStats, crew) : 1));
         const field = `weeklyMissions.${weekId}`;
@@ -121,6 +123,6 @@ export async function resolveWeeklyCalls(now = Date.now()) {
       reportError(err, { where: 'resolveWeeklyCalls', uid: doc.id });
     }
   }
-  logger.info(`Weekly Calls ${weekId}: ${scored} scored, $${paid} paid`);
+  logger.info(`Weekly Calls ${weekId}: ${scored} scored, ${paid} paid${breakWeek ? ' (chapter break)' : ''}`);
   return { weekId, scored, paid };
 }

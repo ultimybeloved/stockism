@@ -671,6 +671,23 @@ async function callsSection() {
   const again = await resolveWeeklyCalls();
   check('re-running pays nobody twice', again.scored === 0 && (await getUser('c_win')).cash === win.cash, again);
   await setCrewMultiplier(null);
+
+  // A chapter break: nothing moved during the halt, so every Call gets the consolation.
+  await db
+    .collection('market')
+    .doc('current')
+    .set({ prices: { [MINE]: 100, [THEIRS]: 100, [SPARE]: 100 } });
+  await lockCallBaseline();
+  await seedUser('c_brk', { crew: CREW, ...call(MINE, 'down') });
+  await resolveWeeklyCalls();
+  const brk = await getUser('c_brk');
+  check(
+    'a chapter break pays every Call the consolation',
+    brk.weeklyMissions[wk].call.result === 'break' &&
+      near(brk.cash, 1000 + WEEKLY_CALL.breakReward) &&
+      brk.weeklyMissions[wk].rivalry?.count === 1,
+    brk.weeklyMissions[wk].call,
+  );
   await db.collection('market').doc('current').set({ prices: PRICES, weekOpenPrices: WEEK_OPEN });
 }
 

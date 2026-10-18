@@ -10,6 +10,7 @@ import {
   sharesHeldAtLeast,
   scoreCall,
   callReward,
+  isCallBreakWeek,
 } from './missions';
 import {
   dailyMissionProgress,
@@ -204,6 +205,13 @@ describe('Calls', () => {
     expect(scoreCall('up', 100, 100.5)).toBe('push');
     expect(scoreCall('up', 0, 100)).toBe('push');
     expect([callReward('big'), callReward('win'), callReward('push'), callReward(null)]).toEqual([1000, 500, 0, 0]);
+    expect(callReward('break')).toBe(250);
+  });
+
+  it('calls it a chapter break only when no stock moved 1%', () => {
+    expect(isCallBreakWeek({ A: 100, B: 50 }, { A: 100.5, B: 50 })).toBe(true);
+    expect(isCallBreakWeek({ A: 100, B: 50 }, { A: 100, B: 49 })).toBe(false);
+    expect(isCallBreakWeek({ A: 100 }, {})).toBe(true);
   });
 });
 
