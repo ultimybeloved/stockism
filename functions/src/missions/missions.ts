@@ -97,10 +97,12 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
     }
     // Claims are capped by count, not just by id: the set depends on the crew,
-    // so switching crews mid-day handed out a fresh set to claim again.
-    const claimedMap =
-      type === 'daily' ? userData.dailyMissions?.[today]?.claimed : userData.weeklyMissions?.[weekId]?.claimed;
-    if (Object.values(claimedMap || {}).filter(Boolean).length >= assignedMissions.length) {
+    // so switching crews mid-day handed out a fresh set to claim again. The
+    // Call pays itself, so it counts on neither side.
+    const claimedMap: Record<string, boolean> =
+      (type === 'daily' ? userData.dailyMissions?.[today]?.claimed : userData.weeklyMissions?.[weekId]?.claimed) || {};
+    const claimedCount = Object.entries(claimedMap).filter(([id, v]) => v && id !== CALL_MISSION.id).length;
+    if (claimedCount >= assignedMissions.filter((m) => m.id !== CALL_MISSION.id).length) {
       throw new functions.https.HttpsError(
         'failed-precondition',
         `You've claimed all your ${type} missions. New ones ${type === 'daily' ? 'tomorrow' : 'next week'}.`,

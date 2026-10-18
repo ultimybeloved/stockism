@@ -391,6 +391,30 @@ async function main() {
     )) === true,
   );
 
+  // Switching crews hands out a different set; claims are capped by count, so
+  // a full day's claims in the old crew leave nothing to claim in the new one.
+  await seedMissionUser('m_switched', {
+    extra: {
+      dailyMissions: { [today()]: { ...FULL_DAILY, claimed: { OLD_A: true, OLD_B: true, OLD_C: true } } },
+      weeklyMissions: { [weekId()]: { ...FULL_WEEKLY, claimed: { OLD_W: true } } },
+    },
+  });
+  check(
+    'after a full day of claims, a crew switch opens no new daily claims',
+    (await rejects(
+      () => claimMissionReward.run({ missionId: daily!.id, type: 'daily' }, ctx('m_switched')),
+      /claimed all your daily/i,
+    )) === true,
+  );
+  const [, switchedWeekly] = getWeeklyMissions(CREW, weekId(), 0);
+  check(
+    'and no new weekly claim either (the Call does not count)',
+    (await rejects(
+      () => claimMissionReward.run({ missionId: switchedWeekly!.id, type: 'weekly' }, ctx('m_switched')),
+      /claimed all your weekly/i,
+    )) === true,
+  );
+
   // Throwaway trades: a buy too small for the account, or one sold back.
   const crewSupportSeed = seedAssigning('daily', 'BUY_CREW_MEMBER');
   await seedMissionUser('m_tiny', {
@@ -431,7 +455,7 @@ async function main() {
   const seeded = await claimMissionReward.run({ missionId: target, type: 'daily' }, ctx('m_seeded'));
   check('after a reroll, the newly assigned mission can be claimed', seeded.success === true, seeded);
 
-  const untouched = ['m_unassigned', 'm_unfinished', 'm_tiny', 'm_flip'];
+  const untouched = ['m_unassigned', 'm_unfinished', 'm_tiny', 'm_flip', 'm_switched'];
   for (const uid of untouched) {
     const u = await getUser(uid);
     check(`refused claim left ${uid} unpaid`, u.cash === 1000 && !u.grantedValue, `cash=${u.cash}`);
