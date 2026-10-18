@@ -248,9 +248,10 @@ it('crew head roles', async () => {
       displayName: 'Whale',
       crew: C1,
       portfolioValue: 500000,
+      cash: 500000,
       portfolioSnapshot7d: { value: 495000 },
       discordId: '900000000000000042',
-      ...activeLastWeek,
+      weeklyMissions: { [prevWeekId]: { tradeCount: 3, startPortfolioValue: 490000, startGrantedValue: 0 } },
     });
   await db
     .collection('users')
@@ -264,10 +265,30 @@ it('crew head roles', async () => {
       ...activeLastWeek,
     });
 
+  // First run of the week: the week-open mark is from an older week.
+  await db.collection('market').doc('current').set({ prices: {}, weekOpenId: '2000-01-06' }, { merge: true });
   const { runWeeklyCrewRankings } =
     require('../../functions/src/market/marketWeekly') as typeof import('../../functions/src/market/marketWeekly');
   await runWeeklyCrewRankings({ postToDiscord: true });
 
+  const recap = await db
+    .collection('users')
+    .doc('whale')
+    .collection('notifications')
+    .where('title', '==', 'Your week')
+    .get();
+  check(
+    'E2E: an active player gets their "Your week" recap',
+    recap.size === 1 && recap.docs[0].data().message.startsWith('Net worth $500,000: +$10,000 from trading'),
+    recap.docs[0]?.data().message,
+  );
+  const noStart = await db
+    .collection('users')
+    .doc('rocket')
+    .collection('notifications')
+    .where('title', '==', 'Your week')
+    .get();
+  check('E2E: no recap without a starting value for the week', noStart.size === 0);
   const stats = (await db.collection('market').doc('crewStats').get()).data() || {};
   const crowned = (stats.heads || {})[C1];
   check(
@@ -285,4 +306,13 @@ it('crew head roles', async () => {
 
   const whaleDoc = (await db.collection('users').doc('whale').get()).data();
   check('E2E: crown written to the user doc', whaleDoc.isCrewHead === true && whaleDoc.crewHeadStreak === 1);
+
+  await runWeeklyCrewRankings({ postToDiscord: false });
+  const twice = await db
+    .collection('users')
+    .doc('whale')
+    .collection('notifications')
+    .where('title', '==', 'Your week')
+    .get();
+  check('E2E: a re-run in the same week sends no second recap', twice.size === 1);
 });

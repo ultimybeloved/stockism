@@ -8,10 +8,12 @@ import { writeNotification } from '../shared/notifications';
 import { sendDiscordMessage, crewEmoji, pxe } from '../shared/discordApi';
 import { getWeekId } from '../shared/tradeRecords';
 import { missionWeekStartMs } from '../shared/rules/missions';
-import { netWorthOf, tradingNetWorthOf, snapshotNetWorth } from '../shared/equity';
+import { netWorthOf, tradingNetWorthOf, snapshotNetWorth, netEquityAt } from '../shared/equity';
 import { reportError } from '../shared/sentry';
 import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
 import { settleRivalryWeek, pairRivalryWeek, type RivalryResult } from '../crews/rivalries';
+import { buildWeeklyRecap } from './weeklyRecap';
+import { rivalryQualified, type WeeklyProgress } from '../shared/rules/missionProgress';
 import type { DocumentData } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
@@ -162,9 +164,13 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   // Week-open prices, which Bargain Hunter measures "down this week" from.
   // Runs after the opening auction has filled, so the week opens where trading did.
   // Only the first run of a week: a mid-week re-run must not move the mark.
+  // The first run of a week also sends everyone their "Your week" recap, priced
+  // from last week's open to now.
+  let recapPrices: { open: Record<string, number>; now: Record<string, number> } | null = null;
   try {
     const market = await db.collection('market').doc('current').get();
     if (market.exists && market.data()?.weekOpenId !== getWeekId()) {
+      recapPrices = { open: market.data()?.weekOpenPrices || {}, now: market.data()?.prices || {} };
       await market.ref.update({ weekOpenPrices: market.data()?.prices || {}, weekOpenId: getWeekId() });
     }
   } catch (err) {
@@ -311,6 +317,20 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     }
   }
 
+  if (recapPrices) {
+    try {
+      await sendWeeklyRecaps(
+        usersSnapshot.docs,
+        prevWeekId,
+        rivalry?.results || {},
+        recapPrices,
+        (id) => crews[id]?.name || id,
+      );
+    } catch (err) {
+      reportError(err, { where: 'runWeeklyCrewRankings.sendWeeklyRecaps', prevWeekId });
+    }
+  }
+
   // Rank by average weekly gain per active member; crews with no active
   // members sink to the bottom.
   const sortedCrews = Object.values(crews)
@@ -422,6 +442,41 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   }
   return { multipliers, activeCounts, memberCounts, roleSync };
 }
+/** "Your week" bells for everyone who did anything last week. */
+async function sendWeeklyRecaps(
+  docs: admin.firestore.QueryDocumentSnapshot[],
+  weekId: string,
+  results: Record<string, RivalryResult>,
+  prices: { open: Record<string, number>; now: Record<string, number> },
+  crewName: (id: string) => string,
+) {
+  let sent = 0;
+  for (const d of docs) {
+    const u = d.data();
+    if (u.isBot || u.isBanned) continue;
+    const wp: WeeklyProgress | undefined = u.weeklyMissions?.[weekId];
+    const active = !!wp && ((wp.tradeCount || 0) > 0 || Object.keys(wp.claimed || {}).length > 0 || !!wp.checkinDays);
+    if (!active) continue;
+    const crew: string | null = u.crew || null;
+    const lines = buildWeeklyRecap({
+      netWorth: netEquityAt(u, prices.now) + Math.max(0, u.eventPositionsValue || 0),
+      grantedValue: u.grantedValue || 0,
+      holdings: u.holdings,
+      wp,
+      crew,
+      qualified: rivalryQualified(wp, crew),
+      rivalry: crew && results[crew] ? results[crew]! : null,
+      crewName,
+      openPrices: prices.open,
+      prices: prices.now,
+    });
+    if (!lines) continue;
+    await writeNotification(d.id, { type: 'system', title: 'Your week', message: lines.join(' ') });
+    sent++;
+  }
+  logger.info(`Weekly recaps ${weekId}: ${sent} sent`);
+}
+
 /**
  * Re-hand the crew head Discord roles from the CURRENT market/crewStats,
  * without recomputing anything. Used by the admin buttons so setup can be
