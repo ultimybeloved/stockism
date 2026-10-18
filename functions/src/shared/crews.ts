@@ -63,7 +63,7 @@ export const CREWS: Record<string, Crew> = {
   FIST_GANG: {
     id: 'FIST_GANG',
     name: 'Fist Gang',
-    color: '#a91a2c',
+    color: '#7e4e42',
     emblem: '👊',
     icon: '/crews/fist gang.png',
     members: [
