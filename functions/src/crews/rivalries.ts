@@ -11,7 +11,7 @@ import { recordLedger } from '../shared/ledger';
 import { reportError } from '../shared/sentry';
 import { writeNotification } from '../shared/notifications';
 import { rivalryRef } from '../shared/rivalries';
-import { rivalryQualified, type WeeklyProgress } from '../shared/rules/missionProgress';
+import { rivalryCount, rivalryQualified } from '../shared/rules/missionProgress';
 import { pairCrews, opponentsOf, matchWinners, rivalryScore, type RivalryTally } from './rivalryRules';
 const db = admin.firestore();
 
@@ -24,10 +24,6 @@ export interface RivalryResult extends RivalryTally {
 // Firestore can't store nested arrays, so a match is stored as { crews: [...] }.
 const readMatches = (board: DocumentData | undefined): string[][] =>
   (board?.matches || []).map((m: { crews?: string[] }) => m.crews || []).filter((m: string[]) => m.length > 1);
-
-/** Who took part: checked in or finished a mission during the week. */
-const wasActive = (wp: WeeklyProgress | undefined) =>
-  Object.keys(wp?.checkinDays || {}).length > 0 || (wp?.rivalry?.count || 0) > 0;
 
 /**
  * Score the week's matches from the user docs and pay every member who
@@ -51,10 +47,13 @@ export async function settleRivalryWeek(
   for (const { id, data } of users) {
     const crew = data.crew;
     if (!crew || data.isBot || data.isBanned) continue;
-    const wp: WeeklyProgress | undefined = data.weeklyMissions?.[weekId];
+    const wp = data.weeklyMissions?.[weekId];
     const t = (tallies[crew] ||= { active: 0, qualified: 0 });
     const qualified = rivalryQualified(wp, crew);
-    if (wasActive(wp) || qualified) t.active++;
+    // Active = finished at least one mission in this crew this week. Check-ins
+    // alone don't count (until 2026-10-22 they did, so a member who only
+    // checked in lowered their own crew's score).
+    if (rivalryCount(wp, crew) > 0) t.active++;
     if (qualified) {
       t.qualified++;
       qualifiers.push({ uid: id, crew });

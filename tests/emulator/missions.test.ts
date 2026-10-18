@@ -731,12 +731,15 @@ async function rivalrySection() {
     .collection('rivalries')
     .doc(wk)
     .set({ matches: [{ crews: [CREW, RIVAL] }] });
-  // CREW: 1 of 2 active qualified (50%). RIVAL: 1 of 4 (25%).
+  // Active = finished a mission in the crew. CREW: 1 of 2 qualified (50%).
+  // RIVAL: 1 of 3 (33%); r5 only checked in and r6 finished elsewhere, so
+  // neither counts against it.
   await seedUser('r1', rv(CREW, RIVALRY.qualifyMissions));
   await seedUser('r2', rv(CREW, 2));
   await seedUser('r3', rv(RIVAL, RIVALRY.qualifyMissions + 2));
   await seedUser('r4', rv(RIVAL, 1));
   await seedUser('r5', rv(RIVAL, 0));
+  await seedUser('r7', rv(RIVAL, 1, false));
   // Five missions, but finished in another crew before switching.
   await seedUser('r6', { ...rv(RIVAL, 0), weeklyMissions: { [wk]: { rivalry: { crew: CREW, count: 6 } } } });
   const snap = await db.collection('users').get();
@@ -761,6 +764,11 @@ async function rivalrySection() {
     (await getUser('r2')).cash === 1000 && (await getUser('r4')).cash === 1000,
   );
   check('missions finished in another crew do not count', (await getUser('r6')).cash === 1000);
+  check(
+    'a member who only checked in does not count against the crew',
+    out?.results?.[RIVAL]?.active === 3 && out?.results?.[CREW]?.active === 2,
+    out?.results,
+  );
   const board = (await db.collection('rivalries').doc(wk).get()).data();
   check(
     'results are stored',

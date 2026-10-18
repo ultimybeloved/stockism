@@ -92,7 +92,7 @@ export default function RivalryTab({ multiplier, onJoinCrew }: { multiplier: num
                   <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${t.pct}%` }} />
                 </div>
                 <p className={`text-xs ${mutedClass} mt-0.5`}>
-                  {t.qualified} of {t.active} active members finished {RIVALRY.qualifyMissions} missions
+                  {t.qualified} of {t.active} members with a mission finished {RIVALRY.qualifyMissions} missions
                 </p>
               </div>
             );
@@ -121,7 +121,8 @@ export default function RivalryTab({ multiplier, onJoinCrew }: { multiplier: num
           Daily and weekly missions both count, and so does a winning Call. Members who finish {RIVALRY.qualifyMissions}{' '}
           get {formatCurrency(Math.round(RIVALRY.winReward * multiplier))} if the crew wins and{' '}
           {formatCurrency(Math.round(RIVALRY.loseReward * multiplier))} if it loses, paid{' '}
-          {formatDateTime(missionWeekEndMs())}. The crew with the bigger share of active members who finished wins.
+          {formatDateTime(missionWeekEndMs())}. The crew with the bigger share wins. Only members who finished at least
+          one mission count, so checking in never hurts your crew.
         </p>
       </div>
     </div>

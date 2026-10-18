@@ -414,7 +414,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'dailyCheckin');
 
   try {
-    const { response, crew, weekId } = await db.runTransaction(async (transaction) => {
+    const { response } = await db.runTransaction(async (transaction) => {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await transaction.get(userRef);
 
@@ -542,8 +542,6 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
         weekId: checkinWeekId,
       };
     });
-    // Checking in makes you an active member for your crew's rivalry.
-    if (crew) await noteRivalryActivity(weekId, crew, uid);
     return response;
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {

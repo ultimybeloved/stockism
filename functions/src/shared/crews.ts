@@ -485,7 +485,7 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
 // Crew missions until 2026-10-22. Every Thursday reopen crews are paired 1 vs 1
 // by how many active players they have (a 3-way when the count is odd), never
 // the same opponent two weeks running. A crew's score is the share of its
-// active members (checked in or claimed a mission that week) who finished
+// members who finished at least one mission that week who finished
 // qualifyMissions missions while in the crew. Members who qualified are paid at
 // the next reopen: winReward on the winning crew, loseReward on the losing one,
 // times the underdog bonus. A tie is a win for both. The winners' crest glows
