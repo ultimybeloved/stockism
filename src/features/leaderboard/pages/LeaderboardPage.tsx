@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useTheme, useSession } from '../../../context/AppContext';
 import { useSeason } from '../../season/hooks/useSeason';
 import SeasonBoard from '../../season/components/SeasonBoard';
+import CallBoard from '../components/CallBoard';
 import { useUserRowPosition } from '../hooks/useUserRowPosition';
 import { formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
 import { useLeaderboard } from '../hooks/useLeaderboard';
@@ -15,7 +16,7 @@ import LeaderboardRow from '../components/LeaderboardRow';
 import { themeClasses } from '../../../utils/theme';
 import PixelIcon from '../../../shared/components/PixelIcon';
 
-type BoardMode = 'value' | 'gain' | 'season';
+type BoardMode = 'value' | 'gain' | 'season' | 'calls';
 
 const LeaderboardPage = () => {
   const { darkMode } = useTheme();
@@ -26,7 +27,9 @@ const LeaderboardPage = () => {
   // 'value' | 'gain' | 'season'. The season card deep-links in with ?board=season.
   const [searchParams] = useSearchParams();
   const { active: seasonActive } = useSeason();
-  const [sortMode, setSortMode] = useState<BoardMode>(searchParams.get('board') === 'season' ? 'season' : 'value');
+  const [sortMode, setSortMode] = useState<BoardMode>(
+    searchParams.get('board') === 'season' ? 'season' : searchParams.get('board') === 'calls' ? 'calls' : 'value',
+  );
   const [gainUnit, setGainUnit] = useState<'$' | '%'>('$');
   const sortBy = sortMode === 'value' ? 'value' : gainUnit === '%' ? 'weeklyGainPercent' : 'weeklyGain';
   // Ranked on net worth: margin debt is taken off on the server.
@@ -119,6 +122,16 @@ const LeaderboardPage = () => {
                 Season
               </button>
             )}
+            <button
+              onClick={() => setSortMode('calls')}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
+                sortMode === 'calls'
+                  ? 'bg-purple-600 text-white'
+                  : 'light:bg-slate-200 light:text-zinc-600 light:hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'
+              }`}
+            >
+              Calls
+            </button>
             {sortMode === 'gain' && (
               <div className="flex gap-1">
                 {(['$', '%'] as const).map((unit) => (
@@ -146,6 +159,8 @@ const LeaderboardPage = () => {
             <div className="p-3">
               <SeasonBoard />
             </div>
+          ) : sortMode === 'calls' ? (
+            <CallBoard />
           ) : (
             <>
               {/* Sticky Header - shown when user row has scrolled above viewport */}

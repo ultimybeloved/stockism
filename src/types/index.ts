@@ -206,6 +206,8 @@ export interface UserData {
   holdingCohorts?: Record<Ticker, HoldingCohort>;
   dailyMissions?: Record<string, MissionDayState & DailyProgress>;
   weeklyMissions?: Record<string, MissionDayState & WeeklyProgress & { rerolled?: boolean; rerollSeed?: number }>;
+  /** Lifetime weekly Call results (rules/callRecord), kept by the halt that scores them. */
+  callRecord?: import('../rules/callRecord').CallRecord;
   checkinStreak?: number;
   /** Best check-in streak ever reached. */
   maxCheckinStreak?: number;

@@ -14,6 +14,7 @@ import { noteRivalryActivity } from '../shared/rivalries';
 import { scoreCall, callReward, isCallBreakWeek } from '../shared/rules/missions';
 import { nextRivalry, rivalryQualified, type WeeklyProgress } from '../shared/rules/missionProgress';
 import { missionAchievementFor } from './missionChecks';
+import { nextCallRecord, compareCallRecords, callAccuracy, type CallRecord } from '../shared/rules/callRecord';
 const db = admin.firestore();
 
 /** market/callBaseline: { weekId, prices, savedAt }, the prices when the halt began. */
@@ -76,6 +77,14 @@ export async function resolveWeeklyCalls(now = Date.now()) {
           [`${field}.call.before`]: p0,
           [`${field}.call.after`]: p1,
           [`${field}.call.paid`]: reward,
+          // The lasting record: weekly mission data is pruned after two weeks.
+          callRecord: nextCallRecord(user.callRecord, {
+            weekId,
+            ticker: call.ticker,
+            direction: call.direction,
+            result,
+            paid: reward,
+          }),
         };
         let qualified = false;
         if (reward > 0) {
@@ -124,5 +133,41 @@ export async function resolveWeeklyCalls(now = Date.now()) {
     }
   }
   logger.info(`Weekly Calls ${weekId}: ${scored} scored, ${paid} paid${breakWeek ? ' (chapter break)' : ''}`);
+  try {
+    await rebuildCallBoard(weekId);
+  } catch (err) {
+    reportError(err, { where: 'rebuildCallBoard', weekId });
+  }
   return { weekId, scored, paid };
+}
+
+export const CALL_BOARD_ROWS = 50;
+/** leaderboard/calls: the best callers, public, rebuilt each time Calls are scored. */
+export const callBoardRef = () => db.collection('leaderboard').doc('calls');
+
+export async function rebuildCallBoard(weekId: string) {
+  const snap = await db.collection('users').where('callRecord.calls', '>', 0).get();
+  const rows = snap.docs
+    .map((d) => ({ uid: d.id, u: d.data() }))
+    .filter(({ u }) => !u.isBot && !u.isBanned)
+    .map(({ uid, u }) => {
+      const r = u.callRecord as CallRecord;
+      return {
+        uid,
+        displayName: (u.displayName as string) || 'Anonymous',
+        crew: (u.crew as string) || null,
+        isPublic: !!u.isPublic,
+        calls: r.calls,
+        wins: r.wins,
+        losses: r.losses,
+        big: r.big,
+        accuracy: callAccuracy(r),
+        streak: r.streak,
+        bestStreak: r.bestStreak,
+        earned: r.earned,
+      };
+    })
+    .sort(compareCallRecords)
+    .slice(0, CALL_BOARD_ROWS);
+  await callBoardRef().set({ weekId, updatedAt: Date.now(), players: snap.size, rows });
 }

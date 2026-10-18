@@ -696,8 +696,22 @@ async function callsSection() {
   check('a wrong Call pays nothing', loss.weeklyMissions[wk].call.result === 'loss' && loss.cash === 1000);
   check('a flat stock is a push', push.weeklyMissions[wk].call.result === 'push' && push.cash === 1000);
 
+  check(
+    'the lasting Call record counts the result',
+    win.callRecord?.wins === 1 && win.callRecord?.streak === 1 && loss.callRecord?.losses === 1,
+    win.callRecord,
+  );
+  check('a push is recorded but not as right or wrong', push.callRecord?.pushes === 1 && !push.callRecord?.wins);
+  const board = (await db.collection('leaderboard').doc('calls').get()).data();
+  check(
+    'the callers board ranks the big Call first and is public-safe',
+    board?.rows?.[0]?.uid === 'c_big' && board.rows.every((r: Loose) => !('cash' in r)),
+    board?.rows,
+  );
+
   const again = await resolveWeeklyCalls();
   check('re-running pays nobody twice', again.scored === 0 && (await getUser('c_win')).cash === win.cash, again);
+  check('and does not count the Call twice', (await getUser('c_win')).callRecord?.calls === 1);
   await setCrewMultiplier(null);
 
   // A chapter break: nothing moved during the halt, so every Call gets the consolation.

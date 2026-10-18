@@ -5,7 +5,8 @@ import { formatCurrency } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/localTime';
 import { themeClasses } from '../../../utils/theme';
 import { callPicksOpen, callPicksCloseMs, missionWeekEndMs, type WeeklyCall } from '../../../utils/missionProgress';
-import { useMarket } from '../../../context/AppContext';
+import { useMarket, useSession } from '../../../context/AppContext';
+import { callAccuracy } from '../../../rules/callRecord';
 import type { CallDirection } from '../../../rules/missions';
 
 const RESULT_TEXT = {
@@ -29,6 +30,7 @@ export default function WeeklyCallCard({
 }) {
   const { textClass, mutedClass, borderClass, inputClass } = themeClasses;
   const { prices } = useMarket();
+  const record = useSession().userData?.callRecord;
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState('');
   const [ticker, setTicker] = useState<string | null>(null);
@@ -67,6 +69,13 @@ export default function WeeklyCallCard({
             Pick a stock and say up or down. It's scored on the next chapter: from the halt to the reopen, before the
             opening auction.
           </p>
+          {!!record?.calls && (
+            <p className={`text-xs ${mutedClass} mt-0.5`}>
+              Your record: {record.wins} right, {record.losses} wrong
+              {callAccuracy(record) !== null ? ` (${callAccuracy(record)}%)` : ''}
+              {record.streak > 1 ? `, ${record.streak} in a row` : ''}.
+            </p>
+          )}
         </div>
         <span className={`text-sm font-bold shrink-0 text-right ${call?.paid ? 'text-purple-500' : mutedClass}`}>
           +{formatCurrency(reward)}

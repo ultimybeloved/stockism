@@ -724,6 +724,8 @@ export interface PublicProfile {
   /** Only filled in when an admin is looking. */
   adminData: import('../features/profile/components/ProfileAdminPanel').ProfileAdminData | null;
   achievements: string[];
+  /** Lifetime weekly Call results; null before their first scored Call. */
+  callRecord?: import('../rules/callRecord').CallRecord | null;
   stats: {
     totalTrades: number;
     predictionWins: number;
