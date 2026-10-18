@@ -21,8 +21,9 @@ const CREW_PAL = {
   f: '#f3c404',
   z: '#5865f2',
   x: '#000000',
-  // Fist Gang's brown glove: highlight, base, shade, crease; cuff base, cuff
-  // shade, cuff seam. The cuff's writing uses f and d (gold).
+  // Fist Gang's brown glove: shine, highlight, base, shade, crease; cuff base,
+  // cuff shade, cuff seam. The cuff's writing uses f and d (gold).
+  8: '#e3ac78',
   1: '#c98a55',
   2: '#9a5f33',
   3: '#6b3d1e',
@@ -124,29 +125,30 @@ const crests = {
     bmp(px, 3, 4, B, 'W');
     bmp(px, 10, 4, D, 'W');
   },
-  // A raised brown glove, front on: four curled fingers, the thumb across
-  // them, and a cuff with flecks of gold writing.
+  // A raised brown glove from the back: four knuckles and the thumb's, glove
+  // stitching running down the back, a gathered wrist and a cuff with flecks
+  // of gold writing.
   fist_gang: ({ px }) =>
     paint(px, 0, 0, [
       '....................',
-      '........112.........',
-      '....112.1223.112....',
-      '...11234122341223...',
-      '...122341223412233..',
-      '...122341223412233..',
-      '...444444444444443..',
-      '...122341223412233..',
-      '...122341223412233..',
-      '..1111111111224123..',
-      '..1222222222554123..',
-      '...333333333322233..',
-      '....22222222222233..',
-      '....12222222222233..',
-      '...777777777777777..',
-      '...555555555555556..',
-      '...55d5f555df5d556..',
-      '...5f55d5f555f5556..',
-      '...555555555555556..',
+      '.......11...........',
+      '...11.1823.11.......',
+      '..18231223182311....',
+      '..122312231223183...',
+      '..122242224222423...',
+      '..122232223222323...',
+      '.1422223223223223...',
+      '.1842222323232223...',
+      '.1242222222222223...',
+      '.2342222222222223...',
+      '..31222222222223....',
+      '....122222222223....',
+      '.....3232323233.....',
+      '...77777777777777...',
+      '...55555555555556...',
+      '...5d5f55df5d5f56...',
+      '...55f5d5f555d556...',
+      '...55555555555556...',
       '....................',
     ]),
   // A clawed paw print under a crown.
