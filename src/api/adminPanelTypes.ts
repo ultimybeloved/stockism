@@ -64,6 +64,8 @@ export interface PlayerFileResponse {
   history: Row[];
   notifications: Row[];
   confirmedManipulator?: boolean;
+  /** discordBindings rows: id is the Discord ID, written on a self-unlink. */
+  pastDiscords?: Row[];
 }
 
 export interface GuardLogEntry {

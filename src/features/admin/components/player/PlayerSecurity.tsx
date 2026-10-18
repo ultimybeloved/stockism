@@ -36,6 +36,28 @@ const PlayerSecurity = ({ file }: { file: PlayerFileResponse }) => {
   const signupIp = s(u.signupIp).replace(/_/g, '.');
   const watched = file.watched as Record<string, unknown> | null;
 
+  // Every Discord that came off this account: self-unlinks leave a binding,
+  // admin unlinks and moves leave an admin history entry.
+  const field = (v: unknown, k: string) => (v && typeof v === 'object' ? (v as Record<string, unknown>)[k] : null);
+  const pastDiscords = [
+    ...(file.pastDiscords || []).map((b) => ({
+      id: s(b.id),
+      name: s(b.discordUsername),
+      at: Number(b.boundAt) || 0,
+      how: 'they unlinked',
+    })),
+    ...file.adminActions
+      .filter((x) => x.action === 'unlink_discord' || x.action === 'move_discord_link')
+      .map((x) => ({
+        id: s(field(x.before, 'discordId') || field(x.before, 'targetDiscordId')),
+        name: s(field(x.before, 'discordUsername')),
+        at: Number(x.at) || 0,
+        how: x.action === 'unlink_discord' ? 'admin unlinked' : 'admin moved',
+      })),
+  ]
+    .filter((d) => d.id)
+    .sort((x, y) => y.at - x.at);
+
   return (
     <div className="grid grid-cols-3 gap-3">
       <Panel title="Sign-in">
@@ -72,6 +94,17 @@ const PlayerSecurity = ({ file }: { file: PlayerFileResponse }) => {
         )}
         <Fact label="Starting cash unlocked">{u.startingCashUnlocked === false ? 'no' : 'yes'}</Fact>
         <Fact label="Must link Discord to trade">{u.requiresDiscordLink ? 'yes' : 'no'}</Fact>
+        <p className={`text-xs ${t.muted} mt-3 mb-1`}>Past Discord links</p>
+        {pastDiscords.length ? (
+          pastDiscords.map((d) => (
+            <Fact key={`${d.id}-${d.at}`} label={`${d.name ? `@${d.name}` : d.id} (${d.how})`}>
+              {d.name ? `${d.id}, ` : ''}
+              {utc(d.at)}
+            </Fact>
+          ))
+        ) : (
+          <p className={`text-sm ${t.muted}`}>None.</p>
+        )}
       </Panel>
 
       <Panel title="Watchlist">
