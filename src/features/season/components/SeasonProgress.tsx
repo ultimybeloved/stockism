@@ -81,7 +81,9 @@ const SeasonProgress = ({
   return (
     <div className="mt-4">
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
-        <p className={`text-xs font-semibold ${textClass}`}>You vs the market</p>
+        <p className={`text-xs font-semibold ${textClass}`}>
+          You vs the market <span className={`font-normal ${mutedClass}`}>at Thursday's checkpoint</span>
+        </p>
         <p className={`text-xs ${mutedClass}`}>
           <span style={{ color: youColor }}>■</span> you {fmt(summary.totalReturn)}
           {'  '}
@@ -128,16 +130,17 @@ const SeasonProgress = ({
       <p className={`text-sm ${textClass} mt-1`}>
         {ahead ? (
           <>
-            You're{' '}
+            At Thursday's checkpoint you were{' '}
             <span className="font-semibold" style={{ color: youColor }}>
               {fmt(summary.excess).replace('+', '')}
             </span>{' '}
-            ahead of the market this season.
+            ahead of the market.
           </>
         ) : (
           <>
-            You're <span className="font-semibold text-red-400">{Math.abs(summary.excess).toFixed(1)}%</span> behind the
-            market this season.
+            At Thursday's checkpoint you were{' '}
+            <span className="font-semibold text-red-400">{Math.abs(summary.excess).toFixed(1)}%</span> behind the
+            market.
           </>
         )}
       </p>
