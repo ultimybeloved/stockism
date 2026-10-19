@@ -6,19 +6,32 @@ import { broadcastNotificationFunction } from '../../../api/callables';
 import { EVENT_AMM_LIQUIDITY, MS_PER_HOUR, WEEKLY_PREDICTION_SEED_MAX } from '../../../constants/economy';
 import { lmsrSeedQ } from '../../../utils/calculations';
 import type { AdminHookDeps } from '../utils/adminShared';
+import type { PredictionDoc } from '../../../types';
 import { resolveOpeningOdds } from '../utils/openingOdds';
 
 // Predictions tab: the create-new-prediction form (weekly cash + event AMM).
 export function useAdminPredictionCreate({
   showMessage,
   setLoading,
-}: Pick<AdminHookDeps, 'showMessage' | 'setLoading'>) {
+  predictions,
+}: Pick<AdminHookDeps, 'showMessage' | 'setLoading'> & { predictions: PredictionDoc[] }) {
   // Create prediction form state
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['Yes', 'No', '', '', '', '']);
   const [daysUntilEnd, setDaysUntilEnd] = useState(7);
   const [mayExtend, setMayExtend] = useState(false);
   const [weeklySeed, setWeeklySeed] = useState(''); // house seed total, split evenly; blank = none
+  // The chapter a weekly prediction is about; the predictions page shows it big.
+  // Suggested from the last one made: the same chapter while its betting is
+  // open, the next one after.
+  const [chapterInput, setChapter] = useState<number | '' | null>(null);
+  const latest = predictions
+    .filter((p) => p.type !== 'event' && Number(p.chapter) > 0)
+    .sort((a, b) => Number(b.chapter) - Number(a.chapter))[0];
+  const suggestedChapter = latest
+    ? Number(latest.chapter) + ((latest.endsAt ?? 0) < Date.now() ? 1 : 0)
+    : ('' as const);
+  const chapter = chapterInput ?? suggestedChapter;
 
   // Calculate end time at 13:55 UTC (7:55 AM CST) on target day (5 min before chapter release)
   const getEndTime = (days: number) => {
@@ -154,6 +167,7 @@ export function useAdminPredictionCreate({
         outcome: null,
         payoutsProcessed: false,
         createdAt: Date.now(),
+        ...(Number(chapter) > 0 && { chapter: Number(chapter) }),
         ...(mayExtend && { mayExtend: true }),
         ...(seedTotal > 0 && { seedTotal, seedPerOption }),
       };
@@ -190,6 +204,8 @@ export function useAdminPredictionCreate({
     setMayExtend,
     weeklySeed,
     setWeeklySeed,
+    chapter,
+    setChapter,
     endDate,
     getEndTime,
     handleCreatePrediction,

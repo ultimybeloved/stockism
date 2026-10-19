@@ -22,6 +22,8 @@ const PredictionCreateForm = ({
   setMayExtend,
   weeklySeed,
   setWeeklySeed,
+  chapter,
+  setChapter,
   endDate,
   handleCreatePrediction,
   predictionType,
@@ -120,6 +122,22 @@ const PredictionCreateForm = ({
                   minute: '2-digit',
                   timeZoneName: 'short',
                 })}
+              </p>
+            </div>
+
+            <div>
+              <label className={`block text-xs font-semibold uppercase mb-1 ${mutedClass}`}>Chapter</label>
+              <input
+                aria-label="Chapter"
+                type="number"
+                min="1"
+                value={chapter}
+                onChange={(e) => setChapter(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="590"
+                className={`w-full px-3 py-2 border rounded-sm ${inputClass}`}
+              />
+              <p className={`text-xs ${mutedClass} mt-1`}>
+                The chapter this bet is about. Shown big at the top of the predictions page.
               </p>
             </div>
 

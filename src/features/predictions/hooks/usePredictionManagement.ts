@@ -31,25 +31,25 @@ export function usePredictionManagement({
   }, [getMarket]);
 
   const handleBet = useCallback(
-    async (predictionId: string, option: string, amount: number) => {
+    async (predictionId: string, option: string, amount: number): Promise<boolean> => {
       if (!user || !userData) {
         showNotification('info', 'Sign in to place bets!');
-        return;
+        return false;
       }
       const halted = haltMessage();
       if (halted) {
         showNotification('error', halted);
-        return;
+        return false;
       }
       const cash = userData.cash ?? 0;
       if (cash < amount) {
         showNotification('error', 'Insufficient funds!');
-        return;
+        return false;
       }
       const totalInvested = getTotalInvested(userData.holdings, userData.costBasis, userData.shorts);
       if (totalInvested <= 0) {
         showNotification('error', 'You must invest in the market before placing bets!');
-        return;
+        return false;
       }
       const betLimit = Math.min(totalInvested, cash);
       if (amount > betLimit) {
@@ -58,17 +58,17 @@ export function usePredictionManagement({
         } else {
           showNotification('error', `Bet limit: ${formatCurrency(totalInvested)} (total you've invested in stocks)`);
         }
-        return;
+        return false;
       }
       const prediction = getMarket().predictions.find((p) => p.id === predictionId);
       if (!prediction || prediction.resolved || (prediction.endsAt as number) < Date.now()) {
         showNotification('error', 'Betting has ended!');
-        return;
+        return false;
       }
       const existingBet = userData.bets?.[predictionId];
       if (existingBet && existingBet.option !== option) {
         showNotification('error', `You already bet on "${existingBet.option}"!`);
-        return;
+        return false;
       }
       setLoadingKey('placeBet', true);
       try {
@@ -84,10 +84,12 @@ export function usePredictionManagement({
           };
         });
         showNotification('success', `Bet ${formatCurrency(amount)} on "${option}"!`);
+        return true;
       } catch (error) {
         reportUnexpected(error, { where: 'handleBet', predictionId, option, amount });
         const msg = errorMessage(error) || 'Bet failed';
         showNotification('error', msg.includes('Insufficient') ? 'Insufficient funds!' : msg);
+        return false;
       } finally {
         setLoadingKey('placeBet', false);
       }

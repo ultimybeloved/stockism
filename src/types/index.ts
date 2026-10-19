@@ -258,6 +258,8 @@ export interface PredictionDoc {
   allowAdditionalBets?: boolean;
   /** House money seeded into the pools at creation. */
   seedTotal?: number;
+  /** Weekly predictions: the chapter they're about (set by the admin who made them). */
+  chapter?: number;
   [key: string]: unknown;
 }
 

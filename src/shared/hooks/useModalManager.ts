@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { Character } from '../../characters';
-import type { BetConfirmation } from '../../features/predictions/components/BetConfirmModal';
 import type { LimitOrderRequest } from '../../features/account/hooks/useUserActions';
 import type { TradeConfirmation } from './types';
 
@@ -24,7 +23,6 @@ export function useModalManager() {
   const [showPriceAlertModal, setShowPriceAlertModal] = useState<string | null>(null); // ticker
   const [tradeConfirmation, setTradeConfirmation] = useState<TradeConfirmation | null>(null);
   const [limitOrderRequest, setLimitOrderRequest] = useState<LimitOrderRequest | null>(null);
-  const [betConfirmation, setBetConfirmation] = useState<BetConfirmation | null>(null);
   const [selectedCharacter, setSelectedCharacter] = useState<ChartSelection | null>(null);
 
   return {
@@ -54,8 +52,6 @@ export function useModalManager() {
     setTradeConfirmation,
     limitOrderRequest,
     setLimitOrderRequest,
-    betConfirmation,
-    setBetConfirmation,
     selectedCharacter,
     setSelectedCharacter,
   };

@@ -60,6 +60,8 @@ const PredictionsTab = ({
   setMayExtend,
   weeklySeed,
   setWeeklySeed,
+  chapter,
+  setChapter,
   endDate,
   getEndTime,
   handleCreatePrediction,
@@ -195,6 +197,8 @@ const PredictionsTab = ({
         setMayExtend={setMayExtend}
         weeklySeed={weeklySeed}
         setWeeklySeed={setWeeklySeed}
+        chapter={chapter}
+        setChapter={setChapter}
         endDate={endDate}
         handleCreatePrediction={handleCreatePrediction}
         predictionType={predictionType}
