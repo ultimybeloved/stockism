@@ -9,7 +9,8 @@ const { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchievem
 
 describe('mission claim checks', () => {
   const user = { portfolioValue: 10000, holdings: { A: 4 } };
-  const ctx = missionContext(user, { prices: { A: 10 } });
+  // A Friday in the first Thursday week: weekly missions are closed before it.
+  const ctx = missionContext(user, { prices: { A: 10 } }, Date.UTC(2026, 9, 23, 12));
 
   it('reads the shared rules', () => {
     const kept = { buys: { A: { shares: 4, value: 120, low: 10 } } };

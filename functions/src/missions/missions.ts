@@ -33,6 +33,7 @@ import { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchieve
 import { recordLedger } from '../shared/ledger';
 import { getWeekId } from '../shared/tradeRecords';
 import { nextRivalry, rivalryQualified } from '../shared/rules/missionProgress';
+import { weeklyMissionsOpen } from '../shared/rules/missions';
 import { noteRivalryActivity } from '../shared/rivalries';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
@@ -204,6 +205,10 @@ export const rerollMissions = cf().https.onCall(async (data, context) => {
     const weekId = getWeekId(now);
 
     const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
+
+    if (!weeklyMissionsOpen(weekId)) {
+      throw new functions.https.HttpsError('failed-precondition', 'Rerolls open at the Thursday reopen.');
+    }
 
     // Check not already rerolled
     if (weeklyProgress.rerolled) {

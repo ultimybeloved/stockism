@@ -10,6 +10,7 @@ import {
   type MissionContext,
   type MissionProgress,
 } from '../../../utils/missionProgress';
+import { weeklyMissionsOpen } from '../../../rules/missions';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 export type BoardMission = Mission & MissionProgress & { claimed: boolean };
@@ -75,7 +76,7 @@ export function useMissionBoard() {
       claimable: sumRewards(dailyMissions, claimable),
     },
     weeklyClaimable: sumRewards(weeklyMissions, claimable),
-    canReroll: !weekly.rerolled && !anyClaimed && (userData?.cash || 0) >= 50,
+    canReroll: weeklyMissionsOpen(weekId) && !weekly.rerolled && !anyClaimed && (userData?.cash || 0) >= 50,
     hasRerolled: !!weekly.rerolled,
   };
 }

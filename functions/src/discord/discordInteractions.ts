@@ -370,6 +370,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
               pick.shares,
               claimedAt,
               !!CHARACTER_MAP[pick.ticker]?.isETF,
+              true,
             );
             Object.assign(updates, lot);
             workingCohorts[pick.ticker] = lot[`holdingCohorts.${pick.ticker}`];

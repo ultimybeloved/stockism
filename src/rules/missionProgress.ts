@@ -18,6 +18,8 @@ import {
   earnedGrowthPct,
   callReward,
   missionWeekStartMs,
+  missionWeekId,
+  weeklyMissionsOpen,
   buyHoldClaimOpensMs,
   CALL_PICK_WINDOW_MS,
   DIVERSIFIED_MAX_SHARE,
@@ -159,6 +161,9 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
 
 export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx: MissionContext): MissionProgress => {
   const target = mission.requirement ?? 1;
+  if (!weeklyMissionsOpen(missionWeekId(ctx.now))) {
+    return { complete: false, progress: 0, target, note: 'Weekly missions start at the Thursday reopen' };
+  }
   switch (mission.checkType) {
     case 'CALL':
       return flag(callReward(wp.call?.result) > 0);
@@ -172,7 +177,7 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       const held = Object.entries(ctx.player.holdings || {}).some(
         ([t, s]) =>
           s > 0 &&
-          sharesBoughtBetweenStillHeld(ctx.player.holdingCohorts?.[t], ctx.now, start, start + CALL_PICK_WINDOW_MS) *
+          sharesBoughtBetweenStillHeld(ctx.player.holdingCohorts?.[t], start, start + CALL_PICK_WINDOW_MS) *
             (ctx.prices[t] || 0) >=
             min,
       );

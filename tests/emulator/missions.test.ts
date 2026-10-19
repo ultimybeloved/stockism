@@ -16,7 +16,7 @@
 //   G. Reroll                      H. Account guards
 //   I. Weekly Calls                J. Crew Rivalries
 
-import { it } from 'vitest';
+import { it, vi } from 'vitest';
 import { createRequire } from 'module';
 import { check, type Loose } from './harness';
 
@@ -52,7 +52,7 @@ const {
   RIVALRY,
   WEEKLY_CALL,
 } = require('../../functions/src/shared/crews') as typeof import('../../functions/src/shared/crews');
-const { missionWeekId, callPicksOpen } =
+const { missionWeekId, callPicksOpen, weeklyMissionsOpen } =
   require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
 const { getLadderChips } =
   require('../../functions/src/shared/ladderMath') as typeof import('../../functions/src/shared/ladderMath');
@@ -60,6 +60,14 @@ const { CHECKIN_STREAK_REWARDS, CREW_MEMBERS, ADMIN_UID } =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
 const DAY = 24 * 60 * 60 * 1000;
+
+// Weekly missions open with the first Thursday week (FIRST_MISSION_WEEK_ID).
+// Run before that, the suite moves its clock a week ahead (same weekday and
+// hour), so the weekly checks have a real week to run in.
+if (!weeklyMissionsOpen(missionWeekId())) {
+  vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 7 * DAY, shouldAdvanceTime: true });
+}
+
 const near = (a: number, b: number, tol = 0.011) => Math.abs(a - b) < tol;
 const ctx = (uid: string) => ({ auth: { uid } });
 const ts = (ms: number) => admin.firestore.Timestamp.fromMillis(ms);

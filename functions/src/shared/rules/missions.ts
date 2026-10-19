@@ -4,7 +4,7 @@
 // the server's claim checks read this one copy, so a progress bar can't say
 // "done" while the server says no.
 
-import { cohortLots, type HoldingCohort } from '../characters';
+import { cohortLots, DIVIDEND_HOLD_MS, type HoldingCohort } from '../characters';
 import { WEEKLY_CALL } from '../crews';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -39,6 +39,13 @@ export const weekStartOfId = (weekId: string) => Date.parse(`${weekId}T21:00:00Z
 
 /** When the week containing `now` ends (the next Thursday reopen). */
 export const missionWeekEndMs = (now: When = Date.now()) => missionWeekStartMs(now) + WEEK_MS;
+
+// The first week on this clock. The days before the 2026-10-22 reopen ran on
+// Monday weeks, so the week id they get here ('2026-10-15') holds none of that
+// week's claims: without this, a player could claim their weekly a second time
+// between the deploy and the reopen.
+export const FIRST_MISSION_WEEK_ID = '2026-10-22';
+export const weeklyMissionsOpen = (weekId: string) => weekId >= FIRST_MISSION_WEEK_ID;
 
 // Calls are made, and Buy and Hold buys count, from the Thursday reopen to the
 // end of Saturday (Sunday 00:00 UTC).
@@ -83,19 +90,17 @@ export const sharesHeldAtLeast = (
   return Math.min(Math.max(0, holding), old);
 };
 
-/** Shares bought between `from` and `to` that are still held (lots are sold oldest first). */
-export const sharesBoughtBetweenStillHeld = (
-  cohort: HoldingCohort | null | undefined,
-  now: number,
-  from: number,
-  to: number,
-) =>
-  cohortLots(cohort, now)
+/**
+ * Shares bought between `from` and `to` that are still held (lots are sold
+ * oldest first). Free lots (the daily drop) were never bought.
+ */
+export const sharesBoughtBetweenStillHeld = (cohort: HoldingCohort | null | undefined, from: number, to: number) =>
+  (cohort?.pending || [])
     .filter((l) => {
-      const acquiredAt = now - l.ageMs;
-      return acquiredAt >= from && acquiredAt < to;
+      const acquiredAt = (l.availableAt || 0) - DIVIDEND_HOLD_MS;
+      return !l.free && (l.shares || 0) > 0 && acquiredAt >= from && acquiredAt < to;
     })
-    .reduce((s, l) => s + l.shares, 0);
+    .reduce((s, l) => s + (l.shares || 0), 0);
 
 // ── Portfolio shape ──────────────────────────────────────────────────────────
 

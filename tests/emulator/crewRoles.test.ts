@@ -8,7 +8,7 @@
 // they lost), and Discord IDs must never reach market/crewStats, which is
 // world-readable.
 
-import { it } from 'vitest';
+import { it, vi } from 'vitest';
 import { createRequire } from 'module';
 import { check, type Loose } from './harness';
 
@@ -59,6 +59,18 @@ axios.request = async (cfg: AxiosConfig) => {
 const constants =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 const { CREW_HEAD_ROLE_IDS } = constants;
+
+// The "Your week" recap starts after the first full Thursday week
+// (FIRST_MISSION_WEEK_ID). Run before then, the suite moves its clock ahead in
+// whole weeks (same weekday and hour) until last week is a real one.
+{
+  const { missionWeekId, missionWeekStartMs, weeklyMissionsOpen } =
+    require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  let shift = 0;
+  while (!weeklyMissionsOpen(missionWeekId(missionWeekStartMs(Date.now() + shift) - 1))) shift += WEEK;
+  if (shift) vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + shift, shouldAdvanceTime: true });
+}
 
 // Give every crew a usable role ID for the test run.
 const ROLE: Record<string, string> = {};

@@ -165,6 +165,24 @@ describe('weekly missions', () => {
     expect(weeklyMissionProgress(m, {}, ctxOf(late, { A: 20 }, wed)).complete).toBe(false);
   });
 
+  it('Buy and Hold: a daily drop is not a buy', () => {
+    const m = WEEKLY_MISSIONS.BUY_AND_HOLD!;
+    const wed = REOPEN + 5 * DAY + 4 * HOUR;
+    const dropFri = { shares: 10, availableAt: REOPEN + DAY + DIVIDEND_HOLD_MS, free: true };
+    const player = { holdings: { A: 10 }, holdingCohorts: { A: { eligible: 0, pending: [dropFri] } } };
+    expect(weeklyMissionProgress(m, {}, ctxOf(player, { A: 20 }, wed)).complete).toBe(false);
+  });
+
+  it('nothing is claimable before the first Thursday week', () => {
+    const m = WEEKLY_MISSIONS.DIVERSIFIED!;
+    const even = { A: 10, B: 10, C: 10, D: 10, E: 10 };
+    const p = { A: 20, B: 20, C: 20, D: 20, E: 20 };
+    const stub = weeklyMissionProgress(m, {}, ctxOf({ holdings: even }, p, REOPEN - HOUR));
+    expect(stub.complete).toBe(false);
+    expect(stub.note).toBeTruthy();
+    expect(weeklyMissionProgress(m, {}, ctxOf({ holdings: even }, p, REOPEN)).complete).toBe(true);
+  });
+
   it('Diversified: 5 real positions, none over 40%', () => {
     const m = WEEKLY_MISSIONS.DIVERSIFIED!;
     const even = { A: 10, B: 10, C: 10, D: 10, E: 10 };

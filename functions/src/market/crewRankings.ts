@@ -7,7 +7,7 @@ import { TWENTY_FOUR_HOURS_MS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_DYNASTY_
 import { writeNotification } from '../shared/notifications';
 import { sendDiscordMessage, crewEmoji, pxe } from '../shared/discordApi';
 import { getWeekId } from '../shared/tradeRecords';
-import { missionWeekStartMs } from '../shared/rules/missions';
+import { missionWeekStartMs, weeklyMissionsOpen } from '../shared/rules/missions';
 import { netWorthOf, tradingNetWorthOf, snapshotNetWorth, netEquityAt } from '../shared/equity';
 import { reportError } from '../shared/sentry';
 import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
@@ -317,7 +317,9 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     }
   }
 
-  if (recapPrices) {
+  // No recap for the stub week before the first Thursday week: it was only the
+  // hours between the deploy and the reopen.
+  if (recapPrices && weeklyMissionsOpen(prevWeekId)) {
     try {
       await sendWeeklyRecaps(
         usersSnapshot.docs,
