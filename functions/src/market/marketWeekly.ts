@@ -135,10 +135,12 @@ async function runWeeklyMarketSummary() {
     await writeFeatureUsage({ users, tradesByUid, since: weekAgo, now });
 
     // Top portfolios — bots and banned accounts are excluded from all
-    // user-facing rankings
+    // user-facing rankings. Net worth (margin debt off), matching the site's
+    // board and the weekly leaderboard.
     const topPortfolios = users
       .filter((u) => !u.isBot && !u.isBanned && u.portfolioValue > 0)
-      .sort((a, b) => b.portfolioValue - a.portfolioValue)
+      .map((u) => ({ name: u.displayName || 'Anonymous', worth: netWorthOf(u as DocumentData) }))
+      .sort((a, b) => b.worth - a.worth)
       .slice(0, 5);
 
     // The shop's featured item turns over at the Thursday reopen, just before
@@ -176,8 +178,7 @@ async function runWeeklyMarketSummary() {
           value:
             topPortfolios
               .map(
-                (u, i) =>
-                  `${i + 1}. ${u.displayName || 'Anonymous'} - $${u.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                (u, i) => `${i + 1}. ${u.name} - $${u.worth.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
               )
               .join('\n') || 'None',
           inline: false,
