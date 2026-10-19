@@ -18,6 +18,7 @@ import type { ReactNode } from 'react';
 import type { PricePoint, TradeAction } from '../../../types';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import CrewPin from '../../../shared/components/CrewPin';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 type ChartType = 'area' | 'bar';
 
@@ -180,28 +181,20 @@ const StockPage = ({ onTrade }: StockPageProps) => {
         {/* Chart */}
         <div className={`${cardClass} border rounded-sm mb-4 overflow-hidden`}>
           <div className="px-4 py-2 border-b flex flex-wrap gap-2 justify-between items-center light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50">
-            <div className="flex gap-1 flex-wrap">
-              {TIME_RANGES.map((r) => (
-                <button
-                  key={r.key}
-                  onClick={() => setTimeRange(r.key)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${timeRange === r.key ? 'bg-orange-600 text-white' : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}
-                >
-                  {r.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-1">
-              {CHART_TYPES.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setChartType(t.key)}
-                  className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${chartType === t.key ? 'bg-orange-600 text-white' : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'}`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedSwitch
+              label="Time range"
+              size="md"
+              options={TIME_RANGES.map((r) => [r.key, r.label] as const)}
+              value={timeRange}
+              onChange={setTimeRange}
+            />
+            <SegmentedSwitch
+              label="Chart type"
+              size="md"
+              options={CHART_TYPES.map((t) => [t.key, t.label] as const)}
+              value={chartType}
+              onChange={setChartType}
+            />
           </div>
           <div className={`p-4 ${bgClass}`}>
             <PriceChart

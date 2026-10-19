@@ -10,8 +10,9 @@ import { getCosmeticStyles } from '../../../utils/cosmetics';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { getRankMedal, getRankStyle, formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
-import type { RankedLeader } from '../hooks/useLeaderboard';
+import type { RankedLeader } from '../hooks/boardCache';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import RankMove from './RankMove';
 
 interface LeaderboardRowProps {
   leader: RankedLeader;
@@ -90,6 +91,7 @@ const LeaderboardRow = ({
         ) : (
           `#${displayRank}`
         )}
+        {!isGainSort && <RankMove change={leader.rankChange} className="block leading-tight" />}
       </div>
       <div className="flex-1 min-w-0">
         <div className={`font-semibold truncate ${textClass} flex items-center gap-1`}>

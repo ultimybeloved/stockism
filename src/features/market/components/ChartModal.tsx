@@ -11,6 +11,7 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { Character } from '../../../characters';
 import type { PricePoint } from '../../../types';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 interface ChartModalProps {
   character: Character;
@@ -101,21 +102,13 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
 
         {/* Time Range Selector */}
         <div className={`px-4 py-2 border-b ${cardEdgeClass} light:bg-amber-50 dark:bg-zinc-900/50`}>
-          <div className="flex gap-1">
-            {TIME_RANGES.map((r) => (
-              <button
-                key={r.key}
-                onClick={() => setTimeRange(r.key)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-                  timeRange === r.key
-                    ? 'bg-orange-600 text-white'
-                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedSwitch
+            label="Time range"
+            size="md"
+            options={TIME_RANGES.map((r) => [r.key, r.label] as const)}
+            value={timeRange}
+            onChange={setTimeRange}
+          />
         </div>
 
         {/* Chart */}

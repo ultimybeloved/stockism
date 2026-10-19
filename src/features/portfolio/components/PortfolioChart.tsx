@@ -1,6 +1,7 @@
 import ValueLineChart from '../../../shared/components/charts/ValueLineChart';
 import type { PortfolioChartPoint } from '../hooks/usePortfolioChartData';
 import type { ChartHoverPoint, TimeRange } from '../utils/shared';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 interface PortfolioChartProps {
   chartData: PortfolioChartPoint[];
@@ -49,21 +50,13 @@ const PortfolioChart = ({
           {showChart ? '▼ Hide Chart' : '▶ Show Chart'}
         </button>
         {showChart && (
-          <div className="flex gap-1">
-            {timeRanges.map((range) => (
-              <button
-                key={range.key}
-                onClick={() => setTimeRange(range.key)}
-                className={`px-2 py-1 text-xs font-semibold rounded-sm ${
-                  timeRange === range.key
-                    ? 'bg-orange-600 text-white'
-                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedSwitch
+            label="Time range"
+            size="md"
+            options={timeRanges.map((range) => [range.key, range.label] as const)}
+            value={timeRange}
+            onChange={setTimeRange}
+          />
         )}
       </div>
 

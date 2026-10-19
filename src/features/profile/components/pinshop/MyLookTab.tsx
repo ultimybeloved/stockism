@@ -12,7 +12,7 @@ import { crewPinSrc, PIXELATED, pixelatedIfSvg } from '../../../../constants/cre
 import { COSMETIC_MAP } from '../../../../constants/cosmetics';
 import { SPLIT_FLAP_ID } from '../../../../constants/cosmeticLayers';
 import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '../../../../rules/cosmetics';
-import StyleSwitch from './StyleSwitch';
+import StyleSwitch from '../../../../shared/components/SegmentedSwitch';
 import CosmeticSwatch from './CosmeticSwatch';
 
 interface MyLookTabProps {

@@ -10,6 +10,7 @@ import { themeClasses } from '../../../utils/theme';
 import { formatChange } from '../../../utils/formatters';
 import { priceAt } from '../../../utils/marketStats';
 import type { PricePoint } from '../../../types';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 export const COMPARE_MAX = 4;
 const COLORS = ['#f97316', '#3b82f6', '#a855f7', '#14b8a6'];
@@ -75,20 +76,14 @@ const CompareChartModal = ({ tickers, onRemove, onClose }: CompareChartModalProp
             ×
           </button>
         </div>
-        <div className="px-4 pt-3 flex gap-1">
-          {TIME_RANGES.map((r) => (
-            <button
-              key={r.key}
-              onClick={() => setTimeRange(r.key)}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-sm ${
-                timeRange === r.key
-                  ? 'bg-orange-600 text-white'
-                  : 'light:text-zinc-600 dark:text-zinc-400 hover:text-orange-500'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
+        <div className="px-4 pt-3">
+          <SegmentedSwitch
+            label="Time range"
+            size="md"
+            options={TIME_RANGES.map((r) => [r.key, r.label] as const)}
+            value={timeRange}
+            onChange={setTimeRange}
+          />
         </div>
         <div className="p-4">
           <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-64" role="img" aria-label="Comparison chart">

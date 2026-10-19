@@ -10,6 +10,7 @@ import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { formatShares } from '../utils/shared';
 import { formatTimestamp, getTradeProfit, SOURCE_LABELS } from '../../../utils/tradeHistory';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 const VERB: Record<string, string> = {
   buy: 'Bought',
@@ -25,7 +26,7 @@ const ActivityPanel = ({ onOpenTradeHistory }: { onOpenTradeHistory?: () => void
   const { trades, loading, limited } = useRecentTrades(user?.uid);
   const [tab, setTab] = useState<'activity' | 'closed'>('activity');
   const [more, setMore] = useState(false);
-  const { textClass, mutedClass, ghostBtnClass } = themeClasses;
+  const { textClass, mutedClass } = themeClasses;
   const closed = recentlyClosed(trades, holdings);
   const list = more ? trades : trades.slice(0, SHOWN);
 
@@ -34,20 +35,16 @@ const ActivityPanel = ({ onOpenTradeHistory }: { onOpenTradeHistory?: () => void
   return (
     <div>
       <div className="flex items-center gap-1 mb-3">
-        {(
-          [
+        <SegmentedSwitch
+          label="Activity"
+          size="md"
+          options={[
             ['activity', 'Recent activity'],
             ['closed', `Closed (${closed.length})`],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`px-3 py-1.5 text-sm font-semibold rounded-sm ${tab === id ? 'bg-orange-600 text-white' : `border ${ghostBtnClass}`}`}
-          >
-            {label}
-          </button>
-        ))}
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
         {onOpenTradeHistory && (
           <button onClick={onOpenTradeHistory} className={`ml-auto text-xs ${mutedClass} hover:text-orange-500`}>
             Full history ↗

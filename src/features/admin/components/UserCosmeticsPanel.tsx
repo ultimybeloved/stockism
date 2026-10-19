@@ -21,7 +21,7 @@ interface OwnedChipProps {
 }
 
 const OwnedChip = ({ label, textClass, mutedClass, loading, onRemove, swatch, equipped }: OwnedChipProps) => (
-  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full light:bg-slate-100 dark:bg-slate-700">
+  <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-sm light:bg-slate-100 dark:bg-slate-700">
     {swatch}
     <span className={textClass}>{label}</span>
     {equipped && <span className="text-teal-500 font-semibold">on</span>}

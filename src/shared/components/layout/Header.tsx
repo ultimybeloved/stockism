@@ -144,9 +144,9 @@ const Header = ({
                 <button
                   key={link.path}
                   onClick={() => navigate(isActivePage(link.path) ? '/' : link.path)}
-                  className={`relative inline-flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`relative inline-flex items-center px-3 py-2 rounded-sm text-sm font-medium transition-colors ${
                     isActivePage(link.path)
-                      ? 'bg-orange-600 text-white'
+                      ? 'shadow-[inset_0_-2px_0_#f97316] light:bg-amber-50 light:text-slate-900 dark:bg-zinc-800/70 dark:text-zinc-50'
                       : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
                 >

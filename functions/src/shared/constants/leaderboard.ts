@@ -41,3 +41,10 @@ export const LEADERBOARD_PERCENT_MIN_BASELINE = 1000;
 export const LEADERBOARD_SIZE = 50;
 export const LEADERBOARD_POOL_START = 100;
 export const LEADERBOARD_POOL_MAX = 1600;
+
+// Rank arrows on the net-worth boards (users/leaderboardMoves.ts): a rank
+// snapshot at most hourly, kept 26 hours, and the oldest one compared against
+// once it is at least 20 hours old.
+export const RANK_SNAP_EVERY_MS = 60 * 60 * 1000;
+export const RANK_SNAP_KEEP_MS = 26 * 60 * 60 * 1000;
+export const RANK_BASE_MIN_AGE_MS = 20 * 60 * 60 * 1000;

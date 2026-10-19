@@ -271,6 +271,8 @@ Quick reference so you know where to look and where to add things.
 | `src/features/profile/components/pinshop/CosmeticSwatch.tsx` | My Look's circles: names as "Aa", scene backdrops and Masteries as a cropped mini row, badges for the other scene effects (`styles/cosmetics/swatches.css`) |
 | `src/features/portfolio/components/GroupSellSheet.tsx` | Sell a group: pick by rarity, crew or by hand; `hooks/useGroupSell` sells each stock through the normal `executeTrade`, 3.3s apart (the trade cooldown) |
 | `src/features/leaderboard/components/PlayerSearch.tsx` | Leaderboard name search (`searchPlayers`) |
+| `src/features/leaderboard/hooks/boardCache.ts` | Leaderboard session cache, board loading and prefetch, the remembered "your rank". Desktop is three columns (boards/crews, board, your rank and movers) |
+| `src/shared/components/TabBar.tsx`, `SegmentedSwitch.tsx`, `ToggleChip.tsx` | The site's switchers. No round pill buttons: sections use `TabBar`, value pickers (time range, buy/sell, sort) `SegmentedSwitch`, wrapping filter rows `ToggleChip` |
 | `src/utils/sounds.ts` | 8-bit sound effects in Web Audio (no files). Off by default, per-device switch + volume in Settings (localStorage). Call `playSound(name)` at the event; notification arrivals pass `background` so they never double up with the action that caused them |
 | `src/characters.ts` | **Source of truth** for all character/ETF data — edit here only |
 | `src/features/admin/` | Admin command panel (full screen, desktop only, terminal look from `src/styles/adminTerminal.css`): `components/` (AdminPanel.tsx owns the hooks and sidebar, AdminContent.tsx draws the section; `shell/` UI kit and `terminal.ts` tokens; `home/`, `players/`, `player/` (the player file), `welcome/`, `money/`, `discordActivity/`, plus the older tabs), `hooks/` (state + handlers, one hook per domain), `utils/` (pure helpers; `adminNav.ts` lets any screen open a player file via PlayerLink) |
@@ -301,7 +303,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/users/signupHelpers.ts` | **Internal module.** createUser's blocked-signup auth cleanup and the parked Discord-link apply |
 | `functions/src/users/userProfile.ts` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
 | `functions/src/market/market.ts` | Daily Discord summary, pre-halt price snapshot, chapter recap + review rebuild, market open/close alerts, manual halt (setMarketHalt). 595 lines, near the 600 limit |
-| `functions/src/users/leaderboard.ts` | Rankings, leaderboard computation |
+| `functions/src/users/leaderboard.ts` | Rankings, leaderboard computation, gap to the next rank |
+| `functions/src/users/leaderboardMoves.ts` | Rank arrows: hourly rank snapshots in `leaderboardRanks/{key}` (server only), compared against a day ago |
 | `functions/src/users/playerSearch.ts` | `searchPlayers`: name prefix search on `displayNameLower`, bots and banned left out |
 | `functions/src/market/dividends.ts` | Dividend payouts |
 | `functions/src/market/alerts.ts` | Price alerts |

@@ -25,6 +25,7 @@ import {
   type TradeRecord,
 } from '../../../utils/tradeHistory';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 /** A trades/{id} doc as this list reads it. Dividend payouts carry a breakdown instead of a price. */
 interface TradeRow extends TradeRecord {
@@ -212,21 +213,16 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
           </div>
 
           {/* Action filter buttons */}
-          <div className="flex gap-1 mt-2">
-            {['all', 'buy', 'sell', 'short', 'cover', 'dividend'].map((action) => (
-              <button
-                key={action}
-                onClick={() => setFilterAction(action)}
-                className={`px-2 py-1 text-xs font-semibold rounded-sm ${
-                  filterAction === action
-                    ? 'bg-orange-600 text-white'
-                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {action.charAt(0).toUpperCase() + action.slice(1)}
-              </button>
-            ))}
-          </div>
+          <SegmentedSwitch
+            label="Trade type"
+            size="md"
+            className="mt-2"
+            options={['all', 'buy', 'sell', 'short', 'cover', 'dividend'].map(
+              (action) => [action, action.charAt(0).toUpperCase() + action.slice(1)] as const,
+            )}
+            value={filterAction}
+            onChange={setFilterAction}
+          />
 
           {/* Running P&L */}
           {filtered.length > 0 && totalPL !== 0 && (

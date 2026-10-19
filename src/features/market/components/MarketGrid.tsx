@@ -10,6 +10,7 @@ import type { ComponentProps } from 'react';
 import type { Character } from '../../../characters';
 import type { UserData } from '../../../types';
 import type { useMarketBrowser } from '../hooks/useMarketBrowser';
+import ToggleChip from '../../../shared/components/ToggleChip';
 
 type CardProps = ComponentProps<typeof CharacterCard>;
 
@@ -131,16 +132,15 @@ const MarketGrid = ({
           {reviewSections.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {[{ id: 'all', short: 'Show All', characters: undefined }, ...reviewSections].map((option) => (
-                <button
+                <ToggleChip
                   key={option.id}
+                  active={activeSection === option.id}
+                  accent="#f59e0b"
                   onClick={() => setOpenSection(option.id)}
-                  className={`px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${
-                    activeSection === option.id ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`
-                  }`}
                 >
                   {option.short}
-                  {option.characters && <span className="ml-1 opacity-70">{option.characters.length}</span>}
-                </button>
+                  {option.characters && <span className="opacity-70">{option.characters.length}</span>}
+                </ToggleChip>
               ))}
             </div>
           )}

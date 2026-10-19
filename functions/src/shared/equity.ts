@@ -313,3 +313,28 @@ export const countRankAbove = async (netValue: number, crew?: string | null) => 
   }
   return Math.max(0, aboveSnap.data().count - botsSnap.data().count + correction) + 1;
 };
+
+/** How much more net worth a player at `netValue` needs to pass the next
+ * player up, or null with nobody above. Reads the few players just above on
+ * gross value; the adjusted set covers anyone whose net worth crosses over. */
+export const gapToNextRank = async (netValue: number, crew?: string | null) => {
+  let above = db.collection('users').where('portfolioValue', '>', netValue);
+  if (crew) above = above.where('crew', '==', crew);
+  const [snap, adjusted] = await Promise.all([
+    above
+      .orderBy('portfolioValue', 'asc')
+      .limit(10)
+      .select(...ADJUSTED_FIELDS)
+      .get(),
+    loadAdjusted(),
+  ]);
+  let next = Infinity;
+  const consider = (u: WorthFields & { isBot?: boolean; crew?: string | null }) => {
+    if (u.isBot || (crew && u.crew !== crew)) return;
+    const n = netWorthOf(u);
+    if (n > netValue && n < next) next = n;
+  };
+  snap.docs.forEach((d) => consider(d.data()));
+  adjusted.forEach(consider);
+  return next === Infinity ? null : round2(next - netValue);
+};

@@ -1,5 +1,6 @@
 import { themeClasses } from '../../../utils/theme';
 import { HOLDING_SORTS } from '../utils/shared';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 interface HoldingsControlsProps {
   search: string;
@@ -27,23 +28,15 @@ const HoldingsControls = ({ search, setSearch, sortKey, sortDir, onSortChange }:
       {/* Wider screens sort by the table's column headers instead. */}
       <div className="flex md:hidden items-center gap-1">
         <span className={`text-xs ${mutedClass} mr-1`}>Sort</span>
-        {HOLDING_SORTS.map((s) => {
-          const active = sortKey === s.key;
-          return (
-            <button
-              key={s.key}
-              onClick={() => onSortChange(s.key)}
-              className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors ${
-                active
-                  ? 'bg-orange-600 text-white'
-                  : 'light:text-slate-500 light:hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'
-              }`}
-            >
-              {s.label}
-              {active && (sortDir === 'asc' ? ' ▲' : ' ▼')}
-            </button>
-          );
-        })}
+        <SegmentedSwitch
+          label="Sort holdings"
+          size="md"
+          options={HOLDING_SORTS.map(
+            (s) => [s.key, sortKey === s.key ? `${s.label} ${sortDir === 'asc' ? '▲' : '▼'}` : s.label] as const,
+          )}
+          value={sortKey}
+          onChange={onSortChange}
+        />
       </div>
     </div>
   );

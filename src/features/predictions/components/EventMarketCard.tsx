@@ -16,6 +16,7 @@ import { marketTimes } from '../../../utils/localTime';
 import { EVENT_AMM_LIQUIDITY } from '../../../constants/economy';
 import type { EventMarketDoc, EventPosition } from '../../../types';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 type TradeShares = (marketId: string, outcome: string, shares: number) => Promise<unknown>;
 
@@ -266,21 +267,18 @@ const EventMarketCard = ({
           </div>
 
           {/* Buy / Sell toggle */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode('buy')}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm ${mode === 'buy' ? 'bg-orange-600 text-white' : chipClass}`}
-            >
-              Buy
-            </button>
-            <button
-              onClick={() => setMode('sell')}
-              disabled={ownedSelected <= 0}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-sm disabled:opacity-40 ${mode === 'sell' ? 'bg-orange-600 text-white' : chipClass}`}
-            >
-              Sell
-            </button>
-          </div>
+          <SegmentedSwitch
+            label="Buy or sell"
+            size="md"
+            fill
+            options={[
+              ['buy', 'Buy'],
+              ['sell', 'Sell'],
+            ]}
+            value={mode}
+            onChange={setMode}
+            disabled={ownedSelected <= 0 ? ['sell'] : []}
+          />
 
           {/* Shares input */}
           <div>

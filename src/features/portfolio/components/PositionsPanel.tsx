@@ -18,6 +18,7 @@ import { buildShortItems, type PortfolioItem } from '../utils/buildPositionItems
 import { filterHoldings, sortHoldings, type ShareInputs } from '../utils/shared';
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import type { TradeAction } from '../../../types';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 type DetailProps = ComponentProps<typeof PositionDetail>;
 type PositionTab = 'long' | 'short';
@@ -106,27 +107,29 @@ const PositionsPanel = ({
 
   return (
     <>
-      <div className="flex gap-1 mb-3">
-        {(
+      <SegmentedSwitch
+        label="Positions"
+        size="md"
+        fill
+        className="mb-3"
+        options={(
           [
             { key: 'long', label: 'Long', icon: 'trade', set: 'ui', count: portfolioItems.length },
             { key: 'short', label: 'Short', icon: 'chart_down', set: 'discord', count: shortItems.length },
           ] as const
-        ).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => switchPositionTab(t.key)}
-            className={`flex-1 py-1.5 text-sm font-semibold rounded-sm transition-colors ${
-              positionTab === t.key
-                ? 'bg-orange-600 text-white'
-                : 'light:bg-amber-50 light:text-slate-500 light:hover:bg-amber-100 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
-            }`}
-          >
-            <PixelIcon name={t.icon} set={t.set} className="w-4 h-4 mr-1 align-[-3px]" />
-            {t.label} <span className="text-xs font-normal">({t.count})</span>
-          </button>
-        ))}
-      </div>
+        ).map(
+          (t) =>
+            [
+              t.key,
+              <>
+                <PixelIcon name={t.icon} set={t.set} className="w-4 h-4" />
+                {t.label} <span className="font-normal">({t.count})</span>
+              </>,
+            ] as const,
+        )}
+        value={positionTab}
+        onChange={switchPositionTab}
+      />
 
       <HoldingsControls
         search={search}
