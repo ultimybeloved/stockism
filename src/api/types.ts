@@ -683,8 +683,8 @@ export interface PlayerSearchResult {
   displayName: string;
   crew: string | null;
   isPublic: boolean;
-  /** Null for a private profile. */
-  netWorth: number | null;
+  /** Shown for everyone, the same number the boards show. */
+  netWorth: number;
 }
 
 /** getPublicProfile: what anyone can see about a player whose profile is public. */

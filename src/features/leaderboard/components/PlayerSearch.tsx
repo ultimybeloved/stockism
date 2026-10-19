@@ -78,11 +78,7 @@ const PlayerSearch = () => {
                 <>
                   {crew ? <CrewPin crew={crew} className="w-4 h-4" /> : <span className="w-4 h-4 shrink-0" />}
                   <span className={`flex-1 truncate font-medium ${textClass}`}>{p.displayName}</span>
-                  {p.netWorth === null ? (
-                    <span className={`text-[10px] ${mutedClass}`}>Private</span>
-                  ) : (
-                    <span className={`text-xs tabular-nums ${mutedClass}`}>{formatCurrency(p.netWorth)}</span>
-                  )}
+                  <span className={`text-xs tabular-nums ${mutedClass}`}>{formatCurrency(p.netWorth)}</span>
                 </>
               );
               const rowClass = 'flex items-center gap-2 px-3 py-2 text-sm';

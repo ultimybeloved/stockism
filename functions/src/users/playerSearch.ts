@@ -51,8 +51,8 @@ export const searchPlayers = cf().https.onCall(async (data, context) => {
       displayName: u.displayName as string,
       crew: (u.crew as string | undefined) || null,
       isPublic: !!u.isPublic,
-      // Private profiles keep their money private here too.
-      netWorth: u.isPublic ? netWorthOf(u) : null,
+      // Shown even for private profiles: the boards already show it.
+      netWorth: netWorthOf(u),
     }));
   return { players };
 });
