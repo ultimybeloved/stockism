@@ -158,6 +158,9 @@ export interface UserData {
   peakPortfolioValue?: number;
   totalCheckins?: number;
   totalTrades?: number;
+  totalMissionsCompleted?: number;
+  /** Lifetime profit from non-crew characters (NPC Lover). */
+  npcProfit?: number;
   createdAt?: TimestampLike;
   achievements?: string[];
   bets?: Record<string, UserBet>;

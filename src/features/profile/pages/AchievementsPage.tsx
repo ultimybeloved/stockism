@@ -7,6 +7,9 @@ import { getMaxAchievementSlots, toggleDisplayedPin } from '../../../utils/pinSl
 import type { PinAction } from '../hooks/usePinShop';
 import AchievementIcon from '../../../shared/components/AchievementIcon';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import AchievementCard from '../components/AchievementCard';
+import { achievementProgress } from '../utils/achievementProgress';
+import { ACHIEVEMENT_CATEGORIES } from '../utils/achievementCategories';
 
 const AchievementsPage = ({
   onPinAction,
@@ -28,50 +31,8 @@ const AchievementsPage = ({
   );
   const maxSlots = getMaxAchievementSlots(userData);
   const canWearPins = !!userData && !!onPinAction;
-
-  // Group achievements by category
-  const categories = {
-    Trading: [
-      'FIRST_BLOOD',
-      'SHARK',
-      'DIVERSIFIED',
-      'UNIFIER',
-      'MONOPOLY',
-      'TRADER_20',
-      'TRADER_100',
-      'THATS_A_BIG_DEAL',
-      'TOPPED_OFF',
-    ],
-    Profits: [
-      'BULL_RUN',
-      'DIAMOND_HANDS',
-      'COLD_BLOODED',
-      'NPC_LOVER',
-      'DISCOUNT_DEACON',
-      'PROFIT_CHAMPION',
-      'YOURE_A_WORKER',
-      'ANIMAL_INSTINCT',
-    ],
-    Portfolio: [
-      'BROKE_2K',
-      'BROKE_5K',
-      'BROKE_10K',
-      'BROKE_25K',
-      'BROKE_50K',
-      'BROKE_100K',
-      'BROKE_250K',
-      'BROKE_500K',
-      'BROKE_1M',
-      'DIVIDEND_DEMON',
-    ],
-    Predictions: ['ORACLE', 'PROPHET', 'UNDERDOG'],
-    'Ladder Game': ['COMPULSIVE_GAMBLER', 'ADDICTED', 'CASINO_CHAMPION', 'JIHOISM'],
-    Dedication: ['DEDICATED_7', 'DEDICATED_14', 'DEDICATED_30', 'DEDICATED_100'],
-    Missions: ['MISSION_10', 'MISSION_50', 'MISSION_100'],
-    Leaderboard: ['TOP_10', 'TOP_3', 'TOP_1'],
-    Crew: ['CROWNED', 'DYNASTY', 'USURPER'],
-    Community: ['DISCORD_LINKED'],
-  };
+  const togglePin = (id: string) =>
+    onPinAction?.('setAchievementPins', toggleDisplayedPin(displayedPins, id, maxSlots), 0);
 
   return (
     <div className="max-w-4xl mx-auto p-4">
@@ -85,16 +46,41 @@ const AchievementsPage = ({
             {earnedAchievements.length} / {allAchievements.length} unlocked
           </p>
           {canWearPins && (
-            <p className={`text-xs ${mutedClass} mt-1`}>
-              📌 Equipped {displayedPins.length}/{maxSlots} as pins next to your name. Tap Equip on an earned
-              achievement to show it off.
-            </p>
+            <div className="mt-3">
+              <p className={`text-xs ${mutedClass}`}>
+                Pins next to your name ({displayedPins.length}/{maxSlots}). Tap one to take it off.
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {displayedPins.map((id) => {
+                  const a = ACHIEVEMENT_MAP[id];
+                  if (!a) return null;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => togglePin(id)}
+                      title="Take off"
+                      className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-sm border text-xs font-semibold text-orange-500 border-orange-500/60 bg-orange-500/10 hover:border-orange-500"
+                    >
+                      <AchievementIcon achievement={a} className="h-5 w-5" />
+                      {a.name}
+                    </button>
+                  );
+                })}
+                {Array.from({ length: Math.max(0, maxSlots - displayedPins.length) }, (_, i) => (
+                  <span
+                    key={`empty-${i}`}
+                    className={`flex items-center px-2.5 py-1 rounded-sm border border-dashed text-xs light:border-amber-300 dark:border-zinc-700 ${mutedClass}`}
+                  >
+                    Empty slot
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
         <div className="p-4 space-y-6">
-          {/* Achievement Categories */}
-          {Object.entries(categories).map(([category, achievementIds]) => (
+          {Object.entries(ACHIEVEMENT_CATEGORIES).map(([category, achievementIds]) => (
             <div key={category}>
               <h3 className={`font-semibold mb-3 ${textClass}`}>{category}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -102,65 +88,18 @@ const AchievementsPage = ({
                   const achievement = ACHIEVEMENT_MAP[id];
                   if (!achievement) return null;
                   const earned = earnedAchievements.includes(id);
-
+                  const worn = displayedPins.includes(id);
                   return (
-                    <div
+                    <AchievementCard
                       key={id}
-                      className={`p-3 rounded-sm border ${
-                        earned
-                          ? 'light:bg-orange-50 light:border-orange-300 dark:bg-orange-900/30 dark:border-orange-700'
-                          : 'light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/30 dark:border-zinc-700'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`text-2xl inline-flex items-center justify-center ${earned ? '' : 'grayscale opacity-50'}`}
-                        >
-                          <AchievementIcon achievement={achievement} className="h-7 w-7" />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-semibold text-sm ${earned ? 'text-orange-500' : mutedClass}`}>
-                            {achievement.name}
-                          </div>
-                          <div className={`text-xs ${mutedClass}`}>
-                            {earned ? achievement.description : achievement.hint}
-                          </div>
-                          {earned &&
-                            canWearPins &&
-                            (() => {
-                              const isWorn = displayedPins.includes(id);
-                              const slotsFull = !isWorn && displayedPins.length >= maxSlots;
-                              return (
-                                <button
-                                  onClick={() =>
-                                    !slotsFull &&
-                                    onPinAction(
-                                      'setAchievementPins',
-                                      toggleDisplayedPin(displayedPins, id, maxSlots),
-                                      0,
-                                    )
-                                  }
-                                  disabled={slotsFull}
-                                  className={`mt-1.5 px-2 py-0.5 text-xs font-semibold rounded-sm border ${
-                                    isWorn
-                                      ? 'border-orange-500 text-orange-500 bg-orange-500/10'
-                                      : slotsFull
-                                        ? 'light:border-slate-200 light:text-slate-400 light:cursor-not-allowed dark:border-zinc-700 dark:text-zinc-600 dark:cursor-not-allowed'
-                                        : 'light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500'
-                                  }`}
-                                >
-                                  {isWorn ? '📌 Equipped ✓' : slotsFull ? '📌 Slots full' : '📌 Equip'}
-                                </button>
-                              );
-                            })()}
-                        </div>
-                        {earned && (
-                          <span className={`text-sm ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                      achievement={achievement}
+                      earned={earned}
+                      progress={achievementProgress(id, userData)}
+                      pin={
+                        earned && canWearPins ? { worn, slotsFull: !worn && displayedPins.length >= maxSlots } : null
+                      }
+                      onTogglePin={() => togglePin(id)}
+                    />
                   );
                 })}
               </div>
