@@ -614,13 +614,14 @@ export const COSMETICS: Cosmetic[] = [
   },
   {
     id: 'name_corrupted',
-    name: 'Corrupted',
+    name: 'Glitch',
     type: 'nameColor',
     color: '#22D3EE',
     price: 75000,
     rarity: 'epic',
     effectClass: 'cos-name-corrupted',
-    description: 'Clean, then a burst of corruption.',
+    description:
+      'Every few seconds your name glitches out: red and cyan copies tear apart and a scan line rolls through.',
   },
   {
     id: 'name_wildfire',
@@ -923,6 +924,10 @@ export const COSMETICS: Cosmetic[] = [
     description: 'Ring ropes under the lights.',
   },
 ];
+
+// Bump when a new batch of cosmetics lands: everyone gets the NEW! badge on
+// Customization and the Shop tab again until they open them.
+export const SHOP_DROP_ID = '2026-10';
 
 export const COSMETIC_MAP: Record<string, Cosmetic> = Object.fromEntries(COSMETICS.map((c) => [c.id, c]));
 

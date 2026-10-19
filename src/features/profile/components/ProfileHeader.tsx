@@ -10,6 +10,9 @@ import { themeClasses } from '../../../utils/theme';
 import { errorMessage } from '../../../utils/errors';
 import type { UserData } from '../../../types';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
+import NewBadge from '../../../shared/components/NewBadge';
+import { SHOP_DROP_ID } from '../../../constants/cosmetics';
 
 // Profile card header: display name (with cosmetics), the customization
 // shortcut, and the name-change form. Owns the name-edit state and the 2-week
@@ -21,6 +24,7 @@ const ProfileHeader = ({
   userData: UserData | null;
   onOpenCustomization: () => void;
 }) => {
+  const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
   const [nameError, setNameError] = useState('');
@@ -82,10 +86,11 @@ const ProfileHeader = ({
           {onOpenCustomization && (
             <button
               onClick={onOpenCustomization}
-              className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
+              className="relative px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
             >
               <PixelIcon name="palette" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
               Customize
+              {shopDropUnseen && <NewBadge />}
             </button>
           )}
           {canChangeName ? (

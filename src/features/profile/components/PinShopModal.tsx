@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatCurrency } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import { useSession } from '../../../context/AppContext';
@@ -18,6 +18,9 @@ import type { CosmeticStyle, CosmeticStyleKey } from '../../../rules/cosmetics';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import { pixelatedIfSvg } from '../../../constants/crests';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
+import NewBadge from '../../../shared/components/NewBadge';
+import { SHOP_DROP_ID } from '../../../constants/cosmetics';
 
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
@@ -62,6 +65,10 @@ const PinShopModal = ({
   const dialogRef = useModalFocus();
   const { userData } = useSession();
   const [activeTab, setActiveTab] = useState('look');
+  const [shopTabUnseen, markShopTabSeen] = useSeenFlag(`shop:${SHOP_DROP_ID}`);
+  // However it was opened, the Customization buttons' badge has done its job.
+  const [, markCustomizeSeen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
+  useEffect(markCustomizeSeen, [markCustomizeSeen]);
   const [confirmPurchase, setConfirmPurchase] = useState<PendingPurchase | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [gift, setGift] = useState<GiftTarget | null>(null);
@@ -136,6 +143,7 @@ const PinShopModal = ({
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
+                if (tab === 'shop') markShopTabSeen();
                 setTryOn(null);
                 setTryPin(null);
                 setPreviewStyle(null);
@@ -145,7 +153,10 @@ const PinShopModal = ({
               }`}
             >
               <PixelIcon name={icon} set={set} className="w-4 h-4 mr-1.5 align-[-3px]" />
-              {label}
+              <span className="relative">
+                {label}
+                {tab === 'shop' && shopTabUnseen && <NewBadge className="-top-3 -right-9" />}
+              </span>
             </button>
           ))}
         </div>

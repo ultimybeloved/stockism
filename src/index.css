@@ -1430,3 +1430,28 @@ html .cos-frame-gold::after {
     box-shadow: 0 0 14px color-mix(in srgb, var(--cgp) 55%, transparent);
   }
 }
+
+/* NEW! sticker (shared/components/NewBadge): sits tilted, and every few
+   seconds gives one quick wiggle, then holds still again. */
+.new-badge {
+  transform: rotate(-8deg);
+  animation: newBadgeTick 6s infinite;
+}
+@keyframes newBadgeTick {
+  0%,
+  90%,
+  100% {
+    transform: rotate(-8deg) scale(1);
+  }
+  93% {
+    transform: rotate(6deg) scale(1.12);
+  }
+  96% {
+    transform: rotate(-12deg) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-badge {
+    animation: none;
+  }
+}
