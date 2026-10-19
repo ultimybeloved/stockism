@@ -81,7 +81,7 @@ const SeasonCard = () => {
       case 'silver':
         return `Finish the season above where you started. You're at ${fmtPct(returnPercent)}.`;
       case 'gold':
-        return "You're up, which is Silver if you finish there. For Gold, finish the season ahead of the market. The chart above shows where you stood at the last checkpoint.";
+        return "You're up, which is Silver if you finish there. For Gold, finish the season ahead of the market.";
       default:
         return `${seasonTierRule(nextTier.id, rules)} Decided when the season ends. The season board shows where you'd land right now.`;
     }
