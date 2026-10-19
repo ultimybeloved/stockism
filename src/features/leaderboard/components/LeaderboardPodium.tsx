@@ -11,7 +11,7 @@ import { getCosmeticStyles } from '../../../utils/cosmetics';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { CSSProperties, Ref } from 'react';
 import type { User } from 'firebase/auth';
-import type { RankedLeader } from '../hooks/useLeaderboard';
+import type { RankedLeader } from '../hooks/boardCache';
 import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Gold / silver / bronze card treatments, keyed by podium place.

@@ -6,6 +6,7 @@ import MarketFilterPanel from './MarketFilterPanel';
 import type { useMarketBrowser } from '../hooks/useMarketBrowser';
 import type { MarketView } from '../hooks/useMarketView';
 import { MARKET_SEARCH_ID } from '../hooks/useDesktopMarket';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 type MarketControlsProps = Pick<
   ReturnType<typeof useMarketBrowser>,
@@ -81,22 +82,15 @@ const MarketControls = ({
   return (
     <>
       <div className="flex flex-wrap gap-2 mb-3">
-        {TABS.map((t) => {
-          if (t.needsUser && !user) return null;
-          if (t.needsReview && !hasReviewChanges) return null;
-          return (
-            <button
-              key={t.id}
-              onClick={() => switchTab(t.id)}
-              className={`px-4 py-2 text-sm font-semibold rounded-sm transition-all ${
-                filters.tab === t.id ? 'bg-orange-600 text-white' : `border ${ghostBtnClass}`
-              }`}
-            >
-              {t.label}
-              {t.id === 'review' && ` (${Object.keys(reviewChanges).length})`}
-            </button>
-          );
-        })}
+        <SegmentedSwitch
+          label="Market tabs"
+          size="lg"
+          options={TABS.filter((t) => (!t.needsUser || user) && (!t.needsReview || hasReviewChanges)).map(
+            (t) => [t.id, t.id === 'review' ? `${t.label} (${Object.keys(reviewChanges).length})` : t.label] as const,
+          )}
+          value={filters.tab}
+          onChange={switchTab}
+        />
 
         <button
           onClick={() => setPanelOpen((o) => !o)}
@@ -116,25 +110,17 @@ const MarketControls = ({
         )}
 
         {/* Cards or list. The list is compact rows on phones, a table on desktop. */}
-        <div
-          className="ml-auto flex rounded-sm border overflow-hidden light:border-amber-200 dark:border-zinc-700"
-          role="group"
-          aria-label="Market view"
-        >
-          {(['cards', 'list'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={view === v}
-              onClick={() => setView(v)}
-              className={`px-3 py-2 text-sm font-semibold capitalize ${
-                view === v ? 'bg-orange-600 text-white' : 'light:text-zinc-600 dark:text-zinc-300'
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
+        <SegmentedSwitch
+          label="Market view"
+          size="lg"
+          className="ml-auto"
+          options={[
+            ['cards', 'Cards'],
+            ['list', 'List'],
+          ]}
+          value={view}
+          onChange={setView}
+        />
       </div>
 
       {panelOpen && (
@@ -142,7 +128,6 @@ const MarketControls = ({
           filters={filters}
           setFilter={setFilter}
           userData={userData}
-          chipClass={chipClass}
           mutedClass={mutedClass}
           textClass={textClass}
         />

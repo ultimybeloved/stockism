@@ -7,6 +7,7 @@ import type { DocumentData, Query } from 'firebase-admin/firestore';
 // Rank counting lives in shared/equity — shared with the Discord bot's /profile.
 import {
   countRankAbove,
+  gapToNextRank,
   grantedSince,
   netReturnPercent,
   netWorthOf,
@@ -16,6 +17,8 @@ import {
 } from '../shared/equity';
 import { BULLBEAR_FRAME_ID, cleanCosmeticStyle, frameTrend } from '../shared/rules/cosmetics';
 import { round2 } from '../shared/money';
+import { withRankMoves } from './leaderboardMoves';
+import { CREW_MAP } from '../shared/crews';
 
 import {
   LEADERBOARD_CACHE_TTL,
@@ -128,8 +131,15 @@ const sanitizeDisplayFields = (userData: DocumentData) => {
 
 export const getLeaderboard = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
+  const { crew, sortBy = 'value' } = data || {};
+  // Every board key becomes a document id, so only real crews and sorts.
+  if (crew != null && !(typeof crew === 'string' && CREW_MAP[crew])) {
+    throw new functions.https.HttpsError('invalid-argument', 'Unknown crew');
+  }
+  if (!['value', 'weeklyGain', 'weeklyGainPercent'].includes(sortBy)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Unknown board');
+  }
   try {
-    const { crew, sortBy = 'value' } = data || {};
     // Two weekly-gain sorts: 'weeklyGain' (dollars) and 'weeklyGainPercent'.
     const gainSort = sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
     const cacheKey = crew ? (gainSort ? `${sortBy}_${crew}` : crew) : gainSort ? sortBy : 'global';
@@ -261,7 +271,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
             break;
         }
 
-        leaderboard = docs.slice(0, LEADERBOARD_SIZE).map((userData) => {
+        const board = docs.slice(0, LEADERBOARD_SIZE).map((userData) => {
           // Count holdings (only non-zero positions)
           const holdingsCount = userData.holdings
             ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length
@@ -283,6 +293,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
             isPublic: userData.isPublic || false,
           };
         });
+        leaderboard = await withRankMoves(cacheKey, board, Date.now());
       }
 
       // Cache in memory and publish to the shared Firestore doc so every
@@ -298,6 +309,8 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
 
     // Find caller's rank if authenticated (always per-request)
     let callerRank = null;
+    // What the caller needs to pass the next player up (net-worth boards only).
+    let nextGap: number | null = null;
     if (context.auth) {
       const callerIndex = leaderboard!.findIndex((entry) => entry.userId === context.auth!.uid);
       if (callerIndex !== -1) {
@@ -311,10 +324,11 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
           // Three fields only. This used to call select() on a DocumentReference,
           // which has none, so it threw and nobody outside the top 50 got a rank.
           const [callerDoc] = (await db.getAll(db.collection('users').doc(context.auth.uid), {
-            fieldMask: ['isBot', 'portfolioValue', 'marginUsed'],
+            fieldMask: ['isBot', 'portfolioValue', 'marginUsed', 'eventPositionsValue'],
           })) as [admin.firestore.DocumentSnapshot];
           if (callerDoc.exists && !callerDoc.data()!.isBot) {
-            callerRank = await countRankAbove(netWorthOf(callerDoc.data()), crew);
+            const net = netWorthOf(callerDoc.data());
+            [callerRank, nextGap] = await Promise.all([countRankAbove(net, crew), gapToNextRank(net, crew)]);
           }
         } catch (e) {
           // Leave callerRank null if lookup fails
@@ -325,6 +339,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
     return {
       leaderboard,
       callerRank,
+      nextGap,
       timestamp: Date.now(),
     };
   } catch (error) {

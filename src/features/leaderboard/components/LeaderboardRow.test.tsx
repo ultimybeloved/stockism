@@ -8,7 +8,7 @@ import { MemoryRouter } from 'react-router-dom';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import { createRef } from 'react';
 import LeaderboardRow from './LeaderboardRow';
-import type { RankedLeader } from '../hooks/useLeaderboard';
+import type { RankedLeader } from '../hooks/boardCache';
 expect.extend(matchers);
 
 vi.mock('../../../context/AppContext', () => ({

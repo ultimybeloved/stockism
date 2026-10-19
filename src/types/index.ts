@@ -332,6 +332,9 @@ export interface LeaderRow {
   title?: SeasonTitle;
   /** Bull / Bear frame direction, set by the server only when that frame is worn. */
   frameTrend?: 'up' | 'down' | null;
+  /** Net-worth boards: places moved up since about a day ago (negative = down),
+   * null if new to the board, absent until the server has a day of history. */
+  rankChange?: number | null;
   [key: string]: unknown;
 }
 

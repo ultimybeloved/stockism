@@ -131,6 +131,8 @@ export interface GetLeaderboardRequest {
 export interface GetLeaderboardResponse {
   leaderboard?: import('../types').LeaderRow[];
   callerRank?: number | null;
+  /** Off-board callers on a net-worth board: net worth needed to pass the next player up. */
+  nextGap?: number | null;
 }
 
 export interface ExecuteTradeRequest {

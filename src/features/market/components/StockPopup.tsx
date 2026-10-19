@@ -17,6 +17,7 @@ import { priceAt } from '../../../utils/marketStats';
 import { getMarketClosedState } from '../../../utils/marketHours';
 import type { Character } from '../../../characters';
 import type { PricePoint, TradeAction } from '../../../types';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 interface StockPopupProps {
   character: Character;
@@ -145,21 +146,14 @@ const StockPopup = ({
 
           <div className="grid lg:grid-cols-[1fr_17rem]">
             <div className={`min-w-0 ${bgClass}`}>
-              <div className="px-5 pt-4 flex flex-wrap gap-1">
-                {TIME_RANGES.map((r) => (
-                  <button
-                    key={r.key}
-                    type="button"
-                    onClick={() => setTimeRange(r.key)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-sm ${
-                      timeRange === r.key
-                        ? 'bg-orange-600 text-white'
-                        : 'light:text-zinc-600 dark:text-zinc-400 hover:text-orange-500'
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
+              <div className="px-5 pt-4">
+                <SegmentedSwitch
+                  label="Time range"
+                  size="md"
+                  options={TIME_RANGES.map((r) => [r.key, r.label] as const)}
+                  value={timeRange}
+                  onChange={setTimeRange}
+                />
               </div>
               <div className="p-5">
                 <PriceChart

@@ -13,6 +13,7 @@ import {
   divisionRange,
 } from '../../../constants/seasons';
 import type { SeasonStandingsResponse } from '../../../api/types';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 // Season standings, ranked on how far ahead of the market each player is with
 // free money removed. Server-cached, so this is one document read per load.
@@ -92,22 +93,14 @@ const SeasonBoard = () => {
         </p>
       </div>
 
-      <div className="flex gap-1 flex-wrap mb-2">
-        {divisions.map((d) => (
-          <button
-            key={d.id}
-            onClick={() => setPicked(d.id)}
-            className={`px-2 py-1 rounded-sm text-xs font-semibold ${
-              d.id === tab
-                ? 'bg-orange-600 text-white'
-                : 'light:bg-white light:text-slate-700 dark:bg-zinc-900 dark:text-zinc-300'
-            }`}
-          >
-            {d.label}
-            {d.id === mine ? ' (you)' : ''}
-          </button>
-        ))}
-      </div>
+      <SegmentedSwitch
+        label="Divisions"
+        size="md"
+        className="mb-2"
+        options={divisions.map((d) => [d.id, `${d.label}${d.id === mine ? ' (you)' : ''}`] as const)}
+        value={tab ?? ''}
+        onChange={setPicked}
+      />
       {current && (
         <p className={`text-xs ${mutedClass} px-2 pb-2`}>
           {divisionRange(current)} at the start · {current.players} players · {current.platinum} Platinum and{' '}

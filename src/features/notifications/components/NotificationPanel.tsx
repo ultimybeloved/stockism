@@ -11,6 +11,7 @@ import NotificationRow from './NotificationRow';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { StoredNotification } from '../../../utils/notifications';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 interface NotificationPanelProps {
   notifications: StoredNotification[];
@@ -90,19 +91,13 @@ export default function NotificationPanel({
 
         {/* Filter tabs */}
         <div className="flex items-center gap-1 px-2 py-2 border-b overflow-x-auto light:border-amber-200 dark:border-zinc-800">
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`text-xs px-2.5 py-1 rounded-full font-semibold whitespace-nowrap transition-colors ${
-                filter === tab
-                  ? 'bg-orange-600 text-white'
-                  : 'light:text-slate-500 light:hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+          <SegmentedSwitch
+            label="Notification filter"
+            size="md"
+            options={FILTER_TABS.map((tab) => [tab, tab] as const)}
+            value={filter}
+            onChange={setFilter}
+          />
         </div>
 
         {/* Notification list */}

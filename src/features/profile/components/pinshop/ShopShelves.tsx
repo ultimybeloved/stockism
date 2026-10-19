@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { themeClasses } from '../../../../utils/theme';
 import { classicsNote, pulsingTwin, shelfOf, shopItems } from '../../utils/shopCatalog';
 import ShopItemCard from './ShopItemCard';
-import StyleSwitch from './StyleSwitch';
+import StyleSwitch from '../../../../shared/components/SegmentedSwitch';
 import type { Cosmetic, CosmeticType } from '../../../../constants/cosmetics';
 import type { CosmeticStyle } from '../../../../rules/cosmetics';
 

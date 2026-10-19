@@ -147,7 +147,7 @@ const PublicProfilePage = () => {
                 </span>
                 {profile.isCrewHead && (
                   <span
-                    className="text-xs px-1.5 py-0.5 rounded-full font-bold text-white"
+                    className="text-xs px-1.5 py-0.5 rounded-sm font-bold text-white"
                     style={{ backgroundColor: crewColor }}
                   >
                     Head

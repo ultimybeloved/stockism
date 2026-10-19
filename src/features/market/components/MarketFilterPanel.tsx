@@ -7,12 +7,12 @@ import type { MarketFilters } from '../../../utils/marketFilters';
 import type { UserData } from '../../../types';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import CrewPin from '../../../shared/components/CrewPin';
+import ToggleChip from '../../../shared/components/ToggleChip';
 
 interface MarketFilterPanelProps {
   filters: MarketFilters;
   setFilter: <K extends keyof MarketFilters>(key: K, value: MarketFilters[K]) => void;
   userData: UserData | null;
-  chipClass: string;
   mutedClass: string;
   textClass: string;
 }
@@ -25,17 +25,7 @@ interface MarketFilterPanelProps {
 // see a single stock. Folding them away keeps that cost flat no matter how many
 // get added later, and the active count means a hidden filter is never a
 // mystery.
-const MarketFilterPanel = ({
-  filters,
-  setFilter,
-  userData,
-  chipClass,
-  mutedClass,
-  textClass,
-}: MarketFilterPanelProps) => {
-  const pill = (isActive: boolean, activeClass = 'bg-orange-600 text-white') =>
-    `px-2.5 py-1 text-xs rounded-full font-semibold transition-colors ${isActive ? activeClass : chipClass}`;
-
+const MarketFilterPanel = ({ filters, setFilter, userData, mutedClass, textClass }: MarketFilterPanelProps) => {
   const toggleStatus = (id: string) => {
     const hidden = filters.statusHidden;
     setFilter('statusHidden', hidden.includes(id) ? hidden.filter((s) => s !== id) : [...hidden, id]);
@@ -53,37 +43,28 @@ const MarketFilterPanel = ({
       {group(
         'Crew',
         <>
-          <button onClick={() => setFilter('crew', CREW_FILTER_ALL)} className={pill(filters.crew === CREW_FILTER_ALL)}>
+          <ToggleChip active={filters.crew === CREW_FILTER_ALL} onClick={() => setFilter('crew', CREW_FILTER_ALL)}>
             All
-          </button>
+          </ToggleChip>
           {userData?.crew && (
-            <button
+            <ToggleChip
+              active={filters.crew === userData.crew}
+              accent={CREW_MAP[userData.crew]?.color}
               onClick={() => setFilter('crew', userData.crew as string)}
-              className={pill(filters.crew === userData.crew)}
-              style={
-                filters.crew === userData.crew ? { backgroundColor: CREW_MAP[userData.crew]?.color || '#f97316' } : {}
-              }
             >
               My Crew
-            </button>
+            </ToggleChip>
           )}
           {Object.values(CREWS).map((crew) => (
-            <button
+            <ToggleChip
               key={crew.id}
+              active={filters.crew === crew.id}
+              accent={crew.color}
               onClick={() => setFilter('crew', crew.id)}
-              className={`${pill(filters.crew === crew.id)} inline-flex items-center gap-1`}
-              style={
-                filters.crew === crew.id
-                  ? {
-                      backgroundColor: crew.color,
-                      color: ['#FFFFFF', '#f3c404', '#f3c803'].includes(crew.color) ? '#000' : '#fff',
-                    }
-                  : {}
-              }
             >
               {crew.icon ? <CrewPin crew={crew} className="w-3.5 h-3.5" /> : <span>{crew.emblem}</span>}
               <span>{crew.name}</span>
-            </button>
+            </ToggleChip>
           ))}
         </>,
       )}
@@ -91,27 +72,29 @@ const MarketFilterPanel = ({
       {group(
         'Generation',
         <>
-          <button
+          <ToggleChip
+            active={filters.generation === GENERATION_FILTER_ALL}
             onClick={() => setFilter('generation', GENERATION_FILTER_ALL)}
-            className={pill(filters.generation === GENERATION_FILTER_ALL)}
           >
             All
-          </button>
+          </ToggleChip>
           {GENERATIONS.map((gen) => (
-            <button
+            <ToggleChip
               key={gen.id}
+              active={filters.generation === gen.id}
+              accent="#0284c7"
               onClick={() => setFilter('generation', gen.id)}
-              className={pill(filters.generation === gen.id, 'bg-sky-600 text-white')}
             >
               {gen.label}
-            </button>
+            </ToggleChip>
           ))}
-          <button
+          <ToggleChip
+            active={filters.generation === GENERATION_FILTER_UNASSIGNED}
+            accent="#64748b"
             onClick={() => setFilter('generation', GENERATION_FILTER_UNASSIGNED)}
-            className={pill(filters.generation === GENERATION_FILTER_UNASSIGNED, 'bg-slate-600 text-white')}
           >
             Unassigned
-          </button>
+          </ToggleChip>
         </>,
       )}
 
@@ -124,15 +107,17 @@ const MarketFilterPanel = ({
           {STATUSES.map((s) => {
             const shown = !filters.statusHidden.includes(s.id);
             return (
-              <button
+              <ToggleChip
                 key={s.id}
+                active={shown}
+                accent="#059669"
                 onClick={() => toggleStatus(s.id)}
                 title={s.hint}
-                className={`${pill(shown, 'bg-emerald-700 text-white')} ${shown ? '' : 'line-through opacity-60'}`}
+                className={shown ? '' : 'line-through opacity-60'}
               >
-                {s.badge && <PixelIcon name={s.badge} className="w-3.5 h-3.5 mr-1 align-[-2px]" />}
+                {s.badge && <PixelIcon name={s.badge} className="w-3.5 h-3.5" />}
                 {s.label}
-              </button>
+              </ToggleChip>
             );
           })}
           <span className={`text-[10px] self-center ml-1 ${mutedClass}`}>Funds are never hidden by this</span>

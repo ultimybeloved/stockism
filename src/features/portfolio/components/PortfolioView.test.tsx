@@ -77,7 +77,7 @@ describe('PortfolioView', () => {
     expect(screen.queryByText('$GAP')).not.toBeInTheDocument();
 
     // Switching to the Short tab reveals the short position
-    fireEvent.click(screen.getByRole('button', { name: /Short/ }));
+    fireEvent.click(screen.getByRole('radio', { name: /Short/ }));
     expect(screen.getByText('$GAP')).toBeInTheDocument();
     expect(screen.getByText('SHORT')).toBeInTheDocument();
   });
@@ -97,7 +97,7 @@ describe('PortfolioView', () => {
     h.ctx = baseCtx();
     view(1000);
 
-    fireEvent.click(await screen.findByRole('button', { name: /Short/ }));
+    fireEvent.click(await screen.findByRole('radio', { name: /Short/ }));
     fireEvent.click(screen.getByText('$GAP'));
     expect(screen.getByText('Entry Price')).toBeInTheDocument();
     expect(screen.getByText('Margin Posted')).toBeInTheDocument();

@@ -5,7 +5,7 @@ import { themeClasses } from '../../../../utils/theme';
 import { pressable } from '../../../../utils/a11y';
 import { shortPrice } from '../../utils/shopCatalog';
 import ShopMiniRow from './ShopMiniRow';
-import StyleSwitch from './StyleSwitch';
+import StyleSwitch from '../../../../shared/components/SegmentedSwitch';
 import type { Cosmetic } from '../../../../constants/cosmetics';
 
 const FLAP_OPTIONS = [

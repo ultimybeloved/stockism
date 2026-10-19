@@ -27,6 +27,7 @@ import type { TradeAction, UserData } from '../../../types';
 import type { ChartHoverPoint } from '../utils/shared';
 import type { IpoHoldingItem } from './IpoHoldingsList';
 import { headerChange } from '../../../shared/components/charts/valueSeries';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 type PanelProps = ComponentProps<typeof PositionsPanel>;
 
@@ -234,23 +235,18 @@ const PortfolioView = ({
       {phone ? (
         <>
           <div className="flex gap-1 sticky top-16 z-20 py-2 -mx-4 px-4 light:bg-amber-50 dark:bg-zinc-950">
-            {(
-              [
+            <SegmentedSwitch
+              label="Portfolio sections"
+              size="lg"
+              fill
+              options={[
                 ['positions', 'Positions'],
                 ['activity', 'Activity'],
                 ['orders', `Orders${pendingOrders.length ? ` (${pendingOrders.length})` : ''}`],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`flex-1 py-2 text-sm font-semibold rounded-sm ${
-                  tab === id ? 'bg-orange-600 text-white' : `border ${ghostBtnClass}`
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+              ]}
+              value={tab}
+              onChange={setTab}
+            />
           </div>
           {tab === 'positions' ? positions : tab === 'activity' ? activity : orders}
         </>

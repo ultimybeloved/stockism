@@ -296,7 +296,7 @@ const CrewSelectionModal = ({
                     </div>
                     {isFreeTarget(crew.id) && crew.id !== currentCrew && (
                       <div className="mt-2">
-                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-2 py-0.5">
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 rounded-sm px-2 py-0.5">
                           FREE TO JOIN
                         </span>
                       </div>

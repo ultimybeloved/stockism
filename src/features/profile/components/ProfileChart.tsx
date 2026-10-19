@@ -10,6 +10,7 @@ import {
   headerChange,
   type ChartHoverPoint,
 } from '../../../shared/components/charts/valueSeries';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 interface ProfileChartPoint {
   timestamp: number;
@@ -104,21 +105,13 @@ const ProfileChart = ({
             </span>
           </div>
         </div>
-        <div className="flex gap-1">
-          {TIME_RANGES.map((range) => (
-            <button
-              key={range.key}
-              onClick={() => onTimeRangeChange(range.key)}
-              className={`px-2 py-1 text-xs font-semibold rounded-sm ${
-                chartTimeRange === range.key
-                  ? 'bg-orange-600 text-white'
-                  : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-700'
-              }`}
-            >
-              {range.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedSwitch
+          label="Time range"
+          size="md"
+          options={TIME_RANGES.map((range) => [range.key, range.label] as const)}
+          value={chartTimeRange}
+          onChange={onTimeRangeChange}
+        />
       </div>
       <ValueLineChart
         data={chartData}

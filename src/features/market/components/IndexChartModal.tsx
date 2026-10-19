@@ -3,6 +3,7 @@ import { themeClasses } from '../../../utils/theme';
 import { TIME_RANGES } from '../../../utils/marketIndex';
 import { useTheme } from '../../../context/AppContext';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
 export interface IndexPoint {
   timestamp: number;
@@ -174,21 +175,13 @@ const IndexChartModal = ({
 
         {/* Time Range Selector */}
         <div className="px-4 py-2 border-b light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50">
-          <div className="flex gap-1">
-            {TIME_RANGES.map((range) => (
-              <button
-                key={range.key}
-                onClick={() => setTimeRange(range.key)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-sm transition-colors ${
-                  timeRange === range.key
-                    ? 'bg-orange-600 text-white'
-                    : 'light:text-zinc-600 light:hover:bg-slate-200 dark:text-zinc-400 dark:hover:bg-zinc-800'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
-          </div>
+          <SegmentedSwitch
+            label="Time range"
+            size="md"
+            options={TIME_RANGES.map((range) => [range.key, range.label] as const)}
+            value={timeRange}
+            onChange={setTimeRange}
+          />
         </div>
 
         {/* Chart */}

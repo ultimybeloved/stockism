@@ -39,8 +39,7 @@ const GroupSellSheet = ({ items, onClose }: GroupSellSheetProps) => {
   };
   const sheetRef = useSheetRef(close);
   useEscapeKey(close);
-  const { sheetOverlayClass, sheetShellClass, textClass, mutedClass, chipClass, ghostBtnClass, borderClass } =
-    themeClasses;
+  const { sheetOverlayClass, sheetShellClass, textClass, mutedClass, ghostBtnClass, borderClass } = themeClasses;
 
   const closed = getMarketClosedState(marketData).closed;
   const now = Date.now();
@@ -85,7 +84,7 @@ const GroupSellSheet = ({ items, onClose }: GroupSellSheetProps) => {
       key={key}
       type="button"
       onClick={onClick}
-      className={`px-2.5 py-1 text-xs font-semibold rounded-full inline-flex items-center gap-1 ${chipClass} hover:brightness-110`}
+      className={`px-2.5 py-1 text-xs font-semibold rounded-sm border inline-flex items-center gap-1 ${ghostBtnClass}`}
     >
       {label}
     </button>
