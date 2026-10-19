@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useSession } from '../../../context/AppContext';
 
 import { ACHIEVEMENTS, ACHIEVEMENT_MAP } from '../../../constants/achievements';
@@ -34,6 +34,20 @@ const AchievementsPage = ({
   const togglePin = (id: string) =>
     onPinAction?.('setAchievementPins', toggleDisplayedPin(displayedPins, id, maxSlots), 0);
 
+  // Taking a pin off from the top row needs a second tap: a misclick there
+  // would send the player scrolling to find the achievement again.
+  const [confirming, setConfirming] = useState<string | null>(null);
+  useEffect(() => {
+    if (!confirming) return;
+    const t = setTimeout(() => setConfirming(null), 3000);
+    return () => clearTimeout(t);
+  }, [confirming]);
+  const tapWornPin = (id: string) => {
+    if (confirming !== id) return setConfirming(id);
+    setConfirming(null);
+    togglePin(id);
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden`}>
@@ -57,12 +71,15 @@ const AchievementsPage = ({
                   return (
                     <button
                       key={id}
-                      onClick={() => togglePin(id)}
-                      title="Take off"
-                      className="flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-sm border text-xs font-semibold text-orange-500 border-orange-500/60 bg-orange-500/10 hover:border-orange-500"
+                      onClick={() => tapWornPin(id)}
+                      className={`flex items-center gap-1.5 pl-1.5 pr-2.5 py-1 rounded-sm border text-xs font-semibold ${
+                        confirming === id
+                          ? 'text-white bg-orange-500 border-orange-500'
+                          : 'text-orange-500 border-orange-500/60 bg-orange-500/10 hover:border-orange-500'
+                      }`}
                     >
                       <AchievementIcon achievement={a} className="h-5 w-5" />
-                      {a.name}
+                      {confirming === id ? `Take off ${a.name}?` : a.name}
                     </button>
                   );
                 })}
