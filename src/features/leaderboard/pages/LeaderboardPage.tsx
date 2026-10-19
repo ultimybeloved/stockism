@@ -189,7 +189,6 @@ const LeaderboardPage = () => {
                     leader={leader}
                     displayRank={crewFilter === 'ALL' ? leader.rank : leader.crewRank}
                     isCurrentUser={!!user && leader.id === user.uid}
-                    userCrewColor={userCrewColor}
                     userRowRef={userRowRef}
                     sortBy={sortBy}
                   />

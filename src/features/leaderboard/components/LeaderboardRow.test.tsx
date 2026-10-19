@@ -37,7 +37,6 @@ const renderRow = (l: RankedLeader) =>
         leader={l}
         displayRank={7}
         isCurrentUser={false}
-        userCrewColor={undefined}
         userRowRef={createRef<HTMLDivElement>()}
         sortBy="value"
       />

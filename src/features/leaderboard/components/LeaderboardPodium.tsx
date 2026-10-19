@@ -48,7 +48,6 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
 
   const isCurrentUser = user && leader.id === user.uid;
-  const userCrewColor = userData?.crew ? CREW_MAP[userData.crew]?.color : '#6b7280';
   const crew = leader.crew ? CREW_MAP[leader.crew] : null;
   const cosmetics = getCosmeticStyles(leader.activeCosmetics, null, {
     seedKey: leader.displayName,
@@ -66,7 +65,6 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
   const style: CSSProperties & { '--cgp'?: string } = {};
   const shadows = [];
   if (glowColor) shadows.push(`0 0 18px ${glowColor}50`);
-  if (isCurrentUser) shadows.push(`0 0 0 2px ${userCrewColor}`);
   if (shadows.length) style.boxShadow = shadows.join(', ');
   if (crownGlow && crew) style['--cgp'] = crew.color;
 
@@ -108,6 +106,7 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
             🌐
           </span>
         )}
+        {isCurrentUser && <span className={`text-[10px] font-normal ${mutedClass}`}>(you)</span>}
       </div>
       <div className={`text-xs ${mutedClass} truncate`}>{leader.holdingsCount || 0} characters</div>
       {sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent' ? (

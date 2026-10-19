@@ -19,21 +19,13 @@ interface LeaderboardRowProps {
   /** Global rank, or the crew rank on a crew board. */
   displayRank: number;
   isCurrentUser: boolean;
-  userCrewColor: string | undefined;
   userRowRef: RefObject<HTMLDivElement | null>;
   sortBy: string;
 }
 
 // One player below the podium: rank, name with cosmetics and pins, and the
 // number the board is sorted by.
-const LeaderboardRow = ({
-  leader,
-  displayRank,
-  isCurrentUser,
-  userCrewColor,
-  userRowRef,
-  sortBy,
-}: LeaderboardRowProps) => {
+const LeaderboardRow = ({ leader, displayRank, isCurrentUser, userRowRef, sortBy }: LeaderboardRowProps) => {
   const { darkMode } = useTheme();
   const { userData } = useSession();
   const { textClass, mutedClass } = themeClasses;
@@ -47,7 +39,7 @@ const LeaderboardRow = ({
     trend: leader.frameTrend,
     style: leader.cosmeticStyle,
   });
-  const { glowColor, backdropColor, rowClass, rowStyle, frameTrend, layers } = cosmetics;
+  const { glowColor, rowClass, rowStyle, frameTrend, layers } = cosmetics;
   // Crew heads get a crew-colored pulsing aura, but a purchased
   // glow cosmetic always wins — the crown never hides paid looks.
   const crownGlow = leader.isCrewHead && crew && !leader.activeCosmetics?.rowGlow;
@@ -64,23 +56,11 @@ const LeaderboardRow = ({
       ref={isCurrentUser ? userRowRef : null}
       className={`relative p-3 flex items-center gap-3 ${rowClass} ${crownGlow ? 'cos-glow-pulse-crew' : ''} ${
         displayRank <= 3 ? 'light:bg-amber-50 dark:bg-zinc-900/50' : ''
-      } ${isCurrentUser ? 'border-l-4' : ''}`}
+      }`}
       data-trend={frameTrend}
       style={{
         ...rowStyle,
-        ...(isCurrentUser
-          ? {
-              borderLeftColor: userCrewColor,
-              ...(backdropColor ? {} : { backgroundColor: darkMode ? `${userCrewColor}20` : `${userCrewColor}15` }),
-              boxShadow: glowColor
-                ? `0 0 18px ${glowColor}50`
-                : layers.glow
-                  ? undefined
-                  : `inset 0 0 12px ${userCrewColor}30`,
-            }
-          : glowColor
-            ? { boxShadow: `0 0 18px ${glowColor}50` }
-            : {}),
+        ...(glowColor ? { boxShadow: `0 0 18px ${glowColor}50` } : {}),
         ...(crownGlow ? { '--cgp': crew.color } : {}),
       }}
     >
@@ -108,6 +88,7 @@ const LeaderboardRow = ({
             </span>
           )}
           <PinDisplay userData={leader} size="sm" />
+          {isCurrentUser && <span className={`text-[10px] font-normal ${mutedClass}`}>(you)</span>}
         </div>
         <TitleText title={leader.title} />
         {leader.previousDisplayName &&
