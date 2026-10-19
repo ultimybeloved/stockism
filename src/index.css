@@ -1455,3 +1455,22 @@ html .cos-frame-gold::after {
     animation: none;
   }
 }
+
+/* Bet slip (predictions/components/BetSlip): the bottom edge is torn off like
+   a ticket. The teeth are the card's own color showing past its border. */
+.slip-tear {
+  position: relative;
+  --slip-card: #fff;
+}
+html.dark .slip-tear {
+  --slip-card: #18181b;
+}
+.slip-tear::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 8px;
+  background: radial-gradient(circle at 6px -1px, transparent 6px, var(--slip-card) 6.5px) 0 0 / 12px 8px repeat-x;
+}

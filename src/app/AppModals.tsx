@@ -12,7 +12,6 @@ import NotificationPanel from '../features/notifications/components/Notification
 import OnboardingTutorial from '../features/account/components/OnboardingTutorial';
 import PriceAlertModal from '../features/market/components/PriceAlertModal';
 import TradeConfirmModal from '../features/trading/components/TradeConfirmModal';
-import BetConfirmModal from '../features/predictions/components/BetConfirmModal';
 import BailoutModal from '../features/margin/components/BailoutModal';
 import TradeLauncher from '../features/trading/components/TradeLauncher';
 import { CHARACTER_MAP } from '../characters';
@@ -29,7 +28,6 @@ import type { useAuthUser } from '../features/account/hooks/useAuthUser';
 import type { useToasts } from '../shared/hooks/useToasts';
 import type { useTradeManagement } from '../features/trading/hooks/useTradeManagement';
 import type { useDailyOperations } from '../features/missions/hooks/useDailyOperations';
-import type { usePredictionManagement } from '../features/predictions/hooks/usePredictionManagement';
 import type { useUserActions } from '../features/account/hooks/useUserActions';
 
 const AdminPanel = lazy(() => import('../features/admin/components/AdminPanel'));
@@ -54,7 +52,6 @@ type AppModalsProps = Hook<typeof useModalManager> &
   Pick<Hook<typeof useToasts>, 'notifications' | 'dismissNotification'> &
   Pick<Hook<typeof useTradeManagement>, 'handleTrade' | 'requestTrade'> &
   Pick<Hook<typeof useDailyOperations>, 'handleBailout'> &
-  Pick<Hook<typeof usePredictionManagement>, 'handleBet'> &
   Pick<Hook<typeof useUserActions>, 'handleMarginTutorialComplete' | 'handleOnboardingComplete'> & {
     actionLoading: Record<string, boolean | undefined>;
     activeUserData: UserData;
@@ -72,10 +69,8 @@ const AppModals = ({
   actionLoading,
   activeUserData,
   adoptUserDoc,
-  betConfirmation,
   dismissNotification,
   handleBailout,
-  handleBet,
   handleClaimMissionReward,
   handleClaimWeeklyMissionReward,
   handleClearAllNotifications,
@@ -110,7 +105,6 @@ const AppModals = ({
   priceAlerts,
   requestTrade,
   selectedCharacter,
-  setBetConfirmation,
   setSelectedCharacter,
   setShowAbout,
   setShowAdmin,
@@ -297,19 +291,6 @@ const AppModals = ({
             setTradeConfirmation(null);
           }}
           loading={actionLoading.trade}
-        />
-      )}
-
-      {/* Bet Confirmation Modal */}
-      {betConfirmation && (
-        <BetConfirmModal
-          confirmation={betConfirmation}
-          onCancel={() => setBetConfirmation(null)}
-          onConfirm={async () => {
-            await handleBet(betConfirmation.predictionId, betConfirmation.option, betConfirmation.amount);
-            setBetConfirmation(null);
-          }}
-          loading={actionLoading.placeBet}
         />
       )}
     </>

@@ -64,7 +64,6 @@ export default function App() {
     setShowTradeHistory,
     setTradeConfirmation,
     setLimitOrderRequest,
-    setBetConfirmation,
     setSelectedCharacter,
   } = modals;
 
@@ -234,8 +233,6 @@ export default function App() {
                 isGuest,
                 isAdmin,
                 onBet: handleBet,
-                onRequestBet: (predictionId, option, amount, question) =>
-                  setBetConfirmation({ predictionId, option, amount, question }),
                 onHidePrediction: handleHidePrediction,
                 onBuyEventShares: handleBuyEventShares,
                 onSellEventShares: handleSellEventShares,
@@ -272,7 +269,6 @@ export default function App() {
                 adoptUserDoc={adoptUserDoc}
                 dismissNotification={dismissNotification}
                 handleBailout={handleBailout}
-                handleBet={handleBet}
                 handleMarginTutorialComplete={handleMarginTutorialComplete}
                 handleOnboardingComplete={handleOnboardingComplete}
                 handleTrade={handleTrade}

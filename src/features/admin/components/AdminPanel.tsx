@@ -107,7 +107,7 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
     setLoading,
     handleSyncPricesToHistory: priceMaintenance.handleSyncPricesToHistory,
   });
-  const predictionCreate = useAdminPredictionCreate({ showMessage, setLoading });
+  const predictionCreate = useAdminPredictionCreate({ showMessage, setLoading, predictions });
   const predictionManage = useAdminPredictionManage({
     showMessage,
     setLoading,

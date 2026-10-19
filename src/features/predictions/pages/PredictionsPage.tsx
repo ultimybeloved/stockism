@@ -1,16 +1,26 @@
-import { useEffect } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useSession, useMarket } from '../../../context/AppContext';
-
 import { useNewPredictions } from '../hooks/useNewPredictions';
 import { useSideGameRoom } from '../hooks/useSideGameRoom';
 import { themeClasses } from '../../../utils/theme';
 import { isWeeklyHalt } from '../../../utils/marketHours';
-import PredictionCard from '../components/PredictionCard';
-import EventMarketCard from '../components/EventMarketCard';
 import { marketTimes } from '../../../utils/localTime';
+import { getTotalInvested } from '../../../utils/calculations';
+import { useWideScreen } from '../../../shared/hooks/useMediaQuery';
+import { useSheetRef } from '../../../shared/hooks/useSwipeToClose';
+import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import SheetHandle from '../../../shared/components/SheetHandle';
+import PixelIcon from '../../../shared/components/PixelIcon';
 import type { EventMarketDoc } from '../../../types';
 import type { usePredictionManagement } from '../hooks/usePredictionManagement';
-import PixelIcon from '../../../shared/components/PixelIcon';
+import type { SlipPick } from '../types';
+import ChapterHero from '../components/ChapterHero';
+import WeeklyQuestion from '../components/WeeklyQuestion';
+import FuturesBand from '../components/FuturesBand';
+import FuturesMarket from '../components/FuturesMarket';
+import SettledList from '../components/SettledList';
+import OpenBets from '../components/OpenBets';
+import BetSlip, { type BetSlipProps } from '../components/BetSlip';
 
 type PredictionHandlers = ReturnType<typeof usePredictionManagement>;
 
@@ -18,28 +28,29 @@ interface PredictionsPageProps {
   isGuest: boolean;
   isAdmin?: boolean;
   onBet: PredictionHandlers['handleBet'];
-  onRequestBet: (predictionId: string, option: string, amount: number, question?: string) => void;
   onHidePrediction: (predictionId: string) => void;
   onBuyEventShares: PredictionHandlers['handleBuyEventShares'];
   onSellEventShares: PredictionHandlers['handleSellEventShares'];
 }
 
-// Dedicated predictions page. Two sections: weekly cash predictions and
-// long-term event-share markets (the AMM-priced ones) — weekly first on
-// mobile, side by side on desktop. Both freeze during the chapter-review
-// halt so nobody can trade on an early chapter leak.
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+
+// One page, top to bottom: the chapter and its weekly bets (orange), futures
+// on an indigo band, then what has settled. Tapping an answer fills the bet
+// slip: a right-hand column on desktop, a bottom sheet on phones.
 const PredictionsPage = ({
   isGuest,
   isAdmin,
   onBet,
-  onRequestBet,
   onHidePrediction,
   onBuyEventShares,
   onSellEventShares,
 }: PredictionsPageProps) => {
   const { userData } = useSession();
   const { marketData, predictions } = useMarket();
-  const { bgClass, textClass, mutedClass } = themeClasses;
+  const wide = useWideScreen();
+  const [pick, setPick] = useState<SlipPick | null>(null);
+  const close = () => setPick(null);
 
   // Opening the page is what clears the nav badge.
   const { markSeen } = useNewPredictions();
@@ -47,110 +58,113 @@ const PredictionsPage = ({
     markSeen();
   }, [markSeen]);
 
-  const isHalted = isWeeklyHalt() || !!marketData?.marketHalted;
+  const live = predictions.filter((p) => !p.hidden && !p.cancelled);
+  const now = Date.now();
+  // Still taking bets first, then the ones waiting on their answer.
+  const weekly = live
+    .filter((p) => p.type !== 'event' && !p.resolved)
+    .sort((a, b) => Number((a.endsAt ?? 0) <= now) - Number((b.endsAt ?? 0) <= now));
+  const futures = live
+    .filter((m) => m.type === 'event' && !m.resolved)
+    .sort((a, b) => Number(!!a.opensAt && now < a.opensAt) - Number(!!b.opensAt && now < b.opensAt));
+  const settled = live.filter((p) => p.resolved && (p.type === 'event' || now - (p.endsAt ?? 0) < WEEK));
 
-  // Coming-soon (announced, not yet open) first, then open, resolved last.
-  const rank = (m: EventMarketDoc) => (m.resolved ? 2 : m.opensAt && Date.now() < m.opensAt ? 0 : 1);
-  const byStatus = (arr: EventMarketDoc[]) => [...arr].sort((a, b) => rank(a) - rank(b));
+  const closedReason = marketData?.marketHalted
+    ? `Betting is paused: ${marketData.haltReason || 'market halted'}.`
+    : isWeeklyHalt()
+      ? `Betting is closed for chapter review. It reopens ${marketTimes().reopen}.`
+      : null;
 
-  const eventMarkets = byStatus(predictions.filter((p) => p.type === 'event' && !p.cancelled && !p.hidden));
-  const weekly = byStatus(
-    predictions.filter(
-      (p) =>
-        p.type !== 'event' &&
-        !p.hidden &&
-        !p.cancelled &&
-        (!p.resolved || Date.now() - (p.endsAt ?? 0) < 7 * 24 * 60 * 60 * 1000),
-    ),
-  );
-
-  const getUserBet = (id: string) => userData?.bets?.[id];
-  // One limit shared by weekly bets, long-term markets and the ladder.
+  // One limit shared by weekly bets, futures and the ladder.
   const sideRoom = useSideGameRoom();
-  const betLimit = Math.min(sideRoom, userData?.cash || 0);
-  const eventPositions = userData?.eventPositions || {};
+  const available = Math.min(sideRoom, userData?.cash || 0);
+  const question = (pick && live.find((p) => p.id === pick.id)) || null;
 
-  // Which group gets 2 of the 3 desktop tracks: the one with more cards
-  // (weekly wins ties). Inside each section, cards flow into as many
-  // ~340px columns as the section is wide — so bigger monitors get more
-  // columns automatically instead of wider cards or empty side margins.
-  const weeklyWide = weekly.length >= 2 && weekly.length >= eventMarkets.length;
-  const cardGrid = 'grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-4';
+  const slip: BetSlipProps = {
+    pick,
+    question: question as EventMarketDoc | null,
+    userBet: pick ? userData?.bets?.[pick.id] : undefined,
+    position: pick ? userData?.eventPositions?.[pick.id] : undefined,
+    available,
+    noInvestment: getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts) <= 0,
+    isGuest,
+    closedReason,
+    onBet,
+    onBuy: onBuyEventShares,
+    onSell: onSellEventShares,
+    onPick: setPick,
+    onDone: close,
+  };
+  const { mutedClass } = themeClasses;
 
   return (
-    <div className={`min-h-screen ${bgClass} p-4 sm:px-6`}>
-      <div>
-        <h1 className={`text-2xl font-bold mb-1 ${textClass}`}>
-          <PixelIcon name="crystal" className="w-6 h-6 mr-2 align-[-4px]" />
-          Predictions
-        </h1>
-        <p className={`text-sm mb-6 ${mutedClass}`}>Bet on what happens next in the series.</p>
-
-        {isHalted && (
-          <div className="mb-6 p-3 rounded-sm text-sm light:bg-amber-50 light:border light:border-amber-200 light:text-amber-800 dark:bg-zinc-900 dark:border dark:border-zinc-800 dark:text-zinc-300">
+    <div className="max-w-6xl mx-auto px-4 pt-6 pb-10 lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8 lg:items-start">
+      <div className="min-w-0">
+        <ChapterHero weekly={weekly} />
+        {closedReason && (
+          <p className="mt-4 p-3 rounded-sm text-sm light:bg-amber-100 light:text-amber-900 dark:bg-zinc-900 dark:text-zinc-300">
             <PixelIcon name="lock" className="w-4 h-4 mr-1 align-[-3px]" />
-            Predictions are closed for chapter review. Trading reopens {marketTimes().reopen}.
+            {closedReason}
+          </p>
+        )}
+        {weekly.length > 0 ? (
+          <div className="grid sm:grid-cols-2 gap-3 mt-4 items-start">
+            {weekly.map((p) => (
+              <WeeklyQuestion key={p.id} prediction={p} userBet={userData?.bets?.[p.id]} pick={pick} onPick={setPick} />
+            ))}
           </div>
+        ) : (
+          <p className={`mt-4 text-sm ${mutedClass}`}>Weekly questions go up after each chapter review.</p>
         )}
 
-        {/* Weekly first so it tops the page on mobile. Desktop is a 3-track
-            grid: the group with more cards spans 2 tracks so its overflow
-            wraps sideways instead of stacking into one deep column. */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-10 items-start">
-          {/* Weekly predictions */}
-          <section className={weeklyWide ? 'lg:col-span-2' : ''}>
-            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Weekly Predictions</h2>
-            <p className={`text-xs mb-3 ${mutedClass}`}>Cash bets that resolve each week.</p>
-            {weekly.length === 0 ? (
-              <p className={`text-sm ${mutedClass}`}>No weekly predictions right now.</p>
-            ) : (
-              <div className={cardGrid}>
-                {weekly.map((p) => (
-                  <PredictionCard
-                    key={p.id}
-                    prediction={p}
-                    userBet={getUserBet(p.id)}
-                    onBet={onBet}
-                    onRequestBet={onRequestBet}
-                    isGuest={isGuest}
-                    betLimit={betLimit}
-                    isAdmin={isAdmin}
-                    onHide={onHidePrediction}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+        <FuturesBand count={futures.length}>
+          {futures.map((m) => (
+            <FuturesMarket
+              key={m.id}
+              market={m}
+              position={userData?.eventPositions?.[m.id]}
+              pick={pick}
+              onPick={setPick}
+            />
+          ))}
+        </FuturesBand>
 
-          {/* Long-term event markets */}
-          <section className={weeklyWide ? '' : 'lg:col-span-2'}>
-            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-1 ${mutedClass}`}>Long-Term Markets</h2>
-            <p className={`text-xs mb-3 ${mutedClass}`}>
-              Buy shares in an outcome. Sell any time before it resolves. Winning shares pay out when the series
-              confirms it.
-            </p>
-            {eventMarkets.length === 0 ? (
-              <p className={`text-sm ${mutedClass}`}>No long-term markets right now. Check back soon.</p>
-            ) : (
-              <div className={cardGrid}>
-                {eventMarkets.map((m) => (
-                  <EventMarketCard
-                    key={m.id}
-                    market={m}
-                    position={eventPositions[m.id]}
-                    onBuy={onBuyEventShares}
-                    onSell={onSellEventShares}
-                    room={sideRoom}
-                    isGuest={isGuest}
-                    isHalted={isHalted}
-                    isAdmin={isAdmin}
-                    onHide={onHidePrediction}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+        <SettledList items={settled} isAdmin={isAdmin} onHide={onHidePrediction} />
+      </div>
+
+      {wide ? (
+        <aside className="sticky top-20">
+          <BetSlip {...slip} />
+          <OpenBets weekly={weekly} futures={futures} />
+        </aside>
+      ) : (
+        pick && (
+          <SlipSheet onClose={close}>
+            <BetSlip {...slip} sheet />
+          </SlipSheet>
+        )
+      )}
+    </div>
+  );
+};
+
+// Phones and tablets: the slip rises from the bottom. Drag down or tap outside to close.
+const SlipSheet = ({ onClose, children }: { onClose: () => void; children: ReactNode }) => {
+  const ref = useSheetRef(onClose);
+  useEscapeKey(onClose);
+  const { sheetOverlayClass, sheetShellClass } = themeClasses;
+  return (
+    <div className={`${sheetOverlayClass} z-50`} onClick={onClose}>
+      <div
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Bet slip"
+        className={`${sheetShellClass} max-w-md pt-3`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <SheetHandle />
+        {children}
       </div>
     </div>
   );
