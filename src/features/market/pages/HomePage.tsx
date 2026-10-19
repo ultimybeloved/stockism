@@ -19,6 +19,9 @@ import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import { useMarketView } from '../hooks/useMarketView';
 import { useState, type ComponentProps } from 'react';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
+import NewBadge from '../../../shared/components/NewBadge';
+import { SHOP_DROP_ID } from '../../../constants/cosmetics';
 
 type GridProps = ComponentProps<typeof MarketGrid>;
 
@@ -84,6 +87,7 @@ const HomePage = ({
     onViewChart,
   });
 
+  const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
   const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
@@ -96,9 +100,10 @@ const HomePage = ({
             Missions
           </button>
           {user && !isGuest && (
-            <button onClick={onShowPinShop} className={subHeaderBtnClass}>
+            <button onClick={onShowPinShop} className={`relative ${subHeaderBtnClass}`}>
               <PixelIcon name="palette" className="w-4 h-4 mr-1.5 align-[-3px]" />
               Customization
+              {shopDropUnseen && <NewBadge />}
             </button>
           )}
           {(!userData?.crew || isGuest) && (

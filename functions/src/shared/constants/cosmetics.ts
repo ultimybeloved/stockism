@@ -72,7 +72,7 @@ export const COSMETIC_CATALOG: Record<string, CatalogEntry> = {
   name_holo: { type: 'nameColor', price: 75000, name: 'Holographic' },
   name_galaxy: { type: 'nameColor', price: 75000, name: 'Galaxy' },
   name_neon: { type: 'nameColor', price: 75000, name: 'Neon Sign' },
-  name_corrupted: { type: 'nameColor', price: 75000, name: 'Corrupted' },
+  name_corrupted: { type: 'nameColor', price: 75000, name: 'Glitch' },
   name_wildfire: { type: 'nameColor', price: 50000, name: 'Wildfire' },
   name_glacier: { type: 'nameColor', price: 50000, name: 'Glacier' },
   name_toxic: { type: 'nameColor', price: 50000, name: 'Toxic' },
