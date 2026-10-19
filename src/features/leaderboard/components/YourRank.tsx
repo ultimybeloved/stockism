@@ -53,7 +53,7 @@ export const YourRankCard = ({
   );
 };
 
-/** Phones and tablets: a bar on the card's edge while the player's row is out of view. */
+/** A bar on the board's edge while the player's row is out of view. */
 export const YourRankBar = ({ standing, name, value, crewColor, edge }: YourRankProps & { edge: 'top' | 'bottom' }) => {
   const { textClass, mutedClass } = themeClasses;
   const { darkMode } = useTheme();

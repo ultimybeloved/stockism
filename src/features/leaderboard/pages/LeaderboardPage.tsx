@@ -117,7 +117,12 @@ const LeaderboardPage = () => {
     seasonActive,
     onPrefetch: prefetchMode,
   };
-  const barsOn = !wide && listMode && !!standing && !loading;
+  // Phones get a bar on either edge while their row is out of view, or along
+  // the bottom when they're off the board. Desktop has the rank card, so only
+  // the bottom bar, and only until it catches up with their row on the list.
+  const barsOn = listMode && !!standing && !loading;
+  const topBar = barsOn && !wide && userInList && userRowPosition === 'above';
+  const bottomBar = barsOn && (userInList ? userRowPosition === 'below' : !wide);
 
   return (
     <div className="max-w-2xl lg:max-w-6xl mx-auto p-4 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)_16rem] lg:gap-4 lg:items-start">
@@ -128,7 +133,9 @@ const LeaderboardPage = () => {
         </aside>
       )}
 
-      <section className={`${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] flex flex-col`}>
+      <section
+        className={`${cardClass} border rounded-sm shadow-xl overflow-hidden max-h-[85vh] lg:max-h-[calc(100vh-13rem)] lg:min-h-[28rem] flex flex-col`}
+      >
         <div className={`px-4 pt-4 ${wide ? 'pb-4 border-b light:border-amber-200 dark:border-zinc-800' : ''}`}>
           <h2 className={`text-lg font-semibold ${textClass} mb-3`}>
             <PixelIcon name="trophy" className="w-5 h-5 mr-1.5 align-[-3px]" />
@@ -150,7 +157,7 @@ const LeaderboardPage = () => {
           )}
         </div>
 
-        {barsOn && userInList && userRowPosition === 'above' && <YourRankBar {...rankProps} edge="top" />}
+        {topBar && <YourRankBar {...rankProps} edge="top" />}
 
         {/* overflow-x-hidden: an overflow-y box scrolls sideways too, so any
             row cosmetic that pokes out flashed a sideways scrollbar. */}
@@ -193,7 +200,7 @@ const LeaderboardPage = () => {
         </div>
 
         {/* Outside the scroll box, so showing it never changes what scrolls. */}
-        {barsOn && (userRowPosition === 'below' || !userInList) && <YourRankBar {...rankProps} edge="bottom" />}
+        {bottomBar && <YourRankBar {...rankProps} edge="bottom" />}
       </section>
 
       {wide && (
