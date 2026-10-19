@@ -212,7 +212,8 @@ const DashboardRail = ({
         </div>
       </div>
 
-      <WelcomeWeekCard />
+      {/* Phones get their own copy at the top of the home page. */}
+      <WelcomeWeekCard className="max-md:hidden" />
 
       <div className={phoneOpen ? '' : 'max-md:hidden'}>
         <PredictionsTeaser predictions={predictions} />

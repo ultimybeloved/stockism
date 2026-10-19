@@ -9,7 +9,7 @@ import { DISCORD_INVITE_URL } from '../../constants';
 // until they finish it. Before they link, it sells the whole $10,000 start;
 // after, it shows the 7-day track and what today pays. Hidden once the week is
 // done, and for guests.
-const WelcomeWeekCard = () => {
+const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
   const { user, userData } = useSession();
   const { cardClass, textClass, mutedClass } = themeClasses;
   if (!user || !userData || userData.isBot) return null;
@@ -23,7 +23,9 @@ const WelcomeWeekCard = () => {
   const nextReward = WELCOME_STREAK_REWARDS[claimed] ?? 0;
 
   return (
-    <div className={`${cardClass} border rounded-sm p-4 mb-4 light:border-indigo-200 dark:border-indigo-900`}>
+    <div
+      className={`${cardClass} border rounded-sm p-4 mb-4 light:border-indigo-200 dark:border-indigo-900 ${className}`}
+    >
       <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Discord welcome week</p>
       {!linked ? (
         <>

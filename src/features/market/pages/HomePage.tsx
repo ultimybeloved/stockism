@@ -3,6 +3,7 @@ import SeasonCard from '../../season/components/SeasonCard';
 import IPOHypeCard from '../../ipo/components/IPOHypeCard';
 import IPOActiveCard from '../../ipo/components/IPOActiveCard';
 import DashboardRail from '../components/DashboardRail';
+import WelcomeWeekCard from '../../../shared/components/WelcomeWeekCard';
 import PhoneSummaryBar from '../components/PhoneSummaryBar';
 import StockPopup from '../components/StockPopup';
 import CompareTray from '../components/CompareTray';
@@ -129,6 +130,9 @@ const HomePage = ({
           onShowLogin={onShowLogin}
           onShowBailout={onShowBailout}
         />
+
+        {/* Phones: welcome week up top so it isn't buried under the other cards. */}
+        <WelcomeWeekCard className="md:hidden" />
 
         {/* Guest Banner */}
         {isGuest && (
