@@ -139,7 +139,7 @@ const DailyMissionsModal = ({
         {!isGuest && board.multiplier > 1 && (
           <div className="px-4 py-1.5 light:bg-orange-100 dark:bg-orange-900/30 border-b border-orange-500/30">
             <p className="text-orange-500 text-xs text-center font-semibold">
-              🔥 Underdog bonus: all mission rewards x{board.multiplier} this week
+              Underdog bonus: all mission rewards x{board.multiplier} this week
             </p>
           </div>
         )}

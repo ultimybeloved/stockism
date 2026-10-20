@@ -150,9 +150,11 @@ const FaqTab = () => {
       <div>
         <h3 className="font-semibold text-orange-500 mb-1">How do crews work?</h3>
         <p className={`text-sm ${mutedClass}`}>
-          Pick a crew from the story to unlock crew missions. Joining is free. Switching costs 5% of your portfolio and
-          keeps you out of the crew you left for 30 days. Crews with fewer active players pay up to double on mission
-          rewards. Each week the member with the biggest net worth becomes the crew head and gets a crown by their name.
+          Pick a crew from the story to unlock crew missions and weekly Rivalries. Joining is free. Switching costs 5%
+          of your portfolio and keeps you out of the crew you left for 30 days. Each week your crew faces another one,
+          and the crew with more members finishing 5 missions wins. Crews with fewer active players pay up to double on
+          mission and Rivalry rewards. Each week the member with the biggest net worth becomes the crew head and gets a
+          crown by their name.
         </p>
       </div>
 
