@@ -40,6 +40,12 @@ const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps
 
   const held = outcomes.filter((o) => (position?.shares?.[o] || 0) > 0);
   const worth = outcomes.reduce((s, o, i) => s + (position?.shares?.[o] || 0) * (prices[i] ?? 0), 0);
+  // costBasis is the cash still in (buys minus sell refunds), across every outcome,
+  // so a per-share entry price only makes sense when one outcome is held.
+  const putIn = Math.max(0, position?.costBasis || 0);
+  const heldShares = held.length === 1 ? position?.shares?.[held[0]!] || 0 : 0;
+  const entryCents = heldShares > 0 ? Math.round((putIn / heldShares) * 100) : null;
+  const gain = worth - putIn;
 
   return (
     <article
@@ -73,7 +79,15 @@ const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps
           <b className={textClass}>
             {held.map((o) => `${(position?.shares?.[o] || 0).toLocaleString('en-US')} ${o} shares`).join(', ')}
           </b>
-          <span className={mutedClass}>, worth {formatCurrency(worth)}. </span>
+          <span className={mutedClass}>
+            . You paid {formatCurrency(putIn)}
+            {entryCents !== null && ` (${entryCents}¢ a share)`}, worth {formatCurrency(worth)} now{' '}
+          </span>
+          <span className={gain >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}>
+            ({gain >= 0 ? '+' : '-'}
+            {formatCurrency(Math.abs(gain))})
+          </span>
+          <span className={mutedClass}>. </span>
           <button
             type="button"
             onClick={() => onPick({ kind: 'futures', id: m.id, option: held[0]!, sell: true })}
