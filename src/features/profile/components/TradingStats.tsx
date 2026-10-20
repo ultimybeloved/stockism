@@ -108,7 +108,7 @@ const TradingStats = ({
 
       {/* Trading Stats */}
       <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
-        <h3 className={`font-semibold ${textClass} mb-3`}>📊 Trading Stats</h3>
+        <h3 className={`font-semibold ${textClass} mb-3`}>Trading Stats</h3>
         <div className="space-y-2 text-sm">
           {joinDate && (
             <div className="flex justify-between">

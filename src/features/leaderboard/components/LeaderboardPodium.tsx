@@ -103,7 +103,7 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
         <PinDisplay userData={leader} size="sm" />
         {leader.isPublic && (
           <span className="text-xs" title="Public profile">
-            🌐
+            <PixelIcon name="globe" set="admin" className="w-3 h-3 opacity-60" />
           </span>
         )}
         {isCurrentUser && <span className={`text-[10px] font-normal ${mutedClass}`}>(you)</span>}

@@ -3,6 +3,7 @@ import { themeClasses } from '../../../utils/theme';
 import { CHARACTER_MAP } from '../../../characters';
 import type { PendingOrder } from '../hooks/usePortfolioModalData';
 import type { PriceMap } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface PendingOrdersListProps {
   orders: PendingOrder[];
@@ -96,7 +97,7 @@ const PendingOrdersList = ({ orders, prices, onCancel, loadingOrders }: PendingO
                   <div className={mutedClass}>Current Price</div>
                   <div className={`font-bold ${isClose ? 'text-orange-500' : textClass}`}>
                     ${currentPrice.toFixed(2)}
-                    {isClose && ' ⚠️'}
+                    {isClose && <PixelIcon name="warning" className="w-3 h-3 ml-1 align-[-2px]" />}
                   </div>
                 </div>
               </div>

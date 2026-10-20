@@ -95,7 +95,7 @@ const HomePage = ({
       <div className="max-w-6xl lg:max-w-none mx-auto">
         {/* Sub-header buttons */}
         <div className="flex flex-wrap gap-2 mb-4 justify-center">
-          <button onClick={onShowMissions} className={subHeaderBtnClass}>
+          <button onClick={isGuest ? onShowLogin : onShowMissions} className={subHeaderBtnClass}>
             <PixelIcon name="missions" className="w-4 h-4 mr-1.5 align-[-3px]" />
             Missions
           </button>
@@ -142,7 +142,7 @@ const HomePage = ({
         {/* Guest Banner */}
         {isGuest && (
           <div className="mb-4 p-3 rounded-sm text-sm light:bg-amber-50 light:border light:border-amber-200 light:text-amber-800 dark:bg-zinc-900 dark:border dark:border-zinc-800 dark:text-zinc-300">
-            👋 Browsing as guest.{' '}
+            Browsing as guest.{' '}
             <button onClick={onShowLogin} className="font-semibold text-orange-500 hover:underline">
               Sign in
             </button>{' '}
@@ -150,15 +150,18 @@ const HomePage = ({
           </div>
         )}
 
-        {/* Short margin warning — highest-stakes alert, keep at the top */}
-        {!isGuest && <SeasonCard />}
-
+        {/* Short margin warning: highest-stakes alert, keep it above everything else */}
         <ShortRiskAlert onOpenPortfolio={onShowPortfolio} />
+
+        {!isGuest && <SeasonCard />}
 
         {/* IPO Announcements */}
         {activeIPOs.length > 0 && (
           <div className="mb-4">
-            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>🚀 IPO</h2>
+            <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>
+              <PixelIcon name="rocket" className="w-4 h-4 mr-1.5 align-[-3px]" />
+              IPO
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeIPOs.map((ipo) => {
                 const now = Date.now();

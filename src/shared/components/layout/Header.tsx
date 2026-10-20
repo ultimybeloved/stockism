@@ -246,7 +246,7 @@ const Header = ({
                     aria-label="New characters this week"
                     title="New characters this week"
                   >
-                    ✨
+                    <PixelIcon name="star" set="discord" className="w-5 h-5 align-middle" />
                     {hasUnseenNewChars && (
                       <span className="absolute -top-0.5 -right-0.5 bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center leading-none">
                         {newCharacters.length}
@@ -257,7 +257,7 @@ const Header = ({
                   {showNewCharsPopout && (
                     <div className="absolute right-0 top-full mt-2 w-72 rounded-sm border shadow-lg z-50 light:bg-white light:border-amber-200 dark:bg-zinc-900 dark:border-zinc-700">
                       <div className="px-3 py-2 border-b text-xs font-semibold uppercase tracking-wide light:border-amber-200 light:text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                        ✨ New This Week
+                        New This Week
                       </div>
                       <div className="max-h-60 overflow-y-auto">
                         {newCharacters.map((char) => (
@@ -314,7 +314,7 @@ const Header = ({
                       : 'Admin Panel'
                   }
                 >
-                  ⚙️
+                  <PixelIcon name="gear" set="admin" className="w-5 h-5 align-middle" />
                   {unreviewedCount > 0 && (
                     <span
                       className={`absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full text-[10px] font-bold text-white ${

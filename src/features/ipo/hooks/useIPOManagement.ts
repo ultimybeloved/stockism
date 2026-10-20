@@ -96,7 +96,7 @@ export function useIPOManagement({
         const character = CHARACTER_MAP[ticker];
         showNotification(
           'success',
-          `🚀 IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!`,
+          `IPO: Bought ${quantity} ${character?.name || ticker} shares @ ${formatCurrency(ipo.basePrice)}!`,
         );
         return true;
       } catch (err) {

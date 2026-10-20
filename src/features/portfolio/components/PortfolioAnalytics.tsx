@@ -177,7 +177,7 @@ const PortfolioAnalytics = ({
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold transition-colors light:bg-amber-50 light:text-slate-900 light:hover:bg-amber-100 dark:bg-zinc-800/50 dark:text-zinc-100 dark:hover:bg-zinc-700/50"
       >
-        <span>📊 Portfolio Analytics</span>
+        <span>Portfolio Analytics</span>
         <svg
           className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
           fill="none"

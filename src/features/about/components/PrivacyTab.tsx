@@ -1,5 +1,6 @@
 import { themeClasses } from '../../../utils/theme';
 import { useSession } from '../../../context/AppContext';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // The Privacy tab: exactly what the game stores about a player, in plain words.
 const PrivacyTab = () => {
@@ -13,7 +14,8 @@ const PrivacyTab = () => {
         className={`p-3 rounded-sm ${userData?.colorBlindMode ? 'light:bg-teal-50 light:border light:border-teal-200 dark:bg-teal-900/30 dark:border dark:border-teal-700' : 'light:bg-green-50 light:border light:border-green-200 dark:bg-green-900/30 dark:border dark:border-green-700'}`}
       >
         <p className={`font-semibold text-sm ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>
-          🛡️ TL;DR: We store almost nothing about you. No real names, no profile pictures, no tracking.
+          <PixelIcon name="privacy" className="w-4 h-4 mr-1.5 align-[-3px]" />
+          TL;DR: We store almost nothing about you. No real names, no profile pictures, no tracking.
         </p>
       </div>
 
@@ -51,8 +53,8 @@ const PrivacyTab = () => {
         </p>
         <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
           <li>
-            • <span className="light:text-amber-600 dark:text-amber-400">📧 Email</span>: Stored by Firebase Auth (not
-            our game database). Never visible to other players or used for marketing.
+            • <span className="light:text-amber-600 dark:text-amber-400">Email</span>: Stored by Firebase Auth (not our
+            game database). Never visible to other players or used for marketing.
           </li>
         </ul>
       </div>
@@ -61,31 +63,29 @@ const PrivacyTab = () => {
         <h3 className="font-semibold text-orange-500 mb-2">What we DON'T store anywhere:</h3>
         <ul className={`text-sm ${mutedClass} space-y-1 ml-4`}>
           <li>
-            • <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your real name</span>:
-            We never save the name from your sign-in account
+            • <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>Your real name</span>: We
+            never save the name from your sign-in account
+          </li>
+          <li>
+            •{' '}
+            <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>Your profile picture</span>:
+            We never save your sign-in photo
+          </li>
+          <li>
+            • <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>Your password</span>: Your
+            sign-in provider handles authentication securely
           </li>
           <li>
             •{' '}
             <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>
-              ❌ Your profile picture
-            </span>
-            : We never save your sign-in photo
-          </li>
-          <li>
-            • <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>❌ Your password</span>:
-            Your sign-in provider handles authentication securely
-          </li>
-          <li>
-            •{' '}
-            <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>
-              ❌ Your contacts or account data
+              Your contacts or account data
             </span>
             : We have no access
           </li>
           <li>
             •{' '}
             <span className={userData?.colorBlindMode ? 'text-purple-400' : 'text-red-400'}>
-              ❌ Tracking cookies or analytics
+              Tracking cookies or analytics
             </span>
             : We don't use any. When something breaks, an error report goes to our bug tracker so we can fix it
           </li>

@@ -3,6 +3,7 @@ import { formatCurrency } from '../../../../utils/formatters';
 import { themeClasses } from '../../../../utils/theme';
 import type { GiftTarget } from '../../hooks/usePinShop';
 import { useModalFocus } from '../../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../../shared/components/PixelIcon';
 
 interface GiftDialogProps {
   gift: GiftTarget;
@@ -42,7 +43,8 @@ const GiftDialog = ({ gift, cash, onSend, onClose }: GiftDialogProps) => {
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className={`text-lg font-semibold ${textClass} mb-1`}>
-          🎁 Gift {isBundle ? `the ${gift.name} bundle` : gift.name}
+          <PixelIcon name="gift" set="discord" className="w-4 h-4 mr-1.5 align-[-3px]" />
+          Gift {isBundle ? `the ${gift.name} bundle` : gift.name}
         </h3>
         <p className={`text-sm ${mutedClass} mb-4`}>
           You pay <span className="text-orange-500 font-semibold">{formatCurrency(price)}</span>.{' '}

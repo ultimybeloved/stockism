@@ -20,7 +20,7 @@ const IpoHoldingsList = ({ items }: { items: IpoHoldingItem[] }) => {
   return (
     <>
       <h3 className={`text-sm font-semibold ${textClass} mb-2 flex items-center gap-2`}>
-        <span>🏷️</span> IPO Holdings
+        IPO Holdings
         <span className={`text-xs font-normal ${mutedClass}`}>({items.length})</span>
       </h3>
       <div className="space-y-2 mb-4">

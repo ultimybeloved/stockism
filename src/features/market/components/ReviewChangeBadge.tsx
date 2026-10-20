@@ -3,6 +3,7 @@ import { useSession } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, emphasisMarks } from '../../../utils/formatters';
 import type { ReviewChange } from '../../../utils/marketHours';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // The chapter-review adjustment on a card in the Review tab.
 //
@@ -59,7 +60,10 @@ const ReviewChangeBadge = ({ change, currentPrice }: { change: ReviewChange; cur
   return (
     <div className="mb-2 rounded-sm border-l-4 border border-amber-500/40 border-l-amber-500 px-2 py-1.5 light:bg-amber-50 dark:bg-amber-500/10">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">📖 Chapter Review</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">
+          <PixelIcon name="book" className="w-3 h-3 mr-1 align-[-2px]" />
+          Chapter Review
+        </span>
         <span className={`font-extrabold text-base leading-none ${toneFor(reviewPct)}`}>
           {signed(reviewPct)}
           {emphasisMarks(reviewPct)}
