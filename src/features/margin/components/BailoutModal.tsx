@@ -5,6 +5,7 @@ import { useSession } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Bankruptcy bailout confirmation — destructive last resort (clears holdings,
 // permanent crew exile), so the consequences are spelled out before confirming.
@@ -25,7 +26,9 @@ const BailoutModal = ({ onConfirm, onCancel, loading }: BailoutModalProps) => {
     <div className={`${overlayClass} z-50`} onClick={onCancel}>
       <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6`} onClick={(e) => e.stopPropagation()}>
         <div className="text-center mb-4">
-          <div className="text-4xl mb-2">💸</div>
+          <div className="mb-2">
+            <PixelIcon name="danger" className="w-10 h-10" />
+          </div>
           <h2 className="text-xl font-bold light:text-slate-900 dark:text-zinc-100">Bankruptcy Bailout</h2>
         </div>
 
@@ -47,7 +50,10 @@ const BailoutModal = ({ onConfirm, onCancel, loading }: BailoutModalProps) => {
             </strong>
             .
           </p>
-          <p className="text-amber-500 font-semibold">⚠️ Consequences:</p>
+          <p className="text-amber-500 font-semibold">
+            <PixelIcon name="warning" className="w-4 h-4 mr-1 align-[-3px]" />
+            Consequences:
+          </p>
           <ul className="list-disc ml-5 space-y-1">
             <li>
               You will be <strong>removed from your crew</strong> and can't rejoin it for <strong>30 days</strong>

@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth';
 import { themeClasses } from '../../../utils/theme';
 import { useDiscordLink } from '../../profile/hooks/useDiscordLink';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 /**
  * Full-screen wall for accounts flagged for Discord verification (suspected alts,
@@ -26,7 +27,9 @@ function DiscordWallModal() {
   return (
     <div className={`${overlayHeavyClass} z-[100] backdrop-blur-sm`}>
       <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6 text-center`}>
-        <div className="text-4xl mb-3">🔗</div>
+        <div className="mb-3">
+          <PixelIcon name="link" set="discord" className="w-10 h-10" />
+        </div>
         <h2 className={`text-xl font-bold mb-2 ${textClass}`}>Link Discord to continue</h2>
         <p className={`text-sm mb-5 ${mutedClass}`}>
           To keep the game fair, this account needs a linked Discord before you can trade or play. It is a one-time step

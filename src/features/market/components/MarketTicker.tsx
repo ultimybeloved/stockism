@@ -9,6 +9,7 @@ import {
 } from '../../../utils/marketHours';
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
 import { useSession, useMarket } from '../../../context/AppContext';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 const MarketTicker = () => {
   const { userData } = useSession();
@@ -140,7 +141,8 @@ const MarketTicker = () => {
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                💬 Join the Discord!
+                <PixelIcon name="chat" set="admin" className="w-4 h-4 mr-1.5 align-[-3px]" />
+                Join the Discord!
               </a>
               <span className="light:text-slate-300 dark:text-zinc-600"> · </span>
               {movers.map((m, i) => (
@@ -177,7 +179,8 @@ const MarketTicker = () => {
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                💬 Join the Discord!
+                <PixelIcon name="chat" set="admin" className="w-4 h-4 mr-1.5 align-[-3px]" />
+                Join the Discord!
               </a>
               <span className="light:text-slate-300 dark:text-zinc-600"> · </span>
               {movers.map((m, i) => (

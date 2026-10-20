@@ -6,6 +6,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { buildShortItems } from '../utils/buildPositionItems';
 import type { ShareInputs } from '../utils/shared';
 import { pressable } from '../../../utils/a11y';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 type ShortItem = ReturnType<typeof buildShortItems>[number];
 
@@ -60,7 +61,12 @@ const ShortRow = ({
             </div>
             <div className={`text-sm ${mutedClass} mt-0.5`}>
               {formatShares(item.shares)} shares shorted
-              {isAtRisk && <span className="text-orange-500 ml-2">⚠️ Margin Warning</span>}
+              {isAtRisk && (
+                <span className="text-orange-500 ml-2">
+                  <PixelIcon name="warning" className="w-3 h-3 mr-1 align-[-2px]" />
+                  Margin warning
+                </span>
+              )}
             </div>
             {liqPrice && (
               <div className={`text-xs mt-0.5 ${isAtRisk ? 'text-orange-500 font-semibold' : mutedClass}`}>

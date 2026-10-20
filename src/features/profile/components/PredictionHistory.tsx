@@ -139,7 +139,7 @@ const PredictionHistory = ({
 
       {/* Past Predictions */}
       <div>
-        <h3 className={`font-semibold ${textClass} mb-2`}>📜 Past Predictions</h3>
+        <h3 className={`font-semibold ${textClass} mb-2`}>Past Predictions</h3>
         {pastBets.length === 0 ? (
           <p className={`text-sm ${mutedClass}`}>No past predictions yet.</p>
         ) : (

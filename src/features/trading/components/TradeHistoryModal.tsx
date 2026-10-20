@@ -26,6 +26,7 @@ import {
 } from '../../../utils/tradeHistory';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 /** A trades/{id} doc as this list reads it. Dividend payouts carry a breakdown instead of a price. */
 interface TradeRow extends TradeRecord {
@@ -266,7 +267,10 @@ const TradeHistoryModal = ({ onClose }: { onClose: () => void }) => {
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-emerald-600 text-sm font-semibold">💵 Dividend</span>
+                            <span className="text-emerald-600 text-sm font-semibold">
+                              <PixelIcon name="dividend" className="w-4 h-4 mr-1 align-[-3px]" />
+                              Dividend
+                            </span>
                             <span className={`text-xs font-bold uppercase ${getActionColor('dividend')}`}>PAID</span>
                           </div>
                           <p className={`text-xs ${mutedClass}`}>

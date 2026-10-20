@@ -9,6 +9,7 @@ import { playSound, setSoundVolume, setSoundsEnabled, soundVolume } from '../../
 import { useSoundsEnabled } from '../../../shared/hooks/useSoundsEnabled';
 import type { User } from 'firebase/auth';
 import type { UserData } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Profile settings card: color-blind mode, sounds, public profile toggle, Discord link.
 const ProfileSettings = ({ userData, user }: { userData: UserData; user: User }) => {
@@ -20,7 +21,7 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
 
   return (
     <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
-      <h3 className={`font-semibold ${textClass} mb-3`}>⚙️ Settings</h3>
+      <h3 className={`font-semibold ${textClass} mb-3`}>Settings</h3>
       <div className="flex items-center justify-between">
         <div>
           <p className={`text-sm font-semibold ${textClass}`}>Color Blind Mode</p>
@@ -126,7 +127,7 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
         </div>
         {userData?.isPublic && userData?.displayName && (
           <div className={`mt-2 flex items-center gap-2 text-xs ${mutedClass}`}>
-            <span>🔗</span>
+            <PixelIcon name="link" set="discord" className="w-4 h-4" />
             <a
               href={`/u/${userData.displayName.toLowerCase()}`}
               className="text-orange-500 hover:underline break-all"

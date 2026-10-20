@@ -265,7 +265,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
                   required
                 />
                 <p className={`text-xs ${mutedClass}`}>
-                  📧 A verification email will be sent to your email address. You must verify your email before you can
+                  A verification email will be sent to your email address. You must verify your email before you can
                   sign in.
                 </p>
               </>

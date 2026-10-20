@@ -131,7 +131,7 @@ const PortfolioView = ({
     <section className={`${cardClass} border rounded-sm p-4 min-w-0`}>
       {empty ? (
         <div className={`text-center py-8 ${mutedClass}`}>
-          <p className="text-lg mb-2">📭 No positions yet</p>
+          <p className="text-lg mb-2">No positions yet</p>
           <p className="text-sm">Start trading to build your portfolio!</p>
         </div>
       ) : (

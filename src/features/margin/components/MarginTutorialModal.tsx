@@ -4,6 +4,7 @@ import { themeClasses } from '../../../utils/theme';
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
 import { HALT_END_MINUTE, GRACE_PERIOD_MINUTES } from '../../../utils/marketHours';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 const STEPS = [
   { id: 1, title: 'What is margin trading?' },
@@ -164,7 +165,8 @@ const MarginTutorialModal = ({ onClose, onComplete, reviewMode = false }: Margin
             <>
               <div className="p-3 rounded-sm border-2 light:border-red-500 light:bg-red-50 dark:border-red-600 dark:bg-red-900/30">
                 <p className="text-sm font-bold light:text-red-700 dark:text-red-300 mb-1">
-                  ⚠️ This is the scenario that has wiped out traders on this platform.
+                  <PixelIcon name="warning" className="w-4 h-4 mr-1 align-[-3px]" />
+                  This is the scenario that has wiped out traders on this platform.
                 </p>
                 <p className="text-sm light:text-red-800 dark:text-red-200">
                   Putting all your cash AND margin into a single stock.

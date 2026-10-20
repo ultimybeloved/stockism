@@ -113,7 +113,10 @@ const MarginModal = ({
       >
         <div className={`p-4 border-b ${cardEdgeClass} flex justify-between items-center`}>
           <div>
-            <h2 className={`text-xl font-bold ${textClass}`}>📊 Margin Trading</h2>
+            <h2 className={`text-xl font-bold ${textClass}`}>
+              <PixelIcon name="margin" className="w-5 h-5 mr-1.5 align-[-3px]" />
+              Margin Trading
+            </h2>
             <p className={`text-sm ${mutedClass}`}>Leverage your portfolio</p>
           </div>
           <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
@@ -283,7 +286,10 @@ const MarginModal = ({
 
               {/* How It Works Info */}
               <div className="p-3 rounded-sm light:bg-blue-50 light:border light:border-blue-200 dark:bg-blue-900/20 dark:border dark:border-blue-800">
-                <h4 className="font-semibold mb-1 text-blue-500 text-sm">💡 How Margin Works</h4>
+                <h4 className="font-semibold mb-1 text-blue-500 text-sm">
+                  <PixelIcon name="bulb" set="admin" className="w-4 h-4 mr-1 align-[-3px]" />
+                  How Margin Works
+                </h4>
                 <p className={`text-xs ${mutedClass}`}>
                   Margin is borrowing power. It's only used when your{' '}
                   <span className="text-orange-500 font-semibold">cash runs out</span> during a purchase. Your limit is{' '}
@@ -366,7 +372,7 @@ const MarginModal = ({
               {/* Interest Info */}
               <div className="p-3 rounded-sm light:bg-amber-50 dark:bg-zinc-800/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <span>💰</span>
+                  <PixelIcon name="cash" className="w-4 h-4" />
                   <span className={`text-sm font-semibold ${textClass}`}>Daily Interest</span>
                 </div>
                 <p className={`text-xs ${mutedClass}`}>

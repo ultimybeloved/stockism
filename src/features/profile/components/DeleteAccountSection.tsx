@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { themeClasses } from '../../../utils/theme';
 import type { UserData } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // The multi-step "delete account" confirmation flow. Owns its own step state.
 const DeleteAccountSection = ({
@@ -22,7 +23,8 @@ const DeleteAccountSection = ({
           onClick={() => setDeleteStep(1)}
           className={`text-xs ${mutedClass} hover:text-red-500 transition-colors`}
         >
-          🗑️ Delete Account
+          <PixelIcon name="trash" set="admin" className="w-4 h-4 mr-1.5 align-[-3px]" />
+          Delete Account
         </button>
       )}
 
@@ -58,7 +60,7 @@ const DeleteAccountSection = ({
 
       {deleteStep === 2 && (
         <div className="p-3 rounded-sm border-2 border-red-500 light:bg-red-50 dark:bg-red-900/20">
-          <h4 className="font-semibold text-red-500 mb-2">⚠️ Are you sure?</h4>
+          <h4 className="font-semibold text-red-500 mb-2">Are you sure?</h4>
           <p className={`text-sm ${mutedClass} mb-3`}>
             You're about to permanently delete your account "{userData?.displayName}".
           </p>
@@ -81,7 +83,7 @@ const DeleteAccountSection = ({
 
       {deleteStep === 3 && (
         <div className="p-3 rounded-sm border-2 border-red-600 light:bg-red-100 dark:bg-red-900/30">
-          <h4 className="font-semibold text-red-600 mb-2">🚨 Are you absolutely certain?</h4>
+          <h4 className="font-semibold text-red-600 mb-2">Are you absolutely certain?</h4>
           <p className="text-sm text-red-500 mb-3">
             Your account and all data will be permanently erased. There is no recovery.
           </p>
@@ -104,7 +106,7 @@ const DeleteAccountSection = ({
 
       {deleteStep === 4 && (
         <div className="p-3 rounded-sm border-2 border-rose-700 light:bg-rose-100 dark:bg-rose-900/40">
-          <h4 className="font-semibold text-rose-700 mb-2">⚠️ Point of No Return</h4>
+          <h4 className="font-semibold text-rose-700 mb-2">Point of No Return</h4>
           <p className="text-sm text-rose-600 mb-3">
             After the next step, your account "{userData?.displayName}" will be gone forever.
           </p>

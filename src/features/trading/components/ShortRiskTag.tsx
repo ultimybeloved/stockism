@@ -1,6 +1,7 @@
 import { formatCurrency } from '../../../utils/formatters';
 import { getShortRisk } from '../../../utils/calculations';
 import type { ShortPosition } from '../../../types';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // The "X short (P/L)" status shown on a stock card, plus a force-cover warning sign
 // when the short is getting close to auto-liquidation. Hover the sign for the price.
@@ -35,7 +36,7 @@ const ShortRiskTag = ({ shortPosition, ticker, price, colorBlindMode }: ShortRis
           className="text-orange-500 ml-1"
           title={`Force-covered if $${ticker} rises to ${formatCurrency(risk.liquidationPrice)}`}
         >
-          ⚠️
+          <PixelIcon name="warning" className="w-3 h-3 align-[-2px]" />
         </span>
       )}
     </span>

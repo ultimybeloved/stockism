@@ -27,7 +27,7 @@ export function useMarginManagement({
     try {
       await toggleMarginFunction({ enable: true });
       setUserData((prev) => (prev ? { ...prev, marginEnabled: true } : prev));
-      showNotification('success', '📊 Margin trading enabled! You now have extra buying power.');
+      showNotification('success', 'Margin trading enabled! You now have extra buying power.');
     } catch (err) {
       reportUnexpected(err, { where: 'handleEnableMargin' });
       showNotification('error', errorMessage(err) || 'Failed to enable margin');

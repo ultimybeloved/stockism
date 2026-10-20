@@ -107,12 +107,12 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
       if (userData.isBankrupt) {
         showNotification(
           'warning',
-          `💸 You're wiped out and ${formatCurrency(debtAmount)} in debt. You can take a bailout to restart with ${formatCurrency(BAILOUT_CASH)}, but it clears your holdings and exiles you from your crew.`,
+          `You're wiped out and ${formatCurrency(debtAmount)} in debt. You can take a bailout to restart with ${formatCurrency(BAILOUT_CASH)}, but it clears your holdings and exiles you from your crew.`,
         );
       } else {
         showNotification(
           'warning',
-          `💸 You're ${formatCurrency(debtAmount)} short on cash. Sell or close a position to free up funds.`,
+          `You're ${formatCurrency(debtAmount)} short on cash. Sell or close a position to free up funds.`,
         );
       }
     };

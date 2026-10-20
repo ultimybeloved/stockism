@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSession, useMarket } from '../../../context/AppContext';
 import { getShortRisk } from '../../../utils/calculations';
 import { formatCurrency } from '../../../utils/formatters';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Small banner on the main page that warns when one or more open shorts are near
 // auto force-cover. Returns null when nothing is at risk, so it can always be rendered.
@@ -25,7 +26,10 @@ const ShortRiskAlert = ({ onOpenPortfolio }: { onOpenPortfolio?: () => void }) =
 
   return (
     <div className="mb-4 rounded-sm border border-orange-500 bg-orange-500/10 px-3 py-2 text-sm flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="text-orange-500 font-semibold">⚠️ Short margin warning</span>
+      <span className="text-orange-500 font-semibold">
+        <PixelIcon name="warning" className="w-4 h-4 mr-1 align-[-3px]" />
+        Short margin warning
+      </span>
       <span className="text-orange-500">
         {atRisk.map((s) => `$${s.ticker} force-covers near ${formatCurrency(s.liquidationPrice)}`).join('   ·   ')}
       </span>

@@ -84,7 +84,7 @@ const LeaderboardRow = ({ leader, displayRank, isCurrentUser, userRowRef, sortBy
           )}
           {leader.isPublic && (
             <span className="text-xs" title="Public profile">
-              🌐
+              <PixelIcon name="globe" set="admin" className="w-3 h-3 opacity-60" />
             </span>
           )}
           <PinDisplay userData={leader} size="sm" />

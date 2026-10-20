@@ -101,7 +101,10 @@ const CrewSelectionModal = ({
       >
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-center">
-            <h2 className={`text-lg font-semibold ${textClass}`}>🏴 {isGuest ? 'Crews' : 'Crew'}</h2>
+            <h2 className={`text-lg font-semibold ${textClass}`}>
+              <PixelIcon name="crews" className="w-5 h-5 mr-1.5 align-[-4px]" />
+              {isGuest ? 'Crews' : 'Crew'}
+            </h2>
             <button aria-label="Close" onClick={onClose} className={`p-2 ${mutedClass} hover:text-orange-500 text-xl`}>
               <span aria-hidden="true">×</span>
             </button>
@@ -129,7 +132,7 @@ const CrewSelectionModal = ({
         {eventCrew && !confirming && !leavingCrew && (
           <div className="p-3 light:bg-emerald-100 dark:bg-emerald-900/30 border-b border-emerald-500/30">
             <p className="text-emerald-400 text-sm text-center">
-              🎉 <strong>Free to join {eventCrew.name}</strong>
+              <strong>Free to join {eventCrew.name}</strong>
               <br />
               <span className={`text-xs ${mutedClass}`}>
                 No {penaltyPct}% penalty and no lockout on the crew you leave. Ends{' '}
@@ -143,7 +146,8 @@ const CrewSelectionModal = ({
         {!isGuest && !confirming && !leavingCrew && (
           <div className="p-3 light:bg-amber-100 dark:bg-amber-900/30 border-b border-amber-500/30">
             <p className="text-amber-400 text-sm text-center">
-              ⚠️ <strong>Warning:</strong> Leaving a crew costs <strong>{penaltyPct}% of your entire portfolio</strong>
+              <PixelIcon name="warning" className="w-4 h-4 mr-1 align-[-3px]" />
+              <strong>Warning:</strong> Leaving a crew costs <strong>{penaltyPct}% of your entire portfolio</strong>
               <br />
               <span className={`text-xs ${mutedClass}`}>
                 {penaltyPct}% of your cash and shares will be taken if you ever leave. You also can't rejoin that crew
@@ -155,7 +159,6 @@ const CrewSelectionModal = ({
 
         {leavingCrew ? (
           <div className="p-6 text-center">
-            <div className="text-4xl mb-4">🚪</div>
             <h3 className={`text-xl font-bold mb-2 ${textClass}`}>Leave {current?.name}?</h3>
             <div className="p-4 rounded-sm light:bg-red-50 dark:bg-red-900/20 border border-red-500/30 mb-4">
               <p className="text-red-400 font-semibold mb-2">
@@ -198,7 +201,7 @@ const CrewSelectionModal = ({
 
             {getCrewMultiplier(crewStats, chosenId) > 1 && (
               <p className="text-sm text-orange-500 mb-3">
-                🔥 This crew pays x{getCrewMultiplier(crewStats, chosenId)} mission rewards this week
+                This crew pays x{getCrewMultiplier(crewStats, chosenId)} mission rewards this week
               </p>
             )}
 
@@ -225,7 +228,8 @@ const CrewSelectionModal = ({
                 <p className="text-sm text-orange-500 mb-3">✓ Joining a crew is free!</p>
                 <div className="p-3 rounded-sm light:bg-amber-50 dark:bg-amber-900/20 border border-amber-500/30">
                   <p className="text-amber-400 text-sm">
-                    ⚠️ <strong>Note:</strong> If you ever leave this crew, you'll lose{' '}
+                    <PixelIcon name="warning" className="w-4 h-4 mr-1 align-[-3px]" />
+                    <strong>Note:</strong> If you ever leave this crew, you'll lose{' '}
                     <strong>{penaltyPct}% of your portfolio</strong>.
                   </p>
                 </div>
@@ -263,7 +267,7 @@ const CrewSelectionModal = ({
                 onClick={() => setLeavingCrew(true)}
                 className="w-full mb-4 p-3 rounded-sm border-2 border-red-500/50 text-red-400 hover:bg-red-500/10 transition-all"
               >
-                🚪 Leave Current Crew
+                Leave Current Crew
               </button>
             )}
 
@@ -303,9 +307,7 @@ const CrewSelectionModal = ({
                     )}
                     {crewStats && (
                       <div className="flex items-center justify-center gap-2 mt-2 text-xs">
-                        {multiplier > 1 && (
-                          <span className="text-orange-500 font-semibold">🔥 x{multiplier} rewards</span>
-                        )}
+                        {multiplier > 1 && <span className="text-orange-500 font-semibold">x{multiplier} rewards</span>}
                         {typeof activeCount === 'number' && <span className={mutedClass}>{activeCount} active</span>}
                       </div>
                     )}

@@ -114,7 +114,7 @@ const UsernameModal = ({ onComplete, suggestedName = '' }: { onComplete: () => v
   return (
     <div className={`${overlayHeavyClass} z-50`}>
       <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6`}>
-        <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Welcome to Stockism! 🎉</h2>
+        <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Welcome to Stockism!</h2>
         <p className={`text-sm ${mutedClass} mb-3`}>
           Choose a username for the leaderboard. This is the only name other players will see.
         </p>

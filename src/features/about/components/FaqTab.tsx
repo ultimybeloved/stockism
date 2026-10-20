@@ -1,7 +1,7 @@
 import { themeClasses } from '../../../utils/theme';
 import { marketTimes } from '../../../utils/localTime';
 
-// The FAQ tab: how the market, orders, shorts, dividends and seasons work.
+// The FAQ tab: how the market, orders, shorts, margin, dividends, seasons, crews, the Ladder and the shop work.
 const FaqTab = () => {
   const { textClass, mutedClass } = themeClasses;
 
@@ -93,6 +93,16 @@ const FaqTab = () => {
       </div>
 
       <div>
+        <h3 className="font-semibold text-orange-500 mb-1">What is margin?</h3>
+        <p className={`text-sm ${mutedClass}`}>
+          Margin lets you borrow cash against the stocks you own. It unlocks once you have 10 daily check-ins, 35
+          trades, a $7,500 best portfolio and $2,000 in cash. The bigger your account, the more you can borrow. Borrowed
+          money costs 0.5% a day in interest and doesn&apos;t count toward your rank. If your stocks fall too far, you
+          get a margin call, and if they keep falling, some of your stocks are sold automatically to pay the loan back.
+        </p>
+      </div>
+
+      <div>
         <h3 className="font-semibold text-orange-500 mb-1">How do dividends work?</h3>
         <p className={`text-sm ${mutedClass}`}>
           Every stock pays a weekly dividend to holders. Payouts run every Thursday right before the chapter halt, using
@@ -122,7 +132,8 @@ const FaqTab = () => {
         <p className={`text-sm ${mutedClass}`}>
           Place bets on story outcomes (e.g., "Will X defeat Y?"). All bets go into a pool, and winners split the entire
           pool in proportion to their bets. Some bets start with house money in every side of the pool, which goes to
-          the winners too.
+          the winners too. Futures are longer bets on how the story goes: each answer is a share that pays $1 if it
+          happens, and you can buy or sell shares any time the market is open.
         </p>
       </div>
 
@@ -133,6 +144,34 @@ const FaqTab = () => {
           stock and bonuses don&apos;t count. Tiers are a ladder: Bronze for being active, then Silver for finishing up,
           Gold for beating the market, and Platinum and Diamond for the top finishers in your account-size division. You
           need each tier before the next one. Open the Season card for the exact rules and your progress.
+        </p>
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-orange-500 mb-1">How do crews work?</h3>
+        <p className={`text-sm ${mutedClass}`}>
+          Pick a crew from the story to unlock crew missions. Joining is free. Switching costs 5% of your portfolio and
+          keeps you out of the crew you left for 30 days. Crews with fewer active players pay up to double on mission
+          rewards. Each week the member with the biggest net worth becomes the crew head and gets a crown by their name.
+        </p>
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-orange-500 mb-1">What is the Ladder?</h3>
+        <p className={`text-sm ${mutedClass}`}>
+          A double-or-nothing side game. Move cash in, pick a side, and the ladder either doubles your bet or takes it.
+          It&apos;s pure luck, with no strategy. Moving money back out is taxed: 5% on what you put in, more on what you
+          won (the more you&apos;ve won over time, the higher it goes), and extra if you withdraw within 12 hours. You
+          can also play it in the Stockism Discord with /ladder.
+        </p>
+      </div>
+
+      <div>
+        <h3 className="font-semibold text-orange-500 mb-1">What can I buy in the shop?</h3>
+        <p className={`text-sm ${mutedClass}`}>
+          Open Customization to style your name on the leaderboard: name colors, effects, backdrops, frames and pins,
+          from $5,000 up. They&apos;re paid with your game cash, so they lower your net worth. One item is 25% off each
+          week, bundles are cheaper than buying the pieces, and you can buy any item as a gift for another player.
         </p>
       </div>
 

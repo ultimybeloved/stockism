@@ -66,7 +66,7 @@ const DashboardRail = ({
               onClick={onShowBailout}
               className={`mt-2 w-full py-1.5 text-xs font-semibold rounded-sm text-white ${userData?.colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'}`}
             >
-              💸 Wiped Out - Request Bailout
+              Wiped out: request a bailout
             </button>
           )}
           {(activeUserData.cash || 0) >= 0 &&

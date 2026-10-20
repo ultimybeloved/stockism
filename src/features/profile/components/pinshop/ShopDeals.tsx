@@ -9,6 +9,7 @@ import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { PendingPurchase } from '../PinShopModal';
 import type { GiftTarget } from '../../hooks/usePinShop';
 import { pressable } from '../../../../utils/a11y';
+import PixelIcon from '../../../../shared/components/PixelIcon';
 
 // This week's featured cosmetic id. Worked out from the date (rules/shop), the
 // same way purchaseCosmetic prices it, so the shop never shows a price the
@@ -98,7 +99,7 @@ const ShopDeals = ({ cash, onRequestPurchase, onRequestGift, onTryOn }: ShopDeal
                       title="Buy this bundle for another player"
                       className="shrink-0 px-2 py-1.5 text-xs font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
                     >
-                      🎁
+                      <PixelIcon name="gift" set="discord" className="w-4 h-4" />
                     </button>
                   )}
                   {missing.length ? (

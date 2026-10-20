@@ -5,6 +5,7 @@ import type { Crew } from '../../../crews';
 import type { UserData } from '../../../types';
 import { useTheme } from '../../../context/AppContext';
 import { CREW_HEAD_PIN, PIXELATED } from '../../../constants/crests';
+import PixelIcon from '../../../shared/components/PixelIcon';
 
 interface CrewSectionProps {
   userCrew: string | null | undefined;
@@ -25,7 +26,8 @@ const CrewSection = ({ userCrew, crewData, userData, onOpenCrewSelection }: Crew
         onClick={onOpenCrewSelection}
         className="w-full py-3 text-sm font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white"
       >
-        🏴 Join a Crew
+        <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
+        Join a Crew
       </button>
     );
   }

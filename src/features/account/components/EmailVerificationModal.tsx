@@ -48,7 +48,6 @@ const EmailVerificationModal = ({ user, userData }: { user: User; userData: User
     <div className={`${overlayClass} z-50`}>
       <div ref={dialogRef} className={`${modalShellClass} max-w-md p-6`}>
         <div className="text-center mb-6">
-          <div className="text-5xl mb-3">📧</div>
           <h2 className={`text-xl font-semibold mb-2 ${textClass}`}>Verify Your Email</h2>
           <p className={`text-sm ${mutedClass}`}>
             We sent a verification link to <span className={`font-semibold ${textClass}`}>{user?.email}</span>

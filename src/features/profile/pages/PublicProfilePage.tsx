@@ -216,7 +216,7 @@ const PublicProfilePage = () => {
             {profile.stats.checkinStreak > 1 && (
               <div>
                 <p className={`text-xs ${mutedClass}`}>Current streak</p>
-                <p className={`font-bold ${textClass}`}>🔥 {profile.stats.checkinStreak} days</p>
+                <p className={`font-bold ${textClass}`}>{profile.stats.checkinStreak} days</p>
               </div>
             )}
           </div>
