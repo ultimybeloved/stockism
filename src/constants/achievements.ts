@@ -161,6 +161,7 @@ export const ACHIEVEMENTS = {
     id: 'TRUE_BELIEVER',
     name: 'True Believer',
     emoji: '🔭',
+    icon: 'achievements/true_believer.svg',
     description: 'Hold a long-term prediction position until it resolves',
     hint: 'Conviction pays off',
   },

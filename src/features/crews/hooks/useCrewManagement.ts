@@ -42,14 +42,14 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
           showNotification(
             'success',
             freeSwitch
-              ? `Switched to ${crew.name} for free! No penalty taken. ${crew.emblem}`
+              ? `Switched to ${crew.name} for free! No penalty taken.`
               : `Switched to ${crew.name}! Lost ${formatCurrency(totalTaken)} (${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)`,
           );
         } else {
           await switchCrewFunction({ crewId, isSwitch: false });
           setUserData((prev) => (prev ? { ...prev, crew: crewId } : prev));
           const crew = CREW_MAP[crewId]!;
-          showNotification('success', `Welcome to ${crew.name}! ${crew.emblem}`);
+          showNotification('success', `Welcome to ${crew.name}!`);
         }
         return true;
       } catch (err) {
