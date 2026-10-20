@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import RivalryTab from './RivalryTab';
 import MissionCard from './MissionCard';
-import WeeklyCallCard from './WeeklyCallCard';
 import { CREW_MAP } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/localTime';
@@ -13,7 +12,6 @@ import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import CrewPin from '../../../shared/components/CrewPin';
 import { useMissionBoard } from '../hooks/useMissionBoard';
-import type { CallDirection } from '../../../rules/missions';
 
 type ClaimReward = (missionId: string, reward: number) => unknown;
 type MissionTab = 'daily' | 'weekly' | 'rivalry';
@@ -23,13 +21,11 @@ interface DailyMissionsModalProps {
   onClaimReward: ClaimReward;
   onClaimWeeklyReward: ClaimReward;
   onRerollMissions: () => unknown;
-  onMakeCall: (ticker: string, direction: CallDirection) => Promise<boolean> | unknown;
   onOpenCrewSelection: () => void;
   isGuest?: boolean;
   claimLoading?: boolean;
   claimWeeklyLoading?: boolean;
   rerollLoading?: boolean;
-  callLoading?: boolean;
 }
 
 const TABS: { id: MissionTab; label: string; active: string }[] = [
@@ -43,13 +39,11 @@ const DailyMissionsModal = ({
   onClaimReward,
   onClaimWeeklyReward,
   onRerollMissions,
-  onMakeCall,
   onOpenCrewSelection,
   isGuest,
   claimLoading,
   claimWeeklyLoading,
   rerollLoading,
-  callLoading,
 }: DailyMissionsModalProps) => {
   useEscapeKey(onClose);
   const dialogRef = useModalFocus();
@@ -157,23 +151,15 @@ const DailyMissionsModal = ({
               <MissionCard key={m.id} mission={m} accent="orange" onClaim={onClaimReward} claiming={claimLoading} />
             ))
           ) : (
-            <>
-              <WeeklyCallCard
-                call={board.call}
-                multiplier={board.multiplier}
-                onMakeCall={onMakeCall}
-                busy={callLoading}
+            board.weeklyMissions.map((m) => (
+              <MissionCard
+                key={m.id}
+                mission={m}
+                accent="purple"
+                onClaim={onClaimWeeklyReward}
+                claiming={claimWeeklyLoading}
               />
-              {board.weeklyMissions.map((m) => (
-                <MissionCard
-                  key={m.id}
-                  mission={m}
-                  accent="purple"
-                  onClaim={onClaimWeeklyReward}
-                  claiming={claimWeeklyLoading}
-                />
-              ))}
-            </>
+            ))
           )}
 
           {!isGuest && activeTab !== 'rivalry' && (

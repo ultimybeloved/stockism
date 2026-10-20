@@ -64,21 +64,7 @@ export function buildWeeklyRecap(r: RecapInput): string[] | null {
     );
   }
 
-  const call = wp.call;
-  if (call?.result) {
-    const said = `${call.ticker} ${call.direction}`;
-    lines.push(
-      call.result === 'big' || call.result === 'win'
-        ? `Your Call (${said}) was right: ${money(call.paid || 0)}.`
-        : call.result === 'loss'
-          ? `Your Call (${said}) went the other way.`
-          : call.result === 'break'
-            ? `Nothing moved this chapter, so your Call paid ${money(call.paid || 0)}.`
-            : `Your Call (${said}) was a push.`,
-    );
-  }
-
-  const finished = Object.values(wp.claimed || {}).filter(Boolean).length;
+  const finished = Object.values(wp.claimed || {}).filter(Boolean).length + (wp.dailyClaims || 0);
   if (finished > 0) lines.push(`Missions finished: ${finished}.`);
 
   if (r.crew && r.rivalry) {

@@ -25,11 +25,16 @@ describe('mission claim checks', () => {
     expect(isWeeklyMissionDone('MARKET_WHALE', {}, ctx)).toBe(false);
   });
 
-  it('a Call is done only once it won', () => {
-    expect(isWeeklyMissionDone('WEEKLY_CALL', { call: { ticker: 'A', direction: 'up', at: 0 } }, ctx)).toBe(false);
-    expect(
-      isWeeklyMissionDone('WEEKLY_CALL', { call: { ticker: 'A', direction: 'up', at: 0, result: 'win' } }, ctx),
-    ).toBe(true);
+  it('Opening Bell is checked like any weekly, and Calls are gone', () => {
+    const auction = { auctionBuys: { A: { shares: 4, value: 120 } } };
+    expect(isWeeklyMissionDone('OPENING_BELL', auction, ctx)).toBe(true);
+    expect(isWeeklyMissionDone('OPENING_BELL', {}, ctx)).toBe(false);
+    expect(isWeeklyMissionDone('WEEKLY_CALL', {}, ctx)).toBe(false);
+  });
+
+  it('passes the daily close through for Buy the Dip', () => {
+    const c = missionContext(user, { prices: { A: 10 }, dayClosePrices: { A: 12 } }, Date.UTC(2026, 9, 23, 12));
+    expect(isDailyMissionDone('BUY_THE_DIP', { buys: { A: { shares: 4, value: 120, low: 10 } } }, c)).toBe(true);
   });
 
   it('mission milestones', () => {

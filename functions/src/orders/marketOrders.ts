@@ -334,6 +334,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               totalValue: executionPrice * localFillShares,
               executionPrice,
               marketPrice: prices.openingPrice,
+              viaAuction: true,
             });
             transaction.update(userRef, {
               cash: FieldValue.increment(-executionPrice * localFillShares),
@@ -383,6 +384,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               totalValue: executionPrice * localFillShares,
               executionPrice,
               marketPrice: prices.openingPrice,
+              viaAuction: true,
             });
             const updates: Record<string, unknown> = {
               cash: FieldValue.increment(executionPrice * localFillShares),

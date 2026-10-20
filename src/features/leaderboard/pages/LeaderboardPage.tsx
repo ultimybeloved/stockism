@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../../context/AppContext';
 import { useSeason } from '../../season/hooks/useSeason';
 import SeasonBoard from '../../season/components/SeasonBoard';
-import CallBoard from '../components/CallBoard';
 import { useUserRowPosition } from '../hooks/useUserRowPosition';
 import { useYourStanding } from '../hooks/useYourStanding';
 import { formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
@@ -32,12 +31,10 @@ const LeaderboardPage = () => {
   const { user, userData } = useSession();
   const wide = useWideScreen();
   const [crewFilter, setCrewFilter] = useState('ALL');
-  // The season card deep-links in with ?board=season, the Calls card with ?board=calls.
+  // The season card deep-links in with ?board=season.
   const [searchParams] = useSearchParams();
   const { active: seasonActive } = useSeason();
-  const [sortMode, setSortMode] = useState<BoardMode>(
-    searchParams.get('board') === 'season' ? 'season' : searchParams.get('board') === 'calls' ? 'calls' : 'value',
-  );
+  const [sortMode, setSortMode] = useState<BoardMode>(searchParams.get('board') === 'season' ? 'season' : 'value');
   const [gainUnit, setGainUnit] = useState<GainUnit>('$');
   const sortBy = sortFor(sortMode, gainUnit);
   const uid = user?.uid ?? null;
@@ -168,8 +165,6 @@ const LeaderboardPage = () => {
             <div className="p-3">
               <SeasonBoard />
             </div>
-          ) : sortMode === 'calls' ? (
-            <CallBoard />
           ) : loading ? (
             <div className={`text-center py-8 ${mutedClass}`}>Loading...</div>
           ) : filteredLeaders.length === 0 ? (

@@ -12,14 +12,7 @@ import {
   liveCheckinStreak,
   canBuyStreakSaver,
 } from '../shared/rules/economy';
-import {
-  getDailyMissions,
-  getWeeklyMissions,
-  getCrewMultiplier,
-  PIN_COLLECTIONS,
-  SHOP_PINS,
-  CALL_MISSION,
-} from '../shared/crews';
+import { getDailyMissions, getWeeklyMissions, getCrewMultiplier, PIN_COLLECTIONS, SHOP_PINS } from '../shared/crews';
 import { writeFeedEntry } from '../shared/notifications';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
@@ -81,11 +74,6 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
       if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
     }
 
-    // The Call is paid when the halt scores it, never claimed.
-    if (missionId === CALL_MISSION.id) {
-      throw new functions.https.HttpsError('failed-precondition', 'Your Call pays out by itself when it is scored.');
-    }
-
     // The mission must actually be assigned to this user today/this week.
     // The client only shows assigned missions; without this check a direct
     // call could claim every mission in the catalog each day. Players without
@@ -98,12 +86,11 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
     }
     // Claims are capped by count, not just by id: the set depends on the crew,
-    // so switching crews mid-day handed out a fresh set to claim again. The
-    // Call pays itself, so it counts on neither side.
+    // so switching crews mid-day handed out a fresh set to claim again.
     const claimedMap: Record<string, boolean> =
       (type === 'daily' ? userData.dailyMissions?.[today]?.claimed : userData.weeklyMissions?.[weekId]?.claimed) || {};
-    const claimedCount = Object.entries(claimedMap).filter(([id, v]) => v && id !== CALL_MISSION.id).length;
-    if (claimedCount >= assignedMissions.filter((m) => m.id !== CALL_MISSION.id).length) {
+    const claimedCount = Object.values(claimedMap).filter(Boolean).length;
+    if (claimedCount >= assignedMissions.length) {
       throw new functions.https.HttpsError(
         'failed-precondition',
         `You've claimed all your ${type} missions. New ones ${type === 'daily' ? 'tomorrow' : 'next week'}.`,
@@ -135,6 +122,8 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
 
     if (type === 'daily') {
       updates[`dailyMissions.${today}.claimed.${missionId}`] = true;
+      // Mission Machine counts the week's daily claims.
+      updates[`weeklyMissions.${weekId}.dailyClaims`] = FieldValue.increment(1);
     } else {
       updates[`weeklyMissions.${weekId}.claimed.${missionId}`] = true;
     }

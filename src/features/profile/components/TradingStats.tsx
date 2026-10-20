@@ -1,7 +1,6 @@
 import { formatCurrency } from '../../../utils/formatters';
 import { calculatePortfolioValue } from '../../../utils/calculations';
 import { themeClasses } from '../../../utils/theme';
-import { callAccuracy, type CallRecord } from '../../../rules/callRecord';
 import type { PriceMap, ShareMap, ShortMap, UserData } from '../../../types';
 
 interface TradingStatsProps {
@@ -34,7 +33,6 @@ const TradingStats = ({
   betsPlaced,
 }: TradingStatsProps) => {
   const { textClass, mutedClass } = themeClasses;
-  const calls: Partial<CallRecord> = userData?.callRecord || {};
 
   const joinDate = (userData?.createdAt as { toDate?: () => Date } | undefined)?.toDate?.() || null;
   // The stored peak only updates on backend sync, so never show it below the
@@ -92,7 +90,7 @@ const TradingStats = ({
     <>
       {/* Stats Summary */}
       <div className="p-4 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+        <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <p className="text-2xl font-bold text-orange-500">{userData?.totalTrades || 0}</p>
             <p className={`text-xs ${mutedClass}`}>Total Trades</p>
@@ -104,15 +102,6 @@ const TradingStats = ({
           <div>
             <p className={`text-2xl font-bold ${textClass}`}>{betsPlaced}</p>
             <p className={`text-xs ${mutedClass}`}>Bets Placed</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-purple-500">
-              {calls.wins || 0}
-              <span className={`text-sm font-normal ${mutedClass}`}>/{(calls.wins || 0) + (calls.losses || 0)}</span>
-            </p>
-            <p className={`text-xs ${mutedClass}`}>
-              Calls Right{callAccuracy(calls) !== null ? ` (${callAccuracy(calls)}%)` : ''}
-            </p>
           </div>
         </div>
       </div>

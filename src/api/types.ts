@@ -2,9 +2,6 @@
 // Each type lists the fields the frontend sends or reads. The backend is the
 // source of truth: when a callable's handler changes, update its shape here.
 
-import type { CallDirection } from '../rules/missions';
-import type { WeeklyCall } from '../rules/missionProgress';
-
 export interface SyncPortfolioResponse {
   newAchievements?: string[];
 }
@@ -94,15 +91,6 @@ export interface ClaimMissionRewardResponse {
 
 export interface RerollMissionsResponse {
   rerollSeed: number;
-}
-
-export interface MakeWeeklyCallRequest {
-  ticker: string;
-  direction: CallDirection;
-}
-
-export interface MakeWeeklyCallResponse {
-  call: WeeklyCall;
 }
 
 export interface PlaceBetRequest {
@@ -726,8 +714,6 @@ export interface PublicProfile {
   /** Only filled in when an admin is looking. */
   adminData: import('../features/profile/components/ProfileAdminPanel').ProfileAdminData | null;
   achievements: string[];
-  /** Lifetime weekly Call results; null before their first scored Call. */
-  callRecord?: import('../rules/callRecord').CallRecord | null;
   stats: {
     totalTrades: number;
     predictionWins: number;

@@ -47,7 +47,7 @@ functions/src/
 ├── season/                    Seasons, tiers, standings
 ├── users/                     Accounts, profiles, portfolio, leaderboard, signup checks
 ├── crews/                     Crew switching and Crew Rivalries
-├── missions/                  Daily and weekly missions, weekly Calls
+├── missions/                  Daily and weekly missions
 ├── predictions/               Weekly bets, event shares
 ├── ladder/                    Ladder game
 ├── discord/                   Login, slash commands, roles, daily drop
@@ -144,7 +144,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 - Backend code is grouped by domain: `trading`, `orders`, `margin`, `market`, `season`, `admin`, `discord`, `moderation`, `ladder`, `predictions`, `users`, `crews`, `missions`. Code every domain uses lives in `functions/src/shared/` (constants, helpers, fnConfig, sentry, the generated characters/crews)
 - Each domain's `services.ts` lists its files that declare Cloud Functions; `functions/src/servicePaths.ts` joins them. The Codebase Map below covers the service files and the internal modules
 - Adding a new Cloud Function: find the right service file and append to it. A new file goes in its domain folder and that folder's `services.ts`. A new domain folder also goes in `DOMAINS` in `servicePaths.ts`
-- Internal modules (tradeGuards, limitOrderMatching, missionChecks, callResolution, rivalries, ...) are required directly by their owning service and must NOT be listed in a `services.ts`
+- Internal modules (tradeGuards, limitOrderMatching, missionChecks, rivalries, ...) are required directly by their owning service and must NOT be listed in a `services.ts`
 - Backend vitest files sit beside the module they test (`functions/src/season/seasonTiers.test.ts`)
 - They load backend code with `require('./x') as typeof import('./x')` (through `createRequire`), not `import`, so they share the module instance the code under test uses, and still get its types. They typecheck under `functions/tsconfig.test.json`
 - Emulator suites (`tests/emulator/`) load backend code the same way and typecheck under `tests/tsconfig.json`. Firestore data the code under test wrote is read as `Loose` (from `harness.ts`); helpers and backend imports are typed
@@ -190,13 +190,13 @@ preference and survives on purpose.
 **Shared game rules** (`src/rules/*.ts` and their `functions/src/shared/rules/` copies)
 - Any rule the website previews and the server enforces (taxes, caps, ramps, price maths) lives ONCE in `src/rules/`. `npm run sync:chars` copies every file there to `functions/src/shared/rules/`; `npm run check:sync` (CI) fails if a copy is stale or orphaned. Never edit the copies.
 - A rule module stays pure: no Firebase, no React, and imports only from inside `src/rules/` (or `../characters` / `../crews`, which sit at the same relative path on both sides). Constants files on both sides re-export from it so existing imports keep working.
-- Modules: `rules/ladder` (caps, ramp, house chips, withdrawal tax), `rules/lmsr` (event-market pricing), `rules/activity` (last-active time), `rules/impact` (price impact, liquidity, spreads, order size, new-account ramp), `rules/money` (round2), `rules/equity` (exit equity, total invested), `rules/seasons` (tier thresholds, divisions, default rules), `rules/seasonMoney` (season margin averaging, money in, week maths), `rules/economy` (starting cash, check-in rewards, order sizes, margin gates, daily limits), `rules/ledgerFlow` (money flow report: daily rollup and source groups), `rules/missions` (the Thursday-reopen week clock, real-trade size, held-share ages, Call scoring), `rules/missionProgress` (every mission check), `rules/callRecord` (lifetime Call record and the callers board order), `rules/chapterMarkers` (the chart's chapter flags), `rules/shop` (bundles, featured week).
+- Modules: `rules/ladder` (caps, ramp, house chips, withdrawal tax), `rules/lmsr` (event-market pricing), `rules/activity` (last-active time), `rules/impact` (price impact, liquidity, spreads, order size, new-account ramp), `rules/money` (round2), `rules/equity` (exit equity, total invested), `rules/seasons` (tier thresholds, divisions, default rules), `rules/seasonMoney` (season margin averaging, money in, week maths), `rules/economy` (starting cash, check-in rewards, order sizes, margin gates, daily limits), `rules/ledgerFlow` (money flow report: daily rollup and source groups), `rules/missions` (the Thursday-reopen week clock, real-trade size, held-share ages, the auction week, the index move), `rules/missionProgress` (every mission check), `rules/chapterMarkers` (the chart's chapter flags), `rules/shop` (bundles, featured week).
 
 **Characters & crews** (`src/characters.ts` + `src/crews.ts` and their `functions/` copies)
 - `src/characters.ts` and `src/crews.ts` are the **only files you ever edit**. Never touch `functions/src/shared/characters.ts` or `functions/src/shared/crews.ts` directly — both are generated copies.
 - After editing either source file, run `npm run check:data` (validates ETF weights, crew rosters, and ticker references — silent success = clean) then `npm run sync:chars`, which overwrites both `functions/` copies automatically.
 - Commit source and generated files together, then deploy functions. If you forget the sync, users get "Invalid ticker" errors for new characters, and new crew members are invisible to missions and crew bots (this exact bug shipped in June 2026 when the backend crew list was still hand-copied).
-- Crew rosters, mission definitions/rewards, the Call and the rivalry payouts all live in `src/crews.ts`; `functions/src/shared/constants/` derives `CREW_MEMBERS` from the synced copy. Whether a mission is done is `src/rules/missionProgress.ts` (shared: the missions screen and the claim check run the same functions), and the week clock is `src/rules/missions.ts`.
+- Crew rosters, mission definitions/rewards and the rivalry payouts all live in `src/crews.ts`; `functions/src/shared/constants/` derives `CREW_MEMBERS` from the synced copy. Whether a mission is done is `src/rules/missionProgress.ts` (shared: the missions screen and the claim check run the same functions), and the week clock is `src/rules/missions.ts`.
 
 ### The Anti-Patterns That Created the Original Mess
 
@@ -252,7 +252,7 @@ Quick reference so you know where to look and where to add things.
 | `src/context/AppContext.tsx` | Global state in three contexts: `useTheme` (darkMode), `useSession` (user, userData, holdings, shorts, costBasis, showNotification), `useMarket` (prices, priceHistory, marketData, activeIPOs, ...); plus `useMarketAccess` (load status + `getMarket`, which does not change on a tick) |
 | `src/shared/hooks/useModalManager.ts` | Single openModal/closeModal pattern — use this, don't add more useState modal flags |
 | `src/features/trading/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.ts`) |
-| `src/features/missions/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward, handleMakeCall |
+| `src/features/missions/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
 | `src/features/missions/hooks/useMissionBoard.ts` | Today's and this week's missions with progress, from the shared rules |
 | `src/features/margin/hooks/useMarginManagement.ts` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
 | `src/features/crews/hooks/useCrewManagement.ts` | handleCrewSelect, handleCrewLeave |
@@ -323,7 +323,6 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/crews/crew.ts` | switchCrew, leaveCrew |
 | `functions/src/orders/limitOrders.ts` | createLimitOrder + the sweep schedule; engine is in `limitOrderMatching.ts` (internal) |
 | `functions/src/missions/missions.ts` | Mission claims, reroll, dailyCheckin, purchasePin. Claims count toward the crew's rivalry |
-| `functions/src/missions/weeklyCalls.ts` | makeWeeklyCall, weeklyCallsLock (Thu 13:00), weeklyCallsResolve (Thu 20:55); scoring is in `callResolution.ts` (internal) |
 | `functions/src/crews/rivalries.ts` | **Internal module.** Settles last week's Crew Rivalries and pairs the new week, run by weeklyCrewRankings. Pure rules in `rivalryRules.ts`; the live board doc is `functions/src/shared/rivalries.ts` |
 | `functions/src/predictions/predictions.ts` | Prediction markets, IPO price jumps |
 | `functions/src/ladder/ladderGame.ts` | Ladder game callable (playLadderGame) and leaderboard |
@@ -374,7 +373,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/ladder/ladderTransfers.ts` | Ladder deposits, withdrawals (with the shared withdrawal tax) and adminTransferToLadder. Deposit caps in `shared/ladderMath.ts` |
 | `functions/src/margin/marginForceCover.ts` | **Internal module.** The forced short cover transaction used by the scanners |
 | `functions/src/market/marketMaker.ts` | marketMakerCycle (the stabilizer): nudges stocks that stray more than 12% from their 7-day average, never in a direction that pays confirmed manipulators |
-| `functions/src/market/chapterMarkers.ts` | recordChapterMarker (run by weeklyCallsResolve at 20:55 off the Calls' 13:00 price lock) and adminSetChapterNote: `market/chapterMarkers`, the chart flags. Rules in `src/rules/chapterMarkers.ts`; past weeks from `scripts/backfill-chapter-markers.cjs` |
+| `functions/src/market/chapterMarkers.ts` | weeklyCallsLock (Thu 13:00 halt price lock, `market/callBaseline`), weeklyCallsResolve (Thu 20:55, runs recordChapterMarker; both named for the removed weekly Calls) and adminSetChapterNote: `market/chapterMarkers`, the chart flags. Rules in `src/rules/chapterMarkers.ts`; past weeks from `scripts/backfill-chapter-markers.cjs` |
 | `functions/src/market/neglectDecayRules.ts` | **Internal module.** Is a stock neglected, and may it slide (short interest, floor, admin price). The slide itself runs in the bot engine; the old daily applyNeglectDecay job was removed 2026-10-15 |
 | `functions/src/market/reviewChanges.ts` | **Internal module.** Persists what the admin changed during a chapter review (market/reviewChanges) and the collapse work |
 | `functions/src/market/reviewCollapse.ts` | collapseReviewHistory (20:54 UTC): folds a finished review to one price point per stock, stashing detail in market/reviewDetail |

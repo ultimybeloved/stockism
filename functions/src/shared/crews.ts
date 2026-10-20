@@ -398,34 +398,67 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
     requirement: 50,
     crewOnly: true,
   },
+  SHORT_SELLER: {
+    id: 'SHORT_SELLER',
+    name: 'Short Seller',
+    description: 'Open a short and keep it open',
+    reward: 100,
+    checkType: 'SHORT_OPEN',
+  },
+  COVERED: {
+    id: 'COVERED',
+    name: 'Covered',
+    description: "Close a short you've held at least a day for a profit",
+    reward: 100,
+    checkType: 'COVER_PROFIT',
+  },
+  BASKET_BUYER: {
+    id: 'BASKET_BUYER',
+    name: 'Basket Buyer',
+    description: 'Buy an index fund (ETF) and keep the shares',
+    reward: 75,
+    checkType: 'BUY_ETF',
+  },
+  BUY_THE_DIP: {
+    id: 'BUY_THE_DIP',
+    name: 'Buy the Dip',
+    description: 'Buy a stock that is below its last daily close and keep the shares',
+    reward: 75,
+    checkType: 'BUY_DIP',
+  },
+  RIDE_THE_WAVE: {
+    id: 'RIDE_THE_WAVE',
+    name: 'Ride the Wave',
+    description: 'Buy a stock that is up 5%+ this week and keep the shares',
+    reward: 100,
+    checkType: 'BUY_MOMENTUM',
+    requirement: 5,
+  },
+  BLUE_CHIP: {
+    id: 'BLUE_CHIP',
+    name: 'Blue Chip',
+    description: 'Buy a Legendary or Epic stock and keep the shares',
+    reward: 100,
+    checkType: 'BUY_BLUE_CHIP',
+  },
 };
 
 // ============================================
 // WEEKLY MISSIONS
 // ============================================
 
-// Each week is your Call plus one mission from WEEKLY_MISSIONS. A week runs from
-// the Thursday reopen (21:00 UTC) to the next one (rules/missions).
+// Each week is Opening Bell plus one mission from WEEKLY_MISSIONS. A week runs
+// from the Thursday reopen (21:00 UTC) to the next one (rules/missions).
 
-// The Call: pick a stock and up or down from the Thursday reopen to the end of
-// Saturday. It is scored on the next chapter halt, from the price when the halt
-// began to the price at the 20:55 lock, and paid automatically. A move under
-// minMove either way is a push and pays nothing.
-export const WEEKLY_CALL = {
+// Opening Bell is every week's first mission: an order that filled in the
+// opening auction that started the week (rules/missions auctionWeekId). The
+// auction fills minutes before the week begins, so it can't be a surprise draw.
+export const OPENING_BELL: Mission = {
+  id: 'OPENING_BELL',
+  name: 'Opening Bell',
+  description: "Have an order fill in Thursday's opening auction",
   reward: 500,
-  bigReward: 1000,
-  /** Paid on every Call when no stock moved during the halt (a chapter break). */
-  breakReward: 250,
-  minMove: 0.01,
-  bigMove: 0.1,
-};
-
-export const CALL_MISSION: Mission = {
-  id: 'WEEKLY_CALL',
-  name: 'Your Call',
-  description: 'Pick a stock and call it up or down for the next chapter',
-  reward: WEEKLY_CALL.reward,
-  checkType: 'CALL',
+  checkType: 'WEEKLY_AUCTION',
 };
 
 export const WEEKLY_MISSIONS: Record<string, Mission> = {
@@ -477,6 +510,44 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
     requirement: 15, // percent growth from the week's starting value
   },
+  BEAT_THE_MARKET: {
+    id: 'BEAT_THE_MARKET',
+    name: 'Beat the Market',
+    description: 'Grow your portfolio more than the market index this week',
+    reward: 600,
+    checkType: 'WEEKLY_BEAT_MARKET',
+  },
+  SHOPPING_SPREE: {
+    id: 'SHOPPING_SPREE',
+    name: 'Shopping Spree',
+    description: 'Buy 5 different stocks this week and keep them',
+    reward: 500,
+    checkType: 'WEEKLY_BUY_SPREAD',
+    requirement: 5,
+  },
+  MISSION_MACHINE: {
+    id: 'MISSION_MACHINE',
+    name: 'Mission Machine',
+    description: 'Finish 10 daily missions this week',
+    reward: 600,
+    checkType: 'WEEKLY_DAILY_CLAIMS',
+    requirement: 10,
+  },
+  FORTUNE_TELLER: {
+    id: 'FORTUNE_TELLER',
+    name: 'Fortune Teller',
+    description: 'Bet on a prediction or buy Futures shares this week',
+    reward: 500,
+    checkType: 'WEEKLY_PREDICTION',
+  },
+  DIP_COLLECTOR: {
+    id: 'DIP_COLLECTOR',
+    name: 'Dip Collector',
+    description: 'Buy 3 different stocks that are down 10%+ this week and keep them',
+    reward: 600,
+    checkType: 'WEEKLY_BUY_DIPS',
+    requirement: 3,
+  },
 };
 
 // ============================================
@@ -515,11 +586,11 @@ const missionPool = (missions: Record<string, Mission>, crewId: string | null | 
 
 const textSeed = (text: string) => text.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
 
-// The week's missions: the Call, then one weekly picked by crew and week.
+// The week's missions: Opening Bell, then one weekly picked by crew and week.
 export const getWeeklyMissions = (crewId: string | null | undefined, weekId: string, rerollSeed = 0): Mission[] => {
   const pool = missionPool(WEEKLY_MISSIONS, crewId);
   const seed = textSeed(`${crewId || 'solo'}-${weekId}`) * 31 + rerollSeed;
-  return [CALL_MISSION, pool[Math.abs(seed) % pool.length]!];
+  return [OPENING_BELL, pool[Math.abs(seed) % pool.length]!];
 };
 
 // Today's 3 daily missions, picked by date and crew.

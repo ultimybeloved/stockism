@@ -19,22 +19,21 @@ const base = {
 };
 
 describe('weekly recap', () => {
-  it('splits trading from rewards and covers the Call, missions and rivalry', () => {
+  it('splits trading from rewards and covers missions and the rivalry', () => {
     const lines = buildWeeklyRecap({
       ...base,
       wp: {
         startPortfolioValue: 10000,
         startMarginUsed: 0,
         startGrantedValue: 1000,
-        call: { ticker: T, direction: 'up', at: 1, result: 'win', paid: 500 },
-        claimed: { A: true, B: true, CALL: true },
+        claimed: { A: true, B: true },
+        dailyClaims: 9,
       },
     })!;
     expect(lines[0]).toBe('Net worth $11,500: +$1,200 from trading (+12.0%), plus $300 in rewards.');
     expect(lines[1]).toContain(`($${T}) +10.0%`);
-    expect(lines[2]).toBe(`Your Call (${T} up) was right: $500.`);
-    expect(lines[3]).toBe('Missions finished: 3.');
-    expect(lines[4]).toBe('Allied beat Hostel, and you finished your 5.');
+    expect(lines[2]).toBe('Missions finished: 11.');
+    expect(lines[3]).toBe('Allied beat Hostel, and you finished your 5.');
   });
 
   it('says nothing without a starting value, and reports a loss plainly', () => {

@@ -1,12 +1,17 @@
 // Chapter markers on the charts (rules/chapterMarkers): market/chapterMarkers,
 // world-readable, one entry per Thursday review, newest first.
 //
-// recordChapterMarker runs at the 20:55 lock from weeklyCallsResolve, off the
-// same 13:00 price lock the Calls use (market/callBaseline). adminSetChapterNote
-// lets the admin name a chapter and add a line about it.
+// weeklyCallsLock saves the prices when the halt begins (13:00 UTC) and
+// weeklyCallsResolve records the marker from them at 20:55, before the opening
+// auction moves anything. Both are named for the weekly Calls they once scored
+// (removed before launch); deployed functions can't be renamed. The price lock
+// doc keeps its old name too, market/callBaseline. adminSetChapterNote lets the
+// admin name a chapter and add a line about it.
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { cf, requireAdmin } from '../shared/fnConfig';
+import { recordHeartbeat } from '../shared/activity';
+import { reportError } from '../shared/sentry';
 import { isRosterTicker } from '../shared/roster';
 import { indexFromStored, type StoredIndex } from '../shared/indexMaintenance';
 import { logAdminAction } from '../shared/adminLog';
@@ -22,6 +27,14 @@ const db = admin.firestore();
 
 export const chapterMarkersRef = () => db.collection('market').doc('chapterMarkers');
 
+/** market/callBaseline: { weekId, prices, savedAt }, the prices when the halt began. */
+export const haltPriceLockRef = () => db.collection('market').doc('callBaseline');
+
+export async function lockHaltPrices(now = Date.now()) {
+  const market = await db.collection('market').doc('current').get();
+  await haltPriceLockRef().set({ weekId: getWeekId(now), prices: market.data()?.prices || {}, savedAt: now });
+}
+
 const onlyRoster = (prices: Record<string, number>) =>
   Object.fromEntries(Object.entries(prices).filter(([t]) => isRosterTicker(t)));
 
@@ -29,7 +42,7 @@ const onlyRoster = (prices: Record<string, number>) =>
 export async function recordChapterMarker(now = Date.now()) {
   const weekId = getWeekId(now);
   const [base, market, idx] = await Promise.all([
-    db.collection('market').doc('callBaseline').get(),
+    haltPriceLockRef().get(),
     db.collection('market').doc('current').get(),
     db.collection('market').doc('indexHistory').get(),
   ]);
@@ -87,3 +100,31 @@ export const adminSetChapterNote = cf().https.onCall(
     return { success: true };
   },
 );
+
+/** Thursday 13:00 UTC: the prices when the halt begins. */
+export const weeklyCallsLock = cf()
+  .pubsub.schedule('0 13 * * 4')
+  .timeZone('UTC')
+  .onRun(async () => {
+    try {
+      await lockHaltPrices();
+      await recordHeartbeat('weeklyCallsLock');
+    } catch (err) {
+      reportError(err, { where: 'weeklyCallsLock' });
+    }
+    return null;
+  });
+
+/** Thursday 20:55 UTC: this chapter's marker, before the opening auction fills. */
+export const weeklyCallsResolve = cf()
+  .pubsub.schedule('55 20 * * 4')
+  .timeZone('UTC')
+  .onRun(async () => {
+    try {
+      await recordChapterMarker();
+      await recordHeartbeat('weeklyCallsResolve');
+    } catch (err) {
+      reportError(err, { where: 'recordChapterMarker' });
+    }
+    return null;
+  });

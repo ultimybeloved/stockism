@@ -14,7 +14,8 @@
 //   C. Check-in: ladder top-up     D. Mission claims
 //   E. Mission gating              F. Weekly missions
 //   G. Reroll                      H. Account guards
-//   I. Weekly Calls                J. Crew Rivalries
+//   I. Opening Bell, chapter       J. Crew Rivalries
+//      markers
 
 import { it, vi } from 'vitest';
 import { createRequire } from 'module';
@@ -35,12 +36,8 @@ const db = admin.firestore();
 // Loaded AFTER initializeApp so their top-level admin.firestore() binds to the emulator.
 const { dailyCheckin, claimMissionReward, rerollMissions } =
   require('../../functions/src/missions/missions') as typeof import('../../functions/src/missions/missions');
-const { makeWeeklyCall } =
-  require('../../functions/src/missions/weeklyCalls') as typeof import('../../functions/src/missions/weeklyCalls');
-const { recordChapterMarker, adminSetChapterNote } =
+const { recordChapterMarker, adminSetChapterNote, lockHaltPrices } =
   require('../../functions/src/market/chapterMarkers') as typeof import('../../functions/src/market/chapterMarkers');
-const { lockCallBaseline, resolveWeeklyCalls } =
-  require('../../functions/src/missions/callResolution') as typeof import('../../functions/src/missions/callResolution');
 const { settleRivalryWeek } =
   require('../../functions/src/crews/rivalries') as typeof import('../../functions/src/crews/rivalries');
 const {
@@ -50,12 +47,14 @@ const {
   WEEKLY_MISSIONS,
   CREW_UNDERDOG_MULT_MAX,
   RIVALRY,
-  WEEKLY_CALL,
+  OPENING_BELL,
 } = require('../../functions/src/shared/crews') as typeof import('../../functions/src/shared/crews');
-const { missionWeekId, callPicksOpen, weeklyMissionsOpen } =
+const { missionWeekId, weeklyMissionsOpen } =
   require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
 const { getLadderChips } =
   require('../../functions/src/shared/ladderMath') as typeof import('../../functions/src/shared/ladderMath');
+const { CHARACTER_MAP } =
+  require('../../functions/src/shared/characters') as typeof import('../../functions/src/shared/characters');
 const { CHECKIN_STREAK_REWARDS, CREW_MEMBERS, ADMIN_UID } =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 
@@ -84,23 +83,28 @@ const isoDay = (d: Date) => d.toISOString().split('T')[0]!;
 const today = () => isoDay(new Date());
 const weekId = () => missionWeekId();
 
-// Kept buys of three stocks, cheap, well down on the week, plus big sells of
-// old shares, so every daily mission is done at once.
-const BUY = { shares: 10, value: 1e6, low: 5 };
+// Kept buys of three stocks and an ETF, bought both well down and well up on
+// the week, big sells of old shares, a kept short and a profitable cover, so
+// every daily mission is done at once.
+const ETF = Object.entries(CHARACTER_MAP).find(([, c]) => c.isETF)![0];
+const BUY = { shares: 10, value: 1e6, low: 5, high: 1e6 };
 const FULL_DAILY = {
-  buys: { [MINE]: BUY, [THEIRS]: BUY, [SPARE]: BUY },
+  buys: { [MINE]: BUY, [THEIRS]: BUY, [SPARE]: BUY, [ETF]: BUY },
   limitBuys: { [MINE]: BUY },
   heldSoldValue: 1e6,
   heldLossValue: 1e6,
   limitSoldValue: 1e6,
+  shorts: { [SPARE]: { shares: 1, value: 1e6 } },
+  coverProfitValue: 1e6,
 };
 /** Weekly progress that satisfies the activity weeklies. */
 const days7 = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [`2000-01-0${d}`, true]));
 const FULL_WEEKLY = { tradeCount: 10, tradingDays: days7, checkinDays: days7 };
 // Nearly all the value is in the crew, so the composition missions pass too.
-const CREW_HOLDINGS = { [MINE]: 100, [THEIRS]: 10, [SPARE]: 10 };
+const CREW_HOLDINGS = { [MINE]: 100, [THEIRS]: 10, [SPARE]: 10, [ETF]: 10 };
 const PRICES = { [MINE]: 1000, [THEIRS]: 1, [SPARE]: 1 };
 const WEEK_OPEN = { [MINE]: 100, [THEIRS]: 100, [SPARE]: 100 };
+const DAY_CLOSE = WEEK_OPEN;
 
 /** A reroll seed under which the given mission is assigned to CREW right now. */
 function seedAssigning(type: 'daily' | 'weekly', missionId: string) {
@@ -135,6 +139,7 @@ async function seedMissionUser(uid: string, { seed = 0, extra = {} as Loose } = 
   await seedUser(uid, {
     crew: CREW,
     holdings: CREW_HOLDINGS,
+    shorts: { [SPARE]: { shares: 1 } },
     dailyMissions: { [today()]: { ...FULL_DAILY } },
     weeklyMissions: { [weekId()]: { ...FULL_WEEKLY, ...(seed ? { rerollSeed: seed } : {}) } },
     ...extra,
@@ -159,7 +164,10 @@ const rejects = async (fn: Loose, pattern: RegExp) => {
 
 async function main() {
   console.log('\n=== Missions and check-in money-path suite (emulator) ===');
-  await db.collection('market').doc('current').set({ prices: PRICES, weekOpenPrices: WEEK_OPEN });
+  await db
+    .collection('market')
+    .doc('current')
+    .set({ prices: PRICES, weekOpenPrices: WEEK_OPEN, dayClosePrices: DAY_CLOSE });
   await setCrewMultiplier(null);
 
   // ── A. Check-in: first claim ──────────────────────────────────────────────
@@ -406,7 +414,7 @@ async function main() {
   await seedMissionUser('m_switched', {
     extra: {
       dailyMissions: { [today()]: { ...FULL_DAILY, claimed: { OLD_A: true, OLD_B: true, OLD_C: true } } },
-      weeklyMissions: { [weekId()]: { ...FULL_WEEKLY, claimed: { OLD_W: true } } },
+      weeklyMissions: { [weekId()]: { ...FULL_WEEKLY, claimed: { OLD_W: true, OLD_X: true } } },
     },
   });
   check(
@@ -418,7 +426,7 @@ async function main() {
   );
   const [, switchedWeekly] = getWeeklyMissions(CREW, weekId(), 0);
   check(
-    'and no new weekly claim either (the Call does not count)',
+    'and no new weekly claim either',
     (await rejects(
       () => claimMissionReward.run({ missionId: switchedWeekly!.id, type: 'weekly' }, ctx('m_switched')),
       /claimed all your weekly/i,
@@ -488,10 +496,10 @@ async function main() {
       [`weeklyMissions.${weekId()}.startGrantedValue`]: 0,
     });
   check(
-    'the Call cannot be claimed by hand',
+    'the retired Call is not a mission',
     (await rejects(
       () => claimMissionReward.run({ missionId: 'WEEKLY_CALL', type: 'weekly' }, ctx('w_claim')),
-      /pays out by itself/i,
+      /not assigned/i,
     )) === true,
   );
   const wk = await claimMissionReward.run({ missionId: weekly!.id, type: 'weekly' }, ctx('w_claim'));
@@ -621,104 +629,57 @@ async function main() {
   const linked = await dailyCheckin.run({}, ctx('g_linked'));
   check('linking Discord lifts the wall', linked.success === true);
 
-  await callsSection();
+  await openingBellSection();
   await rivalrySection();
 }
 
-// ── I. Weekly Calls ─────────────────────────────────────────────────────────
-async function callsSection() {
-  console.log('\nI. Weekly Calls');
+// ── I. Opening Bell, chapter markers ────────────────────────────────────────
+async function openingBellSection() {
+  console.log('\nI. Opening Bell, chapter markers');
   const wk = weekId();
   await setCrewMultiplier(null);
 
-  await seedUser('c_pick', { crew: CREW });
-  if (callPicksOpen()) {
-    const made = await makeWeeklyCall.run({ ticker: MINE.toLowerCase(), direction: 'up' }, ctx('c_pick'));
-    const u = await getUser('c_pick');
-    check('a Call is stored for the week', made.success && u.weeklyMissions[wk].call.ticker === MINE, u.weeklyMissions);
-    await makeWeeklyCall.run({ ticker: MINE, direction: 'down' }, ctx('c_pick'));
-    check(
-      'and can be changed while picks are open',
-      (await getUser('c_pick')).weeklyMissions[wk].call.direction === 'down',
-    );
-    check(
-      'an unknown stock is refused',
-      (await rejects(() => makeWeeklyCall.run({ ticker: 'NOPE', direction: 'up' }, ctx('c_pick')), /not trading/i)) ===
-        true,
-    );
-  } else {
-    check(
-      'outside Thursday to Saturday a Call is refused',
-      (await rejects(() => makeWeeklyCall.run({ ticker: MINE, direction: 'up' }, ctx('c_pick')), /open again/i)) ===
-        true,
-    );
-  }
   check(
-    'a Call needs a direction',
-    (await rejects(() => makeWeeklyCall.run({ ticker: MINE, direction: 'sideways' }, ctx('c_pick')), /up or down/i)) ===
-      true,
+    'a daily claim counts toward Mission Machine',
+    (await getUser('m_seeded')).weeklyMissions?.[wk]?.dailyClaims === 1,
+    (await getUser('m_seeded')).weeklyMissions?.[wk],
   );
 
-  // Scoring: halt-start prices against the 20:55 lock.
-  const call = (ticker: string, direction: string) => ({
-    weeklyMissions: { [wk]: { call: { ticker, direction, at: 1 } } },
+  // An auction buy credited to this week, still held: Opening Bell pays.
+  await seedUser('o_bell', {
+    portfolioValue: 10000,
+    holdings: { [MINE]: 10 },
+    weeklyMissions: { [wk]: { auctionBuys: { [MINE]: { shares: 10, value: 200 } } } },
   });
+  const bell = await claimMissionReward.run({ missionId: OPENING_BELL.id, type: 'weekly' }, ctx('o_bell'));
+  const bellUser = await getUser('o_bell');
+  check(
+    'Opening Bell pays for a kept auction buy, booked as granted value',
+    bell.reward === OPENING_BELL.reward && near(bellUser.grantedValue, OPENING_BELL.reward),
+    bell,
+  );
+  await seedUser('o_sold', {
+    portfolioValue: 10000,
+    weeklyMissions: { [wk]: { auctionBuys: { [MINE]: { shares: 10, value: 200 } } } },
+  });
+  check(
+    'and refuses one that was sold again',
+    (await rejects(
+      () => claimMissionReward.run({ missionId: OPENING_BELL.id, type: 'weekly' }, ctx('o_sold')),
+      /not completed/i,
+    )) === true,
+  );
+
+  // The chapter marker: halt-start prices against the 20:55 lock.
   await db
     .collection('market')
     .doc('current')
     .set({ prices: { [MINE]: 100, [THEIRS]: 100, [SPARE]: 100 } });
-  await lockCallBaseline();
+  await lockHaltPrices();
   await db
     .collection('market')
     .doc('current')
     .set({ prices: { [MINE]: 105, [THEIRS]: 120, [SPARE]: 100.2 } });
-  await seedUser('c_win', { crew: CREW, ...call(MINE, 'up') });
-  await seedUser('c_big', { crew: CREW, ...call(THEIRS, 'up'), totalMissionsCompleted: 9 });
-  await seedUser('c_loss', { crew: CREW, ...call(MINE, 'down') });
-  await seedUser('c_push', { ...call(SPARE, 'up') });
-  await setCrewMultiplier(1.5);
-  const res = await resolveWeeklyCalls();
-  check('every Call is scored', res.scored === (callPicksOpen() ? 5 : 4), res); // c_pick's too, when made
-
-  const win = await getUser('c_win');
-  const wcall = win.weeklyMissions[wk].call;
-  check(
-    'a right Call pays the reward times the underdog bonus',
-    wcall.result === 'win' &&
-      near(win.cash, 1000 + WEEKLY_CALL.reward * 1.5) &&
-      near(win.grantedValue, WEEKLY_CALL.reward * 1.5),
-    wcall,
-  );
-  check(
-    'it counts as a finished mission and for the rivalry',
-    win.totalMissionsCompleted === 1 && win.weeklyMissions[wk].rivalry?.count === 1,
-  );
-  const big = await getUser('c_big');
-  check(
-    'a 10%+ move pays the big reward and can earn a milestone',
-    big.weeklyMissions[wk].call.result === 'big' &&
-      near(big.cash, 1000 + WEEKLY_CALL.bigReward * 1.5) &&
-      (big.achievements || []).includes('MISSION_10'),
-    big.weeklyMissions[wk].call,
-  );
-  const loss = await getUser('c_loss');
-  const push = await getUser('c_push');
-  check('a wrong Call pays nothing', loss.weeklyMissions[wk].call.result === 'loss' && loss.cash === 1000);
-  check('a flat stock is a push', push.weeklyMissions[wk].call.result === 'push' && push.cash === 1000);
-
-  check(
-    'the lasting Call record counts the result',
-    win.callRecord?.wins === 1 && win.callRecord?.streak === 1 && loss.callRecord?.losses === 1,
-    win.callRecord,
-  );
-  check('a push is recorded but not as right or wrong', push.callRecord?.pushes === 1 && !push.callRecord?.wins);
-  const board = (await db.collection('leaderboard').doc('calls').get()).data();
-  check(
-    'the callers board ranks the big Call first and is public-safe',
-    board?.rows?.[0]?.uid === 'c_big' && board.rows.every((r: Loose) => !('cash' in r)),
-    board?.rows,
-  );
-
   const marker = await recordChapterMarker();
   check(
     'the chapter marker records what the review did',
@@ -733,29 +694,10 @@ async function callsSection() {
     markers.filter((m: Loose) => m.weekId === wk).length === 1 && markers[0].label === 'Chapter 1',
     markers,
   );
-
-  const again = await resolveWeeklyCalls();
-  check('re-running pays nobody twice', again.scored === 0 && (await getUser('c_win')).cash === win.cash, again);
-  check('and does not count the Call twice', (await getUser('c_win')).callRecord?.calls === 1);
-  await setCrewMultiplier(null);
-
-  // A chapter break: nothing moved during the halt, so every Call gets the consolation.
   await db
     .collection('market')
     .doc('current')
-    .set({ prices: { [MINE]: 100, [THEIRS]: 100, [SPARE]: 100 } });
-  await lockCallBaseline();
-  await seedUser('c_brk', { crew: CREW, ...call(MINE, 'down') });
-  await resolveWeeklyCalls();
-  const brk = await getUser('c_brk');
-  check(
-    'a chapter break pays every Call the consolation',
-    brk.weeklyMissions[wk].call.result === 'break' &&
-      near(brk.cash, 1000 + WEEKLY_CALL.breakReward) &&
-      brk.weeklyMissions[wk].rivalry?.count === 1,
-    brk.weeklyMissions[wk].call,
-  );
-  await db.collection('market').doc('current').set({ prices: PRICES, weekOpenPrices: WEEK_OPEN });
+    .set({ prices: PRICES, weekOpenPrices: WEEK_OPEN, dayClosePrices: DAY_CLOSE });
 }
 
 // ── J. Crew Rivalries ───────────────────────────────────────────────────────

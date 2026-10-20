@@ -605,6 +605,12 @@ async function testShort() {
   );
   check('short: shortHistory stamped', (u.shortHistory?.[T] || []).length === 1, JSON.stringify(u.shortHistory));
   check('short: hasOpenShorts flag set', u.hasOpenShorts === true, `${u.hasOpenShorts}`);
+  const shortDay = u.dailyMissions?.[new Date().toISOString().slice(0, 10)]?.shorts?.[T];
+  check(
+    'short: counts toward Short Seller',
+    shortDay?.shares === 5 && Math.abs(shortDay.value / (exp.exec * 5) - 1) < 0.01,
+    JSON.stringify(shortDay),
+  );
 
   // Adding to an existing short: weighted basis, accumulated margin
   await seedMarket({ [T]: 50 });
@@ -704,6 +710,24 @@ async function testCover() {
     tx?.type === 'SHORT_CLOSE' && near(tx.totalProfit, (90 - exp.exec) * 5),
     JSON.stringify(tx),
   );
+  const today = new Date().toISOString().slice(0, 10);
+  check(
+    'cover: a short opened a minute ago does not count toward Covered',
+    !u.dailyMissions?.[today]?.coverProfitValue,
+    JSON.stringify(u.dailyMissions?.[today]),
+  );
+  await seedMarket({ [T]: 80 });
+  await setUser('cov_old', {
+    cash: 100,
+    shorts: { [T]: { shares: 5, costBasis: 90, margin: 400, openedAt: now - 2 * DAY, system: 'v2' } },
+  });
+  const rOld = await ok({ ticker: T, action: 'cover', amount: 5 }, 'cov_old');
+  const uOld = await getUser('cov_old');
+  check(
+    'cover: a profitable cover of a day-old short counts toward Covered',
+    Math.abs((uOld.dailyMissions?.[today]?.coverProfitValue || 0) / (rOld.executionPrice * 5) - 1) < 0.01,
+    JSON.stringify(uOld.dailyMissions?.[today]),
+  );
 
   // Partial cover: proportional margin return
   await seedMarket({ [T]: 80 });
@@ -769,6 +793,14 @@ async function testMarginBuy() {
   const expMargin = exp.cost - 100;
   check('margin: shortfall funded from margin', near(u.marginUsed, expMargin, 1e-6), `${u.marginUsed} vs ${expMargin}`);
   check('margin: cash floors at 0', u.cash === 0, `${u.cash}`);
+  // Net worth (portfolioValue - marginUsed) must be right the moment the debt
+  // changes, not after the next sync: the boards read it straight away.
+  const mPrices = (await db.collection('market').doc('current').get()).data().prices;
+  check(
+    'margin: stored portfolio value includes the borrowed shares',
+    near(u.portfolioValue, u.holdings[T3] * mPrices[T3]),
+    `${u.portfolioValue} vs ${u.holdings[T3] * mPrices[T3]}`,
+  );
   const lock = u.marginLockup?.[T3];
   const expLockShares = Math.round((expMargin / exp.exec) * 100) / 100;
   check(
@@ -1329,6 +1361,7 @@ async function testMarginLendingScanner() {
     near(uU.cash, expCash, 0.01),
     `${uU.cash} vs ${expCash}`,
   );
+  check('lending: stored portfolio value is the cash left', near(uU.portfolioValue, uU.cash), `${uU.portfolioValue}`);
   check(
     'lending: debt cleared and margin switched off',
     uU.marginUsed === 0 && uU.marginEnabled === false && uU.marginCallAt === null,

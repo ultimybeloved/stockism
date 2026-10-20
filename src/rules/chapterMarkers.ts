@@ -4,8 +4,8 @@
 // helpers when the review locks (20:55 UTC), and the charts read the same shape.
 //
 // The move is the review itself: the price when the halt began (13:00) against
-// the price at the 20:55 lock, before the opening auction. That is the same
-// window weekly Calls are scored on, so a marker and a Call always agree.
+// the price at the 20:55 lock, before the opening auction, so no player trade
+// is in it.
 
 export interface ChapterMarker {
   /** The mission week the review closes (rules/missions week id). */

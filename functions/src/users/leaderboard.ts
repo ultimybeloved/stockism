@@ -489,7 +489,6 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
     portfolioHistory,
     adminData,
     achievements: asArray(userData.achievements),
-    callRecord: userData.callRecord || null,
     stats: {
       totalTrades: userData.totalTrades || 0,
       predictionWins: userData.predictionWins || 0,

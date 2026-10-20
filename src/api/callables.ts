@@ -76,7 +76,6 @@ export const claimMissionRewardFunction = callable<Api.ClaimMissionRewardRequest
   'claimMissionReward',
 );
 export const rerollMissionsFunction = callable<void, Api.RerollMissionsResponse>('rerollMissions');
-export const makeWeeklyCallFunction = callable<Api.MakeWeeklyCallRequest, Api.MakeWeeklyCallResponse>('makeWeeklyCall');
 export const purchasePinFunction = callable<Api.PurchasePinRequest>('purchasePin');
 export const placeBetFunction = callable<Api.PlaceBetRequest>('placeBet');
 export const claimPredictionPayoutFunction = callable<

@@ -91,6 +91,6 @@ export const WATCHED_SCHEDULED_JOBS = [
     label: 'Big price move Discord post',
     watchedSince: ADDED_2026_10_14,
   },
-  { job: 'weeklyCallsLock', maxAgeHours: 8 * 24, label: 'Weekly Call price lock', watchedSince: ADDED_2026_10_22 },
-  { job: 'weeklyCallsResolve', maxAgeHours: 8 * 24, label: 'Weekly Call scoring', watchedSince: ADDED_2026_10_22 },
+  { job: 'weeklyCallsLock', maxAgeHours: 8 * 24, label: 'Halt price lock', watchedSince: ADDED_2026_10_22 },
+  { job: 'weeklyCallsResolve', maxAgeHours: 8 * 24, label: 'Chapter marker', watchedSince: ADDED_2026_10_22 },
 ];

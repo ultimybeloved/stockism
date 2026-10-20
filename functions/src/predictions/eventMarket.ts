@@ -23,6 +23,7 @@ import { recordEventTrade } from '../shared/eventTradeRecords';
 import { logAdminAction, withAdminLog } from '../shared/adminLog';
 import { sideGameRoom } from '../shared/rules/equity';
 import { getLadderWithdrawable } from '../shared/ladderMath';
+import { getWeekId } from '../shared/tradeRecords';
 
 /** One entry in predictions/current.list, the fields these lookups read. */
 type PredictionEntry = { id: string; type?: string; resolved?: boolean; settled?: boolean };
@@ -158,6 +159,8 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
         { ...(userData.eventPositions || {}), [marketId]: newPosition },
         updatedList,
       ),
+      // Fortune Teller (missions).
+      [`weeklyMissions.${getWeekId()}.futuresBuys.${marketId}`]: FieldValue.increment(cost),
     });
 
     return { success: true, cost, shares: qty, outcome };

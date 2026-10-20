@@ -1,4 +1,4 @@
-import { getDailyMissions, getWeeklyMissions, getCrewMultiplier, CALL_MISSION, type Mission } from '../../../crews';
+import { getDailyMissions, getWeeklyMissions, getCrewMultiplier, type Mission } from '../../../crews';
 import { getTodayDateString } from '../../../utils/date';
 import {
   getWeekId,
@@ -39,6 +39,7 @@ export function useMissionBoard() {
     player: userData || {},
     prices,
     weekOpenPrices: marketData?.weekOpenPrices || null,
+    dayClosePrices: marketData?.dayClosePrices || null,
     now,
   };
 
@@ -49,18 +50,16 @@ export function useMissionBoard() {
     claimed: !!daily.claimed?.[m.id],
   }));
 
-  const weeklyMissions: BoardMission[] = getWeeklyMissions(crew, weekId, rerollSeed)
-    .filter((m) => m.id !== CALL_MISSION.id)
-    .map((m) => ({
-      ...m,
-      reward: Math.round(m.reward * multiplier),
-      ...weeklyMissionProgress(m, weekly, ctx),
-      claimed: !!weekly.claimed?.[m.id],
-    }));
+  const weeklyMissions: BoardMission[] = getWeeklyMissions(crew, weekId, rerollSeed).map((m) => ({
+    ...m,
+    reward: Math.round(m.reward * multiplier),
+    ...weeklyMissionProgress(m, weekly, ctx),
+    claimed: !!weekly.claimed?.[m.id],
+  }));
 
   const claimable = (m: BoardMission) => m.complete && !m.claimed;
   const earned = (m: BoardMission) => m.claimed;
-  const anyClaimed = dailyMissions.some(earned) || weeklyMissions.some(earned) || !!weekly.call?.paid;
+  const anyClaimed = dailyMissions.some(earned) || weeklyMissions.some(earned);
 
   return {
     crew,
@@ -69,7 +68,6 @@ export function useMissionBoard() {
     minTrade: playerMinTrade(ctx.player),
     dailyMissions,
     weeklyMissions,
-    call: weekly.call,
     dailyTotals: {
       total: sumRewards(dailyMissions, () => true),
       earned: sumRewards(dailyMissions, earned),

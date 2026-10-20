@@ -23,7 +23,7 @@ const ACCENTS = {
 } as const;
 
 // Missions whose bar counts dollars rather than things.
-const MONEY_CHECKS = new Set(['SELL_HELD', 'SELL_LOSS']);
+const MONEY_CHECKS = new Set(['SELL_HELD', 'SELL_LOSS', 'COVER_PROFIT']);
 
 const short = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : String(n));
 

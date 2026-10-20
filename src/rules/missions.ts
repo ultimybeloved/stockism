@@ -3,8 +3,7 @@
 // the server's claim checks read this one copy, so a progress bar can't say
 // "done" while the server says no.
 
-import { cohortLots, DIVIDEND_HOLD_MS, type HoldingCohort } from '../characters';
-import { WEEKLY_CALL } from '../crews';
+import { CHARACTERS, cohortLots, DIVIDEND_HOLD_MS, type HoldingCohort } from '../characters';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -46,11 +45,14 @@ export const missionWeekEndMs = (now: When = Date.now()) => missionWeekStartMs(n
 export const FIRST_MISSION_WEEK_ID = '2026-10-22';
 export const weeklyMissionsOpen = (weekId: string) => weekId >= FIRST_MISSION_WEEK_ID;
 
-// Calls are made, and Buy and Hold buys count, from the Thursday reopen to the
-// end of Saturday (Sunday 00:00 UTC).
-export const CALL_PICK_WINDOW_MS = 2 * DAY_MS + 3 * 60 * 60 * 1000;
-export const callPicksOpen = (now: When = Date.now()) => ms(now) < missionWeekStartMs(now) + CALL_PICK_WINDOW_MS;
-export const callPicksCloseMs = (now: When = Date.now()) => missionWeekStartMs(now) + CALL_PICK_WINDOW_MS;
+// Buy and Hold buys count from the Thursday reopen to the end of Saturday
+// (Sunday 00:00 UTC).
+export const BUY_HOLD_WINDOW_MS = 2 * DAY_MS + 3 * 60 * 60 * 1000;
+
+// The opening auction fills at 20:56 UTC, a few minutes before the reopen
+// starts the new week. Its fills count for Opening Bell in the week that reopen
+// starts, so the mission is already on the board when players queue orders.
+export const auctionWeekId = (now: When = Date.now()) => missionWeekId(ms(now) + 60 * 60 * 1000);
 
 // Buy and Hold can be claimed from Wednesday 00:00 UTC to the end of the week.
 export const BUY_HOLD_CLAIM_OFFSET_MS = 5 * DAY_MS + 3 * 60 * 60 * 1000;
@@ -168,35 +170,25 @@ export const earnedGrowthPct = (
   return ((portfolioValue - marginUsed - grantedThisWeek - startValue) / startValue) * 100;
 };
 
-// ── Calls ────────────────────────────────────────────────────────────────────
-// A Call is scored on the chapter halt that ends its week: the price when the
-// halt began against the price at the 20:55 lock, before the opening auction.
-// Nobody can trade in that window, so no player can move their own Call.
-export type CallDirection = 'up' | 'down';
-export type CallResult = 'big' | 'win' | 'push' | 'loss' | 'break';
+// ── The market's week ────────────────────────────────────────────────────────
 
-export const scoreCall = (direction: CallDirection, before: number, after: number): CallResult => {
-  if (!(before > 0) || !(after > 0)) return 'push';
-  const move = (after / before - 1) * (direction === 'up' ? 1 : -1);
-  if (move >= WEEKLY_CALL.bigMove) return 'big';
-  if (move >= WEEKLY_CALL.minMove) return 'win';
-  if (move <= -WEEKLY_CALL.minMove) return 'loss';
-  return 'push';
+/**
+ * How far the market index moved between two price maps, in percent. The same
+ * sum of price-to-base ratios the index uses, over the stocks priced in both
+ * maps, so a character added mid-week can't move it.
+ */
+export const indexMovePct = (
+  open: Record<string, number> | null | undefined,
+  now: Record<string, number> | null | undefined,
+) => {
+  let before = 0;
+  let after = 0;
+  for (const c of CHARACTERS) {
+    const p0 = open?.[c.ticker] || 0;
+    const p1 = now?.[c.ticker] || 0;
+    if (c.isETF || !(c.basePrice > 0) || !(p0 > 0) || !(p1 > 0)) continue;
+    before += p0 / c.basePrice;
+    after += p1 / c.basePrice;
+  }
+  return before > 0 ? (after / before - 1) * 100 : 0;
 };
-
-export const callReward = (result: CallResult | null | undefined) =>
-  result === 'big'
-    ? WEEKLY_CALL.bigReward
-    : result === 'win'
-      ? WEEKLY_CALL.reward
-      : result === 'break'
-        ? WEEKLY_CALL.breakReward
-        : 0;
-
-/** A chapter break: not one stock moved 1% between the halt lock and the result. */
-export const isCallBreakWeek = (before: Record<string, number>, after: Record<string, number>) =>
-  !Object.keys(before).some((t) => {
-    const p0 = before[t] || 0;
-    const p1 = after[t] || 0;
-    return p0 > 0 && p1 > 0 && Math.abs(p1 / p0 - 1) >= WEEKLY_CALL.minMove;
-  });

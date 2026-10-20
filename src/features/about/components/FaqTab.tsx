@@ -120,10 +120,10 @@ const FaqTab = () => {
         <p className={`text-sm ${mutedClass}`}>
           You get 3 daily missions and 2 weekly ones, paid in cash. They need real trades: a trade counts if it&apos;s
           worth at least 1% of your net worth (between $50 and $500), a buy only while you still hold the shares, and a
-          sell only on shares you held a day or more. The week runs from one Thursday reopen to the next. One weekly
-          mission is your Call: from the reopen to the end of Saturday, pick a stock and say up or down. It&apos;s
-          scored during the next chapter halt, when nobody can trade, and pays by itself. In a crew, finishing 5
-          missions in a week also earns your Rivalry reward.
+          sell only on shares you held a day or more. The week runs from one Thursday reopen to the next. Every week
+          starts with Opening Bell: queue a pre-market order during the halt, and if it fills in the opening auction,
+          you can claim it once the week begins. In a crew, finishing 5 missions in a week also earns your Rivalry
+          reward.
         </p>
       </div>
 

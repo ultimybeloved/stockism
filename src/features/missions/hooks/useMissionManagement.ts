@@ -1,10 +1,9 @@
 import { useCallback } from 'react';
 import { playSound } from '../../../utils/sounds';
-import { claimMissionRewardFunction, rerollMissionsFunction, makeWeeklyCallFunction } from '../../../api/callables';
+import { claimMissionRewardFunction, rerollMissionsFunction } from '../../../api/callables';
 import { fireDailyRewardConfetti, fireWeeklyRewardConfetti } from '../../../utils/confetti';
 import { ACHIEVEMENTS, achievementToast } from '../../../constants/achievements';
 import { getWeekId } from '../../../utils/missionProgress';
-import type { CallDirection } from '../../../rules/missions';
 import { getTodayDateString } from '../../../utils/date';
 import { formatCurrency } from '../../../utils/formatters';
 import { callableErrorCode } from '../../../utils/errors';
@@ -142,25 +141,5 @@ export function useMissionManagement({ user, userData, showNotification, setUser
     [user, userData, showNotification, setUserData, setLoadingKey],
   );
 
-  const handleMakeCall = useCallback(
-    async (ticker: string, direction: CallDirection) => {
-      if (!user || !userData) return false;
-      setLoadingKey('makeCall', true);
-      try {
-        await makeWeeklyCallFunction({ ticker, direction });
-        playSound('limit');
-        showNotification('success', `Call locked in: ${ticker} ${direction}. It's scored at the next chapter.`);
-        return true;
-      } catch (err) {
-        reportUnexpected(err, { where: 'handleMakeCall', ticker, direction });
-        showNotification('error', errorMessage(err) || 'Could not make that Call');
-        return false;
-      } finally {
-        setLoadingKey('makeCall', false);
-      }
-    },
-    [user, userData, showNotification, setLoadingKey],
-  );
-
-  return { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward, handleMakeCall };
+  return { handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward };
 }

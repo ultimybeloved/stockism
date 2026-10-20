@@ -5,7 +5,7 @@
 // rules themselves are the shared rules/missionProgress, the same code the
 // missions screen draws its progress bars from.
 
-import { DAILY_MISSIONS, WEEKLY_MISSIONS, CALL_MISSION } from '../shared/crews';
+import { DAILY_MISSIONS, WEEKLY_MISSIONS, OPENING_BELL } from '../shared/crews';
 import {
   dailyMissionProgress,
   weeklyMissionProgress,
@@ -20,12 +20,20 @@ export type { DailyProgress, WeeklyProgress };
 /** The context a check runs in, from the user doc and the market/current doc. */
 export const missionContext = (
   userData: UserData,
-  market: { prices?: Record<string, number>; weekOpenPrices?: Record<string, number> } | null | undefined,
+  market:
+    | {
+        prices?: Record<string, number>;
+        weekOpenPrices?: Record<string, number>;
+        dayClosePrices?: Record<string, number>;
+      }
+    | null
+    | undefined,
   now = Date.now(),
 ): MissionContext => ({
   player: userData,
   prices: market?.prices || {},
   weekOpenPrices: market?.weekOpenPrices || null,
+  dayClosePrices: market?.dayClosePrices || null,
   now,
 });
 
@@ -42,8 +50,7 @@ export const missionAchievementFor = (newTotal: number, achievements: string[] =
   return null;
 };
 
-// The Call is paid by the halt that scores it (weeklyCalls.ts), never claimed.
 export const isWeeklyMissionDone = (missionId: string, wp: WeeklyProgress, ctx: MissionContext) => {
-  const mission = missionId === CALL_MISSION.id ? CALL_MISSION : WEEKLY_MISSIONS[missionId];
+  const mission = missionId === OPENING_BELL.id ? OPENING_BELL : WEEKLY_MISSIONS[missionId];
   return !!mission && weeklyMissionProgress(mission, wp, ctx).complete;
 };

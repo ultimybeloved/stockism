@@ -95,7 +95,6 @@ const AppModals = ({
   handleGiftCosmetic,
   handleRepayMargin,
   handleRerollMissions,
-  handleMakeCall,
   handleTrade,
   isGuest,
   needsEmailVerification,
@@ -202,8 +201,6 @@ const AppModals = ({
           claimWeeklyLoading={actionLoading.claimWeeklyMission}
           onRerollMissions={handleRerollMissions}
           rerollLoading={actionLoading.rerollMissions}
-          onMakeCall={handleMakeCall}
-          callLoading={actionLoading.makeCall}
         />
       )}
       {showBailout && !isGuest && userData?.isBankrupt && (

@@ -31,7 +31,7 @@ const STEPS = [
     title: 'Complete Missions',
     image: '/pins/ui/missions.svg',
     description:
-      'Three new daily missions every day, plus weekly ones, all paid in cash. Each week you also make a Call: pick a stock and say up or down for the next chapter. Get it right and it pays up to $1,000.',
+      'Three new daily missions every day, plus weekly ones, all paid in cash. Every week starts with Opening Bell: have an order fill in the Thursday opening auction.',
     spotlight: false,
   },
   {

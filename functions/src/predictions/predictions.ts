@@ -17,6 +17,7 @@ import { recordLedger } from '../shared/ledger';
 import { cohortAddUpdate } from '../shared/cohorts';
 import { sideGameRoom } from '../shared/rules/equity';
 import { getLadderWithdrawable } from '../shared/ladderMath';
+import { getWeekId } from '../shared/tradeRecords';
 
 export const placeBet = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -129,7 +130,6 @@ export const placeBet = cf().https.onCall(async (data, context) => {
     updatedList[predictionIndex] = updatedPrediction;
 
     const newBetAmount = (existingBet?.amount || 0) + amount;
-    const today = new Date().toISOString().split('T')[0];
 
     transaction.update(predictionsRef, { list: updatedList });
     transaction.update(userRef, {
@@ -141,7 +141,7 @@ export const placeBet = cf().https.onCall(async (data, context) => {
         placedAt: Date.now(),
         question: prediction.question,
       },
-      [`dailyMissions.${today}.placedBet`]: true,
+      [`weeklyMissions.${getWeekId()}.betValue`]: FieldValue.increment(amount),
     });
     recordLedger(transaction, {
       uid,

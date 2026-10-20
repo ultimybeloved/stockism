@@ -14,6 +14,8 @@ export interface MarketData {
   tickerAliases?: Record<string, string>;
   /** Prices at the Thursday reopen, for Bargain Hunter. */
   weekOpenPrices?: Record<string, number>;
+  /** Prices at the last daily close (21:00 UTC), for Buy the Dip. */
+  dayClosePrices?: Record<string, number>;
   [key: string]: unknown;
 }
 

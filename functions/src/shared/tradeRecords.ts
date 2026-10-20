@@ -3,8 +3,15 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { ANIMAL_TICKERS, TRADE_RECORD_ACTIONS } from './constants';
-import { missionWeekId, missionMinTrade, sharesHeldAtLeast } from './rules/missions';
-import type { DailyProgress } from './rules/missionProgress';
+import {
+  missionWeekId,
+  missionMinTrade,
+  sharesHeldAtLeast,
+  auctionWeekId,
+  MISSION_HELD_SELL_MS,
+} from './rules/missions';
+import type { DailyProgress, WeeklyProgress } from './rules/missionProgress';
+import { stampMs } from './impact';
 import { round2 } from './money';
 import { tickerStatsRef, buildTickerFlowUpdate } from './marketData';
 import type { UserData } from './types';
@@ -36,6 +43,7 @@ export const buildTradeCreditUpdates = ({
   executionPrice,
   marketPrice,
   viaLimitOrder = false,
+  viaAuction = false,
   now = Date.now(),
 }: {
   userData: UserData;
@@ -47,12 +55,15 @@ export const buildTradeCreditUpdates = ({
   marketPrice: number;
   /** A limit order (not a stop-loss or the opening auction) filled this. */
   viaLimitOrder?: boolean;
+  /** The opening auction filled this (Opening Bell, credited to the week the reopen starts). */
+  viaAuction?: boolean;
   now?: number;
 }) => {
   const todayDate = new Date(now).toISOString().split('T')[0]!;
   const weekId = getWeekId(now);
   const day = `dailyMissions.${todayDate}`;
   const week = `weeklyMissions.${weekId}`;
+  const auctionWeek = `weeklyMissions.${auctionWeekId(now)}`;
   const minTrade = missionMinTrade((userData.portfolioValue || 0) - (userData.marginUsed || 0));
   const updates: Record<string, unknown> = {
     totalTrades: FieldValue.increment(1),
@@ -61,14 +72,22 @@ export const buildTradeCreditUpdates = ({
   let animalProfitTotal: number | null = null;
 
   if (action === 'buy') {
-    const prevLow = (userData.dailyMissions as Record<string, DailyProgress> | undefined)?.[todayDate]?.buys?.[ticker]
-      ?.low;
+    const prev = (userData.dailyMissions as Record<string, DailyProgress> | undefined)?.[todayDate]?.buys?.[ticker];
+    const prevWeekLow = (userData.weeklyMissions as Record<string, WeeklyProgress> | undefined)?.[weekId]?.buys?.[
+      ticker
+    ]?.low;
     updates[`${day}.buys.${ticker}.shares`] = FieldValue.increment(shares);
     updates[`${day}.buys.${ticker}.value`] = FieldValue.increment(totalValue);
-    updates[`${day}.buys.${ticker}.low`] = round2(Math.min(prevLow ?? marketPrice, marketPrice));
+    updates[`${day}.buys.${ticker}.low`] = round2(Math.min(prev?.low ?? marketPrice, marketPrice));
+    updates[`${day}.buys.${ticker}.high`] = round2(Math.max(prev?.high ?? marketPrice, marketPrice));
+    updates[`${week}.buys.${ticker}.low`] = round2(Math.min(prevWeekLow ?? marketPrice, marketPrice));
     if (viaLimitOrder) {
       updates[`${day}.limitBuys.${ticker}.shares`] = FieldValue.increment(shares);
       updates[`${day}.limitBuys.${ticker}.value`] = FieldValue.increment(totalValue);
+    }
+    if (viaAuction) {
+      updates[`${auctionWeek}.auctionBuys.${ticker}.shares`] = FieldValue.increment(shares);
+      updates[`${auctionWeek}.auctionBuys.${ticker}.value`] = FieldValue.increment(totalValue);
     }
     if (totalValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
 
@@ -91,6 +110,7 @@ export const buildTradeCreditUpdates = ({
         updates[`${day}.heldLossValue`] = FieldValue.increment(oldValue);
       }
       if (viaLimitOrder) updates[`${day}.limitSoldValue`] = FieldValue.increment(oldValue);
+      if (viaAuction) updates[`${auctionWeek}.auctionSoldValue`] = FieldValue.increment(oldValue);
     }
     if (oldValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
 
@@ -105,6 +125,24 @@ export const buildTradeCreditUpdates = ({
         animalProfitTotal =
           newTickerProfit + [...ANIMAL_TICKERS].filter((t) => t !== ticker).reduce((s, t) => s + (pbt[t] || 0), 0);
       }
+    }
+  }
+
+  if (action === 'short') {
+    const value = round2(shares * executionPrice);
+    updates[`${day}.shorts.${ticker}.shares`] = FieldValue.increment(shares);
+    updates[`${day}.shorts.${ticker}.value`] = FieldValue.increment(value);
+    if (value >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
+  }
+
+  // Covered: a profitable close of a short opened a day or more ago. Adding to
+  // a short keeps its open time, so the profit is judged on the average entry.
+  if (action === 'cover') {
+    const pos = userData.shorts?.[ticker];
+    const entry = pos?.costBasis || pos?.entryPrice || 0;
+    const openedMs = stampMs(pos?.openedAt as Parameters<typeof stampMs>[0]);
+    if (openedMs > 0 && now - openedMs >= MISSION_HELD_SELL_MS && executionPrice < entry) {
+      updates[`${day}.coverProfitValue`] = FieldValue.increment(round2(shares * executionPrice));
     }
   }
 

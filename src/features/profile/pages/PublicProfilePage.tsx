@@ -1,5 +1,4 @@
 import { memo, useState, useEffect } from 'react';
-import { callAccuracy } from '../../../rules/callRecord';
 import { useParams } from 'react-router-dom';
 import { useSession } from '../../../context/AppContext';
 import { getPublicProfileFunction } from '../../../api/callables';
@@ -193,18 +192,6 @@ const PublicProfilePage = () => {
               <div>
                 <p className={`text-xs ${mutedClass}`}>Prediction wins</p>
                 <p className={`font-bold ${textClass}`}>{profile.stats.predictionWins}</p>
-              </div>
-            )}
-            {!!profile.callRecord?.calls && (
-              <div>
-                <p className={`text-xs ${mutedClass}`}>Weekly Calls</p>
-                <p className={`font-bold ${textClass}`}>
-                  {profile.callRecord.wins} right, {profile.callRecord.losses} wrong
-                </p>
-                <p className={`text-xs ${mutedClass}`}>
-                  {callAccuracy(profile.callRecord) !== null ? `${callAccuracy(profile.callRecord)}% · ` : ''}best
-                  streak {profile.callRecord.bestStreak}
-                </p>
               </div>
             )}
             {profile.stats.totalCheckins > 0 && (

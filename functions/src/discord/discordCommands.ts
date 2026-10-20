@@ -26,7 +26,7 @@ import {
   SITE_URL,
   LEADERBOARD_CACHE_TTL,
 } from '../shared/constants';
-import { getDailyMissions, getWeeklyMissions, CREWS, CALL_MISSION } from '../shared/crews';
+import { getDailyMissions, getWeeklyMissions, CREWS } from '../shared/crews';
 import type { Mission } from '../shared/crews';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { UserData } from '../shared/types';
@@ -441,7 +441,6 @@ const cmdMissions = async (interaction: Interaction) => {
   ) =>
     missions
       .map((m) => {
-        if (m.id === CALL_MISSION.id) return callLine(weeklyProgress.call);
         const claimed = !!(claimedMap || {})[m.id];
         const ready = !claimed && done(m.id);
         const icon = pxe(claimed ? 'success' : ready ? 'gift' : 'todo');
@@ -474,16 +473,6 @@ const cmdMissions = async (interaction: Interaction) => {
     ],
     components: [buttonRow(linkButton('Claim rewards', SITE_URL, 'gift'))],
   };
-};
-
-// The Call's line: not made yet, made, or scored.
-const callLine = (call: WeeklyProgress['call']) => {
-  if (!call) return `${pxe('todo')} Your Call: pick a stock, up or down, on the website`;
-  const pick = `**${call.ticker}** ${call.direction}`;
-  if (!call.result) return `${pxe('todo')} Your Call: ${pick} (scored at the next chapter)`;
-  return call.paid
-    ? `${pxe('success')} Your Call: ${pick}, paid $${call.paid}`
-    : `${pxe('todo')} Your Call: ${pick}, no win`;
 };
 
 // ---------------------------------------------------------------------------
