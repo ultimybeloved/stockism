@@ -641,6 +641,52 @@ const badges = {
     rect(12, 13, 13, 14, 'Y');
     px(12, 13, 'W');
   },
+  true_believer: ({ rect, px }) => {
+    // True believer: a Futures ticket held to the end, stamped paid, with the coins it paid out.
+    rect(2, 3, 17, 12, 'V');
+    rect(2, 3, 17, 3, 'c');
+    for (const y of [5, 8, 11]) {
+      px(2, y, null);
+      px(17, y, null);
+    }
+    rect(4, 5, 8, 5, 'W');
+    rect(4, 7, 8, 7, 'S');
+    rect(4, 9, 7, 9, 'S');
+    // gold stamp disc with a bold white check
+    rect(11, 4, 15, 4, 'Y');
+    rect(11, 12, 15, 12, 'Y');
+    rect(10, 5, 16, 11, 'Y');
+    rect(11, 5, 15, 11, 'Y');
+    px(10, 5, 'V');
+    px(16, 5, 'V');
+    px(10, 11, 'V');
+    px(16, 11, 'V');
+    for (const [x, y] of [
+      [11, 8],
+      [12, 9],
+      [12, 10],
+      [13, 9],
+      [14, 8],
+      [15, 7],
+      [15, 6],
+      [11, 9],
+      [13, 10],
+      [14, 7],
+    ])
+      px(x, y, 'W');
+    // coins below
+    const coin = (x0, y0) => {
+      rect(x0, y0, x0 + 3, y0 + 2, 'Y');
+      rect(x0, y0 + 2, x0 + 3, y0 + 2, 'd');
+      px(x0, y0, 'W');
+    };
+    coin(4, 16);
+    coin(9, 15);
+    coin(14, 16);
+    rect(9, 18, 12, 18, 'd');
+    px(1, 1, 'W');
+    px(18, 14, 'W');
+  },
 
   // ── Ladder Game ──
   compulsive_gambler: ({ rect, px }) => {

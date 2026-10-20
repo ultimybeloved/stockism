@@ -19,7 +19,7 @@ import AdminIcon from './AdminIcon';
 const eventCrew =
   CREW_SWITCH_EVENT && isFreeSwitchTarget(CREW_SWITCH_EVENT.crewId) ? CREW_MAP[CREW_SWITCH_EVENT.crewId] : null;
 
-const DEFAULT_TITLE = eventCrew ? `${eventCrew.emblem} ${eventCrew.name} is open` : '';
+const DEFAULT_TITLE = eventCrew ? `${eventCrew.name} is open` : '';
 
 const DEFAULT_MESSAGE = eventCrew
   ? `${eventCrew.name} is now a crew you can join, and switching to it is free until ${formatUTCDateTime(CREW_SWITCH_EVENT.endsAt)}. ` +
