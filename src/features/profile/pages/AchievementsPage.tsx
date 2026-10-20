@@ -49,7 +49,7 @@ const AchievementsPage = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
+    <div className="max-w-6xl mx-auto p-4">
       <div className={`${cardClass} border rounded-sm shadow-xl overflow-hidden`}>
         <div className="p-4 border-b light:border-amber-200 dark:border-zinc-800">
           <h2 className={`text-xl font-bold ${textClass}`}>
@@ -100,7 +100,7 @@ const AchievementsPage = ({
           {Object.entries(ACHIEVEMENT_CATEGORIES).map(([category, achievementIds]) => (
             <div key={category}>
               <h3 className={`font-semibold mb-3 ${textClass}`}>{category}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                 {achievementIds.map((id) => {
                   const achievement = ACHIEVEMENT_MAP[id];
                   if (!achievement) return null;
