@@ -767,6 +767,14 @@ async function testMarginBuy() {
   const expMargin = exp.cost - 100;
   check('margin: shortfall funded from margin', near(u.marginUsed, expMargin, 1e-6), `${u.marginUsed} vs ${expMargin}`);
   check('margin: cash floors at 0', u.cash === 0, `${u.cash}`);
+  // Net worth (portfolioValue - marginUsed) must be right the moment the debt
+  // changes, not after the next sync: the boards read it straight away.
+  const mPrices = (await db.collection('market').doc('current').get()).data().prices;
+  check(
+    'margin: stored portfolio value includes the borrowed shares',
+    near(u.portfolioValue, u.holdings[T3] * mPrices[T3]),
+    `${u.portfolioValue} vs ${u.holdings[T3] * mPrices[T3]}`,
+  );
   const lock = u.marginLockup?.[T3];
   const expLockShares = Math.round((expMargin / exp.exec) * 100) / 100;
   check(
@@ -1327,6 +1335,7 @@ async function testMarginLendingScanner() {
     near(uU.cash, expCash, 0.01),
     `${uU.cash} vs ${expCash}`,
   );
+  check('lending: stored portfolio value is the cash left', near(uU.portfolioValue, uU.cash), `${uU.portfolioValue}`);
   check(
     'lending: debt cleared and margin switched off',
     uU.marginUsed === 0 && uU.marginEnabled === false && uU.marginCallAt === null,

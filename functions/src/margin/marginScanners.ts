@@ -35,7 +35,7 @@ import { writeNotification } from '../shared/notifications';
 import { sendDiscordMessage, pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import { recordHeartbeat } from '../shared/activity';
-import { shortsEquity } from '../shared/equity';
+import { shortsEquity, grossPortfolioValue } from '../shared/equity';
 import { writeShortInterest, priceHistoryRef } from '../shared/marketData';
 import { isTickerPaused } from '../shared/impact';
 import { seasonMarginUpdate } from '../season/seasonTiers';
@@ -387,6 +387,11 @@ export const checkMarginLending = cf()
 
               updateData.cash = finalCash;
               updateData.marginUsed = 0;
+              // Everything is sold, so the account is its cash plus any shorts.
+              updateData.portfolioValue = grossPortfolioValue(
+                { ...freshData, cash: finalCash, holdings: {} },
+                freshPrices,
+              );
               Object.assign(updateData, seasonMarginUpdate(freshData, 0, now));
               updateData.marginCallAt = null;
               updateData.lastLiquidation = now;

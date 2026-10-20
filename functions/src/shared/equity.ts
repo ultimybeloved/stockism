@@ -16,6 +16,42 @@ import type { GrantedSample, UserData } from './types';
 type Prices = Record<string, number | undefined> | null | undefined;
 const db = admin.firestore();
 
+type ShortLike = { shares?: number; costBasis?: number; entryPrice?: number; margin?: number; system?: string };
+
+/**
+ * The stored portfolioValue: cash plus stocks plus open shorts, before margin
+ * debt. Net worth is this minus marginUsed, so any write that changes the debt
+ * must store this from the same state. Until 2026-10-20 only syncPortfolio set
+ * it, and a margin buy showed on the boards as the old value minus the new
+ * debt until the next sync.
+ */
+export const grossPortfolioValue = (
+  {
+    cash,
+    holdings,
+    shorts,
+  }: {
+    cash?: number;
+    holdings?: Record<string, number> | null;
+    shorts?: Record<string, ShortLike | null | undefined> | null;
+  },
+  prices: Prices,
+) => {
+  const p = prices || {};
+  const stocks = Object.entries(holdings || {}).reduce((sum, [t, s]) => sum + (p[t] || 0) * s, 0);
+  const shortValue = Object.entries(shorts || {}).reduce((sum, [t, pos]) => {
+    if (!pos || typeof pos !== 'object') return sum;
+    const shares = pos.shares || 0;
+    if (shares <= 0) return sum;
+    const basis = pos.costBasis || pos.entryPrice || 0;
+    const price = p[t] || basis;
+    const margin = pos.margin || basis * shares * 0.5;
+    // v2: collateral plus unrealized P&L. Legacy: collateral minus the buy-back cost.
+    return sum + ((pos.system || 'v2') === 'v2' ? margin + (basis - price) * shares : margin - price * shares);
+  }, 0);
+  return round2((cash || 0) + stocks + shortValue);
+};
+
 // ── Granted value ────────────────────────────────────────────────────────────
 // Value that lands in an account without being traded for: daily drops,
 // check-ins, mission rewards, admin giveaways, bailouts, the Discord starting-
