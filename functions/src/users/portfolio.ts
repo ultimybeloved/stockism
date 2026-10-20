@@ -16,11 +16,11 @@ import {
   UNIFIER_FULL_SHARE_MIN,
   DIVIDEND_DEMON_HOLD_MS,
 } from '../shared/constants';
-import { grantedSince, snapshotNetWorth } from '../shared/equity';
+import { grantedSince, snapshotNetWorth, grossPortfolioValue } from '../shared/equity';
 import { eventPositionsValue } from '../shared/lmsr';
 import { checkDiscordWall, checkBanned } from '../shared/accountGuards';
 import { getWeekId } from '../shared/tradeRecords';
-import type { Cohort, ShortPosition } from '../shared/types';
+import type { Cohort } from '../shared/types';
 
 type Holdings = Record<string, number>;
 
@@ -77,31 +77,7 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
     };
   }
 
-  // Calculate portfolio value
-  const holdingsValue = Object.entries((userData.holdings || {}) as Holdings).reduce(
-    (sum, [ticker, shares]) => sum + (prices[ticker] || 0) * shares,
-    0,
-  );
-
-  const shortsValue = Object.entries((userData.shorts || {}) as Record<string, ShortPosition | null>).reduce(
-    (sum, [ticker, position]) => {
-      if (!position || typeof position !== 'object') return sum;
-      const shares = position.shares || 0;
-      if (shares <= 0) return sum;
-      const costBasis = position.costBasis || position.entryPrice || 0;
-      const currentPrice = prices[ticker] || costBasis;
-      const margin = position.margin || costBasis * shares * 0.5;
-      if ((position.system || 'v2') === 'v2') {
-        // v2: margin + unrealized P&L (no proceeds in cash)
-        return sum + margin + (costBasis - currentPrice) * shares;
-      }
-      // Legacy: margin collateral - cost to buy back shares
-      return sum + margin - currentPrice * shares;
-    },
-    0,
-  );
-
-  const portfolioValue = Math.round(((userData.cash || 0) + holdingsValue + shortsValue) * 100) / 100;
+  const portfolioValue = grossPortfolioValue(userData, prices);
 
   const updateData: Record<string, unknown> = {
     portfolioValue,

@@ -58,6 +58,7 @@ import {
 import { computeBuy, computeSell, computeShort, computeCover } from './tradeActions';
 import { computePriceUpdates, buildTrailingEntries } from './tradePricing';
 import { marketMoveFactor } from '../shared/marketMove';
+import { grossPortfolioValue } from '../shared/equity';
 import {
   readIpTradeData,
   pruneHistoryMap,
@@ -405,6 +406,13 @@ export const executeTrade = cf().https.onCall(
             now,
             recordedHigh: marketData.ath?.[ticker] || 0,
           });
+
+          // Net worth is portfolioValue minus marginUsed, and this write changes the
+          // debt, so it stores the value of the same state.
+          updates.portfolioValue = grossPortfolioValue(
+            { cash: newCash, holdings: newHoldings, shorts: newShorts },
+            marketUpdates.prices as Record<string, number>,
+          );
 
           // Persist the user updates. Single write — transaction.update() snapshots
           // its data at call time, so anything appended to `updates` after this

@@ -20,6 +20,7 @@ import {
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
+import { round2 } from '../shared/money';
 import type { UserData } from '../shared/types';
 
 /** Margin and bailout fields the user doc carries beyond the shared shape. */
@@ -69,8 +70,11 @@ export const repayMargin = cf().https.onCall(async (data: { amount?: unknown }, 
     const newMarginUsed = marginUsed - repayAmount;
 
     const storedMarginUsed = newMarginUsed < 0.01 ? 0 : Math.round(newMarginUsed * 100) / 100;
+    // Repaying moves cash into the debt: net worth is unchanged, so the stored
+    // gross value drops by the same amount in the same write.
     transaction.update(userRef, {
       cash: (userData.cash || 0) - repayAmount,
+      portfolioValue: round2((userData.portfolioValue || 0) - repayAmount),
       marginUsed: storedMarginUsed,
       marginCallAt: null,
       ...seasonMarginUpdate(userData, storedMarginUsed),
