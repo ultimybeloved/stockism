@@ -14,7 +14,9 @@
 // the interaction is still acknowledged.
 import axios from 'axios';
 import type { Response } from 'express';
+import * as logger from 'firebase-functions/logger';
 import { reportError } from '../shared/sentry';
+import { DISCORD_EPOCH_MS } from '../shared/constants/dailyDrop';
 
 export const holdAck = async (
   interaction: { id: string; token: string },
@@ -25,7 +27,14 @@ export const holdAck = async (
     await axios.post(`https://discord.com/api/v10/interactions/${interaction.id}/${interaction.token}/callback`, ack);
     return () => void res.status(204).send('');
   } catch (err) {
-    reportError(err, { where: 'discordHoldAck' });
+    // A 404 means Discord gave up on the interaction (over its 3s deadline).
+    // The ID is a snowflake holding the time Discord created it, so the age
+    // shows whether the delay was before this code ran (a cold start) or here.
+    const ageMs = /^\d+$/.test(interaction.id)
+      ? Date.now() - (Number(BigInt(interaction.id) >> 22n) + DISCORD_EPOCH_MS)
+      : null;
+    logger.warn(`[discordHoldAck] interaction age ${ageMs}ms`);
+    reportError(err, { where: 'discordHoldAck', ageMs });
     res.json(ack);
     return () => {};
   }

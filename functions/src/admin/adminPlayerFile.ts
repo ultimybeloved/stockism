@@ -19,8 +19,12 @@ const HISTORY_LIMIT = 180;
 const NOTE_MAX_LENGTH = 2000;
 const NOTES_MAX = 300;
 
-/** Firestore values made JSON-safe: Timestamps become milliseconds. */
+/**
+ * Firestore values made JSON-safe: Timestamps become milliseconds, and NaN or
+ * Infinity become null (one stored NaN made the whole callable fail to encode).
+ */
 export function toPlain(value: unknown): unknown {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (value instanceof Timestamp) return value.toMillis();
   if (Array.isArray(value)) return value.map(toPlain);
   if (value && typeof value === 'object') {
