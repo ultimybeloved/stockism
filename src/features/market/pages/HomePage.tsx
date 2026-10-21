@@ -109,6 +109,10 @@ const HomePage = ({
               {shopDropUnseen && <NewBadge />}
             </button>
           )}
+          <button onClick={() => navigate('/auction')} className={subHeaderBtnClass}>
+            <PixelIcon name="cash" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            Auction
+          </button>
           <button onClick={() => navigate('/achievements')} className={subHeaderBtnClass}>
             <PixelIcon name="medal" className="w-4 h-4 mr-1.5 align-[-3px]" />
             Achievements

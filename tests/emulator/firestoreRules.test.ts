@@ -202,6 +202,21 @@ async function main() {
   await adminDb.collection('feed').doc('f1').set({ type: 'trade', userId: 'someone_else', ticker: 'JAY' });
   await checkAccess('read the trade feed', 'blocked', () => getDoc(doc(clientDb, 'feed', 'f1')));
 
+  // Auctions: anyone reads the auction; who holds each bidder number stays secret.
+  await adminDb.collection('auctions').doc('a1').set({ itemId: 'x', status: 'live', topBid: 5 });
+  await adminDb
+    .collection('auctionBidders')
+    .doc('a1')
+    .set({ numbers: { [uid]: 7 }, top: { uid, amount: 5 } });
+  await checkAccess('read an auction', 'allowed', () => getDoc(doc(clientDb, 'auctions', 'a1')));
+  await checkAccess('read who the bidders are', 'blocked', () => getDoc(doc(clientDb, 'auctionBidders', 'a1')));
+  await checkAccess('write a bid straight to the auction', 'blocked', () =>
+    updateDoc(doc(clientDb, 'auctions', 'a1'), { topBid: 1e9 }),
+  );
+  await checkAccess('give yourself a bidder number', 'blocked', () =>
+    updateDoc(doc(clientDb, 'users', uid), { 'auctionNumbers.a1': 1 }),
+  );
+
   console.log('\n── Admin history ─────────────────────────────────────────────');
   // Limit orders: a live order (pending or partly filled) can be cancelled, and
   // nothing else about it may change.

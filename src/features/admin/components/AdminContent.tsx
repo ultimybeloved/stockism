@@ -6,6 +6,7 @@ import HomeDashboard from './home/HomeDashboard';
 import PlayersSection from './players/PlayersSection';
 import WelcomeTracker from './welcome/WelcomeTracker';
 import MoneyFlow from './money/MoneyFlow';
+import AuctionAdmin from './auctions/AuctionAdmin';
 import DiscordActivity from './discordActivity/DiscordActivity';
 import MarketGuard from './guard/MarketGuard';
 import BotActivity from './bots/BotActivity';
@@ -134,6 +135,8 @@ const AdminContent = ({
       return <WelcomeTracker />;
     case 'money':
       return <MoneyFlow />;
+    case 'auctions':
+      return <AuctionAdmin />;
     case 'discordActivity':
       return <DiscordActivity />;
     case 'guard':

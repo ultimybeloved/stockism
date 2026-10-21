@@ -11,6 +11,7 @@ export const GLOW_LAYERS: Record<string, string> = {
   glow_technique: 'mastery_tec',
   glow_mastery: 'mastery_def',
   glow_rain: 'rain',
+  glow_oo_blackmoney: 'rain',
   glow_goldrush: 'goldrush',
   glow_spotlight: 'spotlight',
   glow_paparazzi: 'paparazzi',

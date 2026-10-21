@@ -15,6 +15,8 @@ export interface Cosmetic {
    * money ledger books when one is handed out.
    */
   earned?: true;
+  /** Made for one auction; one player ever owns it. Always `earned` too. */
+  oneOfOne?: true;
 }
 
 export const COSMETICS: Cosmetic[] = [
@@ -702,6 +704,19 @@ export const COSMETICS: Cosmetic[] = [
     rarity: 'legendary',
     effectClass: 'cos-g-rain',
     description: 'A wad of cash thrown across your row.',
+  },
+  // One of one (auctions): Make It Rain in black and gold.
+  {
+    id: 'glow_oo_blackmoney',
+    name: 'Black Money',
+    type: 'rowGlow',
+    color: '#FACC15',
+    price: 250000,
+    rarity: 'legendary',
+    effectClass: 'cos-g-rain cos-oo-blackmoney',
+    description: 'One of one. Black bills with gold trim, thrown across your row.',
+    earned: true,
+    oneOfOne: true,
   },
   {
     id: 'glow_goldrush',

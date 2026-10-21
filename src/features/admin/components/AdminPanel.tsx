@@ -147,6 +147,7 @@ const AdminPanel = ({ user, predictions, prices, marketData, onClose }: AdminPan
       label: 'Money',
       items: [
         { id: 'money', label: 'Money flow' },
+        { id: 'auctions', label: 'Auctions' },
         { id: 'dividends', label: 'Dividends', load: dividends.loadDividendConfig },
         {
           id: 'history',

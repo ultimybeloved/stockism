@@ -312,3 +312,12 @@ export const adminMarketGuardFunction = callable<Panel.MarketGuardRequest, Panel
 );
 // Same backend function, the Bots screen view.
 export const adminBotActivityFunction = callable<{ action: 'bots' }, Panel.BotActivityResponse>('adminMarketGuard');
+// Auctions
+export const placeAuctionBidFunction = callable<{ auctionId: string; amount: number }, { ok: boolean }>(
+  'placeAuctionBid',
+);
+export const adminCreateAuctionFunction = callable<
+  { itemId: string; startsAt: number; endsAt: number; startingBid: number },
+  { id: string }
+>('adminCreateAuction');
+export const adminCancelAuctionFunction = callable<{ auctionId: string }, { ok: boolean }>('adminCancelAuction');

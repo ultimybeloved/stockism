@@ -3,9 +3,10 @@
 // Cosmetic catalog — validates shop purchases (purchaseCosmetic) and admin
 // grants (adminGrantCosmetic). Keep ids/types/prices/names in sync with the
 // frontend list in src/constants/cosmetics.ts (cosmeticCatalog.test.ts checks).
-// `earned`: a season reward. Never sold or gifted; `price` is only the value the
-// money ledger books when one is handed out.
-export type CatalogEntry = { type: string; price: number; name: string; earned?: true };
+// `earned`: never sold or gifted (season rewards, and one-of-ones); `price` is
+// only the value the money ledger books when one is handed out.
+// `oneOfOne`: made for a single auction (users/auctions.ts); always `earned` too.
+export type CatalogEntry = { type: string; price: number; name: string; earned?: true; oneOfOne?: true };
 
 export const COSMETIC_CATALOG: Record<string, CatalogEntry> = {
   name_gold: { type: 'nameColor', price: 5000, name: 'Gold' },
@@ -56,6 +57,8 @@ export const COSMETIC_CATALOG: Record<string, CatalogEntry> = {
   frame_p1_gold: { type: 'rowFrame', price: 60000, name: 'Preseason Gold', earned: true },
   frame_p1_platinum: { type: 'rowFrame', price: 100000, name: 'Preseason Platinum', earned: true },
   frame_p1_diamond: { type: 'rowFrame', price: 200000, name: 'Preseason Diamond', earned: true },
+  // One of ones: sold once, by auction (users/auctions.ts).
+  glow_oo_blackmoney: { type: 'rowGlow', price: 250000, name: 'Black Money', earned: true, oneOfOne: true },
   glow_pulse_gold: { type: 'rowGlow', price: 10000, name: 'Pulsing Gold' },
   glow_pulse_crimson: { type: 'rowGlow', price: 10000, name: 'Pulsing Crimson' },
   glow_pulse_neon: { type: 'rowGlow', price: 10000, name: 'Pulsing Neon' },

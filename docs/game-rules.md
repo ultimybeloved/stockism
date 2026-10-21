@@ -109,6 +109,17 @@ It can also be played in the Stockism Discord with `/ladder bet:<dollars>` (offi
 
 The ladder leaderboard has three boards: Net Winnings (the default, total won minus total lost, so depositing a lot doesn't put you on top), Best Streak and Games played. It used to rank by balance (changed 2026-10-20).
 
+### Auction House
+
+One-of-a-kind cosmetics sold once to the highest bidder at `/auction` (since 2026-10-21). Each item is made for one auction (`oneOfOne` in the catalog), is never sold in the shop, gifted or bundled, and only one player will ever own it. Most are special versions of existing items; now and then a brand-new design. The admin starts each auction (Admin, Money, Auctions) with a start, an end (usually Wednesday 21:00 UTC, before the Thursday halt) and a starting bid.
+
+- **Bids** must be whole dollars, at least the starting bid, then 5% over the top bid (`src/rules/auctions.ts`).
+- **The top bid is held** from the bidder's cash and comes straight back the moment someone outbids them (with a bell). Raising your own top bid holds only the difference. While held, the money is out of net worth, like money in the Ladder, but it's booked as a flow (`auctionFlowValue`), so it is never a loss on gain boards, missions or seasons.
+- **A bid in the last 5 minutes** moves the end to 5 minutes after it, so the highest real offer wins.
+- **Bidders show as numbers**, random and new for every auction. Who is behind a number is server-only (`auctionBidders`); the winner is named when it ends.
+- **It ends** within 10 minutes of its time (`settleAuctions`): the item goes to the top bidder and their held money is spent, booked like a shop purchase. The admin can cancel a live auction; the top bid goes back.
+- Ledger types: `auction_hold`, `auction_refund`, `auction_win`.
+
 ### Seasons
 
 A season runs alongside a story arc and scores how much each player grows their account from the day it starts. Scoring uses live net worth at frozen prices, with free stock, bonuses, and other granted money taken out. A weekly checkpoint runs every Thursday during the halt.
@@ -257,6 +268,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | Short margin calls | every 30 min |
 | Margin lending scan | every 30 min |
 | Price alerts | every 5 min |
+| Auction closing | every 10 min |
 | Event market settlement | every 30 min |
 | IPO price jumps | every 30 min |
 | Daily drop post | 14:00 daily |

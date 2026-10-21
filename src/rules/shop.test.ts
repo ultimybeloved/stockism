@@ -23,12 +23,18 @@ describe('cosmetic catalogs', () => {
     const server = Object.fromEntries(
       [
         ...src.matchAll(
-          /^\s+([a-z0-9_]+): \{ type: '(\w+)', price: (\d+), name: '((?:[^'\\]|\\.)*)'(, earned: true)? \},$/gm,
+          /^\s+([a-z0-9_]+): \{ type: '(\w+)', price: (\d+), name: '((?:[^'\\]|\\.)*)'(, earned: true)?(, oneOfOne: true)? \},$/gm,
         ),
-      ].map((m) => [m[1], { type: m[2], price: Number(m[3]), name: m[4]!.replace(/\\'/g, "'"), earned: !!m[5] }]),
+      ].map((m) => [
+        m[1],
+        { type: m[2], price: Number(m[3]), name: m[4]!.replace(/\\'/g, "'"), earned: !!m[5], oneOfOne: !!m[6] },
+      ]),
     );
     const shop = Object.fromEntries(
-      COSMETICS.map((c) => [c.id, { type: c.type, price: c.price, name: c.name, earned: !!c.earned }]),
+      COSMETICS.map((c) => [
+        c.id,
+        { type: c.type, price: c.price, name: c.name, earned: !!c.earned, oneOfOne: !!c.oneOfOne },
+      ]),
     );
     expect(server).toEqual(shop);
   });

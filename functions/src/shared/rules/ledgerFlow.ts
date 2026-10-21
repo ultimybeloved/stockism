@@ -117,6 +117,9 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
       streak_saver_purchase: 'Streak savers',
       name_change: 'Name changes',
       mission_reroll: 'Mission rerolls',
+      auction_hold: 'Auction bids held',
+      auction_refund: 'Auction bids returned',
+      auction_win: 'Auction wins',
     },
   },
   {

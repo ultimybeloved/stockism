@@ -269,6 +269,37 @@
   }
 }
 
+/* ---------- Black Money (one of one): Make It Rain in black bills with gold
+   trim, and a gold glow on both sides. ---------- */
+.cos-g-rain.cos-oo-blackmoney {
+  animation-name: cosBlackMoneyGlow;
+}
+.cos-oo-blackmoney > .cos-fx::after {
+  background: linear-gradient(90deg, rgba(250, 204, 21, 0.12), transparent 30% 70%, rgba(250, 204, 21, 0.12));
+}
+@keyframes cosBlackMoneyGlow {
+  0%,
+  100% {
+    box-shadow:
+      -10px 0 18px -6px rgba(250, 204, 21, 0.45),
+      10px 0 18px -6px rgba(250, 204, 21, 0.45),
+      0 0 0 1px rgba(250, 204, 21, 0.3);
+  }
+  50% {
+    box-shadow:
+      -12px 0 24px -6px rgba(250, 204, 21, 0.8),
+      12px 0 24px -6px rgba(250, 204, 21, 0.8),
+      0 0 0 1px rgba(253, 224, 71, 0.55);
+  }
+}
+.cos-oo-blackmoney .bf {
+  background: linear-gradient(#3f3f46, #18181b 45%, #09090b);
+  box-shadow:
+    inset 0 0 0 1px #ca8a04,
+    inset 0 0 0 2.5px rgba(250, 204, 21, 0.35);
+  color: #facc15;
+}
+
 /* ---------- Gold Rush: a gold glow, and sparks on their own uneven timers.
    Mostly small sparks and dots that drift off the edge while they sputter;
    only a couple of big four-point ones. ---------- */

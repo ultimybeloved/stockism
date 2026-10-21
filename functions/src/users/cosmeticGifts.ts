@@ -50,7 +50,7 @@ export const giftCosmetic = cf().https.onCall(
     }
     // Season rewards are earned, never bought, so they can't be gifted either.
     if (cosmetic?.earned) {
-      throw new functions.https.HttpsError('failed-precondition', 'This one is earned in seasons, not sold.');
+      throw new functions.https.HttpsError('failed-precondition', "This one isn't sold in the shop.");
     }
     const itemId = (bundle?.id || cosmeticId) as string;
     const giftName = bundle ? `the ${bundle.name} bundle` : cosmetic!.name;

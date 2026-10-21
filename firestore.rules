@@ -410,6 +410,18 @@ service cloud.firestore {
     }
 
     // ============================================
+    // AUCTIONS: the auction itself is public (bids show bidder numbers only).
+    // Who is behind each number is server-only. Cloud Functions write both.
+    // ============================================
+    match /auctions/{auctionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /auctionBidders/{auctionId} {
+      allow read, write: if false;
+    }
+
+    // ============================================
     // CREW MISSIONS (shared weekly goals)
     // ============================================
     match /crewMissions/{docId} {

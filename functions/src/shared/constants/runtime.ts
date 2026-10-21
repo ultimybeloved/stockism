@@ -35,6 +35,8 @@ export const APP_CHECK_ENFORCED = true;
 const ADDED_2026_09_28 = Date.UTC(2026, 8, 29);
 const ADDED_2026_10_11 = Date.UTC(2026, 9, 12);
 const ADDED_2026_10_14 = Date.UTC(2026, 9, 15);
+// Auctions: set to the day after settleAuctions is first deployed.
+const ADDED_AUCTIONS = Date.UTC(2026, 9, 29);
 export const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday/Monday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
@@ -90,4 +92,6 @@ export const WATCHED_SCHEDULED_JOBS = [
     label: 'Big price move Discord post',
     watchedSince: ADDED_2026_10_14,
   },
+  // Every 10 minutes; closes auctions whose time is up.
+  { job: 'settleAuctions', maxAgeHours: 2, label: 'Auction closing', watchedSince: ADDED_AUCTIONS },
 ];

@@ -327,8 +327,7 @@ export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: st
   const { cosmeticId } = data || {};
   const cosmetic = COSMETIC_CATALOG[cosmeticId as string];
   if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
-  if (cosmetic.earned)
-    throw new functions.https.HttpsError('failed-precondition', 'This one is earned in seasons, not sold.');
+  if (cosmetic.earned) throw new functions.https.HttpsError('failed-precondition', "This one isn't sold in the shop.");
   // This week's featured item sells at a discount (rules/shop).
   const featured = featuredCosmeticId(COSMETIC_PRICE_LIST) === cosmeticId;
   const price = featured ? featuredPrice(cosmetic.price) : cosmetic.price;

@@ -9,6 +9,7 @@ const StockPage = lazy(() => import('../features/market/pages/StockPage'));
 const LeaderboardPage = lazy(() => import('../features/leaderboard/pages/LeaderboardPage'));
 const AchievementsPage = lazy(() => import('../features/profile/pages/AchievementsPage'));
 const LadderPage = lazy(() => import('../features/ladder/pages/LadderPage'));
+const AuctionPage = lazy(() => import('../features/auctions/pages/AuctionPage'));
 const ProfilePage = lazy(() => import('../features/profile/pages/ProfilePage'));
 const PublicProfilePage = lazy(() => import('../features/profile/pages/PublicProfilePage'));
 const PredictionsPage = lazy(() => import('../features/predictions/pages/PredictionsPage'));
@@ -62,6 +63,7 @@ export default function AppRoutes({
           <Route path="/link-discord" element={<DiscordLinkRedirect onShowLogin={onShowLogin} />} />
           <Route path="/u/:username" element={<PublicProfilePage />} />
           <Route path="/crew/:crewId" element={<CrewPage />} />
+          <Route path="/auction" element={<AuctionPage onShowLogin={onShowLogin} />} />
           <Route path="/stock/:ticker" element={<StockPage onTrade={onTrade} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
