@@ -24,8 +24,11 @@ const TitleText = ({
       {title.text}
     </span>
   );
+  // A cut-off title clips at its box, so a glowing tier gets room for its glow
+  // (padding, cancelled by an equal negative margin so nothing moves).
+  const glowRoom = tier && PLATED.includes(tier) ? ' px-2 -mx-2 py-1 -my-1' : '';
   return (
-    <div className={`${wrap ? 'text-center' : 'truncate'} ${className}`}>
+    <div className={`${wrap ? 'text-center' : 'truncate'}${glowRoom} ${className}`}>
       {tier && PLATED.includes(tier) ? <span className="cos-title-plate">{text}</span> : text}
     </div>
   );
