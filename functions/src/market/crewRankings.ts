@@ -164,7 +164,8 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   // last week's active members. Staying active is still required, so a
   // dormant account can't sit on the crown forever. No eligible member =
   // vacant crown that week.
-  const heads: Record<string, { uid: string; displayName?: string | null; portfolioValue: number }> = {}; // crewId -> { uid, displayName, portfolioValue }
+  // weeks = how many weeks running they've held it (the crew page's reign).
+  const heads: Record<string, { uid: string; displayName?: string | null; portfolioValue: number; weeks: number }> = {};
   // Kept SEPARATE from `heads` on purpose: `heads` is written verbatim to
   // market/crewStats, which anyone can read. Discord IDs stay private.
   const headDiscordIds: Record<string, string | null> = {}; // crewId -> discordId | null
@@ -188,6 +189,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         uid: winner.uid,
         displayName: winner.username || 'Anonymous',
         portfolioValue: Math.round(winner.portfolioValue * 100) / 100,
+        weeks: newStreak,
       };
       headDiscordIds[c.id] = winner.discordId || null;
 

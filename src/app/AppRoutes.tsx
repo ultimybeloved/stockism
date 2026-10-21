@@ -13,6 +13,7 @@ const ProfilePage = lazy(() => import('../features/profile/pages/ProfilePage'));
 const PublicProfilePage = lazy(() => import('../features/profile/pages/PublicProfilePage'));
 const PredictionsPage = lazy(() => import('../features/predictions/pages/PredictionsPage'));
 const PortfolioPage = lazy(() => import('../features/portfolio/pages/PortfolioPage'));
+const CrewPage = lazy(() => import('../features/crews/pages/CrewPage'));
 
 interface AppRoutesProps {
   home: ComponentProps<typeof HomePage>;
@@ -60,6 +61,7 @@ export default function AppRoutes({
           <Route path="/portfolio" element={<PortfolioPage {...portfolio} />} />
           <Route path="/link-discord" element={<DiscordLinkRedirect onShowLogin={onShowLogin} />} />
           <Route path="/u/:username" element={<PublicProfilePage />} />
+          <Route path="/crew/:crewId" element={<CrewPage />} />
           <Route path="/stock/:ticker" element={<StockPage onTrade={onTrade} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

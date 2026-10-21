@@ -27,21 +27,6 @@ const { STORED_STATUS_IDS } = load('constants/statuses');
 const WEIGHT_TARGET = 0.8;
 const WEIGHT_TOLERANCE = 0.02;
 
-// Which fund holds which crew. There is no link in the data itself, so it lives
-// here; a crew missing from this map is reported, not silently skipped.
-const CREW_ETF = {
-  ALLIED: 'ALLY',
-  BIG_DEAL: 'DEAL',
-  FIST_GANG: 'FIST',
-  SECRET_FRIENDS: 'SCRT',
-  HOSTEL: 'HSTL',
-  WTJC: 'WTJC',
-  WORKERS: 'VVIP',
-  YAMAZAKI: 'YAMA',
-  KITAE_UNION: 'SHDW',
-  GOD_DOG: null, // 3 members, deliberately has no fund
-};
-
 const errors = [];
 const warnings = [];
 const tickers = new Set(CHARACTERS.map((c) => c.ticker));
@@ -126,11 +111,12 @@ for (const crew of Object.values(CREWS)) {
     errors.push(`crew ${crew.id}: has a duplicate member`);
   }
 
-  if (!(crew.id in CREW_ETF)) {
-    warnings.push(`crew ${crew.id}: not listed in CREW_ETF in this script — add it so its fund gets checked`);
+  // crews.ts names each crew's fund (null = deliberately none).
+  if (crew.etf === undefined) {
+    warnings.push(`crew ${crew.id}: has no etf field in crews.ts, so its fund isn't checked`);
     continue;
   }
-  const etfTicker = CREW_ETF[crew.id];
+  const etfTicker = crew.etf;
   if (!etfTicker) continue;
 
   const etf = CHARACTER_MAP[etfTicker];
