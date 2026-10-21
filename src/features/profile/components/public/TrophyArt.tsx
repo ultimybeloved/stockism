@@ -1,6 +1,8 @@
 // How each kind of trophy looks on its stand: achievements and pins as big
-// pixel art, titles in their tier style, and shop cosmetics actually running
-// (a name in its effect, a small row wearing the glow, backdrop or frame).
+// pixel art, titles in their tier style, and shop cosmetics actually running.
+// A name shows in its effect; an effect, backdrop or frame is worn by the
+// whole stand (`wear`), the way a row wears it on the leaderboard. The picker's
+// small list shows those three as a little row instead (`compact`).
 import type { ReactNode } from 'react';
 import { ACHIEVEMENT_MAP } from '../../../../constants/achievements';
 import { COSMETIC_MAP, COSMETIC_TYPE_LABELS } from '../../../../constants/cosmetics';
@@ -18,6 +20,8 @@ export interface TrophyView {
   name: string;
   caption: string;
   art: ReactNode;
+  /** A cosmetic the whole stand wears (effects, backdrops, frames). */
+  wear?: string;
 }
 
 interface Context {
@@ -86,10 +90,10 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
             styles={getCosmeticStyles({ nameColor: c.id }, null, { seedKey: ctx.seedKey })}
             className="text-lg font-bold"
           />
-        ) : (
+        ) : ctx.compact ? (
           <MiniRow id={c.id} seedKey={ctx.seedKey} />
-        );
-      return { name: c.name, caption, art };
+        ) : null;
+      return { name: c.name, caption, art, wear: c.type === 'nameColor' || ctx.compact ? undefined : c.id };
     }
     case 'head': {
       const r = ctx.headReign;
