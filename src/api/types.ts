@@ -164,8 +164,23 @@ export interface LadderWithdrawResponse {
   netReceived?: number;
 }
 
+/** Which ladder board: net winnings (default), best streak, games played. */
+export type LadderBoard = 'net' | 'streak' | 'games';
+
+export interface LadderLeader {
+  userId?: string;
+  username?: string;
+  balance?: number;
+  netWinnings?: number;
+  bestStreak?: number;
+  gamesPlayed?: number;
+  wins?: number;
+  winRate?: number;
+}
+
 export interface LadderLeaderboardResponse {
-  leaderboard?: { [key: string]: unknown }[];
+  board?: LadderBoard;
+  leaderboard?: LadderLeader[];
 }
 
 /** One suspicious account pair from the alt scan. */

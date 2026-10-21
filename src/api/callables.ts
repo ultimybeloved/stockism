@@ -47,7 +47,9 @@ export const depositToLadderGameFunction = callable<{ amount: number }>('deposit
 export const withdrawFromLadderGameFunction = callable<{ amount: number }, Api.LadderWithdrawResponse>(
   'withdrawFromLadderGame',
 );
-export const getLadderLeaderboardFunction = callable<void, Api.LadderLeaderboardResponse>('getLadderLeaderboard');
+export const getLadderLeaderboardFunction = callable<{ board: Api.LadderBoard }, Api.LadderLeaderboardResponse>(
+  'getLadderLeaderboard',
+);
 export const triggerDailyMarketSummaryFunction = callable<Record<string, never>, Api.JobResult>(
   'triggerDailyMarketSummary',
 );

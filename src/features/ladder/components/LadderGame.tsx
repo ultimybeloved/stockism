@@ -107,6 +107,8 @@ const LadderGame = ({ onClose }: { onClose?: () => void }) => {
           <LadderLeaderboardModal
             leaderboard={modals.leaderboard}
             leaderboardLoading={modals.leaderboardLoading}
+            board={modals.leaderboardBoard}
+            setBoard={modals.setLeaderboardBoard}
             setShowLeaderboardModal={modals.setShowLeaderboardModal}
           />
         )}

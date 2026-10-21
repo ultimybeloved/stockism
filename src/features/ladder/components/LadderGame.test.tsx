@@ -215,14 +215,24 @@ describe('LadderGame', () => {
     });
   });
 
-  it('leaderboard modal loads and lists players', async () => {
-    vi.mocked(getLadderLeaderboardFunction).mockResolvedValueOnce({
-      data: { leaderboard: [{ username: 'Alice', balance: 5000, winRate: 60 }] },
-    });
+  it('leaderboard modal ranks by net winnings, then switches boards', async () => {
+    vi.mocked(getLadderLeaderboardFunction)
+      .mockResolvedValueOnce({
+        data: { leaderboard: [{ username: 'Alice', netWinnings: 5000, gamesPlayed: 40, bestStreak: 6, winRate: 60 }] },
+      })
+      .mockResolvedValueOnce({
+        data: { leaderboard: [{ username: 'Bob', netWinnings: -200, gamesPlayed: 12, bestStreak: 9, winRate: 50 }] },
+      });
     render(<LadderGame onClose={vi.fn()} />);
     fireEvent.click(screen.getByText('Leaderboard'));
     expect(await screen.findByText(/#1 Alice/)).toBeInTheDocument();
-    expect(screen.getByText('$5,000 (60%)')).toBeInTheDocument();
+    expect(screen.getByText('$5,000')).toBeInTheDocument();
+    expect(getLadderLeaderboardFunction).toHaveBeenLastCalledWith({ board: 'net' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Best Streak' }));
+    expect(await screen.findByText(/#1 Bob/)).toBeInTheDocument();
+    expect(screen.getByText('9 wins')).toBeInTheDocument();
+    expect(getLadderLeaderboardFunction).toHaveBeenLastCalledWith({ board: 'streak' });
   });
 
   it('stats modal shows games, win rate, and streaks', () => {

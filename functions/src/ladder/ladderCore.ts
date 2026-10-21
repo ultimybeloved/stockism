@@ -21,6 +21,8 @@ interface LadderPlayer {
   totalDeposited: number;
   totalWon: number;
   totalLost: number;
+  /** totalWon - totalLost, stored so the leaderboard can sort on it. */
+  netWinnings?: number;
   gamesPlayed: number;
   wins: number;
   losses: number;
@@ -188,6 +190,7 @@ export const runLadderGame = async (
         userData.totalLost += amount;
         userData.currentStreak = 0;
       }
+      userData.netWinnings = userData.totalWon - userData.totalLost;
       userData.lastPlayed = now;
 
       transaction.set(userRef, userData);

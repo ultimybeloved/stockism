@@ -107,6 +107,8 @@ A double-or-nothing side game. You pick a side and a bet, a random ladder resolv
 
 It can also be played in the Stockism Discord with `/ladder bet:<dollars>` (official server only, posted in the channel for everyone to see). It is the same game: same odds, the same ladder balance, cooldown and records. The player needs a linked Discord account, and only they can press their game's buttons. The board is drawn in emojis and the path lights up step by step; blue lands on ODD, red on EVEN.
 
+The ladder leaderboard has three boards: Net Winnings (the default, total won minus total lost, so depositing a lot doesn't put you on top), Best Streak and Games played. It used to rank by balance (changed 2026-10-20).
+
 ### Seasons
 
 A season runs alongside a story arc and scores how much each player grows their account from the day it starts. Scoring uses live net worth at frozen prices, with free stock, bonuses, and other granted money taken out. A weekly checkpoint runs every Thursday during the halt.
