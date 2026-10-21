@@ -9,6 +9,8 @@ export interface Crew {
   color: string;
   emblem: string;
   icon: string;
+  /** The crew's fund ticker; null = deliberately none. */
+  etf: string | null;
   members: string[];
 }
 
@@ -50,6 +52,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#767676',
     emblem: '🏛️',
     icon: '/crews/allied.png',
+    etf: 'ALLY',
     members: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
   },
   BIG_DEAL: {
@@ -58,6 +61,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#aa8439',
     emblem: '🤝',
     icon: '/crews/big deal.png',
+    etf: 'DEAL',
     members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
   },
   FIST_GANG: {
@@ -66,6 +70,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#7e4e42',
     emblem: '👊',
     icon: '/crews/fist gang.png',
+    etf: 'FIST',
     members: [
       'GAP',
       'ELIT',
@@ -94,6 +99,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#162141',
     emblem: '🐕',
     icon: '/crews/god dog.png',
+    etf: null,
     members: ['GDOG', 'MIRO', 'EDEN'],
   },
   HOSTEL: {
@@ -102,6 +108,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#b1b39e',
     emblem: '🏠',
     icon: '/crews/hostel.png',
+    etf: 'HSTL',
     members: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
   },
   KITAE_UNION: {
@@ -111,6 +118,7 @@ export const CREWS: Record<string, Crew> = {
     emblem: '🪓',
     icon: '/crews/kitae union.png',
     // Mirrors the SHDW fund. SNGH left Workers for the Union.
+    etf: 'SHDW',
     members: [
       'KTAE',
       'DG',
@@ -140,6 +148,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#f3c404',
     emblem: '🤫',
     icon: '/crews/secret friends.png',
+    etf: 'SCRT',
     members: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
   },
   WTJC: {
@@ -148,6 +157,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#FFFFFF',
     emblem: '🐯',
     icon: '/crews/wtjc.png',
+    etf: 'WTJC',
     members: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
   },
   WORKERS: {
@@ -156,6 +166,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#000000',
     emblem: '⚒️',
     icon: '/crews/workers.png',
+    etf: 'VVIP',
     members: [
       'WRKR',
       'BANG',
@@ -183,6 +194,7 @@ export const CREWS: Record<string, Crew> = {
     color: '#f3c803',
     emblem: '⛩️',
     icon: '/crews/yamazaki.png',
+    etf: 'YAMA',
     members: [
       'GUN',
       'SHNG',

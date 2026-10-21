@@ -23,6 +23,7 @@ import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
 import NewBadge from '../../../shared/components/NewBadge';
 import { SHOP_DROP_ID } from '../../../constants/cosmetics';
+import { CREW_MAP } from '../../../crews';
 
 type GridProps = ComponentProps<typeof MarketGrid>;
 
@@ -112,6 +113,12 @@ const HomePage = ({
             <PixelIcon name="medal" className="w-4 h-4 mr-1.5 align-[-3px]" />
             Achievements
           </button>
+          {userData?.crew && !isGuest && CREW_MAP[userData.crew] && (
+            <button onClick={() => navigate(`/crew/${userData.crew}`)} className={subHeaderBtnClass}>
+              <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
+              My Crew
+            </button>
+          )}
           {(!userData?.crew || isGuest) && (
             <button onClick={onShowCrews} className={subHeaderBtnClass}>
               <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
