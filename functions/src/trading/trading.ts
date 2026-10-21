@@ -26,7 +26,6 @@ import {
   MAX_DAILY_IMPACT,
   MAX_TRADES_PER_TICKER_24H,
   TRADE_TXN_MAX_ATTEMPTS,
-  CIRCUIT_BREAKER_PAUSE_MS,
   ADMIN_UID,
   MIN_EXIT_SHARES,
 } from '../shared/constants';
@@ -42,7 +41,6 @@ import {
 } from '../shared/impact';
 import { priceHistoryRef, appendPriceHistory } from '../shared/marketData';
 import { reportError } from '../shared/sentry';
-import { writeFeedEntry } from '../shared/notifications';
 import type { PricePoint, ShortPosition, UserData } from '../shared/types';
 import type { ComputeArgs, ComputeResult } from './tradeActions';
 import {
@@ -280,7 +278,6 @@ export const executeTrade = cf().https.onCall(
           // costs no extra read. The trade itself still completes — see
           // evaluateCircuitBreaker.
           const breakerCounts = marketData.breakerCounts || {};
-          const tripped: { ticker: string; reason: string }[] = [];
           for (const [movedTicker, movedPrice] of Object.entries(priceUpdates)) {
             const halt = evaluateCircuitBreaker({
               priceHistory,
@@ -292,7 +289,6 @@ export const executeTrade = cf().https.onCall(
             if (!halt) continue;
             marketUpdates[`haltedTickers.${movedTicker}`] = halt;
             marketUpdates[`breakerCounts.${movedTicker}`] = breakerCountUpdate(breakerCounts, movedTicker, now);
-            tripped.push({ ticker: movedTicker, ...halt });
           }
 
           transaction.update(marketRef, marketUpdates);
@@ -442,24 +438,10 @@ export const executeTrade = cf().https.onCall(
             dailyImpactPercent: cumulativeDailyImpact + impactPercent,
             shortWarning,
             achievementCtx,
-            circuitBreakers: tripped,
           };
         },
         { maxAttempts: TRADE_TXN_MAX_ATTEMPTS },
       );
-
-      // A pause is only worth having if people can see it happen. The halt record
-      // itself already reaches every client through market/current, but the feed
-      // is what someone watching a stock fall is actually looking at, and telling
-      // them "this is a cascade, it is paused" is the whole point of the pause.
-      for (const halt of result.circuitBreakers || []) {
-        await writeFeedEntry({
-          type: 'circuit_breaker',
-          ticker: halt.ticker,
-          message: `Trading paused on $${halt.ticker}. ${halt.reason} Resumes in ${Math.round(CIRCUIT_BREAKER_PAUSE_MS / 60000)} minutes.`,
-        }).catch(() => {});
-      }
-      delete (result as Partial<typeof result>).circuitBreakers;
 
       // Trade limit notifications (fire-and-forget, after transaction)
       await sendTradeLimitNotifications(uid, action, ticker, result.remainingTrades);

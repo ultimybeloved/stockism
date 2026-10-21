@@ -27,7 +27,7 @@ import {
   sumDirectionalImpact,
   heavySellStamps,
 } from '../shared/impact';
-import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import { writeNotification } from '../shared/notifications';
 import { appendPriceHistory } from '../shared/marketData';
 import { lockedShares, floorExitShares, remainingShares, cohortRemoveUpdate } from '../shared/cohorts';
 import { buildTradeCreditUpdates, recordTrade } from '../shared/tradeRecords';
@@ -241,8 +241,6 @@ const executeSweepFill = async (
   return {
     fillShares,
     executedPrice,
-    displayName: userData.displayName || 'Anonymous',
-    crew: userData.crew || null,
   };
 };
 
@@ -286,17 +284,6 @@ export const runStopLossSweep = async ({
         title: 'Stop Loss Filled',
         message: `Your stop loss for ${fill.fillShares} $${order.ticker} executed at $${fill.executedPrice.toFixed(2)}`,
         data: { ticker: order.ticker, orderId: orderDoc.id, price: fill.executedPrice },
-      });
-      writeFeedEntry({
-        type: 'trade',
-        userId: order.userId,
-        displayName: fill.displayName,
-        crew: fill.crew,
-        ticker: order.ticker,
-        action: 'sell',
-        amount: fill.fillShares,
-        price: fill.executedPrice,
-        message: `sold ${fill.fillShares} $${order.ticker} via stop loss`,
       });
       summary.stopLossFilled++;
     } catch (err) {

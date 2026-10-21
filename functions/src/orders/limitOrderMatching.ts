@@ -221,8 +221,6 @@ const fillOrder = async (
     fillShares,
     executedPrice,
     tradeValue,
-    displayName: userData.displayName || 'Anonymous',
-    crew: userData.crew || null,
   };
 };
 

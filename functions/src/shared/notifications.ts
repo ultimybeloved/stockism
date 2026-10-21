@@ -1,8 +1,7 @@
-// Player notifications and the public feed.
+// Player notifications.
 
 import * as admin from 'firebase-admin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
-import { FEED_TTL_MS } from './constants';
+import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
@@ -26,64 +25,5 @@ export const writeNotification = async (
     });
   } catch (err) {
     logger.error(`Failed to write notification for ${uid}:`, (err as Error).message);
-  }
-};
-
-// One public feed entry. Optional fields are stored as null when absent.
-interface FeedEntry {
-  type: string;
-  userId?: string;
-  displayName?: string;
-  crew?: string | null;
-  message: string;
-  ticker?: string | null;
-  action?: string | null;
-  amount?: number | null;
-  price?: number | null;
-  achievementId?: string | null;
-  displayAfter?: unknown;
-}
-
-// Writes a feed doc to the global feed collection (fire-and-forget)
-export const writeFeedEntry = async ({
-  type,
-  userId,
-  displayName,
-  crew,
-  message,
-  ticker,
-  action,
-  amount,
-  price,
-  achievementId,
-  displayAfter,
-}: FeedEntry) => {
-  try {
-    // A Firestore TTL policy only acts on a TIMESTAMP field — it silently
-    // ignores a numeric one. This was written as a plain number for as long as
-    // the feed has existed, so even once the policy is switched on it would
-    // have deleted nothing, with no error and no way to tell from the console.
-    // 96.3% of the collection (54,817 docs) was still sitting there on
-    // 2026-09-22, the oldest expired 190 days earlier.
-    //
-    // Nothing reads this field; it exists purely for the TTL policy to act on.
-    const expiresAt = Timestamp.fromMillis(Date.now() + FEED_TTL_MS);
-    await db.collection('feed').add({
-      type, // 'trade', 'achievement', 'mission_complete'
-      userId,
-      displayName,
-      crew: crew || null,
-      ticker: ticker || null,
-      action: action || null,
-      amount: amount || null,
-      price: price || null,
-      achievementId: achievementId || null,
-      message,
-      createdAt: FieldValue.serverTimestamp(),
-      expiresAt,
-      displayAfter: displayAfter || null,
-    });
-  } catch (err) {
-    logger.error('Failed to write feed entry:', (err as Error).message);
   }
 };

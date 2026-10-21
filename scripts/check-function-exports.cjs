@@ -110,8 +110,7 @@ const stripNonCode = (src) =>
 
 // Every source file. helpers.js was NOT scanned here until 2026-09-23, so a
 // constant used in it but never imported would only surface as a ReferenceError
-// on whichever path touched it — and in writeFeedEntry that path is inside a
-// try/catch, so feed entries would have stopped appearing with nothing logged.
+// on whichever path touched it, and inside a try/catch that failure is silent.
 const CONSTANTS_SCAN = sourceFiles().filter(
   ([, label]) => !['shared/constants/index.js', 'shared/constants/index.ts', 'index.js', 'index.ts'].includes(label),
 );

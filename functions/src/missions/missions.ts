@@ -13,7 +13,6 @@ import {
   canBuyStreakSaver,
 } from '../shared/rules/economy';
 import { getDailyMissions, getWeeklyMissions, getCrewMultiplier, PIN_COLLECTIONS, SHOP_PINS } from '../shared/crews';
-import { writeFeedEntry } from '../shared/notifications';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
@@ -143,15 +142,6 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
       cashAfter: (userData.cash || 0) + reward,
       ref: missionId,
       detail: { missionType: type },
-    });
-
-    // Fire-and-forget feed entry for mission completion (outside transaction)
-    writeFeedEntry({
-      type: 'mission_complete',
-      userId: uid,
-      displayName: userData.displayName || 'Anonymous',
-      crew,
-      message: `completed a ${type} mission (+$${reward})`,
     });
 
     return {

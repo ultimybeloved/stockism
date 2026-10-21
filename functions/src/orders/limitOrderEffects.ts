@@ -5,7 +5,7 @@
 // throw into the fill path: the trade is already done, and a failed feed write
 // must not look like a failed trade.
 
-import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import { writeNotification } from '../shared/notifications';
 import type { LimitOrder } from '../shared/types';
 
 /** "Stop Loss" / "BUY limit order" — one label, used by both notifications. */
@@ -43,19 +43,11 @@ export const notifyExpired = async (order: LimitOrder, orderId: string) => {
   });
 };
 
-/**
- * Everything that happens once a fill is committed: the user's notification
- * and the public feed entry.
- */
+/** Once a fill is committed: the user's notification. */
 export const publishFill = async (
   order: LimitOrder,
   orderId: string,
-  {
-    fillShares,
-    executedPrice,
-    displayName,
-    crew,
-  }: { fillShares: number; executedPrice: number; displayName: string; crew?: string | null },
+  { fillShares, executedPrice }: { fillShares: number; executedPrice: number },
 ) => {
   const label = orderLabel(order);
   await writeNotification(order.userId, {
@@ -63,28 +55,5 @@ export const publishFill = async (
     title: `${label} Filled`,
     message: `Your ${label.toLowerCase()} for ${fillShares} $${order.ticker} executed at $${executedPrice.toFixed(2)}`,
     data: { ticker: order.ticker, orderId, price: executedPrice },
-  });
-
-  const action = order.type === 'BUY' ? 'buy' : order.type === 'COVER' ? 'cover' : 'sell';
-
-  const message =
-    order.type === 'STOP_LOSS'
-      ? `sold ${fillShares} $${order.ticker} via stop loss`
-      : order.type === 'BUY'
-        ? `bought ${fillShares} $${order.ticker} via limit order`
-        : order.type === 'COVER'
-          ? `covered ${fillShares} $${order.ticker} via limit order`
-          : `sold ${fillShares} $${order.ticker} via limit order`;
-
-  writeFeedEntry({
-    type: 'trade',
-    userId: order.userId,
-    displayName,
-    crew,
-    ticker: order.ticker,
-    action,
-    amount: fillShares,
-    price: executedPrice,
-    message,
   });
 };

@@ -401,13 +401,12 @@ service cloud.firestore {
     }
 
     // ============================================
-    // TRADE FEED (global social feed)
+    // TRADE FEED: closed to players since 2026-10-20. Nothing in the app reads
+    // it, and while it was open anyone could watch every trade live (name,
+    // shares, price) and trade against it. Cloud Functions only.
     // ============================================
     match /feed/{feedId} {
-      // All authenticated users can read the feed
-      allow read: if isAuthenticated();
-      // Only Cloud Functions can write
-      allow write: if false;
+      allow read, write: if false;
     }
 
     // ============================================

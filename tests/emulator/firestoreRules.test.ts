@@ -198,6 +198,10 @@ async function main() {
     setDoc(doc(clientDb, 'market', 'preMarketBook'), { session: '2026-10-15', tickers: { JAY: { buy: 1e6 } } }),
   );
 
+  // The old trade feed: every trade with the trader's name. Nobody reads it.
+  await adminDb.collection('feed').doc('f1').set({ type: 'trade', userId: 'someone_else', ticker: 'JAY' });
+  await checkAccess('read the trade feed', 'blocked', () => getDoc(doc(clientDb, 'feed', 'f1')));
+
   console.log('\n── Admin history ─────────────────────────────────────────────');
   // Limit orders: a live order (pending or partly filled) can be cancelled, and
   // nothing else about it may change.
