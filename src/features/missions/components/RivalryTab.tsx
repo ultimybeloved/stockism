@@ -1,6 +1,3 @@
-import { useEffect, useState } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '../../../firebase';
 import { CREW_MAP, RIVALRY } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { formatDateTime } from '../../../utils/localTime';
@@ -8,31 +5,16 @@ import { themeClasses } from '../../../utils/theme';
 import { getWeekId, missionWeekEndMs, rivalryCount, type WeeklyProgress } from '../../../utils/missionProgress';
 import { useSession, useMarket } from '../../../context/AppContext';
 import CrewPin from '../../../shared/components/CrewPin';
-
-/** rivalries/{weekId}: the week's matches and the live tally. */
-interface RivalryBoard {
-  matches?: { crews?: string[] }[];
-  crews?: Record<string, { active?: Record<string, boolean>; qualified?: Record<string, boolean> }>;
-}
-
-const sizeOf = (m: Record<string, boolean> | undefined) => Object.keys(m || {}).length;
+import RivalryMatch from './RivalryMatch';
+import { rivalryMatchOf, useRivalryBoard } from '../hooks/useRivalryBoard';
 
 export default function RivalryTab({ multiplier, onJoinCrew }: { multiplier: number; onJoinCrew?: () => void }) {
   const { userData } = useSession();
   const { crewStats } = useMarket();
   const { textClass, mutedClass, borderClass } = themeClasses;
-  const [board, setBoard] = useState<RivalryBoard | null>(null);
   const crew = userData?.crew || null;
   const weekId = getWeekId();
-
-  useEffect(() => {
-    if (!crew) return;
-    return onSnapshot(
-      doc(db, 'rivalries', weekId),
-      (snap) => setBoard(snap.exists() ? (snap.data() as RivalryBoard) : {}),
-      () => setBoard({}),
-    );
-  }, [crew, weekId]);
+  const board = useRivalryBoard(!!crew);
 
   if (!crew) {
     return (
@@ -54,14 +36,8 @@ export default function RivalryTab({ multiplier, onJoinCrew }: { multiplier: num
   }
 
   const mine = rivalryCount(userData?.weeklyMissions?.[weekId] as WeeklyProgress | undefined, crew);
-  const match = (board?.matches || []).map((m) => m.crews || []).find((m) => m.includes(crew));
+  const match = rivalryMatchOf(board, crew);
   const wonLastWeek = (crewStats?.rivalryWinners || []).includes(crew);
-  const tally = (id: string) => {
-    const c = board?.crews?.[id];
-    const active = sizeOf(c?.active);
-    const qualified = sizeOf(c?.qualified);
-    return { active, qualified, pct: active > 0 ? Math.round((qualified / active) * 100) : 0 };
-  };
 
   return (
     <div className="space-y-3">
@@ -73,31 +49,7 @@ export default function RivalryTab({ multiplier, onJoinCrew }: { multiplier: num
       )}
 
       {match ? (
-        <div className={`p-3 rounded-sm border ${borderClass} space-y-3`}>
-          <p className={`text-xs font-semibold uppercase tracking-wide ${mutedClass}`}>This week</p>
-          {match.map((id) => {
-            const info = CREW_MAP[id];
-            const t = tally(id);
-            return (
-              <div key={id}>
-                <div className="flex items-center gap-2 mb-1">
-                  <CrewPin crew={info} className="w-5 h-5" />
-                  <span className={`text-sm font-semibold ${textClass}`}>{info?.name || id}</span>
-                  {id === crew && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">Your crew</span>
-                  )}
-                  <span className={`ml-auto text-sm font-bold ${textClass}`}>{t.pct}%</span>
-                </div>
-                <div className="h-2 rounded-full light:bg-slate-200 dark:bg-zinc-800">
-                  <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${t.pct}%` }} />
-                </div>
-                <p className={`text-xs ${mutedClass} mt-0.5`}>
-                  {t.qualified} of {t.active} members with a mission finished {RIVALRY.qualifyMissions} missions
-                </p>
-              </div>
-            );
-          })}
-        </div>
+        <RivalryMatch match={match} board={board} yourCrew={crew} />
       ) : (
         <div className="p-4 rounded-sm text-center light:bg-amber-50 dark:bg-zinc-800/50">
           <p className={mutedClass}>No rivalry this week. New matches start {formatDateTime(missionWeekEndMs())}.</p>
@@ -118,8 +70,8 @@ export default function RivalryTab({ multiplier, onJoinCrew }: { multiplier: num
           />
         </div>
         <p className={`text-xs ${mutedClass} mt-2`}>
-          Daily and weekly missions both count, and so does a winning Call. Members who finish {RIVALRY.qualifyMissions}{' '}
-          get {formatCurrency(Math.round(RIVALRY.winReward * multiplier))} if the crew wins and{' '}
+          Daily and weekly missions both count. Members who finish {RIVALRY.qualifyMissions} get{' '}
+          {formatCurrency(Math.round(RIVALRY.winReward * multiplier))} if the crew wins and{' '}
           {formatCurrency(Math.round(RIVALRY.loseReward * multiplier))} if it loses, paid{' '}
           {formatDateTime(missionWeekEndMs())}. The crew with the bigger share wins. Only members who finished at least
           one mission count, so checking in never hurts your crew.

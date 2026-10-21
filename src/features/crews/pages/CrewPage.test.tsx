@@ -20,6 +20,14 @@ vi.mock('../../../context/AppContext', () => ({
   }),
 }));
 
+vi.mock('../../missions/hooks/useRivalryBoard', async (orig) => ({
+  ...(await orig<typeof import('../../missions/hooks/useRivalryBoard')>()),
+  useRivalryBoard: () => ({
+    matches: [{ crews: ['ALLIED', 'HOSTEL'] }],
+    crews: { ALLIED: { active: { a: true, b: true }, qualified: { a: true } } },
+  }),
+}));
+
 vi.mock('../hooks/useCrewPlayers', () => ({
   useCrewPlayers: () => ({
     loading: false,
@@ -46,12 +54,14 @@ describe('CrewPage', () => {
   it('shows the crew, its head and reign, players, and fund', () => {
     renderAt('/crew/ALLIED');
     expect(screen.getByRole('heading', { name: 'Allied' })).toBeInTheDocument();
-    expect(screen.getByText('Your crew')).toBeInTheDocument();
+    expect(screen.getAllByText('Your crew').length).toBe(2); // hero tag + rivalry row
     expect(screen.getByText(/42 players/)).toBeInTheDocument();
     expect(screen.getByText(/3 weeks running/)).toBeInTheDocument();
     expect(screen.getAllByText('Boss').length).toBeGreaterThan(0);
     expect(screen.getByText('Crew fund')).toBeInTheDocument();
     expect(screen.getByText('$ALLY')).toBeInTheDocument();
+    expect(screen.getByText("This week's rivalry")).toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument();
   });
 
   it('sends an unknown crew to the leaderboard', () => {
