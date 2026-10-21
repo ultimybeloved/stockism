@@ -10,6 +10,7 @@ import { useSession } from '../../../context/AppContext';
 import { getLadderWithdrawable } from '../../../utils/ladderTax';
 import { errorMessage } from '../../../utils/errors';
 import type { LadderData } from '../../../utils/ladderTax';
+import type { LadderBoard, LadderLeader } from '../../../api/types';
 
 // Everything modal-shaped around the game: transfer (deposit/withdraw),
 // leaderboard, stats, and the tutorial gate.
@@ -29,7 +30,8 @@ export function useLadderModals({
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawLoading, setWithdrawLoading] = useState(false);
-  const [leaderboard, setLeaderboard] = useState<{ [key: string]: unknown }[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LadderLeader[]>([]);
+  const [leaderboardBoard, setLeaderboardBoard] = useState<LadderBoard>('net');
   const [depositLoading, setDepositLoading] = useState(false);
 
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
@@ -112,10 +114,10 @@ export function useLadderModals({
     }
   };
 
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = async (board: LadderBoard) => {
     setLeaderboardLoading(true);
     try {
-      const result = await getLadderLeaderboardFunction();
+      const result = await getLadderLeaderboardFunction({ board });
       setLeaderboard(result.data.leaderboard || []);
     } catch (error) {
       console.error('Leaderboard error:', error);
@@ -126,9 +128,9 @@ export function useLadderModals({
 
   useEffect(() => {
     if (showLeaderboardModal) {
-      loadLeaderboard();
+      loadLeaderboard(leaderboardBoard);
     }
-  }, [showLeaderboardModal]);
+  }, [showLeaderboardModal, leaderboardBoard]);
 
   return {
     showTransferModal,
@@ -137,6 +139,8 @@ export function useLadderModals({
     setTransferTab,
     showLeaderboardModal,
     setShowLeaderboardModal,
+    leaderboardBoard,
+    setLeaderboardBoard,
     showStatsModal,
     setShowStatsModal,
     depositAmount,

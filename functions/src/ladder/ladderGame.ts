@@ -23,8 +23,17 @@ export const playLadderGame = cf().https.onCall(
   },
 );
 
-export const getLadderLeaderboard = cf().https.onCall(async (_data: unknown, context) => {
+// Board key -> the stored field it ranks on. Net winnings is the default: a
+// balance board put whoever just deposited the $10k max near the top.
+// netWinnings is written by every game (ladderCore); a doc that has never
+// played since it was added is left off, which only drops zero-game players.
+const LADDER_BOARDS = { net: 'netWinnings', streak: 'bestStreak', games: 'gamesPlayed' } as const;
+type LadderBoard = keyof typeof LADDER_BOARDS;
+
+export const getLadderLeaderboard = cf().https.onCall(async (data: { board?: unknown } | null, context) => {
   requireAppCheck(context);
+  const board: LadderBoard =
+    typeof data?.board === 'string' && data.board in LADDER_BOARDS ? (data.board as LadderBoard) : 'net';
   try {
     // Over-fetch, then drop the entries that should not hold a slot and trim.
     // A ladder doc is keyed by uid and outlives the account: deletions only
@@ -34,7 +43,7 @@ export const getLadderLeaderboard = cf().https.onCall(async (_data: unknown, con
     // excluded bots and bans. Same rule here.
     const ladderUsersSnap = await db
       .collection('ladderGameUsers')
-      .orderBy('balance', 'desc')
+      .orderBy(LADDER_BOARDS[board], 'desc')
       .limit(LADDER_LEADERBOARD_SIZE * LADDER_LEADERBOARD_OVERFETCH)
       .get();
 
@@ -58,13 +67,15 @@ export const getLadderLeaderboard = cf().https.onCall(async (_data: unknown, con
         userId: doc.id,
         username: userData.displayName || 'Anonymous',
         balance: ladderData.balance || 0,
+        netWinnings: (ladderData.totalWon || 0) - (ladderData.totalLost || 0),
+        bestStreak: ladderData.bestStreak || 0,
         gamesPlayed: ladderData.gamesPlayed || 0,
         wins: ladderData.wins || 0,
         winRate: ladderData.gamesPlayed > 0 ? Math.round((ladderData.wins / ladderData.gamesPlayed) * 100) : 0,
       });
     }
 
-    return { leaderboard };
+    return { board, leaderboard };
   } catch (error) {
     reportError(error, { where: 'getLadderLeaderboard' });
     throw new functions.https.HttpsError('internal', 'Failed to get leaderboard: ' + (error as Error).message);
