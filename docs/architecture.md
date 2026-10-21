@@ -304,6 +304,8 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/users/userProfile.ts` | checkUsername, changeDisplayName, migrateUsernames, purchaseCosmetic |
 | `functions/src/market/market.ts` | Daily Discord summary, pre-halt price snapshot, chapter recap + review rebuild, market open/close alerts, manual halt (setMarketHalt). 595 lines, near the 600 limit |
 | `functions/src/users/leaderboard.ts` | Rankings, leaderboard computation, gap to the next rank |
+| `functions/src/users/publicProfile.ts` | getPublicProfile, setTrophyCase (trophy rules in `src/rules/trophies.ts`) |
+| `functions/src/users/displayFields.ts` | **Internal module.** Pins, cosmetics and title made safe to publish (leaderboard and profile) |
 | `functions/src/users/leaderboardMoves.ts` | Rank arrows: hourly rank snapshots in `leaderboardRanks/{key}` (server only), compared against a day ago |
 | `functions/src/users/playerSearch.ts` | `searchPlayers`: name prefix search on `displayNameLower`, bots and banned left out |
 | `functions/src/market/dividends.ts` | Dividend payouts |

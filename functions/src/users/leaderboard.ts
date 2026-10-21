@@ -15,18 +15,14 @@ import {
   snapshotNetWorth,
   maxEventPositionsValue,
 } from '../shared/equity';
-import { BULLBEAR_FRAME_ID, cleanCosmeticStyle, frameTrend } from '../shared/rules/cosmetics';
-import { round2 } from '../shared/money';
 import { withRankMoves } from './leaderboardMoves';
 import { CREW_MAP } from '../shared/crews';
+import { asArray, sanitizeDisplayFields } from './displayFields';
 
 import {
   LEADERBOARD_CACHE_TTL,
-  ADMIN_UID,
   FOURTEEN_DAYS_MS,
-  THIRTY_DAYS_MS,
   ONE_WEEK_MS,
-  PUBLIC_PROFILE_SPARKLINE_MAX_POINTS,
   LEADERBOARD_PERCENT_MIN_BASELINE,
   LEADERBOARD_SIZE,
   LEADERBOARD_POOL_START,
@@ -80,54 +76,6 @@ const LEADERBOARD_FIELDS = [
   // Long-term market positions at sell-back value, part of net worth.
   'eventPositionsValue',
 ];
-
-// Players write displayedShopPins / displayedAchievementPins / activeCosmetics
-// directly from the client (they're on the user-doc rules allowlist), so
-// nothing stops a raw Firestore write from flaunting pins or paid cosmetics
-// the player never earned/bought — or from stuffing junk types that would
-// crash rendering clients. Every public payload runs through this filter:
-// only owned/earned items survive, and malformed values collapse to empties.
-const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-const sanitizeDisplayFields = (userData: DocumentData) => {
-  const achievements = asArray(userData.achievements);
-  const ownedPins = asArray(userData.ownedShopPins);
-  const ownedCosmetics = asArray(userData.ownedCosmetics);
-  const active = userData.activeCosmetics;
-  let activeCosmetics: Record<string, unknown> | null = null;
-  if (active && typeof active === 'object' && !Array.isArray(active)) {
-    activeCosmetics = {};
-    for (const [slot, id] of Object.entries(active)) {
-      // null = explicitly unequipped (kept); anything else must be owned.
-      if (id == null || (typeof id === 'string' && ownedCosmetics.includes(id))) {
-        activeCosmetics[slot] = id;
-      }
-    }
-  }
-  // Season title. Same deal as the pins: activeTitle is client-writable, so it
-  // only survives if the server actually granted it (adminEndSeason writes both
-  // ownedTitles and the titleMeta label at the same moment).
-  const ownedTitles = asArray(userData.ownedTitles);
-  const activeTitle = userData.activeTitle;
-  const titleMeta = userData.titleMeta && typeof userData.titleMeta === 'object' ? userData.titleMeta : {};
-  const title =
-    typeof activeTitle === 'string' && ownedTitles.includes(activeTitle)
-      ? { id: activeTitle, text: titleMeta[activeTitle] || activeTitle }
-      : null;
-
-  return {
-    displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
-    displayedShopPins: asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)),
-    activeCosmetics,
-    cosmeticStyle: cleanCosmeticStyle(userData.cosmeticStyle),
-    title,
-    // Only wearers of the Bull / Bear frame get a direction, so the board
-    // doesn't publish everyone's day.
-    frameTrend:
-      activeCosmetics?.rowFrame === BULLBEAR_FRAME_ID
-        ? frameTrend(userData.portfolioValue, userData.portfolioSnapshot24h)
-        : null,
-  };
-};
 
 export const getLeaderboard = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -346,156 +294,4 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
     logger.error('Error fetching leaderboard:', error);
     throw new functions.https.HttpsError('internal', 'Failed to fetch leaderboard');
   }
-});
-
-/**
- * Get public profile by username
- */
-export const getPublicProfile = cf().https.onCall(async (data, context) => {
-  requireAppCheck(context);
-  const { username } = data || {};
-  if (!username || typeof username !== 'string') {
-    throw new functions.https.HttpsError('invalid-argument', 'Username required');
-  }
-
-  // Resolve username → uid via usernames collection, fallback to querying by displayNameLower
-  let uid;
-  const usernameDoc = await db.collection('usernames').doc(username.toLowerCase()).get();
-  if (usernameDoc.exists) {
-    uid = usernameDoc.data()!.uid;
-  } else {
-    const fallbackSnap = await db
-      .collection('users')
-      .where('displayNameLower', '==', username.toLowerCase())
-      .limit(1)
-      .get();
-    if (fallbackSnap.empty) {
-      throw new functions.https.HttpsError('not-found', 'User not found');
-    }
-    uid = fallbackSnap.docs[0]!.id;
-  }
-
-  const userDoc = await db.collection('users').doc(uid).get();
-  if (!userDoc.exists) {
-    throw new functions.https.HttpsError('not-found', 'User not found');
-  }
-  const userData = userDoc.data()!;
-
-  const isOwner = context.auth?.uid === uid;
-  const isCallerAdmin = context.auth?.uid === ADMIN_UID;
-  // A banned account is gone from every board, so its profile is too. Admins
-  // still see it.
-  if (userData.isBanned && !isCallerAdmin) {
-    throw new functions.https.HttpsError('not-found', 'User not found');
-  }
-  if (!userData.isPublic && !isOwner && !isCallerAdmin) {
-    throw new functions.https.HttpsError('permission-denied', 'This profile is private');
-  }
-  // What the profile shows and ranks: net worth, same as the leaderboard.
-  const netWorth = netWorthOf(userData);
-
-  // Compute global rank (count aggregation — cheap regardless of rank)
-  let rank = null;
-  try {
-    rank = await countRankAbove(netWorth, null);
-  } catch (e) {
-    /* leave null */
-  }
-
-  // Holdings tickers only (no share counts exposed), sorted by share count for top holdings
-  const holdingsRaw = userData.holdings || {};
-  const holdingTickers = Object.keys(holdingsRaw).filter((k) => (holdingsRaw[k] || 0) > 0);
-  const topHoldings = [...holdingTickers].sort((a, b) => (holdingsRaw[b] || 0) - (holdingsRaw[a] || 0)).slice(0, 5);
-
-  // Crew rank (count aggregation)
-  let crewRank = null;
-  if (userData.crew) {
-    try {
-      crewRank = await countRankAbove(netWorth, userData.crew);
-    } catch (e) {
-      /* leave null */
-    }
-  }
-
-  // Short positions: tickers only. No share counts or dollar size, same as
-  // holdings (the total short value was public until 2026-10-14).
-  const shortsRaw = userData.shorts || {};
-  const shortTickers = Object.keys(shortsRaw).filter((t) => {
-    const pos = shortsRaw[t];
-    return pos && pos.shares > 0;
-  });
-
-  // Portfolio history for sparkline — last 30 days, capped so a very active
-  // account can't turn one profile view into thousands of doc reads.
-  const histSnap = await db
-    .collection('users')
-    .doc(uid)
-    .collection('portfolioHistory')
-    .where('timestamp', '>=', Date.now() - THIRTY_DAYS_MS)
-    .orderBy('timestamp', 'desc')
-    .limit(PUBLIC_PROFILE_SPARKLINE_MAX_POINTS)
-    .get();
-  // Net of margin debt, so the line ends where the headline figure is. Points
-  // from before history recorded the debt use today's.
-  const portfolioHistory = histSnap.docs
-    .map((d) => {
-      const p = d.data();
-      return {
-        timestamp: p.timestamp,
-        value: round2(
-          snapshotNetWorth(p, userData.marginUsed || 0) + (p.eventPositionsValue ?? userData.eventPositionsValue ?? 0),
-        ),
-      };
-    })
-    .reverse();
-
-  // Admin-only: weekly gain + full financial data
-  let adminData = null;
-  if (isCallerAdmin) {
-    const currentValue = userData.portfolioValue || 0;
-    const valueSevenDaysAgo = userData.portfolioSnapshot7d?.value ?? currentValue;
-    const weeklyGain = currentValue - valueSevenDaysAgo;
-    const weeklyGainPercent = valueSevenDaysAgo > 0 ? Math.round((weeklyGain / valueSevenDaysAgo) * 10000) / 100 : 0;
-
-    adminData = {
-      uid,
-      cash: userData.cash || 0,
-      marginUsed: userData.marginUsed || 0,
-      marginEnabled: userData.marginEnabled || false,
-      netEquity: (userData.portfolioValue || 0) - (userData.marginUsed || 0),
-      weeklyGain,
-      weeklyGainPercent,
-      holdings: userData.holdings || {},
-      shorts: userData.shorts || {},
-      isBanned: userData.isBanned || false,
-      isBot: userData.isBot || false,
-    };
-  }
-
-  return {
-    displayName: userData.displayName || 'Anonymous',
-    crew: userData.crew || null,
-    isCrewHead: userData.isCrewHead || false,
-    crewHeadColor: userData.crewHeadColor || null,
-    ...sanitizeDisplayFields(userData),
-    displayCrewPin: userData.displayCrewPin ?? null,
-    portfolioValue: netWorth,
-    holdingsCount: holdingTickers.length,
-    rank,
-    crewRank,
-    holdingTickers,
-    topHoldings,
-    shortTickers,
-    portfolioHistory,
-    adminData,
-    achievements: asArray(userData.achievements),
-    stats: {
-      totalTrades: userData.totalTrades || 0,
-      predictionWins: userData.predictionWins || 0,
-      totalCheckins: userData.totalCheckins || 0,
-      checkinStreak: userData.checkinStreak || 0,
-      peakPortfolioValue: userData.peakPortfolioValue || 0,
-      createdAt: userData.createdAt || null,
-    },
-  };
 });

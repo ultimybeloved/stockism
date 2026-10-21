@@ -18,6 +18,7 @@ const NO_LEDGER_NEEDED: Record<string, string> = {
   'admin/adminBackups.ts': 'copies balances into a backup file',
   'discord/dropAudit.ts': 'read-only report',
   'users/leaderboard.ts': 'read-only',
+  'users/publicProfile.ts': 'reads cash for the admin view; writes only the trophy case',
   'season/season.ts': 'field list for a read, not a write',
   'season/seasonCheckpoint.ts': 'field list for a read',
   'season/seasonDryRun.ts': 'field list for a read',

@@ -2,51 +2,40 @@ import { memo, useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSession } from '../../../context/AppContext';
 import { getPublicProfileFunction } from '../../../api/callables';
-import { CREW_MAP } from '../../../crews';
-import { CHARACTER_MAP } from '../../../characters';
-import { getCosmeticStyles } from '../../../utils/cosmetics';
-import CosmeticLayers from '../../../shared/components/cosmetics/CosmeticLayers';
-import CosmeticName from '../../../shared/components/cosmetics/CosmeticName';
-import { ACHIEVEMENT_MAP } from '../../../constants/achievements';
 import type { PublicProfile } from '../../../api/types';
-import { formatCurrency } from '../../../utils/formatters';
-import PinDisplay from '../../../shared/components/PinDisplay';
-import TitleText from '../../../shared/components/TitleText';
 import ProfileAdminPanel from '../components/ProfileAdminPanel';
-import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
+import ProfileBanner from '../components/public/ProfileBanner';
+import ProfileFacts from '../components/public/ProfileFacts';
+import TrophyCase from '../components/public/TrophyCase';
+import TrophyPicker from '../components/public/TrophyPicker';
+import ProfileTrading, { PrivateNote } from '../components/public/ProfileTrading';
+import AchievementShelf from '../components/public/AchievementShelf';
+import PixelIcon from '../../../shared/components/PixelIcon';
 import { themeClasses } from '../../../utils/theme';
 import { ADMIN_UIDS } from '../../../constants/economy';
-import AchievementIcon from '../../../shared/components/AchievementIcon';
-import PixelIcon from '../../../shared/components/PixelIcon';
-import CrewPin from '../../../shared/components/CrewPin';
 
+// /u/:username. Every profile opens: banner, facts, trophy case and
+// achievements for anyone; trading only when the profile is public.
 const PublicProfilePage = () => {
   const { username } = useParams();
-  const { user } = useSession();
+  const { user, userData } = useSession();
   const viewerIsAdmin = user && ADMIN_UIDS.includes(user.uid);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [error, setError] = useState<'private' | 'notfound' | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => {
     // The page stays mounted when following a link to another profile, so start
     // clean and ignore an answer that arrives for the previous name.
     let cancelled = false;
     setProfile(null);
-    setError(null);
+    setNotFound(false);
     setLoading(true);
-    const fetch = async () => {
-      try {
-        const result = await getPublicProfileFunction({ username });
-        if (!cancelled) setProfile(result.data);
-      } catch (err) {
-        if (!cancelled)
-          setError((err as { code?: string })?.code === 'functions/permission-denied' ? 'private' : 'notfound');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetch();
+    getPublicProfileFunction({ username })
+      .then((result) => !cancelled && setProfile(result.data))
+      .catch(() => !cancelled && setNotFound(true))
+      .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
@@ -54,237 +43,52 @@ const PublicProfilePage = () => {
 
   const { cardClass, textClass, mutedClass } = themeClasses;
 
-  if (loading) {
+  if (loading || notFound || !profile) {
     return (
-      <div className="max-w-2xl mx-auto p-4">
-        <div className={`${cardClass} border rounded-sm p-8 text-center ${mutedClass}`}>Loading...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-2xl mx-auto p-4">
+      <div className="max-w-3xl mx-auto p-4">
         <div className={`${cardClass} border rounded-sm p-8 text-center`}>
-          <p className="text-2xl mb-2">
-            {error === 'private' ? (
-              <PixelIcon name="lock" className="w-8 h-8 mx-auto" />
-            ) : (
-              <PixelIcon name="profile" className="w-8 h-8 mx-auto" />
-            )}
-          </p>
-          <p className={`font-semibold ${textClass}`}>
-            {error === 'private' ? 'This profile is private' : 'Profile not found'}
-          </p>
-          <p className={`text-sm ${mutedClass} mt-1`}>
-            {error === 'private'
-              ? `${username} hasn't made their profile public yet.`
-              : `No trader found with username "${username}".`}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Loading and errors are handled above, so a profile is here from now on.
-  if (!profile) return null;
-
-  const crew = profile.crew ? CREW_MAP[profile.crew] : null;
-  const cosmetics = getCosmeticStyles(profile.activeCosmetics, null, {
-    seedKey: profile.displayName,
-    trend: profile.frameTrend,
-    style: profile.cosmeticStyle,
-  });
-  const { glowColor, rowClass, rowStyle, frameTrend, layers } = cosmetics;
-  const profileTitle = profile.title;
-  const crewColor = crew?.color || '#6b7280';
-
-  // Portfolio sparkline data
-  const sparklineData = (profile.portfolioHistory || []).map((p) => ({
-    timestamp: p.timestamp,
-    price: p.value,
-  }));
-
-  // Account age
-  let accountAge = null;
-  if (profile.stats?.createdAt) {
-    const createdAt = profile.stats.createdAt;
-    const created = typeof createdAt === 'object' ? new Date(createdAt._seconds * 1000) : new Date(createdAt);
-    const days = Math.floor((Date.now() - created.getTime()) / 86400000);
-    accountAge = days < 1 ? 'today' : days === 1 ? '1 day' : `${days} days`;
-  }
-
-  // Earned achievements (lookup from constants)
-  const earnedAchievements = (profile.achievements || [])
-    .map((id) => ACHIEVEMENT_MAP[id])
-    .filter((a): a is NonNullable<typeof a> => !!a);
-
-  return (
-    <div className="max-w-2xl mx-auto p-4 space-y-4">
-      {/* Header */}
-      <div
-        className={`relative ${cardClass} border rounded-sm p-4 ${rowClass}`}
-        data-trend={frameTrend}
-        style={{
-          ...rowStyle,
-          ...(glowColor ? { boxShadow: `0 0 24px ${glowColor}40` } : {}),
-        }}
-      >
-        <CosmeticLayers {...layers} seedKey={profile.displayName} />
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h1 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
-              <CosmeticName name={profile.displayName || 'Anonymous Trader'} styles={cosmetics} />
-              <PinDisplay userData={profile} size="sm" />
-            </h1>
-            <TitleText title={profileTitle} className="text-sm" />
-            {crew && (
-              <div className="flex items-center gap-1.5 mt-1">
-                {crew.icon ? <CrewPin crew={crew} className="w-4 h-4" /> : <span>{crew.emblem}</span>}
-                <span className="text-sm font-semibold" style={{ color: crewColor }}>
-                  {crew.name}
-                </span>
-                {profile.isCrewHead && (
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded-sm font-bold text-white"
-                    style={{ backgroundColor: crewColor }}
-                  >
-                    Head
-                  </span>
-                )}
-                {profile.crewRank && <span className={`text-xs ${mutedClass}`}>#{profile.crewRank} in crew</span>}
-              </div>
-            )}
-            {accountAge && <p className={`text-xs ${mutedClass} mt-0.5`}>Member for {accountAge}</p>}
-          </div>
-          <div className="text-right shrink-0">
-            {profile.rank && <div className={`text-sm font-bold ${textClass}`}>#{profile.rank} global</div>}
-            <div className={`text-lg font-bold ${textClass}`}>{formatCurrency(profile.portfolioValue)}</div>
-            <div className={`text-xs ${mutedClass}`}>{profile.holdingsCount || 0} characters</div>
-          </div>
-        </div>
-
-        {/* Portfolio sparkline */}
-        {sparklineData.length >= 2 && (
-          <div className="mt-3">
-            <SimpleLineChart data={sparklineData} width={600} height={48} />
-          </div>
-        )}
-      </div>
-
-      {/* Stats block */}
-      {profile.stats && (
-        <div className={`${cardClass} border rounded-sm p-4`}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {profile.stats.peakPortfolioValue > 0 && (
-              <div>
-                <p className={`text-xs ${mutedClass}`}>All-time high</p>
-                <p className={`font-bold ${textClass}`}>{formatCurrency(profile.stats.peakPortfolioValue)}</p>
-              </div>
-            )}
-            {profile.stats.totalTrades > 0 && (
-              <div>
-                <p className={`text-xs ${mutedClass}`}>Total trades</p>
-                <p className={`font-bold ${textClass}`}>{profile.stats.totalTrades.toLocaleString()}</p>
-              </div>
-            )}
-            {profile.stats.predictionWins > 0 && (
-              <div>
-                <p className={`text-xs ${mutedClass}`}>Prediction wins</p>
-                <p className={`font-bold ${textClass}`}>{profile.stats.predictionWins}</p>
-              </div>
-            )}
-            {profile.stats.totalCheckins > 0 && (
-              <div>
-                <p className={`text-xs ${mutedClass}`}>Check-ins</p>
-                <p className={`font-bold ${textClass}`}>{profile.stats.totalCheckins.toLocaleString()}</p>
-              </div>
-            )}
-            {profile.stats.checkinStreak > 1 && (
-              <div>
-                <p className={`text-xs ${mutedClass}`}>Current streak</p>
-                <p className={`font-bold ${textClass}`}>{profile.stats.checkinStreak} days</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Top Holdings spotlight */}
-      {(profile.topHoldings || []).length > 0 && (
-        <div className={`${cardClass} border rounded-sm p-4`}>
-          <h2 className={`font-semibold ${textClass} mb-3`}>Top Holdings</h2>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {profile.topHoldings.map((ticker) => {
-              const char = CHARACTER_MAP[ticker];
-              return (
-                <div
-                  key={ticker}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800 dark:border-zinc-700"
-                >
-                  <span className="text-orange-500 font-mono text-sm font-bold">${ticker}</span>
-                  {char && !char.isETF && <span className={`text-xs ${mutedClass}`}>{char.name}</span>}
-                </div>
-              );
-            })}
-          </div>
-          {(profile.holdingTickers || []).length > (profile.topHoldings || []).length && (
-            <div className="flex flex-wrap gap-1.5">
-              {profile.holdingTickers
-                .filter((t) => !(profile.topHoldings || []).includes(t))
-                .map((ticker) => (
-                  <span
-                    key={ticker}
-                    className="px-2 py-0.5 text-xs font-mono rounded light:bg-zinc-100 light:text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
-                  >
-                    ${ticker}
-                  </span>
-                ))}
-            </div>
+          {loading ? (
+            <p className={mutedClass}>Loading...</p>
+          ) : (
+            <>
+              <PixelIcon name="profile" className="w-8 h-8 mx-auto mb-2" />
+              <p className={`font-semibold ${textClass}`}>Profile not found</p>
+              <p className={`text-sm ${mutedClass} mt-1`}>No trader found with username "{username}".</p>
+            </>
           )}
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Short Positions */}
-      {(profile.shortTickers || []).length > 0 && (
-        <div className={`${cardClass} border rounded-sm p-4`}>
-          <h2 className={`font-semibold ${textClass} mb-3`}>Short Positions</h2>
-          <div className="flex flex-wrap gap-2">
-            {profile.shortTickers.map((ticker) => (
-              <div
-                key={ticker}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border light:bg-red-50 light:border-red-200 dark:bg-zinc-800 dark:border-zinc-700"
-              >
-                <span className="text-red-500 font-mono text-sm font-bold">${ticker}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+  const isOwner = !!userData?.displayName && userData.displayName.toLowerCase() === profile.displayName.toLowerCase();
 
-      {/* Achievements */}
-      {earnedAchievements.length > 0 && (
-        <div className={`${cardClass} border rounded-sm p-4`}>
-          <h2 className={`font-semibold ${textClass} mb-3`}>
-            Achievements <span className={`text-sm font-normal ${mutedClass}`}>({earnedAchievements.length})</span>
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {earnedAchievements.map((a) => (
-              <div
-                key={a.id}
-                title={a.description}
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold light:bg-amber-100 light:text-slate-700 dark:bg-zinc-800 dark:text-zinc-200"
-              >
-                <AchievementIcon achievement={a} className="w-3.5 h-3.5" />
-                {a.name}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Admin panel */}
+  return (
+    <div className="max-w-3xl mx-auto p-4 space-y-4">
+      <ProfileBanner profile={profile} />
+      <ProfileFacts profile={profile} />
+      <TrophyCase profile={profile} isOwner={isOwner} onEdit={() => setPicking(true)} />
+      {profile.isPublic === false ? <PrivateNote /> : <ProfileTrading profile={profile} />}
+      <AchievementShelf owned={profile.achievements || []} />
       {viewerIsAdmin && profile.adminData && <ProfileAdminPanel data={profile.adminData} />}
+      {picking && (
+        <TrophyPicker
+          current={profile.trophyCase || []}
+          onClose={() => setPicking(false)}
+          onSaved={(trophyCase) =>
+            // Title labels come from the owner's own doc, for titles new to the case.
+            setProfile((p) =>
+              p
+                ? {
+                    ...p,
+                    trophyCase,
+                    trophyTitles: { ...p.trophyTitles, ...(userData?.titleMeta as Record<string, string>) },
+                  }
+                : p,
+            )
+          }
+        />
+      )}
     </div>
   );
 };
