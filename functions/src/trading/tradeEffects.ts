@@ -14,7 +14,7 @@ import {
   MAX_SHORTS_BEFORE_COOLDOWN,
   SHORT_COOLDOWN_WINDOW_MS,
 } from '../shared/constants';
-import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import { writeNotification } from '../shared/notifications';
 import { reportError } from '../shared/sentry';
 import type { PricePoint, ShortPosition, UserData } from '../shared/types';
 
@@ -287,28 +287,6 @@ export async function writeTradeSideEffects({
   try {
     const userDoc2 = await db.collection('users').doc(uid).get();
     const uData: UserData & { displayName?: string } = (userDoc2.exists ? userDoc2.data() : {}) as UserData;
-    const feedMsg =
-      action === 'buy'
-        ? `bought ${amount} $${ticker}`
-        : action === 'sell'
-          ? `sold ${amount} $${ticker}`
-          : action === 'short'
-            ? `shorted ${amount} $${ticker}`
-            : `covered ${amount} $${ticker}`;
-
-    writeFeedEntry({
-      type: 'trade',
-      userId: uid,
-      displayName: uData.displayName || 'Anonymous',
-      crew: uData.crew || null,
-      message: feedMsg,
-      ticker,
-      action,
-      amount,
-      price: result.executionPrice || 0,
-      // Delay large block trades 30 min to prevent real-time targeting
-      displayAfter: amount >= 50 ? Date.now() + 30 * 60 * 1000 : null,
-    });
 
     // Notify on new achievements
     if (result.newAchievements && result.newAchievements.length > 0) {
@@ -318,14 +296,6 @@ export async function writeTradeSideEffects({
           title: 'Achievement Unlocked!',
           message: `You earned: ${achId}`,
           data: { achievementId: achId },
-        });
-        writeFeedEntry({
-          type: 'achievement',
-          userId: uid,
-          displayName: uData.displayName || 'Anonymous',
-          crew: uData.crew || null,
-          message: `unlocked ${achId}`,
-          achievementId: achId,
         });
       }
     }

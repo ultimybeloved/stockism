@@ -5,7 +5,7 @@
 // throw into the fill path: the trade is already done, and a failed feed write
 // must not look like a failed trade.
 
-import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import { writeNotification } from '../shared/notifications';
 import type { LimitOrder } from '../shared/types';
 import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 
@@ -46,7 +46,7 @@ export const notifyExpired = async (order: LimitOrder, orderId: string) => {
 
 /**
  * Everything that happens once a fill is committed: the user's notification,
- * crew mission credit, and the public feed entry.
+ * and crew mission credit.
  */
 export const publishFill = async (
   order: LimitOrder,
@@ -55,9 +55,8 @@ export const publishFill = async (
     fillShares,
     executedPrice,
     tradeValue,
-    displayName,
     crew,
-  }: { fillShares: number; executedPrice: number; tradeValue: number; displayName: string; crew?: string | null },
+  }: { fillShares: number; executedPrice: number; tradeValue: number; crew?: string | null },
 ) => {
   const label = orderLabel(order);
   await writeNotification(order.userId, {
@@ -82,16 +81,4 @@ export const publishFill = async (
         : order.type === 'COVER'
           ? `covered ${fillShares} $${order.ticker} via limit order`
           : `sold ${fillShares} $${order.ticker} via limit order`;
-
-  writeFeedEntry({
-    type: 'trade',
-    userId: order.userId,
-    displayName,
-    crew,
-    ticker: order.ticker,
-    action,
-    amount: fillShares,
-    price: executedPrice,
-    message,
-  });
 };

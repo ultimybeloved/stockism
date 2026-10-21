@@ -8,7 +8,7 @@ const db = admin.firestore();
 import { CHARACTER_MAP } from '../shared/characters';
 import { MAX_PRICE_CHANGE_PERCENT, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '../shared/constants';
 import { liquidityFor, calculateMarginalImpact, washRuleRemainingMs } from '../shared/impact';
-import { writeNotification, writeFeedEntry } from '../shared/notifications';
+import { writeNotification } from '../shared/notifications';
 import { applyDueIPOJumps, appendPriceHistory } from '../shared/marketData';
 import { reportError } from '../shared/sentry';
 import { lockedShares, floorExitShares, remainingShares, cohortAddUpdate, cohortRemoveUpdate } from '../shared/cohorts';
@@ -283,8 +283,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
       const executionPrice = order.action === 'buy' ? prices.openingAsk : prices.openingBid;
       const userRef = db.collection('users').doc(order.userId);
       let fillShares = order.shares; // overwritten by the committed transaction result
-      let feedDisplayName = '';
-      let feedCrew: string | null = null;
+      let userCrew: string | null = null;
 
       try {
         await db.runTransaction(async (transaction) => {
@@ -298,8 +297,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
           const userSnap = await transaction.get(userRef);
           if (!userSnap.exists) throw new Error('User not found');
           const ud = userSnap.data() as UserData;
-          feedDisplayName = ud.displayName || 'Anonymous';
-          feedCrew = ud.crew || null;
+          userCrew = ud.crew || null;
           if (ud.isBanned) throw new Error('Account is banned');
           if (ud.requiresDiscordLink && !ud.discordId) throw new Error('Discord verification required');
           if (ud.isBankrupt || (ud.cash || 0) < 0) throw new Error('Account is bankrupt or in debt');
@@ -431,9 +429,9 @@ export const runMarketOpenProcessing = async (trigger: string) => {
         });
 
         // Crew mission progress (fire-and-forget, same as executeTrade)
-        if (feedCrew) {
+        if (userCrew) {
           updateCrewMissionProgress(
-            feedCrew,
+            userCrew,
             order.userId,
             order.action,
             fillShares,
@@ -448,17 +446,6 @@ export const runMarketOpenProcessing = async (trigger: string) => {
           title: 'Market Open Order Filled',
           message: `Your ${order.action} of ${fillShares} $${order.ticker} executed at $${executionPrice.toFixed(2)} in the opening auction${partialNote}`,
           data: { ticker: order.ticker, orderId: doc.id, price: executionPrice },
-        });
-        writeFeedEntry({
-          type: 'trade',
-          userId: order.userId,
-          displayName: feedDisplayName,
-          crew: feedCrew,
-          ticker: order.ticker,
-          action: order.action,
-          amount: fillShares,
-          price: executionPrice,
-          message: `${order.action === 'buy' ? 'bought' : 'sold'} ${fillShares} $${order.ticker} via market open auction at $${executionPrice.toFixed(2)}`,
         });
         summary.pmFilled++;
       } catch (err) {

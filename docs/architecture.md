@@ -379,7 +379,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/moderation/altDetection.ts` | scanForAltAccounts (scheduled) + manual trigger + alert review: proactive alt detection off stored IPs |
 | `functions/src/moderation/coordClustering.ts` | **Internal module.** Pure trade clustering behind coordDetection.ts |
 | `functions/src/orders/limitOrderGuards.ts` | **Internal module.** Limit-order sweep screening; thrown wording decides cancel vs defer |
-| `functions/src/orders/limitOrderEffects.ts` | **Internal module.** Post-commit notifications and feed posts for limit-order fills and cancels |
+| `functions/src/orders/limitOrderEffects.ts` | **Internal module.** Post-commit notifications and crew credit for limit-order fills and cancels |
 | `functions/src/predictions/eventMarket.ts` | Long-term event markets (LMSR): buy/sell shares, settlements, cancel |
 | `functions/src/season/seasonDryRun.ts` | Season dry run: what the rules would hand out, written to a report only |
 | `functions/src/shared/indexMaintenance.ts` | **Internal module.** The divisor-adjusted market index |
