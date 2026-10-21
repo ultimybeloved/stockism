@@ -18,6 +18,7 @@ import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import { useMarketView } from '../hooks/useMarketView';
 import { useState, type ComponentProps } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
 import NewBadge from '../../../shared/components/NewBadge';
@@ -88,6 +89,7 @@ const HomePage = ({
   });
 
   const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
+  const navigate = useNavigate();
   const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
@@ -106,6 +108,10 @@ const HomePage = ({
               {shopDropUnseen && <NewBadge />}
             </button>
           )}
+          <button onClick={() => navigate('/achievements')} className={subHeaderBtnClass}>
+            <PixelIcon name="medal" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            Achievements
+          </button>
           {(!userData?.crew || isGuest) && (
             <button onClick={onShowCrews} className={subHeaderBtnClass}>
               <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />

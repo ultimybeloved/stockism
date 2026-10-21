@@ -1,7 +1,6 @@
 // The account corner of the header: your name and total value. Clicking it
-// opens a short menu (Portfolio, Profile and settings, Achievements, Sign out),
-// the way most sites handle the account corner, so the portfolio is one click
-// away on every page without another button in the header.
+// opens a short menu (Profile and settings, Sign out). Portfolio is in the top
+// nav and Achievements in the home page's button row.
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -11,11 +10,7 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { formatCurrency } from '../../../utils/formatters';
 import PixelIcon from '../PixelIcon';
 
-const ITEMS = [
-  { path: '/portfolio', label: 'Portfolio', icon: 'cash', hint: 'P' },
-  { path: '/profile', label: 'Profile and settings', icon: 'profile' },
-  { path: '/achievements', label: 'Achievements', icon: 'medal' },
-] as const;
+const ITEMS = [{ path: '/profile', label: 'Profile and settings', icon: 'profile' }] as const;
 
 const AccountMenu = ({ value }: { value: number }) => {
   const { user, userData } = useSession();
@@ -88,14 +83,6 @@ const AccountMenu = ({ value }: { value: number }) => {
               >
                 <PixelIcon name={it.icon} className="w-5 h-5 shrink-0" />
                 <span className="flex-1">{it.label}</span>
-                {it.path === '/portfolio' && (
-                  <span className={`text-xs font-semibold ${valueColor}`}>{formatCurrency(value)}</span>
-                )}
-                {'hint' in it && (
-                  <kbd className="hidden lg:inline text-[10px] font-mono opacity-60 border rounded px-1 light:border-zinc-300 dark:border-zinc-600">
-                    {it.hint}
-                  </kbd>
-                )}
               </button>
             );
           })}
