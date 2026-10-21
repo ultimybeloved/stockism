@@ -44,7 +44,7 @@
           "value": "camera=(), microphone=(), geolocation=()"
         },
         {
-          "key": "Content-Security-Policy-Report-Only",
+          "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self' https://apis.google.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; connect-src 'self' https://*.googleapis.com https://*.cloudfunctions.net https://*.ingest.us.sentry.io https://*.ingest.sentry.io https://apis.google.com https://www.google.com; frame-src https://stockism-abb28.firebaseapp.com https://discord.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/; worker-src 'self' blob:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; report-uri https://o4511358239571968.ingest.us.sentry.io/api/4511358245863424/security/?sentry_key=140b4207fb6e38984ef843b7385fa8f6"
         }
       ]
