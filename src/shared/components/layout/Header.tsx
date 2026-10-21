@@ -117,11 +117,8 @@ const Header = ({
       badge: newPredictions,
     },
     { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5" /> },
-    // Same rule as the phone nav: signed in, the slot goes to the portfolio
-    // (achievements stay in the account menu); guests have no portfolio.
-    user
-      ? { path: '/portfolio', label: 'Portfolio', icon: <PixelIcon name="cash" className="w-5 h-5" /> }
-      : { path: '/achievements', label: 'Achievements', icon: <PixelIcon name="medal" className="w-5 h-5" /> },
+    // Guests have no portfolio. Achievements live in the home page's button row.
+    ...(user ? [{ path: '/portfolio', label: 'Portfolio', icon: <PixelIcon name="cash" className="w-5 h-5" /> }] : []),
   ];
 
   return (
