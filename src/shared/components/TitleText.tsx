@@ -9,8 +9,11 @@ const TitleText = ({ title, className = 'text-xs' }: { title: SeasonTitle | null
   if (!title) return null;
   const tier = titleTier(title.id);
   const text = <span className={`cos-title${tier ? ` cos-title-${tier}` : ''}`}>{title.text}</span>;
+  // A cut-off title clips at its box, so a glowing tier gets room for its glow
+  // (padding, cancelled by an equal negative margin so nothing moves).
+  const glowRoom = tier && PLATED.includes(tier) ? ' px-2 -mx-2 py-1 -my-1' : '';
   return (
-    <div className={`truncate ${className}`}>
+    <div className={`truncate${glowRoom} ${className}`}>
       {tier && PLATED.includes(tier) ? <span className="cos-title-plate">{text}</span> : text}
     </div>
   );
