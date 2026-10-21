@@ -29,7 +29,9 @@ export const TrophyStand = ({ view, seedKey }: { view: TrophyView; seedKey: stri
       {view.art && <div className="relative h-14 w-full flex items-center justify-center">{view.art}</div>}
       {view.art && <div className="relative w-10 h-1 rounded-full light:bg-amber-200 dark:bg-zinc-700" />}
       <div className={`relative min-w-0 w-full ${view.art ? '' : 'my-auto'}`}>
-        <div className={`${view.art ? 'text-sm' : 'text-base'} font-semibold truncate ${textClass}`}>{view.name}</div>
+        <div className={`${view.art ? 'text-sm' : 'text-sm sm:text-base'} font-semibold leading-tight break-words ${textClass}`}>
+          {view.name}
+        </div>
         <div className={`text-[11px] truncate ${mutedClass}`} title={view.caption}>
           {view.caption}
         </div>

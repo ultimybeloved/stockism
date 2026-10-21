@@ -76,7 +76,7 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
       return {
         name: text,
         caption: 'Season title',
-        art: <TitleText title={{ id: t.ref, text: shown }} className="text-xs sm:text-sm" wrap={!ctx.compact} />,
+        art: <TitleText title={{ id: t.ref, text: shown }} className="text-[11px] sm:text-sm px-1" wrap={!ctx.compact} />,
       };
     }
     case 'cos': {

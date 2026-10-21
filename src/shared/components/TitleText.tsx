@@ -16,7 +16,14 @@ const TitleText = ({
 }) => {
   if (!title) return null;
   const tier = titleTier(title.id);
-  const text = <span className={`cos-title${tier ? ` cos-title-${tier}` : ''}`}>{title.text}</span>;
+  const text = (
+    <span
+      className={`cos-title${tier ? ` cos-title-${tier}` : ''}`}
+      style={wrap ? { whiteSpace: 'normal', letterSpacing: '0.08em' } : undefined}
+    >
+      {title.text}
+    </span>
+  );
   return (
     <div className={`${wrap ? 'text-center' : 'truncate'} ${className}`}>
       {tier && PLATED.includes(tier) ? <span className="cos-title-plate">{text}</span> : text}
