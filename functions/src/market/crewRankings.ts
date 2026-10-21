@@ -29,6 +29,8 @@ export interface CrewMember {
   isBankrupt: boolean;
   wasHead: boolean;
   headStreak: number;
+  /** Longest reign ever, in weeks: the trophy-case record. */
+  bestReign: number;
   achievements: string[];
 }
 
@@ -148,6 +150,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         isBankrupt: !!user.isBankrupt,
         wasHead: !!user.isCrewHead,
         headStreak: user.crewHeadStreak || 0,
+        bestReign: Number(user.crewHeadBest?.weeks) || 0,
         achievements: Array.isArray(user.achievements) ? user.achievements : [],
       });
       c.totalValue += portfolioValue;
@@ -247,6 +250,8 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
         newAch.push('USURPER');
 
       const update: Record<string, unknown> = { isCrewHead: true, crewHeadStreak: newStreak };
+      // The record outlives the crown, so the trophy case can show it after it's lost.
+      if (newStreak > winner.bestReign) update.crewHeadBest = { weeks: newStreak, crew: c.id };
       if (newAch.length > 0) update.achievements = FieldValue.arrayUnion(...newAch);
       userUpdates.push({
         uid: winner.uid,

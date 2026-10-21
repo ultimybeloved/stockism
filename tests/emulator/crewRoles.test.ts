@@ -318,6 +318,7 @@ it('crew head roles', async () => {
 
   const whaleDoc = (await db.collection('users').doc('whale').get()).data();
   check('E2E: crown written to the user doc', whaleDoc.isCrewHead === true && whaleDoc.crewHeadStreak === 1);
+  check('E2E: first reign starts the record', whaleDoc.crewHeadBest?.weeks === 1 && !!whaleDoc.crewHeadBest?.crew);
 
   await runWeeklyCrewRankings({ postToDiscord: false });
   const twice = await db
