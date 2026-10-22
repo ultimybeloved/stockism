@@ -8,22 +8,7 @@ import '../activity.css';
 
 const tint = { background: 'color-mix(in srgb, currentColor 14%, transparent)' };
 
-/** Re-render once a minute so the rough ages move. */
-function useMinute() {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(t);
-  }, []);
-  return now;
-}
-
-const age = (at: number, now: number) => {
-  const m = Math.max(1, Math.round((now - at) / 60000 / 5) * 5);
-  return m >= 60 ? `${Math.floor(m / 60)}h ago` : `${m}m ago`;
-};
-
-function Row({ e, now, onOpen }: { e: ActivityEntry; now: number; onOpen: (t: string) => void }) {
+function Row({ e, onOpen }: { e: ActivityEntry; onOpen: (t: string) => void }) {
   const { getColorBlindColors } = useSession();
   const color = getColorBlindColors(e.side === 'buy').text;
   const name = CHARACTER_MAP[e.ticker]?.name;
@@ -53,9 +38,6 @@ function Row({ e, now, onOpen }: { e: ActivityEntry; now: number; onOpen: (t: st
             ×{e.count}
           </span>
         )}
-        <span className={`shrink-0 w-12 text-right text-xs tabular-nums ${themeClasses.mutedClass}`}>
-          {age(e.at, now)}
-        </span>
       </button>
     </li>
   );
@@ -82,10 +64,9 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
   const { getColorBlindColors } = useSession();
   const { cardClass, mutedClass } = themeClasses;
   const navigate = useNavigate();
-  const now = useMinute();
   const [more, setMore] = useState(false);
 
-  // The dot idles red and flashes green for a second each time something lands.
+  // The dot idles red and lights up green for a few seconds each time something lands.
   const [tick, setTick] = useState(0);
   const [flash, setFlash] = useState(false);
   const last = useRef('');
@@ -95,7 +76,7 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
     last.current = head;
     setTick((t) => t + 1);
     setFlash(true);
-    const t = setTimeout(() => setFlash(false), 1000);
+    const t = setTimeout(() => setFlash(false), 2800);
     return () => clearTimeout(t);
   }, [head]);
 
@@ -114,7 +95,7 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
           </h2>
           <span
             key={tick}
-            className={`act-dot ${tick ? 'act-tick' : ''} w-2 h-2 rounded-full bg-current transition-colors duration-300 ${flash ? up : down}`}
+            className={`act-dot ${flash ? 'act-live' : ''} w-2 h-2 rounded-full bg-current transition-colors duration-500 ${flash ? up : down}`}
           />
         </div>
         {/* Buys against sells over the last hour of the feed. */}
@@ -136,7 +117,7 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
       {shown.length ? (
         <ul className="px-1 pb-1">
           {shown.map((e) => (
-            <Row key={e.id} e={e} now={now} onOpen={(t) => navigate(`/stock/${t}`)} />
+            <Row key={e.id} e={e} onOpen={(t) => navigate(`/stock/${t}`)} />
           ))}
         </ul>
       ) : (
