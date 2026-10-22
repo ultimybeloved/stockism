@@ -1475,14 +1475,6 @@ html.dark .slip-tear {
   background: radial-gradient(circle at 6px -1px, transparent 6px, var(--slip-card) 6.5px) 0 0 / 12px 8px repeat-x;
 }
 
-/* Swipeable rows (phone sub-header) without a visible scrollbar. */
-.no-scrollbar {
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
 /* Market pages slide in from the side they were turned toward. */
 .page-in-next {
   animation: page-in-next 280ms cubic-bezier(0.2, 0.8, 0.2, 1);

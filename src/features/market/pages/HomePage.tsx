@@ -17,12 +17,10 @@ import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import { useMarketView } from '../hooks/useMarketView';
 import { useState, type ComponentProps } from 'react';
-import { useNavigate } from 'react-router-dom';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
 import NewBadge from '../../../shared/components/NewBadge';
 import { SHOP_DROP_ID } from '../../../constants/cosmetics';
-import { CREW_MAP } from '../../../crews';
 import { ITEMS_PER_PAGE, LIST_ITEMS_PER_PAGE } from '../../../constants/economy';
 
 type GridProps = ComponentProps<typeof MarketGrid>;
@@ -38,7 +36,6 @@ type HomePageProps = Pick<
     onCheckin: () => void;
     onShowMissions: () => void;
     onShowPinShop: () => void;
-    onShowCrews: () => void;
     onShowMargin: () => void;
     onShowAbout: () => void;
   };
@@ -59,7 +56,6 @@ const HomePage = ({
   onSetAlert,
   onShowMissions,
   onShowPinShop,
-  onShowCrews,
   onShowMargin,
   onShowAbout,
   onShowLogin,
@@ -91,50 +87,31 @@ const HomePage = ({
   });
 
   const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
-  const navigate = useNavigate();
-  const subHeaderBtnClass = `shrink-0 whitespace-nowrap px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
+  const subHeaderBtnClass = `relative whitespace-nowrap px-3 py-1.5 text-sm font-medium max-sm:flex max-sm:flex-col max-sm:items-center max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
       <div className="max-w-6xl lg:max-w-[96rem] mx-auto">
         {/* Sub-header buttons */}
-        <div className="flex gap-2 mb-4 sm:flex-wrap sm:justify-center max-sm:overflow-x-auto max-sm:-mx-4 max-sm:px-4 max-sm:pt-2 no-scrollbar">
+        {/* Phones: all four in one row, icon over label. */}
+        <div className="grid grid-cols-4 gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
           <button onClick={isGuest ? onShowLogin : onShowMissions} className={subHeaderBtnClass}>
-            <PixelIcon name="missions" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            <PixelIcon name="missions" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             Missions
           </button>
           {/* Everyone sees the same buttons; guests get the sign-in prompt. */}
-          <button onClick={isGuest ? onShowLogin : onShowPinShop} className={`relative ${subHeaderBtnClass}`}>
-            <PixelIcon name="palette" className="w-4 h-4 mr-1.5 align-[-3px]" />
-            Customization
+          <button onClick={isGuest ? onShowLogin : onShowPinShop} className={subHeaderBtnClass}>
+            <PixelIcon name="palette" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
+            <span className="sm:hidden">Customize</span>
+            <span className="max-sm:hidden">Customization</span>
             {shopDropUnseen && !isGuest && <NewBadge />}
           </button>
-          {/* Guests on phones already have Achievements in the bottom bar. */}
-          <button
-            onClick={() => navigate('/achievements')}
-            className={`${subHeaderBtnClass} ${isGuest ? 'max-md:hidden' : ''}`}
-          >
-            <PixelIcon name="medal" className="w-4 h-4 mr-1.5 align-[-3px]" />
-            Achievements
-          </button>
-          {userData?.crew && !isGuest && CREW_MAP[userData.crew] && (
-            <button onClick={() => navigate(`/crew/${userData.crew}`)} className={subHeaderBtnClass}>
-              <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              My Crew
-            </button>
-          )}
-          {(!userData?.crew || isGuest) && (
-            <button onClick={onShowCrews} className={subHeaderBtnClass}>
-              <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              Crews
-            </button>
-          )}
           <button onClick={isGuest ? onShowLogin : onShowMargin} className={subHeaderBtnClass}>
-            <PixelIcon name="margin" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            <PixelIcon name="margin" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             Margin
           </button>
           <button onClick={onShowAbout} className={subHeaderBtnClass}>
-            <PixelIcon name="about" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            <PixelIcon name="about" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             About
           </button>
         </div>
@@ -171,7 +148,7 @@ const HomePage = ({
         {activeIPOs.length > 0 && (
           <div className="mb-4">
             <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>
-              <PixelIcon name="rocket" className="w-4 h-4 mr-1.5 align-[-3px]" />
+              <PixelIcon name="rocket" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
               IPO
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

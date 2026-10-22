@@ -1,6 +1,6 @@
 // The account corner of the header: your name and total value. Clicking it
-// opens a short menu (Profile and settings, Sign out). Portfolio is in the top
-// nav and Achievements in the home page's button row.
+// opens a short menu: Profile and settings, Achievements, your crew (or the
+// crew picker), Sign out. Portfolio is in the top nav.
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -10,9 +10,9 @@ import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { formatCurrency } from '../../../utils/formatters';
 import PixelIcon from '../PixelIcon';
 
-const ITEMS = [{ path: '/profile', label: 'Profile and settings', icon: 'profile' }] as const;
+import { CREW_MAP } from '../../../crews';
 
-const AccountMenu = ({ value }: { value: number }) => {
+const AccountMenu = ({ value, onShowCrews }: { value: number; onShowCrews: () => void }) => {
   const { user, userData } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,6 +39,15 @@ const AccountMenu = ({ value }: { value: number }) => {
       console.error('Error signing out:', error);
     }
   };
+
+  const crew = userData?.crew && CREW_MAP[userData.crew] ? userData.crew : null;
+  const items: ({ label: string; icon: string } & ({ path: string } | { run: () => void }))[] = [
+    { path: '/profile', label: 'Profile and settings', icon: 'profile' },
+    { path: '/achievements', label: 'Achievements', icon: 'medal' },
+    crew
+      ? { path: `/crew/${crew}`, label: 'My Crew', icon: 'crews' }
+      : { run: onShowCrews, label: 'Join a crew', icon: 'crews' },
+  ];
 
   const name = userData?.displayName || user?.email?.split('@')[0] || 'Anonymous';
   const valueColor = userData?.colorBlindMode ? 'text-teal-600' : 'text-green-600';
@@ -71,14 +80,18 @@ const AccountMenu = ({ value }: { value: number }) => {
           role="menu"
           className="absolute right-0 top-full mt-2 w-60 rounded-sm border shadow-lg z-50 overflow-hidden light:bg-white light:border-amber-200 dark:bg-zinc-900 dark:border-zinc-700"
         >
-          {ITEMS.map((it) => {
-            const here = location.pathname === it.path;
+          {items.map((it) => {
+            const here = 'path' in it && location.pathname === it.path;
             return (
               <button
-                key={it.path}
+                key={it.label}
                 type="button"
                 role="menuitem"
-                onClick={() => navigate(it.path)}
+                onClick={() => {
+                  setOpen(false);
+                  if ('path' in it) navigate(it.path);
+                  else it.run();
+                }}
                 className={`${item} ${here ? 'font-semibold text-orange-500' : ''}`}
               >
                 <PixelIcon name={it.icon} className="w-5 h-5 shrink-0" />

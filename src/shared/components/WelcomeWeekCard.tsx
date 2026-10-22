@@ -21,7 +21,7 @@ const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
   const doneToday = userData.welcomeStreak?.lastClaimDay === today;
   const nextReward = WELCOME_STREAK_REWARDS[claimed] ?? 0;
 
-  const btn = 'shrink-0 px-2.5 py-1 text-[11px] font-semibold rounded-sm text-center';
+  const btn = 'px-2 py-0.5 text-[10px] font-semibold rounded-sm text-center whitespace-nowrap';
   return (
     <div
       className={`${cardClass} border rounded-sm px-3 py-2.5 mb-4 flex items-center gap-3 light:border-indigo-200 dark:border-indigo-900 ${className}`}
@@ -62,11 +62,13 @@ const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
           )}
         </p>
       </div>
-      {!linked ? (
-        <a href="/link-discord" className={`${btn} bg-indigo-600 hover:bg-indigo-700 text-white`}>
-          Link Discord
-        </a>
-      ) : (
+      {/* Link (until linked) stacked over the way into the server. */}
+      <div className="shrink-0 flex flex-col gap-1">
+        {!linked && (
+          <a href="/link-discord" className={`${btn} bg-indigo-600 hover:bg-indigo-700 text-white`}>
+            Link Discord
+          </a>
+        )}
         <a
           href={DISCORD_INVITE_URL}
           target="_blank"
@@ -75,7 +77,7 @@ const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
         >
           Open Discord
         </a>
-      )}
+      </div>
     </div>
   );
 };
