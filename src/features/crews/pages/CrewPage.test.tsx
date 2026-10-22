@@ -20,6 +20,8 @@ vi.mock('../../../context/AppContext', () => ({
   }),
 }));
 
+vi.mock('../../../firebase', () => ({ db: {} }));
+
 vi.mock('../../missions/hooks/useRivalryBoard', async (orig) => ({
   ...(await orig<typeof import('../../missions/hooks/useRivalryBoard')>()),
   useRivalryBoard: () => ({
