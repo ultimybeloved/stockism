@@ -4,6 +4,7 @@ import { db } from '../../../firebase';
 import { CHARACTERS } from '../../../characters';
 import { useActiveIPOs } from '../../ipo/hooks/useActiveIPOs';
 import { setRivalryWinners } from '../../../shared/hooks/useRivalryGlow';
+import { setDelayedOpenAt, isLateOpenPending } from '../../../utils/marketHours';
 import type { AppContextValue, MarketData, MarketStatus } from '../../../context/AppContext';
 import type { EventMarketDoc, PriceHistory, PricePoint, PriceMap } from '../../../types';
 
@@ -68,7 +69,10 @@ export function useMarketData() {
             mergedPrices[c.ticker] = storedPrices[c.ticker] ?? c.basePrice;
           });
           setPrices(mergedPrices);
-          setMarketData(data);
+          // A late open keeps the market halted on the server; the site shows it
+          // through the moved clock instead (marketHours setDelayedOpenAt).
+          setDelayedOpenAt(data.delayedOpen?.openAt);
+          setMarketData(isLateOpenPending() ? { ...data, marketHalted: false } : data);
           setLaunchedTickers(launched);
 
           // Extend local chart history from live ticks (the server appends the

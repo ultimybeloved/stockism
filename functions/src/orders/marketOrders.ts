@@ -34,6 +34,7 @@ interface OpenSummary {
 import { computePriceUpdates } from '../trading/tradePricing';
 // The stop-loss sweep that runs on the opening prices this file computes.
 import { runStopLossSweep } from './marketOpenStopLoss';
+import { holdForDelayedOpen } from '../market/delayedOpenState';
 
 // Most recent Thursday 20:30 UTC — the start of the current pre-market session.
 // A manual re-run later in the same week still targets that session's orders;
@@ -495,6 +496,7 @@ export const processMarketOpenOrders = cf()
   .timeZone('UTC')
   .onRun(async () => {
     try {
+      if (await holdForDelayedOpen('processMarketOpenOrders')) return null;
       await runMarketOpenProcessing('schedule');
       await recordHeartbeat('processMarketOpenOrders');
     } catch (err) {

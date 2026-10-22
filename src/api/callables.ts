@@ -220,6 +220,9 @@ export const adminTransferAccountFunction = callable<
 export const renameTickerFunction = callable<Api.RenameTickerRequest, Api.RenameTickerResponse>('renameTicker');
 export const splitStockFunction = callable<Api.SplitStockRequest, Api.SplitStockResponse>('splitStock');
 export const setMarketHaltFunction = callable<{ halted: boolean; reason: string }>('setMarketHalt');
+export const adminDelayOpenFunction = callable<{ minutes: number }, { success: boolean; openAt: number | null }>(
+  'adminDelayOpen',
+);
 // Admin: watchlist management
 export const addWatchedUserFunction = callable<
   { userId: string; reason: string; maxAccountsPerIP: number },

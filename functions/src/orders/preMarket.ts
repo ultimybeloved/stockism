@@ -34,6 +34,7 @@ export interface PreMarketOrder {
 }
 import { claimNetworkForOrder } from './orderNetwork';
 import { readBook, orderSession } from './preMarketBook';
+import { readDelayedOpen, delayedPreMarket, type DelayedOpen } from '../market/delayedOpenState';
 
 // Placement closes at the lock (20:55), not at market open — the auction
 // settles opening prices at 20:56 while the market is still halted.
@@ -42,6 +43,19 @@ const isPreMarketWindow = () => {
   if (now.getUTCDay() !== 4) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   return utcMins >= PRE_MARKET_START_MINUTE && utcMins < PRE_MARKET_LOCK_MINUTE;
+};
+
+// A late reopen moves the queue with it (market/delayedOpenState).
+const preMarketClosedReason = (delayed: DelayedOpen | null, now = Date.now()) => {
+  if (!delayed) {
+    return isPreMarketWindow()
+      ? null
+      : `Pre-market orders can only be placed in the 25 minutes before the Thursday open. The next window opens in ${formatWait(msUntilWeekly(PRE_MARKET_START_MINUTE))}.`;
+  }
+  const { start, lock } = delayedPreMarket(delayed.openAt);
+  if (now < start) return `The market opens late today. Pre-market orders open in ${formatWait(start - now)}.`;
+  if (now >= lock) return `Orders are locked until the market opens in ${formatWait(delayed.openAt - now)}.`;
+  return null;
 };
 
 const getThisWeeksPreMarketStart = () => {
@@ -58,12 +72,8 @@ export const createPreMarketOrder = cf().https.onCall(
       throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
     }
 
-    if (!isPreMarketWindow()) {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        `Pre-market orders can only be placed in the 25 minutes before the Thursday open. The next window opens in ${formatWait(msUntilWeekly(PRE_MARKET_START_MINUTE))}.`,
-      );
-    }
+    const closedReason = preMarketClosedReason(await readDelayedOpen());
+    if (closedReason) throw new functions.https.HttpsError('failed-precondition', closedReason);
 
     const uid = context.auth.uid;
     touchLastActive(uid, 'preMarket');
@@ -268,7 +278,16 @@ export const cancelPreMarketOrder = cf().https.onCall(async (data: { orderId?: u
 
   // Orders lock 5 minutes before open — prevents spoofing via late cancellations
   const now = new Date();
-  if (now.getUTCDay() === 4) {
+  const delayed = await readDelayedOpen();
+  if (delayed) {
+    const nowMs = now.getTime();
+    if (nowMs >= delayedPreMarket(delayed.openAt).lock && nowMs < delayed.openAt) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        `Orders are locked in the final 5 minutes before market open. Your order will execute when the market opens in ${formatWait(delayed.openAt - nowMs)}.`,
+      );
+    }
+  } else if (now.getUTCDay() === 4) {
     const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
     if (utcMins >= PRE_MARKET_LOCK_MINUTE && utcMins < WEEKLY_HALT_END_MINUTE) {
       throw new functions.https.HttpsError(

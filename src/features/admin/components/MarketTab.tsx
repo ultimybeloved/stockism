@@ -1,4 +1,5 @@
 import SeasonPanel from './SeasonPanel';
+import LateOpenControl from './LateOpenControl';
 import { marketTimes, localDailyTime, localWeeklyTime } from '../../../utils/localTime';
 
 import type { AdminCommonProps } from './types';
@@ -81,6 +82,8 @@ const MarketTab = ({
           <p className={`text-sm mb-2 ${mutedClass}`}>Reason: {marketHaltReason}</p>
         )}
       </div>
+
+      <LateOpenControl mutedClass={mutedClass} />
 
       {/* Emergency Halt Controls */}
       <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">

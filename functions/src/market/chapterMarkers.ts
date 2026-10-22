@@ -16,6 +16,7 @@ import { isRosterTicker } from '../shared/roster';
 import { indexFromStored, type StoredIndex } from '../shared/indexMaintenance';
 import { logAdminAction } from '../shared/adminLog';
 import { getWeekId } from '../shared/tradeRecords';
+import { holdForDelayedOpen } from './delayedOpenState';
 import {
   buildChapterMarker,
   upsertChapterMarker,
@@ -121,6 +122,7 @@ export const weeklyCallsResolve = cf()
   .timeZone('UTC')
   .onRun(async () => {
     try {
+      if (await holdForDelayedOpen('weeklyCallsResolve')) return null;
       await recordChapterMarker();
       await recordHeartbeat('weeklyCallsResolve');
     } catch (err) {

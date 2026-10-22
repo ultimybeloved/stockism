@@ -8,12 +8,16 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
 
-vi.mock('../../../context/AppContext', () => ({ useTheme: () => ({ darkMode: false }) }));
+vi.mock('../../../context/AppContext', () => ({
+  useTheme: () => ({ darkMode: false }),
+  useMarket: () => ({ marketData: null }),
+}));
 vi.mock('../../../firebase', () => ({ db: {} }));
 vi.mock('../../../api/callables', () => {
   const fn = () => vi.fn(async () => ({ data: {} }));
   return {
     broadcastNotificationFunction: fn(),
+    adminDelayOpenFunction: fn(),
     triggerManualBackupFunction: fn(),
     listBackupsFunction: fn(),
     restoreBackupFunction: fn(),

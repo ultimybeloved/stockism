@@ -8,6 +8,8 @@ import type { EventMarketDoc, IPO, PriceHistory, PriceMap, ShareMap, ShortMap, S
 export interface MarketData {
   marketHalted?: boolean;
   haltReason?: string;
+  /** A late Thursday open (functions/src/market/delayedOpenState). */
+  delayedOpen?: { openAt: number; done?: string[] };
   /** ticker -> circuit-breaker pause, while one is running. */
   haltedTickers?: Record<string, { resumeAt?: number }>;
   /** retired ticker -> its current name, kept after a rename. */

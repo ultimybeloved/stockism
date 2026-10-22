@@ -10,7 +10,16 @@
 // post): the writer's zone would be wrong for every reader. Discord posts use
 // Discord's own <t:...> timestamps instead.
 
-import { HALT_START_MINUTE, HALT_END_MINUTE, PRE_MARKET_START_MINUTE, PRE_MARKET_LOCK_MINUTE } from './marketHours';
+import {
+  HALT_START_MINUTE,
+  HALT_END_MINUTE,
+  PRE_MARKET_START_MINUTE,
+  PRE_MARKET_LOCK_MINUTE,
+  reopenDelayOn,
+} from './marketHours';
+
+// A late reopen moves the pre-market queue and the open, not the halt start.
+const lateShift = (minuteUTC: number, ms: number) => (minuteUTC >= PRE_MARKET_START_MINUTE ? reopenDelayOn(ms) : 0);
 
 const THURSDAY = 4;
 
@@ -21,7 +30,7 @@ const nextUtcMoment = (minuteUTC: number, day: number | null = null, now: Date =
   if (day !== null) {
     while (d.getUTCDay() !== day) d.setUTCDate(d.getUTCDate() + 1);
   }
-  return d;
+  return new Date(d.getTime() + lateShift(minuteUTC, d.getTime()));
 };
 
 const timePart = (d: Date) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -61,7 +70,8 @@ export const localWeeklyTime = (minuteUTC: number, day: number = THURSDAY): stri
  */
 export const localWeeklyRange = (startMinuteUTC: number, endMinuteUTC: number, day: number = THURSDAY): string => {
   const a = nextUtcMoment(startMinuteUTC, day);
-  const b = new Date(a.getTime() + (endMinuteUTC - startMinuteUTC) * 60000);
+  const plain = a.getTime() - lateShift(startMinuteUTC, a.getTime());
+  const b = new Date(plain + (endMinuteUTC - startMinuteUTC) * 60000 + lateShift(endMinuteUTC, plain));
   const sameDay = a.toDateString() === b.toDateString();
   return sameDay
     ? `${dayPart(a)} ${timePart(a)}–${timePart(b)} ${zoneName(b)}`
