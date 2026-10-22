@@ -66,18 +66,16 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
   const navigate = useNavigate();
   const [more, setMore] = useState(false);
 
-  // The dot idles red and lights up green for a few seconds each time something lands.
+  // The dot idles red. Each time something lands, a green layer plays over it
+  // for a few seconds; it lives only while its animation runs, so the color
+  // and the motion end on the same frame.
   const [tick, setTick] = useState(0);
-  const [flash, setFlash] = useState(false);
   const last = useRef('');
   const head = entries[0] ? `${entries[0].id}:${entries[0].count}` : '';
   useEffect(() => {
     if (!head || head === last.current) return;
     last.current = head;
     setTick((t) => t + 1);
-    setFlash(true);
-    const t = setTimeout(() => setFlash(false), 2800);
-    return () => clearTimeout(t);
   }, [head]);
 
   const total = lastHour.buys + lastHour.sells;
@@ -93,10 +91,9 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
           <h2 className={`text-xs font-semibold uppercase tracking-wide ${mutedClass}`}>
             {ticker ? `Recent trades on $${ticker}` : 'Recent trades'}
           </h2>
-          <span
-            key={tick}
-            className={`act-dot ${flash ? 'act-live' : ''} w-2 h-2 rounded-full bg-current ${flash ? up : down}`}
-          />
+          <span className={`act-dot w-2 h-2 rounded-full bg-current ${down}`}>
+            {tick > 0 && <span key={tick} className={`act-live absolute inset-0 rounded-full bg-current ${up}`} />}
+          </span>
         </div>
         {/* Buys against sells over the last hour of the feed. */}
         <div className="mt-2.5">

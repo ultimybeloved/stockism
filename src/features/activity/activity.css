@@ -86,22 +86,32 @@
 .act-dot {
   position: relative;
 }
-.act-dot.act-live {
+.act-live {
+  opacity: 0;
   animation:
+    act-on 2200ms,
     act-dot-pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    act-glow 2800ms ease-out both;
+    act-glow 2200ms linear;
 }
-.act-dot.act-live::before,
-.act-dot.act-live::after {
+.act-live::before,
+.act-live::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: 9999px;
   background: currentColor;
-  animation: act-ring 1100ms ease-out 2 both;
+  animation: act-ring 800ms ease-out 3 both;
 }
-.act-dot.act-live::after {
-  animation-delay: 550ms;
+.act-live::after {
+  animation-delay: 400ms;
+  animation-iteration-count: 2;
+}
+/* Shown only while running: no fill, so it drops out the moment it ends. */
+@keyframes act-on {
+  from,
+  to {
+    opacity: 1;
+  }
 }
 @keyframes act-dot-pop {
   40% {
@@ -109,12 +119,9 @@
   }
 }
 @keyframes act-glow {
-  0%,
-  70% {
-    box-shadow: 0 0 6px 2px color-mix(in srgb, currentColor 70%, transparent);
-  }
+  from,
   to {
-    box-shadow: 0 0 0 0 transparent;
+    box-shadow: 0 0 10px 4px color-mix(in srgb, currentColor 80%, transparent);
   }
 }
 @keyframes act-ring {
@@ -138,10 +145,12 @@
   .act-enter > .act-row,
   .act-pop,
   .act-bump,
-  .act-dot.act-live,
-  .act-dot.act-live::before,
-  .act-dot.act-live::after {
-    animation: act-fade 200ms both;
+  .act-live {
+    animation: act-on 1500ms;
+  }
+  .act-live::before,
+  .act-live::after {
+    display: none;
   }
   .act-sheen::after {
     display: none;
