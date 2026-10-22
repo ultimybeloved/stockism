@@ -34,7 +34,7 @@ Push, then deploy the functions that validate tickers, iterate the roster or rea
 crew membership (see [deploy.md](deploy.md)):
 
 ```bash
-node scripts/deploy-functions.cjs --only executeTrade,createPreMarketOrder,cancelPreMarketOrder,createLimitOrder,checkLimitOrders,processMarketOpenOrders,triggerMarketOpenOrders,buyIPOShares,processIPOPriceJumps,marketMakerCycle,initNewCharacterPrices,dailyMarketSummary,claimMissionReward,makeWeeklyCall,weeklyCrewRankings,botTrader
+node scripts/deploy-functions.cjs --only executeTrade,createPreMarketOrder,cancelPreMarketOrder,createLimitOrder,checkLimitOrders,processMarketOpenOrders,triggerMarketOpenOrders,buyIPOShares,processIPOPriceJumps,marketMakerCycle,initNewCharacterPrices,dailyMarketSummary,claimMissionReward,weeklyCrewRankings,botTrader
 ```
 
 Functions that only multiply prices by holdings (leaderboard, dividends, margin,
