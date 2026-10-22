@@ -2,47 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { CHARACTER_MAP } from '../../../characters';
+import { foldEntries, type ActivityEntry, type RawItem } from '../foldEntries';
 
-export type ActivitySide = 'buy' | 'sell';
-
-/** As stored on market/activity (functions/src/market/activityFeed.ts). */
-export interface RawItem {
-  t: string;
-  s: 'b' | 's';
-  at: number;
-}
-
-export interface ActivityEntry {
-  /** Stable per row, so React keys hold while its count grows. */
-  id: string;
-  ticker: string;
-  side: ActivitySide;
-  /** Latest trade in the row (ms). Shown only roughly. */
-  at: number;
-  /** Back-to-back entries for the same stock and side fold into one row. */
-  count: number;
-}
+export type { ActivityEntry };
 
 // Each entry shows once it is this old. The bot round writes every 15
 // minutes, so entries come out one by one between writes.
 export const ACTIVITY_REVEAL_MS = 20 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
-
-/** Fold time-ordered entries into rows, newest first. */
-export function foldEntries(items: RawItem[]): ActivityEntry[] {
-  const rows: ActivityEntry[] = [];
-  for (const x of items) {
-    const side: ActivitySide = x.s === 'b' ? 'buy' : 'sell';
-    const top = rows[rows.length - 1];
-    if (top && top.ticker === x.t && top.side === side) {
-      top.count++;
-      top.at = x.at;
-    } else {
-      rows.push({ id: `${x.at}:${x.t}:${x.s}`, ticker: x.t, side, at: x.at, count: 1 });
-    }
-  }
-  return rows.reverse();
-}
 
 /** Recent trades with no name and no size. Pass a ticker for one stock. */
 export function useMarketActivity(ticker?: string) {
