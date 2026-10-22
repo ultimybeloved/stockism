@@ -1,6 +1,7 @@
 import CheckInButton from '../../missions/components/CheckInButton';
 import PredictionsTeaser from '../../predictions/components/PredictionsTeaser';
 import MarketIndex from './MarketIndex';
+import ActivityFeed from '../../activity/components/ActivityFeed';
 import WelcomeWeekCard from '../../../shared/components/WelcomeWeekCard';
 import { useSession, useMarket } from '../../../context/AppContext';
 
@@ -211,6 +212,9 @@ const DashboardRail = ({
           })()}
         </div>
       </div>
+
+      {/* Shown on phones too: it's the one card worth watching without tapping. */}
+      <ActivityFeed limit={phoneOpen ? 8 : 5} />
 
       {/* Phones get their own copy at the top of the home page. */}
       <WelcomeWeekCard className="max-md:hidden" />

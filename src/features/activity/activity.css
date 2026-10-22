@@ -1,0 +1,131 @@
+/* Market activity feed. Each entry lands once and then sits still
+   (hold-then-tick): nothing drifts while the feed is quiet. */
+
+/* A new row opens its own space, then slides and sharpens into place. */
+.act-enter {
+  display: grid;
+  animation: act-open 460ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.act-enter > .act-row {
+  min-height: 0;
+  animation: act-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes act-open {
+  from {
+    grid-template-rows: 0fr;
+  }
+  to {
+    grid-template-rows: 1fr;
+  }
+}
+@keyframes act-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+/* One sweep of light across a fresh row, tinted buy or sell. */
+.act-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.act-sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in srgb, currentColor 22%, transparent) 50%,
+    transparent 80%
+  );
+  transform: translateX(-110%);
+  animation: act-sweep 900ms 140ms ease-out both;
+}
+@keyframes act-sweep {
+  to {
+    transform: translateX(110%);
+  }
+}
+
+/* The arrow pops in with a little overshoot. */
+.act-pop {
+  animation: act-pop 520ms 80ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes act-pop {
+  from {
+    transform: scale(0.3) rotate(-25deg);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Same stock, same side again: the counter bumps instead of a new row. */
+.act-bump {
+  animation: act-bump 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes act-bump {
+  40% {
+    transform: scale(1.35);
+  }
+}
+
+/* The live dot ticks once per entry, then rests. */
+.act-dot {
+  position: relative;
+}
+.act-dot.act-tick::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: act-ring 900ms ease-out;
+}
+@keyframes act-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
+
+/* Buy vs sell balance bar eases to its new split. */
+.act-bar {
+  transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .act-enter,
+  .act-enter > .act-row,
+  .act-pop,
+  .act-bump,
+  .act-dot.act-tick::after {
+    animation: act-fade 200ms both;
+  }
+  .act-sheen::after {
+    display: none;
+  }
+  .act-bar {
+    transition: none;
+  }
+}
+@keyframes act-fade {
+  from {
+    opacity: 0;
+  }
+}
