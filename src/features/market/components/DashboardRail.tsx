@@ -2,7 +2,9 @@ import PredictionsTeaser from '../../predictions/components/PredictionsTeaser';
 import ActivityFeed from '../../activity/components/ActivityFeed';
 import WelcomeWeekCard from '../../../shared/components/WelcomeWeekCard';
 import YouCard from './YouCard';
-import { useMarket } from '../../../context/AppContext';
+import MarketIndex from './MarketIndex';
+import { usePhone } from '../../../shared/hooks/useMediaQuery';
+import { useMarket, useSession } from '../../../context/AppContext';
 import type { UserData } from '../../../types';
 
 interface DashboardRailProps {
@@ -18,9 +20,9 @@ interface DashboardRailProps {
   phoneOpen?: boolean;
 }
 
-// Right-hand rail on the home page: the player's card, recent trades and the
-// predictions teaser. Short enough to never need its own scrollbar; the market
-// index lives above the market instead.
+// Right-hand rail on the home page: market index, the player's card, welcome
+// week, recent trades and the predictions teaser. Short enough to never need
+// its own scrollbar.
 const DashboardRail = ({
   activeUserData,
   portfolioValue,
@@ -32,12 +34,13 @@ const DashboardRail = ({
   onShowBailout,
   phoneOpen = false,
 }: DashboardRailProps) => {
-  const { predictions } = useMarket();
+  const { prices, priceHistory, predictions } = useMarket();
+  const { userData } = useSession();
+  const phone = usePhone();
 
   return (
     <aside className="lg:order-2 lg:w-80 2xl:w-96 lg:shrink-0 lg:[@media(min-height:860px)]:sticky lg:top-20">
-      {/* Phones get their own copy at the top of the home page. */}
-      <WelcomeWeekCard className="max-md:hidden" />
+      <MarketIndex prices={prices} priceHistory={priceHistory} colorBlindMode={userData?.colorBlindMode} />
 
       {/* Phones hide this behind the summary bar (PhoneSummaryBar). */}
       <div className={phoneOpen ? '' : 'max-md:hidden'}>
@@ -53,8 +56,10 @@ const DashboardRail = ({
         />
       </div>
 
-      {/* Shown on phones too: it's the one card worth watching without tapping. */}
-      <ActivityFeed limit={5} />
+      <WelcomeWeekCard />
+
+      {/* Phones: two rows that open up on tap. */}
+      <ActivityFeed limit={phone ? 2 : 5} compact={phone} />
 
       <div className={phoneOpen ? '' : 'max-md:hidden'}>
         <PredictionsTeaser predictions={predictions} />

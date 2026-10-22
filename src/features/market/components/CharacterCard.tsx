@@ -213,7 +213,7 @@ const CharacterCard = ({
     <>
       <div
         style={rarityStyle}
-        className={`${cardClass} border rounded-sm p-3 transition-all relative flex flex-col ${frameClass} ${
+        className={`${cardClass} border rounded-sm p-5 transition-all relative flex flex-col ${frameClass} ${
           highlight === 'open' ? 'ring-2 ring-orange-500' : highlight === 'compare' ? 'ring-2 ring-blue-500' : ''
         } ${
           tradeAnimation
@@ -236,7 +236,7 @@ const CharacterCard = ({
           {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
           <div className="flex justify-between items-baseline gap-2">
             <div className="flex items-center gap-1 min-w-0">
-              <p className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</p>
+              <p className="text-orange-500 font-mono text-base font-semibold">${character.ticker}</p>
               {isETF && <span className="text-[10px] bg-purple-600 text-white px-1 rounded">ETF</span>}
               {!isETF && statusBadge(character) && (
                 <span title={STATUS_MAP[statusOf(character)]?.hint}>
@@ -244,17 +244,26 @@ const CharacterCard = ({
                 </span>
               )}
             </div>
-            <p className={`font-semibold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
+            <p className={`text-xl font-bold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
           </div>
-          <div className="flex justify-between items-baseline gap-2">
-            <p className={`text-xs truncate ${mutedClass}`}>{character.name}</p>
-            <p className={`shrink-0 text-xs font-mono ${changeColor}`}>
+          <div className="flex justify-between items-baseline gap-2 mt-0.5">
+            <p className={`text-sm truncate ${mutedClass}`}>{character.name}</p>
+            <p className={`shrink-0 text-sm font-mono ${changeColor}`}>
               {isUp ? '▲' : '▼'} {formatChange(chartChange)}
             </p>
           </div>
-          <CharacterMeta character={character} />
-          <div className="my-2">
-            <SimpleLineChart data={miniChartData} colorBlindMode={colorBlindMode} width={240} height={36} stretch />
+          <div className="mt-2">
+            <CharacterMeta character={character} />
+          </div>
+          <div className="my-4">
+            <SimpleLineChart
+              data={miniChartData}
+              colorBlindMode={colorBlindMode}
+              width={300}
+              height={64}
+              className="h-16"
+              stretch
+            />
           </div>
         </div>
 

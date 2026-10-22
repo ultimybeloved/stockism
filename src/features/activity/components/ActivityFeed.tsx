@@ -66,6 +66,8 @@ interface ActivityFeedProps {
   ticker?: string;
   /** Rows shown before "Show more". */
   limit?: number;
+  /** Phones: no buy and sell counts under the bar. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -75,7 +77,7 @@ interface ActivityFeedProps {
  * doesn't. New entries land one at a time; a repeat on the top row bumps its
  * counter instead of adding a row.
  */
-export default function ActivityFeed({ ticker, limit = 8, className = '' }: ActivityFeedProps) {
+export default function ActivityFeed({ ticker, limit = 8, compact = false, className = '' }: ActivityFeedProps) {
   const { entries, lastHour } = useMarketActivity(ticker);
   const { getColorBlindColors } = useSession();
   const { cardClass, mutedClass } = themeClasses;
@@ -121,11 +123,13 @@ export default function ActivityFeed({ ticker, limit = 8, className = '' }: Acti
             <div className={`act-bar bg-current ${up}`} style={{ width: `${buyPct}%` }} />
             <div className={`act-bar bg-current ${down} opacity-80`} style={{ width: `${100 - buyPct}%` }} />
           </div>
-          <div className="mt-1 flex justify-between text-[11px] tabular-nums">
-            <span className={up}>{lastHour.buys} buys</span>
-            <span className={mutedClass}>last hour</span>
-            <span className={down}>{lastHour.sells} sells</span>
-          </div>
+          {!compact && (
+            <div className="mt-1 flex justify-between text-[11px] tabular-nums">
+              <span className={up}>{lastHour.buys} buys</span>
+              <span className={mutedClass}>last hour</span>
+              <span className={down}>{lastHour.sells} sells</span>
+            </div>
+          )}
         </div>
       </header>
 

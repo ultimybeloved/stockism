@@ -1474,3 +1474,11 @@ html.dark .slip-tear {
   height: 8px;
   background: radial-gradient(circle at 6px -1px, transparent 6px, var(--slip-card) 6.5px) 0 0 / 12px 8px repeat-x;
 }
+
+/* Swipeable rows (phone sub-header) without a visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

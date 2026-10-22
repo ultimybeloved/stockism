@@ -3,7 +3,6 @@ import SeasonCard from '../../season/components/SeasonCard';
 import IPOHypeCard from '../../ipo/components/IPOHypeCard';
 import IPOActiveCard from '../../ipo/components/IPOActiveCard';
 import DashboardRail from '../components/DashboardRail';
-import WelcomeWeekCard from '../../../shared/components/WelcomeWeekCard';
 import PhoneSummaryBar from '../components/PhoneSummaryBar';
 import StockPopup from '../components/StockPopup';
 import CompareTray from '../components/CompareTray';
@@ -11,7 +10,6 @@ import CompareChartModal from '../components/CompareChartModal';
 import { useDesktopMarket } from '../hooks/useDesktopMarket';
 import MarketControls from '../components/MarketControls';
 import MarketGrid from '../components/MarketGrid';
-import MarketIndex from '../components/MarketIndex';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { themeClasses } from '../../../utils/theme';
@@ -25,6 +23,7 @@ import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
 import NewBadge from '../../../shared/components/NewBadge';
 import { SHOP_DROP_ID } from '../../../constants/cosmetics';
 import { CREW_MAP } from '../../../crews';
+import { ITEMS_PER_PAGE, LIST_ITEMS_PER_PAGE } from '../../../constants/economy';
 
 type GridProps = ComponentProps<typeof MarketGrid>;
 
@@ -72,7 +71,9 @@ const HomePage = ({
   const portfolioValue = calculatePortfolioValue(activeUserData, prices);
   const { bgClass, mutedClass, ghostBtnClass } = themeClasses;
 
+  const { view, setView } = useMarketView();
   const browser = useMarketBrowser({
+    perPage: view === 'list' ? LIST_ITEMS_PER_PAGE : ITEMS_PER_PAGE,
     userData,
     prices,
     priceHistory,
@@ -82,7 +83,6 @@ const HomePage = ({
   });
 
   const [railOpen, setRailOpen] = useState(false);
-  const { view, setView } = useMarketView();
   const desk = useDesktopMarket({
     characters: browser.reviewSections
       ? browser.reviewSections.flatMap((s) => s.characters)
@@ -92,13 +92,13 @@ const HomePage = ({
 
   const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
   const navigate = useNavigate();
-  const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
+  const subHeaderBtnClass = `shrink-0 whitespace-nowrap px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
       <div className="max-w-6xl lg:max-w-none mx-auto">
         {/* Sub-header buttons */}
-        <div className="flex flex-wrap gap-2 mb-4 justify-center">
+        <div className="flex gap-2 mb-4 sm:flex-wrap sm:justify-center max-sm:overflow-x-auto max-sm:-mx-4 max-sm:px-4 max-sm:pt-2 no-scrollbar">
           <button onClick={isGuest ? onShowLogin : onShowMissions} className={subHeaderBtnClass}>
             <PixelIcon name="missions" className="w-4 h-4 mr-1.5 align-[-3px]" />
             Missions
@@ -149,9 +149,6 @@ const HomePage = ({
           onShowLogin={onShowLogin}
           onShowBailout={onShowBailout}
         />
-
-        {/* Phones: welcome week up top so it isn't buried under the other cards. */}
-        <WelcomeWeekCard className="md:hidden" />
 
         {/* Guest Banner */}
         {isGuest && (
@@ -209,7 +206,6 @@ const HomePage = ({
 
           {/* Market column */}
           <div className="lg:order-1 flex-1 min-w-0">
-            <MarketIndex prices={prices} priceHistory={priceHistory} colorBlindMode={userData?.colorBlindMode} />
             <MarketControls
               filters={browser.filters}
               setFilter={browser.setFilter}
