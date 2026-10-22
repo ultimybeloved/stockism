@@ -1,3 +1,4 @@
+import { MISSION_MIN_TRADE_FLOOR, MISSION_MIN_TRADE_CAP } from '../../../rules/missions';
 import { useState } from 'react';
 import RivalryTab from './RivalryTab';
 import MissionCard from './MissionCard';
@@ -165,8 +166,9 @@ const DailyMissionsModal = ({
           {!isGuest && activeTab !== 'rivalry' && (
             <div className="p-2 rounded-sm light:bg-amber-50 dark:bg-zinc-800/30 space-y-1">
               <p className={`text-xs ${mutedClass}`}>
-                Trades count when they're worth {formatCurrency(board.minTrade)} or more (1% of your net worth). Buys
-                count while you keep the shares, and sells count on shares you've held a day.
+                Trades count when they're worth {formatCurrency(board.minTrade)} or more (1% of your net worth, between
+                ${MISSION_MIN_TRADE_FLOOR} and ${MISSION_MIN_TRADE_CAP}). For missions that say "keep", own the shares
+                until you claim the reward. After that you can sell. Sells count on shares you've held a day.
               </p>
               {board.crew ? (
                 <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
