@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { foldEntries } from './useMarketActivity';
+import { foldEntries } from './foldEntries';
 
 describe('foldEntries', () => {
   it('folds back-to-back repeats and puts the newest first', () => {
