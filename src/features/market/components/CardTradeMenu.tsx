@@ -69,7 +69,7 @@ const CardTradeMenu = ({
         </button>
       ) : (
         <div className="w-full space-y-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
             <button
               onClick={() => go('buy')}
               className={`py-1.5 text-[11px] font-semibold uppercase rounded-sm text-white ${buyCls}`}

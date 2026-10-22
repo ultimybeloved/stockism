@@ -105,7 +105,7 @@ const MarketGrid = ({
     />
   );
 
-  // Four roomy columns on desktop (two rows a page), or the list view.
+  // Two columns on phones, four on desktop (two rows a page), or the list view.
   const cardGrid = (list: Character[]) =>
     view === 'list' ? (
       <MarketList
@@ -118,7 +118,7 @@ const MarketGrid = ({
         setSortBy={setSortBy}
       />
     ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">{list.map(renderCard)}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">{list.map(renderCard)}</div>
     );
 
   return (

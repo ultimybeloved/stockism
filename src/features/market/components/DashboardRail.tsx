@@ -21,7 +21,7 @@ interface DashboardRailProps {
 }
 
 // Right-hand rail on the home page: market index, the player's card, welcome
-// week, recent trades and the predictions teaser. Short enough to never need
+// week, the predictions teaser and recent trades. Short enough to never need
 // its own scrollbar.
 const DashboardRail = ({
   activeUserData,
@@ -58,12 +58,12 @@ const DashboardRail = ({
 
       <WelcomeWeekCard />
 
-      {/* Phones: two rows that open up on tap. */}
-      <ActivityFeed limit={phone ? 2 : 5} compact={phone} />
-
       <div className={phoneOpen ? '' : 'max-md:hidden'}>
         <PredictionsTeaser predictions={predictions} />
       </div>
+
+      {/* Phones: two rows that open up on tap. */}
+      <ActivityFeed limit={phone ? 2 : 5} compact={phone} />
     </aside>
   );
 };

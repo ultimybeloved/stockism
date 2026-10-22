@@ -36,7 +36,6 @@ const MobileBottomNav = () => {
     user
       ? { path: '/portfolio', icon: <PixelIcon name="cash" className="w-7 h-7" />, label: 'Portfolio' }
       : { path: '/achievements', icon: <PixelIcon name="medal" className="w-7 h-7" />, label: 'Achievements' },
-    ...(user ? [{ path: '/profile', icon: <PixelIcon name="profile" className="w-7 h-7" />, label: 'Profile' }] : []),
   ];
 
   return (

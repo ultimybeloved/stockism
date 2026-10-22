@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import CharacterMeta from './CharacterMeta';
 import ReviewChangeBadge from './ReviewChangeBadge';
@@ -213,7 +214,7 @@ const CharacterCard = ({
     <>
       <div
         style={rarityStyle}
-        className={`${cardClass} border rounded-sm p-5 transition-all relative flex flex-col ${frameClass} ${
+        className={`${cardClass} border rounded-sm p-3 transition-all relative flex flex-col ${frameClass} ${
           highlight === 'open' ? 'ring-2 ring-orange-500' : highlight === 'compare' ? 'ring-2 ring-blue-500' : ''
         } ${
           tradeAnimation
@@ -236,7 +237,7 @@ const CharacterCard = ({
           {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
           <div className="flex justify-between items-baseline gap-2">
             <div className="flex items-center gap-1 min-w-0">
-              <p className="text-orange-500 font-mono text-base font-semibold">${character.ticker}</p>
+              <p className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</p>
               {isETF && <span className="text-[10px] bg-purple-600 text-white px-1 rounded">ETF</span>}
               {!isETF && statusBadge(character) && (
                 <span title={STATUS_MAP[statusOf(character)]?.hint}>
@@ -244,31 +245,33 @@ const CharacterCard = ({
                 </span>
               )}
             </div>
-            <p className={`text-xl font-bold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
+            <p className={`font-semibold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
           </div>
-          <div className="flex justify-between items-baseline gap-2 mt-0.5">
-            <p className={`text-sm truncate ${mutedClass}`}>{character.name}</p>
-            <p className={`shrink-0 text-sm font-mono ${changeColor}`}>
+          <div className="flex justify-between items-baseline gap-2">
+            <p className={`text-xs truncate ${mutedClass}`}>{character.name}</p>
+            <p className={`shrink-0 text-xs font-mono ${changeColor}`}>
               {isUp ? '▲' : '▼'} {formatChange(chartChange)}
             </p>
           </div>
-          <div className="mt-2">
+          {/* Phones: two cards a row leaves no room for crew chips. */}
+          <div className="max-md:hidden">
             <CharacterMeta character={character} />
           </div>
-          <div className="my-4">
-            <SimpleLineChart
-              data={miniChartData}
-              colorBlindMode={colorBlindMode}
-              width={300}
-              height={64}
-              className="h-16"
-              stretch
-            />
+          <div className="my-2">
+            <SimpleLineChart data={miniChartData} colorBlindMode={colorBlindMode} width={240} height={36} stretch />
           </div>
         </div>
 
         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 min-h-[26px]">
           <span className={`text-[10px] ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
+          {/* Phones get Details, alerts and the watchlist from press and hold. */}
+          <Link
+            to={`/stock/${character.ticker}`}
+            onClick={(e) => e.stopPropagation()}
+            className={`max-md:hidden text-[10px] ${mutedClass} hover:text-orange-500`}
+          >
+            Details ↗
+          </Link>
           {owned && <span className="text-[11px] text-blue-500 font-semibold">{holdings} long</span>}
           <ShortRiskTag
             shortPosition={shortPosition}
@@ -277,7 +280,7 @@ const CharacterCard = ({
             colorBlindMode={colorBlindMode}
           />
           <div className="ml-auto flex items-center gap-1.5">
-            {onToggleWatchlist && user && onSetAlert && (
+            {onToggleWatchlist && user && onSetAlert && !phone && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -289,7 +292,7 @@ const CharacterCard = ({
                 <PixelIcon name="bell" className="w-3.5 h-3.5 block" />
               </button>
             )}
-            {onToggleWatchlist && user && (
+            {onToggleWatchlist && user && !phone && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
