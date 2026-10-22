@@ -30,7 +30,7 @@ const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
         <div className="flex items-center justify-between gap-2">
           <p className={`text-[10px] font-semibold uppercase ${mutedClass}`}>Welcome week</p>
           <p className={`text-[10px] font-semibold tabular-nums ${mutedClass}`}>
-            Day {claimed}/{WELCOME_STREAK_DAYS}
+            {claimed}/{WELCOME_STREAK_DAYS} days done
           </p>
         </div>
         {/* One segment per day, filled as each is claimed. */}
