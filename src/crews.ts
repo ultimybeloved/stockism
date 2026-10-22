@@ -467,7 +467,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
 export const OPENING_BELL: Mission = {
   id: 'OPENING_BELL',
   name: 'Opening Bell',
-  description: "Have an order fill in Thursday's opening auction",
+  description: "Trade in Thursday's opening auction or in the first 24 hours after the reopen",
   reward: 500,
   checkType: 'WEEKLY_AUCTION',
 };

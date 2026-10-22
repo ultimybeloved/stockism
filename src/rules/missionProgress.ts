@@ -20,6 +20,7 @@ import {
   missionWeekStartMs,
   missionWeekId,
   weeklyMissionsOpen,
+  inOpeningDay,
   buyHoldClaimOpensMs,
   BUY_HOLD_WINDOW_MS,
   DIVERSIFIED_MAX_SHARE,
@@ -226,7 +227,11 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       const done = keptBuys(wp.auctionBuys, ctx).length > 0 || (wp.auctionSoldValue || 0) >= min;
       return {
         ...flag(done),
-        note: done ? undefined : "Missed this week's auction. Next Thursday's pre-market counts for next week.",
+        note: done
+          ? undefined
+          : inOpeningDay(ctx.now)
+            ? 'Buy or sell by Friday 21:00 UTC'
+            : "Missed this week's window. Next Thursday's opening auction counts for next week.",
       };
     }
     case 'WEEKLY_TRADING_DAYS':

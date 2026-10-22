@@ -5,6 +5,7 @@ import { CHARACTERS, DIVIDEND_HOLD_MS, computeRarityTiers } from '../characters'
 import {
   missionWeekId,
   missionWeekStartMs,
+  inOpeningDay,
   auctionWeekId,
   indexMovePct,
   missionMinTrade,
@@ -299,6 +300,14 @@ describe('new weekly missions', () => {
     expect(sold.complete).toBe(false);
     expect(sold.note).toBeTruthy();
     expect(weeklyMissionProgress(OPENING_BELL, { auctionSoldValue: 150 }, ctxOf({}, {})).complete).toBe(true);
+  });
+
+  it('Opening Bell: the first 24 hours after the reopen count too', () => {
+    const start = missionWeekStartMs(Date.parse('2026-10-29T22:00:00Z'));
+    expect(inOpeningDay(start + 60 * 1000)).toBe(true);
+    expect(inOpeningDay(start + 23.9 * 3600 * 1000)).toBe(true);
+    expect(inOpeningDay(start + 24 * 3600 * 1000)).toBe(false);
+    expect(inOpeningDay(start - 60 * 1000)).toBe(false);
   });
 
   it('Beat the Market: up, and by more than the index', () => {

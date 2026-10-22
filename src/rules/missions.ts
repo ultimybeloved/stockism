@@ -54,6 +54,11 @@ export const BUY_HOLD_WINDOW_MS = 2 * DAY_MS + 3 * 60 * 60 * 1000;
 // starts, so the mission is already on the board when players queue orders.
 export const auctionWeekId = (now: When = Date.now()) => missionWeekId(ms(now) + 60 * 60 * 1000);
 
+// Opening Bell also takes a buy or sell in the first day after the reopen, so a
+// player who missed the auction isn't locked out of the week's first mission.
+export const OPENING_DAY_MS = DAY_MS;
+export const inOpeningDay = (now: When = Date.now()) => ms(now) - missionWeekStartMs(now) < OPENING_DAY_MS;
+
 // Buy and Hold can be claimed from Wednesday 00:00 UTC to the end of the week.
 export const BUY_HOLD_CLAIM_OFFSET_MS = 5 * DAY_MS + 3 * 60 * 60 * 1000;
 export const buyHoldClaimOpensMs = (now: When = Date.now()) => missionWeekStartMs(now) + BUY_HOLD_CLAIM_OFFSET_MS;

@@ -8,6 +8,7 @@ import {
   missionMinTrade,
   sharesHeldAtLeast,
   auctionWeekId,
+  inOpeningDay,
   MISSION_HELD_SELL_MS,
 } from './rules/missions';
 import type { DailyProgress, WeeklyProgress } from './rules/missionProgress';
@@ -64,6 +65,8 @@ export const buildTradeCreditUpdates = ({
   const day = `dailyMissions.${todayDate}`;
   const week = `weeklyMissions.${weekId}`;
   const auctionWeek = `weeklyMissions.${auctionWeekId(now)}`;
+  // Opening Bell: the auction, or any fill in the first day after the reopen.
+  const openingBell = viaAuction || inOpeningDay(now);
   const minTrade = missionMinTrade((userData.portfolioValue || 0) - (userData.marginUsed || 0));
   const updates: Record<string, unknown> = {
     totalTrades: FieldValue.increment(1),
@@ -85,7 +88,7 @@ export const buildTradeCreditUpdates = ({
       updates[`${day}.limitBuys.${ticker}.shares`] = FieldValue.increment(shares);
       updates[`${day}.limitBuys.${ticker}.value`] = FieldValue.increment(totalValue);
     }
-    if (viaAuction) {
+    if (openingBell) {
       updates[`${auctionWeek}.auctionBuys.${ticker}.shares`] = FieldValue.increment(shares);
       updates[`${auctionWeek}.auctionBuys.${ticker}.value`] = FieldValue.increment(totalValue);
     }
@@ -110,7 +113,7 @@ export const buildTradeCreditUpdates = ({
         updates[`${day}.heldLossValue`] = FieldValue.increment(oldValue);
       }
       if (viaLimitOrder) updates[`${day}.limitSoldValue`] = FieldValue.increment(oldValue);
-      if (viaAuction) updates[`${auctionWeek}.auctionSoldValue`] = FieldValue.increment(oldValue);
+      if (openingBell) updates[`${auctionWeek}.auctionSoldValue`] = FieldValue.increment(oldValue);
     }
     if (oldValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
 
