@@ -66,7 +66,7 @@ const HomePage = ({
   onShowPortfolio,
   onShowBailout,
 }: HomePageProps) => {
-  const { user, userData } = useSession();
+  const { userData } = useSession();
   const { prices, priceHistory, activeIPOs, ipoRestrictedTickers, launchedTickers, storedReviewChanges } = useMarket();
   const portfolioValue = calculatePortfolioValue(activeUserData, prices);
   const { bgClass, mutedClass, ghostBtnClass } = themeClasses;
@@ -103,14 +103,17 @@ const HomePage = ({
             <PixelIcon name="missions" className="w-4 h-4 mr-1.5 align-[-3px]" />
             Missions
           </button>
-          {user && !isGuest && (
-            <button onClick={onShowPinShop} className={`relative ${subHeaderBtnClass}`}>
-              <PixelIcon name="palette" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              Customization
-              {shopDropUnseen && <NewBadge />}
-            </button>
-          )}
-          <button onClick={() => navigate('/achievements')} className={subHeaderBtnClass}>
+          {/* Everyone sees the same buttons; guests get the sign-in prompt. */}
+          <button onClick={isGuest ? onShowLogin : onShowPinShop} className={`relative ${subHeaderBtnClass}`}>
+            <PixelIcon name="palette" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            Customization
+            {shopDropUnseen && !isGuest && <NewBadge />}
+          </button>
+          {/* Guests on phones already have Achievements in the bottom bar. */}
+          <button
+            onClick={() => navigate('/achievements')}
+            className={`${subHeaderBtnClass} ${isGuest ? 'max-md:hidden' : ''}`}
+          >
             <PixelIcon name="medal" className="w-4 h-4 mr-1.5 align-[-3px]" />
             Achievements
           </button>
@@ -126,12 +129,10 @@ const HomePage = ({
               Crews
             </button>
           )}
-          {user && !isGuest && (
-            <button onClick={onShowMargin} className={subHeaderBtnClass}>
-              <PixelIcon name="margin" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              Margin
-            </button>
-          )}
+          <button onClick={isGuest ? onShowLogin : onShowMargin} className={subHeaderBtnClass}>
+            <PixelIcon name="margin" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            Margin
+          </button>
           <button onClick={onShowAbout} className={subHeaderBtnClass}>
             <PixelIcon name="about" className="w-4 h-4 mr-1.5 align-[-3px]" />
             About
