@@ -105,7 +105,7 @@ const MarketGrid = ({
     />
   );
 
-  // Auto-fills as many ~300px+ columns as the screen allows, or the list view.
+  // Auto-fills as many ~220px+ columns as the screen allows, or the list view.
   const cardGrid = (list: Character[]) =>
     view === 'list' ? (
       <MarketList
@@ -118,7 +118,7 @@ const MarketGrid = ({
         setSortBy={setSortBy}
       />
     ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
         {list.map(renderCard)}
       </div>
     );

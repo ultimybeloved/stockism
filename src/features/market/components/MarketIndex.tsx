@@ -52,38 +52,37 @@ const MarketIndex = ({ prices, priceHistory, colorBlindMode = false }: MarketInd
 
   return (
     <>
-      {/* Banner card */}
+      {/* Banner across the top of the market: the one market-wide number. */}
       <div
-        className={`${cardClass} border rounded-sm p-4 mb-4 cursor-pointer hover:border-orange-600 transition-colors`}
+        className={`${cardClass} border rounded-sm px-4 py-3 mb-3 cursor-pointer hover:border-orange-600 transition-colors flex items-center gap-4`}
         {...pressable(() => setExpanded(true))}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold tracking-wider mb-1 light:text-zinc-500 dark:text-zinc-400">
-              STOCKISM MARKET INDEX
-            </div>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-2xl font-bold light:text-zinc-900 dark:text-white">
-                {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className={`text-sm font-semibold ${changeColor}`}>
-                {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}
-                {change24h.toFixed(2)} ({isUp ? '+' : ''}
-                {changePct24h.toFixed(2)}%) 24h
-              </span>
-            </div>
-            {change30dPct != null && (
-              <div className={`text-xs mt-0.5 ${thirtyColor}`}>
-                {thirtyIsUp ? '\u2191' : '\u2193'} {Math.abs(change30dPct).toFixed(2)}% 30d
-              </div>
-            )}
+        <div className="shrink-0">
+          <div className="text-[10px] font-semibold tracking-wider light:text-zinc-500 dark:text-zinc-400">
+            MARKET INDEX
           </div>
-          {sparklineData.length >= 2 && (
-            <div className="w-full sm:w-40 h-10 flex-shrink-0">
-              <SimpleLineChart data={sparklineData} colorBlindMode={colorBlindMode} width={160} height={40} />
+          <div className="text-xl font-bold tabular-nums light:text-zinc-900 dark:text-white">
+            {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className="shrink-0 text-xs tabular-nums">
+          <div className={`font-semibold ${changeColor}`}>
+            {isUp ? '▲' : '▼'} {isUp ? '+' : ''}
+            {changePct24h.toFixed(2)}% <span className="font-normal opacity-70">24h</span>
+          </div>
+          {change30dPct != null && (
+            <div className={thirtyColor}>
+              {thirtyIsUp ? '▲' : '▼'} {thirtyIsUp ? '+' : ''}
+              {change30dPct.toFixed(2)}% <span className="opacity-70">30d</span>
             </div>
           )}
         </div>
+        {sparklineData.length >= 2 && (
+          <div className="flex-1 min-w-0 max-sm:hidden">
+            <SimpleLineChart data={sparklineData} colorBlindMode={colorBlindMode} width={600} height={40} stretch />
+          </div>
+        )}
+        <span className="ml-auto shrink-0 text-xs text-orange-500 max-sm:hidden">Chart ›</span>
       </div>
 
       {/* Expanded chart modal — portaled to body so the sticky sidebar's

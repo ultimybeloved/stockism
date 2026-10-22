@@ -3,7 +3,7 @@
 // ============================================
 
 // General
-export const ITEMS_PER_PAGE = 15;
+export const ITEMS_PER_PAGE = 20;
 // Numbers the server enforces too live in the shared rule module.
 export {
   STARTING_CASH,

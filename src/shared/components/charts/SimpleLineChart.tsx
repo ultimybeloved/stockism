@@ -18,6 +18,8 @@ interface SimpleLineChartProps {
   width?: number;
   height?: number;
   className?: string;
+  /** Fill the box at any width instead of keeping the width:height shape. */
+  stretch?: boolean;
 }
 
 const SimpleLineChart = ({
@@ -26,6 +28,7 @@ const SimpleLineChart = ({
   width = 100,
   height = 32,
   className = '',
+  stretch = false,
 }: SimpleLineChartProps) => {
   if (!data || data.length < 2) return null;
 
@@ -57,8 +60,18 @@ const SimpleLineChart = ({
       : '#ef4444'; // Green/red default
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={`w-full h-10 ${className}`}>
-      <polyline fill="none" stroke={strokeColor} strokeWidth="1.5" points={points} />
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio={stretch ? 'none' : undefined}
+      className={`w-full h-10 ${className}`}
+    >
+      <polyline
+        fill="none"
+        stroke={strokeColor}
+        strokeWidth="1.5"
+        points={points}
+        vectorEffect={stretch ? 'non-scaling-stroke' : undefined}
+      />
     </svg>
   );
 };

@@ -11,6 +11,7 @@ import CompareChartModal from '../components/CompareChartModal';
 import { useDesktopMarket } from '../hooks/useDesktopMarket';
 import MarketControls from '../components/MarketControls';
 import MarketGrid from '../components/MarketGrid';
+import MarketIndex from '../components/MarketIndex';
 import { useSession, useMarket } from '../../../context/AppContext';
 
 import { themeClasses } from '../../../utils/theme';
@@ -208,6 +209,7 @@ const HomePage = ({
 
           {/* Market column */}
           <div className="lg:order-1 flex-1 min-w-0">
+            <MarketIndex prices={prices} priceHistory={priceHistory} colorBlindMode={userData?.colorBlindMode} />
             <MarketControls
               filters={browser.filters}
               setFilter={browser.setFilter}

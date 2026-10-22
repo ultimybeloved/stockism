@@ -1,18 +1,16 @@
 import { useState, useEffect, useMemo, type CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import CharacterMeta from './CharacterMeta';
 import ReviewChangeBadge from './ReviewChangeBadge';
-import { themeClasses, getRarityStagger, SPACING } from '../../../utils/theme';
+import { themeClasses, getRarityStagger } from '../../../utils/theme';
 import { rarityClassFor } from '../../../utils/rarity';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import ShortRiskTag from '../../trading/components/ShortRiskTag';
-import TradeActionModal from '../../trading/components/TradeActionModal';
-import PreMarketModal from '../../trading/components/PreMarketModal';
+import CardTradeMenu from './CardTradeMenu';
 import { useSession, useMarket } from '../../../context/AppContext';
 
-import { isPreMarketWindow, getMarketClosedState, type ReviewChange } from '../../../utils/marketHours';
+import { getMarketClosedState, type ReviewChange } from '../../../utils/marketHours';
 import type { Character } from '../../../characters';
 import type { PricePoint, ShortPosition, TradeAction } from '../../../types';
 import type { TradeAnimation } from '../../../shared/hooks/types';
@@ -94,10 +92,6 @@ const CharacterCard = ({
   const { user, userData } = useSession();
   const { priceHistory, marketData, rarityTiers } = useMarket();
   const phone = usePhone();
-  const [showTradeMenu, setShowTradeMenu] = useState(false);
-  const [tradeAction, setTradeAction] = useState<TradeAction | null>(null);
-  const [showPreMarket, setShowPreMarket] = useState(false);
-  const [preMarketAction, setPreMarketAction] = useState<'buy' | 'sell'>('buy');
 
   const [haltCountdown, setHaltCountdown] = useState('');
 
@@ -131,20 +125,7 @@ const CharacterCard = ({
     return () => clearInterval(interval);
   }, [isHalted, resumeAt]);
 
-  // Color blind friendly helper for Buy/Sell (solid buttons)
-  const getBuySellColors = (isBuy: boolean) => {
-    if (colorBlindMode) {
-      return isBuy
-        ? { bg: 'bg-teal-600', bgHover: 'hover:bg-teal-700' }
-        : { bg: 'bg-purple-600', bgHover: 'hover:bg-purple-700' };
-    } else {
-      return isBuy
-        ? { bg: 'bg-green-600', bgHover: 'hover:bg-green-700' }
-        : { bg: 'bg-red-600', bgHover: 'hover:bg-red-700' };
-    }
-  };
-
-  const { cardClass: themeCardClass, textClass, mutedClass, ghostBtnClass, raisedClass } = themeClasses;
+  const { cardClass: themeCardClass, textClass, mutedClass, raisedClass } = themeClasses;
   const cardClass = `${themeCardClass} ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
 
   const getSentimentColor = () => {
@@ -203,6 +184,13 @@ const CharacterCard = ({
   const miniChartData = use7dChart ? chart7dData : chart24hData;
   const chartChange = use7dChart ? chart7dChange : chart24hChange;
   const isUp = chartChange >= 0;
+  const changeColor = isUp
+    ? colorBlindMode
+      ? 'text-teal-500'
+      : 'text-green-500'
+    : colorBlindMode
+      ? 'text-purple-500'
+      : 'text-red-500';
   const defaultChartTimeRange = use7dChart ? '7d' : '1d';
 
   // Card rarity tier by market standing (ETFs have no tier). See utils/rarity.js —
@@ -225,7 +213,7 @@ const CharacterCard = ({
     <>
       <div
         style={rarityStyle}
-        className={`${cardClass} border rounded-sm ${SPACING.cardPad} transition-all relative ${frameClass} ${
+        className={`${cardClass} border rounded-sm p-3 transition-all relative flex flex-col ${frameClass} ${
           highlight === 'open' ? 'ring-2 ring-orange-500' : highlight === 'compare' ? 'ring-2 ring-blue-500' : ''
         } ${
           tradeAnimation
@@ -237,32 +225,6 @@ const CharacterCard = ({
             : ''
         }`}
       >
-        {onToggleWatchlist && user && (
-          <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
-            {onSetAlert && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSetAlert(character.ticker);
-                }}
-                className={`text-sm leading-none transition-colors ${mutedClass} hover:text-orange-500 opacity-40 hover:opacity-100`}
-                title="Set price alert"
-              >
-                <PixelIcon name="bell" className="w-4 h-4 block" />
-              </button>
-            )}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleWatchlist(character.ticker);
-              }}
-              className={`text-lg leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-40 hover:opacity-100'}`}
-              title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
-            >
-              {isWatchlisted ? '\u2605' : '\u2606'}
-            </button>
-          </div>
-        )}
         {isHalted && (
           <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
             <div className="bg-red-600/90 text-white px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider shadow-lg">
@@ -272,154 +234,78 @@ const CharacterCard = ({
         )}
         <div className="cursor-pointer select-none" {...pressable(openChart)} {...press}>
           {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
-          <div className="flex justify-between items-start mb-2">
-            <div>
-              <div className="flex items-center gap-1">
-                <p className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</p>
-                {isETF && <span className="text-xs bg-purple-600 text-white px-1 rounded">ETF</span>}
-                {!isETF && statusBadge(character) && (
-                  <span className="text-xs" title={STATUS_MAP[statusOf(character)]?.hint}>
-                    <PixelIcon name={statusBadge(character)} className="w-3.5 h-3.5" />
-                  </span>
-                )}
-              </div>
-              {!isETF && <p className={`text-xs ${mutedClass} mt-0.5`}>{character.name}</p>}
-              <CharacterMeta character={character} />
+          <div className="flex justify-between items-baseline gap-2">
+            <div className="flex items-center gap-1 min-w-0">
+              <p className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</p>
+              {isETF && <span className="text-[10px] bg-purple-600 text-white px-1 rounded">ETF</span>}
+              {!isETF && statusBadge(character) && (
+                <span title={STATUS_MAP[statusOf(character)]?.hint}>
+                  <PixelIcon name={statusBadge(character)} className="w-3.5 h-3.5" />
+                </span>
+              )}
             </div>
-            <div className="text-right">
-              <p className={`font-semibold ${textClass}`}>{formatCurrency(price)}</p>
-              <p
-                className={`text-xs font-mono ${isUp ? (colorBlindMode ? 'text-teal-500' : 'text-green-500') : colorBlindMode ? 'text-purple-500' : 'text-red-500'}`}
-              >
-                {isUp ? '▲' : '▼'} {formatChange(chartChange)}
-              </p>
-            </div>
+            <p className={`font-semibold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
           </div>
-          <div className="mb-2">
-            <SimpleLineChart data={miniChartData} colorBlindMode={colorBlindMode} />
+          <div className="flex justify-between items-baseline gap-2">
+            <p className={`text-xs truncate ${mutedClass}`}>{character.name}</p>
+            <p className={`shrink-0 text-xs font-mono ${changeColor}`}>
+              {isUp ? '▲' : '▼'} {formatChange(chartChange)}
+            </p>
+          </div>
+          <CharacterMeta character={character} />
+          <div className="my-2">
+            <SimpleLineChart data={miniChartData} colorBlindMode={colorBlindMode} width={240} height={36} stretch />
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-2">
-            <span className={`text-xs ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
-            <Link
-              to={`/stock/${character.ticker}`}
-              onClick={(e) => e.stopPropagation()}
-              className={`text-[10px] ${mutedClass} hover:text-orange-500`}
-            >
-              Details ↗
-            </Link>
-          </div>
-          <div className="flex gap-2">
-            {owned && <span className="text-xs text-blue-500 font-semibold">{holdings} long</span>}
-            <ShortRiskTag
-              shortPosition={shortPosition}
-              ticker={character.ticker}
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 min-h-[26px]">
+          <span className={`text-[10px] ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
+          {owned && <span className="text-[11px] text-blue-500 font-semibold">{holdings} long</span>}
+          <ShortRiskTag
+            shortPosition={shortPosition}
+            ticker={character.ticker}
+            price={price}
+            colorBlindMode={colorBlindMode}
+          />
+          <div className="ml-auto flex items-center gap-1.5">
+            {onToggleWatchlist && user && onSetAlert && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetAlert(character.ticker);
+                }}
+                className={`transition-opacity ${mutedClass} opacity-40 hover:opacity-100`}
+                title="Set price alert"
+              >
+                <PixelIcon name="bell" className="w-3.5 h-3.5 block" />
+              </button>
+            )}
+            {onToggleWatchlist && user && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleWatchlist(character.ticker);
+                }}
+                className={`text-base leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-40 hover:opacity-100'}`}
+                title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+              >
+                {isWatchlisted ? '★' : '☆'}
+              </button>
+            )}
+            <CardTradeMenu
+              character={character}
               price={price}
-              colorBlindMode={colorBlindMode}
+              holdings={holdings}
+              shortPosition={shortPosition}
+              userCash={userCash}
+              onTrade={onTrade}
+              haltInfo={haltInfo}
+              blocked={isHalted || marketClosed}
+              label={isHalted ? 'Halted' : marketState.label}
             />
           </div>
         </div>
-
-        {!showTradeMenu ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isHalted && !marketClosed) setShowTradeMenu(true);
-            }}
-            disabled={isHalted || marketClosed}
-            className={`w-full py-1.5 text-xs font-semibold uppercase rounded-sm border ${
-              isHalted || marketClosed ? 'border-red-500/30 text-red-400 opacity-50 cursor-not-allowed' : ghostBtnClass
-            }`}
-          >
-            {isHalted ? 'Trading Halted' : marketState.label}
-          </button>
-        ) : (
-          <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-            {/* Action buttons */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => {
-                  setShowTradeMenu(false);
-                  if (isPreMarketWindow()) {
-                    setPreMarketAction('buy');
-                    setShowPreMarket(true);
-                  } else setTradeAction('buy');
-                }}
-                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(true).bg} ${getBuySellColors(true).bgHover} text-white`}
-              >
-                Buy
-              </button>
-              <button
-                onClick={() => {
-                  setShowTradeMenu(false);
-                  if (isPreMarketWindow()) {
-                    setPreMarketAction('sell');
-                    setShowPreMarket(true);
-                  } else setTradeAction('sell');
-                }}
-                disabled={holdings === 0}
-                className={`py-2 text-xs font-semibold uppercase rounded-sm ${getBuySellColors(false).bg} ${getBuySellColors(false).bgHover} text-white disabled:opacity-50`}
-              >
-                Sell
-              </button>
-              <button
-                onClick={() => {
-                  setTradeAction('short');
-                  setShowTradeMenu(false);
-                }}
-                className="py-2 text-xs font-semibold uppercase rounded-sm border-2 border-orange-500 light:text-orange-500 light:hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
-              >
-                Short
-              </button>
-              <button
-                onClick={() => {
-                  setTradeAction('cover');
-                  setShowTradeMenu(false);
-                }}
-                disabled={!shorted}
-                className="py-2 text-xs font-semibold uppercase rounded-sm border-2 border-blue-500 light:text-blue-600 light:hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 disabled:opacity-50"
-              >
-                Cover
-              </button>
-            </div>
-            <button
-              onClick={() => setShowTradeMenu(false)}
-              className={`w-full py-1 text-xs ${mutedClass} hover:text-orange-500`}
-            >
-              Cancel
-            </button>
-          </div>
-        )}
       </div>
-
-      {/* Trade Action Modal */}
-      {tradeAction && (
-        <TradeActionModal
-          character={character}
-          action={tradeAction}
-          price={price}
-          holdings={holdings}
-          shortPosition={shortPosition}
-          userCash={userCash}
-          onTrade={onTrade}
-          onClose={() => setTradeAction(null)}
-          haltInfo={haltInfo}
-        />
-      )}
-
-      {/* Pre-Market Opening Auction Modal */}
-      {showPreMarket && (
-        <PreMarketModal
-          character={character}
-          price={price}
-          holdings={holdings}
-          userCash={userCash}
-          initialAction={preMarketAction}
-          onClose={() => setShowPreMarket(false)}
-        />
-      )}
     </>
   );
 };
