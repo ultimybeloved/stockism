@@ -46,12 +46,14 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
 
   const marketRef = db.collection('market').doc('current');
   const crewStatsRef = db.collection('market').doc('crewStats');
+  const haltLockRef = db.collection('market').doc('callBaseline');
 
   const result = await db.runTransaction(async (transaction) => {
-    const [userDoc, marketDoc, crewStatsDoc] = await Promise.all([
+    const [userDoc, marketDoc, crewStatsDoc, haltLockDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(marketRef),
       transaction.get(crewStatsRef),
+      transaction.get(haltLockRef),
     ]);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
@@ -59,7 +61,7 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     checkBanned(userData);
     checkDiscordWall(userData);
     const now = Date.now();
-    const ctx = missionContext(userData, marketDoc.exists ? marketDoc.data() : null, now);
+    const ctx = missionContext(userData, marketDoc.exists ? marketDoc.data() : null, now, haltLockDoc.data() || null);
     const today = new Date(now).toISOString().split('T')[0]!;
     const weekId = getWeekId(now);
     const crew: string | null = userData.crew || null;

@@ -1,3 +1,6 @@
+import { useEffect, useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../../firebase';
 import { getDailyMissions, getWeeklyMissions, getCrewMultiplier, type Mission } from '../../../crews';
 import { getTodayDateString } from '../../../utils/date';
 import {
@@ -22,6 +25,14 @@ const sumRewards = (list: BoardMission[], pick: (m: BoardMission) => boolean) =>
 export function useMissionBoard() {
   const { userData } = useSession();
   const { prices, crewStats, marketData } = useMarket();
+  // Prices when the chapter halt began, for the "down / up X% this week"
+  // missions. Changes once a week, so it is read once, not subscribed.
+  const [haltPrices, setHaltPrices] = useState<MissionContext['haltPrices']>(null);
+  useEffect(() => {
+    getDoc(doc(db, 'market', 'callBaseline'))
+      .then((snap) => setHaltPrices(snap.exists() ? (snap.data() as MissionContext['haltPrices']) : null))
+      .catch((err) => console.warn('Failed to load callBaseline:', err?.message));
+  }, []);
 
   const now = Date.now();
   const today = getTodayDateString();
@@ -40,6 +51,7 @@ export function useMissionBoard() {
     prices,
     weekOpenPrices: marketData?.weekOpenPrices || null,
     dayClosePrices: marketData?.dayClosePrices || null,
+    haltPrices,
     now,
   };
 

@@ -29,11 +29,13 @@ export const missionContext = (
     | null
     | undefined,
   now = Date.now(),
+  haltPrices: MissionContext['haltPrices'] = null,
 ): MissionContext => ({
   player: userData,
   prices: market?.prices || {},
   weekOpenPrices: market?.weekOpenPrices || null,
   dayClosePrices: market?.dayClosePrices || null,
+  haltPrices,
   now,
 });
 

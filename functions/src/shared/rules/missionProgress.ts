@@ -101,8 +101,23 @@ export interface MissionContext {
   weekOpenPrices?: Record<string, number> | null;
   /** Prices at the last daily close, 21:00 UTC (market/current.dayClosePrices). */
   dayClosePrices?: Record<string, number> | null;
+  /** Prices when the chapter halt began (market/callBaseline). */
+  haltPrices?: { prices?: Record<string, number>; savedAt?: number } | null;
   now: number;
 }
+
+// "Down / up X% this week" counts from before the chapter review, so the
+// review's price changes count as part of the week they open. The halt lock
+// is taken at 13:00 UTC, eight hours before the week starts; an older lock
+// belongs to an earlier week and the reopen prices are used instead.
+const HALT_LOCK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const weekMovePrices = (ctx: MissionContext): Record<string, number> => {
+  const open = ctx.weekOpenPrices || {};
+  const lock = ctx.haltPrices;
+  const start = missionWeekStartMs(ctx.now);
+  if (!lock?.prices || !lock.savedAt || lock.savedAt > start || start - lock.savedAt > HALT_LOCK_MAX_AGE_MS) return open;
+  return { ...open, ...lock.prices };
+};
 
 export interface MissionProgress {
   complete: boolean;
@@ -167,7 +182,7 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
     case 'BUY_UNDERDOG':
       return flag(kept().some((b) => b.low < UNDERDOG_PRICE_THRESHOLD));
     case 'BUY_BARGAIN': {
-      const open = ctx.weekOpenPrices || {};
+      const open = weekMovePrices(ctx);
       return flag(
         kept().some((b) => (open[b.ticker] || 0) > 0 && b.low <= open[b.ticker]! * (1 - BARGAIN_DROP_PCT / 100)),
       );
@@ -204,7 +219,7 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
       return flag(kept().some((b) => (close[b.ticker] || 0) > 0 && b.low < close[b.ticker]!));
     }
     case 'BUY_MOMENTUM': {
-      const open = ctx.weekOpenPrices || {};
+      const open = weekMovePrices(ctx);
       const rise = 1 + (mission.requirement ?? 5) / 100;
       return flag(kept().some((b) => (open[b.ticker] || 0) > 0 && b.high >= open[b.ticker]! * rise));
     }
@@ -296,7 +311,7 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       );
     }
     case 'WEEKLY_BUY_DIPS': {
-      const open = ctx.weekOpenPrices || {};
+      const open = weekMovePrices(ctx);
       const drop = 1 - DIP_COLLECTOR_DROP_PCT / 100;
       const dips = weekBuysStillHeld(ctx).filter(
         (t) => (open[t] || 0) > 0 && (wp.buys?.[t]?.low ?? Infinity) <= open[t]! * drop,

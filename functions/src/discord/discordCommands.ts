@@ -424,9 +424,13 @@ const cmdMissions = async (interaction: Interaction) => {
 
   const { data } = found;
   const crew: string | null = data.crew || null;
-  const market = (await marketRef().get()).data();
+  const [marketSnap, haltLock] = await Promise.all([
+    marketRef().get(),
+    db.collection('market').doc('callBaseline').get(),
+  ]);
+  const market = marketSnap.data();
   const now = Date.now();
-  const ctx = missionContext(data as UserData, market, now);
+  const ctx = missionContext(data as UserData, market, now, haltLock.data() || null);
   const today = new Date(now).toISOString().split('T')[0]!;
   const weekId = getWeekId(now);
 

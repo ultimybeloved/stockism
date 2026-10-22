@@ -14,6 +14,7 @@ import {
 import {
   dailyMissionProgress,
   weeklyMissionProgress,
+  weekMovePrices,
   rivalryCount,
   nextRivalry,
   type MissionContext,
@@ -308,6 +309,17 @@ describe('new weekly missions', () => {
     expect(inOpeningDay(start + 23.9 * 3600 * 1000)).toBe(true);
     expect(inOpeningDay(start + 24 * 3600 * 1000)).toBe(false);
     expect(inOpeningDay(start - 60 * 1000)).toBe(false);
+  });
+
+  it('week moves count from before the chapter review', () => {
+    const now = Date.parse('2026-10-22T22:00:00Z');
+    const start = missionWeekStartMs(now);
+    const base = { player: {}, prices: {}, weekOpenPrices: { GWON: 13.25, HANT: 13.19 }, now };
+    const lock = { prices: { GWON: 15.69 }, savedAt: start - 8 * 3600 * 1000 };
+    expect(weekMovePrices({ ...base, haltPrices: lock })).toEqual({ GWON: 15.69, HANT: 13.19 });
+    // Last week's lock, or none, falls back to the reopen prices.
+    expect(weekMovePrices({ ...base, haltPrices: { ...lock, savedAt: start - 7 * DAY } })).toEqual(base.weekOpenPrices);
+    expect(weekMovePrices(base)).toEqual(base.weekOpenPrices);
   });
 
   it('Beat the Market: up, and by more than the index', () => {
