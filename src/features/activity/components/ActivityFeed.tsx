@@ -33,11 +33,14 @@ function Row({ e, now, onOpen }: { e: ActivityEntry; now: number; onOpen: (t: st
         onClick={() => onOpen(e.ticker)}
         className={`act-row act-sheen ${color} w-full flex items-center gap-2.5 px-3 py-2 text-left rounded-sm transition-colors light:hover:bg-amber-50 dark:hover:bg-zinc-800/60`}
       >
-        <span className="act-pop shrink-0 w-6 h-6 rounded-sm grid place-items-center text-xs font-bold" style={tint}>
+        <span
+          className="act-pop shrink-0 w-6 h-6 rounded-sm grid place-items-center text-xs font-bold"
+          style={tint}
+          aria-label={e.side === 'buy' ? 'Buy' : 'Sell'}
+        >
           {e.side === 'buy' ? '▲' : '▼'}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm light:text-zinc-700 dark:text-zinc-300">
-          Someone {e.side === 'buy' ? 'bought' : 'sold'}{' '}
+        <span className="min-w-0 flex-1 truncate text-sm">
           <span className="font-semibold light:text-zinc-900 dark:text-zinc-100">${e.ticker}</span>
           {name && <span className={`ml-1.5 text-xs ${themeClasses.mutedClass}`}>{name}</span>}
         </span>
@@ -80,15 +83,18 @@ export default function ActivityFeed({ ticker, limit = 8, className = '' }: Acti
   const now = useMinute();
   const [more, setMore] = useState(false);
 
-  // The live dot rings once each time something lands.
+  // The dot idles red and flashes green for a second each time something lands.
   const [tick, setTick] = useState(0);
+  const [flash, setFlash] = useState(false);
   const last = useRef('');
   const head = entries[0] ? `${entries[0].id}:${entries[0].bump}` : '';
   useEffect(() => {
-    if (head && head !== last.current) {
-      last.current = head;
-      setTick((t) => t + 1);
-    }
+    if (!head || head === last.current) return;
+    last.current = head;
+    setTick((t) => t + 1);
+    setFlash(true);
+    const t = setTimeout(() => setFlash(false), 1000);
+    return () => clearTimeout(t);
   }, [head]);
 
   const total = lastHour.buys + lastHour.sells;
@@ -102,15 +108,12 @@ export default function ActivityFeed({ ticker, limit = 8, className = '' }: Acti
       <header className="px-4 pt-3 pb-2">
         <div className="flex items-center justify-between">
           <h2 className={`text-xs font-semibold uppercase tracking-wide ${mutedClass}`}>
-            {ticker ? `Activity on $${ticker}` : 'Market activity'}
+            {ticker ? `Recent trades on $${ticker}` : 'Recent trades'}
           </h2>
-          <span className={`flex items-center gap-1.5 text-xs ${mutedClass}`}>
-            <span
-              key={tick}
-              className={`act-dot ${tick ? 'act-tick' : ''} w-1.5 h-1.5 rounded-full bg-current ${up}`}
-            />
-            Live, 20 min behind
-          </span>
+          <span
+            key={tick}
+            className={`act-dot ${tick ? 'act-tick' : ''} w-2 h-2 rounded-full bg-current transition-colors duration-300 ${flash ? up : down}`}
+          />
         </div>
         {/* Buys against sells over the last hour of the feed. */}
         <div className="mt-2.5">
@@ -133,19 +136,16 @@ export default function ActivityFeed({ ticker, limit = 8, className = '' }: Acti
           ))}
         </ul>
       ) : (
-        <p className={`px-4 pb-4 text-sm ${mutedClass}`}>Nothing yet. Trades show up here about 20 minutes later.</p>
+        <p className={`px-4 pb-4 text-sm ${mutedClass}`}>No trades yet.</p>
       )}
 
-      <footer
-        className={`px-4 py-2 border-t flex items-center justify-between text-[11px] ${mutedClass} light:border-amber-200 dark:border-zinc-800`}
-      >
-        <span>No names or sizes. Bot trades included.</span>
-        {entries.length > limit && (
+      {entries.length > limit && (
+        <footer className="px-4 py-2 border-t text-right text-xs light:border-amber-200 dark:border-zinc-800">
           <button onClick={() => setMore((m) => !m)} className="text-orange-500 hover:underline">
             {more ? 'Show less' : 'Show more'}
           </button>
-        )}
-      </footer>
+        </footer>
+      )}
     </section>
   );
 }
