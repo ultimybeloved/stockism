@@ -124,7 +124,8 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
   // it — and best-effort, because a failed archive must never take down the
   // daily summary.
   try {
-    const closed = await recordDailyCloses(prices, now);
+    // Scheduled run only also sets the close Buy the Dip measures from.
+    const closed = await recordDailyCloses(prices, now, { setDayClose: recordIndexHistory });
     logger.info(`daily closes recorded: ${closed} tickers`);
   } catch (e) {
     logger.error('daily close record failed:', (e as Error).message);

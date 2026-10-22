@@ -8,6 +8,7 @@ export = [
   'adminCashLog',
   'adminDashboard',
   'adminDiscordOps',
+  'adminEnforcement',
   'adminGiftLog',
   'adminHistory',
   'adminMarketGuard',

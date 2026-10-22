@@ -1,113 +1,56 @@
 // Server-side mission completion verification.
 //
-// Internal module — NOT exported through functions/src/index.js. Required by
-// missions.js (to gate reward claims) and discordCommands.js (to show progress
-// in /missions). It lives here rather than inside missions.js so the Discord bot
-// can read completion state without a second, drifting copy of the rules.
-//
-// Each check takes (progress, userData, prices) and returns a boolean.
+// Internal module — NOT listed in services.ts. Required by missions.ts (to gate
+// reward claims) and discordCommands.ts (to show progress in /missions). The
+// rules themselves are the shared rules/missionProgress, the same code the
+// missions screen draws its progress bars from.
 
-import { CREW_MEMBERS } from '../shared/constants';
-import { DAILY_MISSIONS, WEEKLY_MISSIONS } from '../shared/crews';
+import { DAILY_MISSIONS, WEEKLY_MISSIONS, OPENING_BELL } from '../shared/crews';
+import {
+  dailyMissionProgress,
+  weeklyMissionProgress,
+  type DailyProgress,
+  type WeeklyProgress,
+  type MissionContext,
+} from '../shared/rules/missionProgress';
 import type { UserData } from '../shared/types';
 
-/** users/{uid}.dailyMissions[date]: what the player did that day. */
-export interface DailyProgress {
-  boughtCrewMember?: boolean;
-  tradesCount?: number;
-  boughtAny?: boolean;
-  soldAny?: boolean;
-  tradeVolume?: number;
-  boughtRival?: boolean;
-  boughtUnderdog?: boolean;
-  crewSharesBought?: number;
-}
+export type { DailyProgress, WeeklyProgress };
 
-/** users/{uid}.weeklyMissions[weekId]: the week so far. */
-export interface WeeklyProgress {
-  tradeValue?: number;
-  tradeVolume?: number;
-  tradeCount?: number;
-  tradingDays?: Record<string, boolean>;
-  checkinDays?: Record<string, boolean>;
-  startPortfolioValue?: number;
-  startGrantedValue?: number;
-  startMarginUsed?: number;
-}
+/** The context a check runs in, from the user doc and the market/current doc. */
+export const missionContext = (
+  userData: UserData,
+  market:
+    | {
+        prices?: Record<string, number>;
+        weekOpenPrices?: Record<string, number>;
+        dayClosePrices?: Record<string, number>;
+      }
+    | null
+    | undefined,
+  now = Date.now(),
+): MissionContext => ({
+  player: userData,
+  prices: market?.prices || {},
+  weekOpenPrices: market?.weekOpenPrices || null,
+  dayClosePrices: market?.dayClosePrices || null,
+  now,
+});
 
-// A mission's target. A mission with none can never be met (x >= undefined was false before).
-const req = (mission: { requirement?: number } | undefined) => mission?.requirement ?? Infinity;
-
-type MissionCheck<P> = (progress: P, userData: UserData, prices?: Record<string, number> | null) => boolean;
-
-export const DAILY_MISSION_CHECKS: Record<string, MissionCheck<DailyProgress>> = {
-  // Action-based: require something the player did today.
-  BUY_CREW_MEMBER: (dp) => !!dp.boughtCrewMember,
-  MAKE_TRADES: (dp) => (dp.tradesCount || 0) >= 5,
-  BUY_ANY_STOCK: (dp) => !!dp.boughtAny,
-  SELL_ANY_STOCK: (dp) => !!dp.soldAny,
-  TRADE_VOLUME: (dp) => (dp.tradeVolume || 0) >= req(DAILY_MISSIONS.TRADE_VOLUME),
-  RIVAL_TRADER: (dp) => !!dp.boughtRival,
-  UNDERDOG_INVESTOR: (dp) => !!dp.boughtUnderdog,
-  CREW_ACCUMULATOR: (dp) => (dp.crewSharesBought || 0) >= 20,
-  // Composition-based: a percentage you actively maintain (fair across sizes).
-  CREW_MAJORITY: (dp, userData, prices) => crewValuePercent(userData, prices) >= req(DAILY_MISSIONS.CREW_MAJORITY),
+export const isDailyMissionDone = (missionId: string, dp: DailyProgress, ctx: MissionContext) => {
+  const mission = DAILY_MISSIONS[missionId];
+  return !!mission && dailyMissionProgress(mission, dp, ctx).complete;
 };
 
-/**
- * Share of the portfolio's stock value held in the player's crew, 0-100. By
- * value, not share count: Crew Majority counted shares until 2026-10-14, so a
- * pile of cheap crew stock passed for "most of your portfolio".
- * Mirrors crewValuePercent in src/utils/missionProgress.ts.
- */
-function crewValuePercent(userData: UserData, prices?: Record<string, number> | null) {
-  const crew = userData.crew;
-  if (!crew || !CREW_MEMBERS[crew]) return 0;
-  let totalVal = 0;
-  let crewVal = 0;
-  for (const [t, s] of Object.entries(userData.holdings || {})) {
-    if (s <= 0) continue;
-    const v = s * ((prices || {})[t] || 0);
-    totalVal += v;
-    if (CREW_MEMBERS[crew]!.includes(t)) crewVal += v;
-  }
-  return totalVal > 0 ? (crewVal / totalVal) * 100 : 0;
-}
-
-export const WEEKLY_MISSION_CHECKS: Record<string, MissionCheck<WeeklyProgress>> = {
-  // Activity-based: a week's worth of trading / consistency.
-  MARKET_WHALE: (wp) => (wp.tradeValue || 0) >= req(WEEKLY_MISSIONS.MARKET_WHALE),
-  VOLUME_KING: (wp) => (wp.tradeVolume || 0) >= req(WEEKLY_MISSIONS.VOLUME_KING),
-  TRADING_MACHINE: (wp) => (wp.tradeCount || 0) >= req(WEEKLY_MISSIONS.TRADING_MACHINE),
-  SHARE_MOGUL: (wp) => (wp.tradeVolume || 0) >= req(WEEKLY_MISSIONS.SHARE_MOGUL),
-  TRADE_MASTER: (wp) => (wp.tradeCount || 0) >= req(WEEKLY_MISSIONS.TRADE_MASTER),
-  TRADING_STREAK: (wp) => Object.keys(wp.tradingDays || {}).length >= req(WEEKLY_MISSIONS.TRADING_STREAK),
-  DAILY_GRINDER: (wp) => Object.keys(wp.checkinDays || {}).length >= req(WEEKLY_MISSIONS.DAILY_GRINDER),
-  // Composition-based: a percentage of portfolio value you actively maintain.
-  CREW_MAXIMALIST: (wp, userData, prices) => crewValuePercent(userData, prices) >= req(WEEKLY_MISSIONS.CREW_MAXIMALIST),
-  // Growth is percentage-based so small accounts aren't locked out by flat
-  // dollar targets.
-  PORTFOLIO_BUILDER: (wp, userData) => earnedGrowthPct(wp, userData) >= req(WEEKLY_MISSIONS.PORTFOLIO_BUILDER),
-  PORTFOLIO_MOONSHOT: (wp, userData) => earnedGrowthPct(wp, userData) >= req(WEEKLY_MISSIONS.PORTFOLIO_MOONSHOT),
+/** The mission-count achievement a new lifetime total earns, if any. */
+export const missionAchievementFor = (newTotal: number, achievements: string[] = []) => {
+  if (newTotal >= 100 && !achievements.includes('MISSION_100')) return 'MISSION_100';
+  if (newTotal >= 50 && !achievements.includes('MISSION_50')) return 'MISSION_50';
+  if (newTotal >= 10 && !achievements.includes('MISSION_10')) return 'MISSION_10';
+  return null;
 };
 
-/**
- * This week's growth with free money taken out: check-ins, dividends, daily
- * drop stock, mission rewards, and ladder/prediction flows (grantedValue). Until
- * 2026-09-28 it counted all of it, so a small account completed both growth
- * missions on a week of check-ins and drops without trading at all. A week
- * recorded before startGrantedValue existed deducts nothing rather than guess.
- * Mirrored in src/utils/missionProgress.ts.
- */
-function earnedGrowthPct(wp: WeeklyProgress, userData: UserData) {
-  // Net of margin debt at both ends. Borrowing adds the bought stock to
-  // portfolioValue without subtracting the loan, so a margin buy read as 25-75%
-  // growth and completed both missions with nothing earned (fixed 2026-10-13).
-  // A week recorded before startMarginUsed existed counts no debt at the start.
-  const startValue = (wp.startPortfolioValue || 0) - (wp.startMarginUsed || 0);
-  if (startValue <= 0) return -Infinity;
-  const granted = userData.grantedValue || 0;
-  const grantedThisWeek = granted - (wp.startGrantedValue ?? granted);
-  const nowValue = (userData.portfolioValue || 0) - (userData.marginUsed || 0);
-  return ((nowValue - grantedThisWeek - startValue) / startValue) * 100;
-}
+export const isWeeklyMissionDone = (missionId: string, wp: WeeklyProgress, ctx: MissionContext) => {
+  const mission = missionId === OPENING_BELL.id ? OPENING_BELL : WEEKLY_MISSIONS[missionId];
+  return !!mission && weeklyMissionProgress(mission, wp, ctx).complete;
+};

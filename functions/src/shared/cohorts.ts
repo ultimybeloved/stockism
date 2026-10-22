@@ -16,12 +16,13 @@ export const addPendingShares = (
   cohort: Cohort | null,
   shares: number,
   now: number,
+  free = false,
 ): Cohort & { pending: NonNullable<Cohort['pending']> } => {
   const c =
     cohort && typeof cohort === 'object'
       ? { ...cohort, eligible: cohort.eligible || 0, pending: [...(cohort.pending || [])] }
       : { eligible: 0, pending: [] };
-  c.pending.push({ shares, availableAt: now + DIVIDEND_HOLD_MS });
+  c.pending.push({ shares, availableAt: now + DIVIDEND_HOLD_MS, ...(free ? { free: true } : {}) });
   return c;
 };
 
@@ -87,16 +88,18 @@ export const graduateCohort = (
 //
 // If you add a lane that changes holdings[ticker], it calls one of these.
 
-// Shares ENTERING a position. `isETF` preserves the Dividend Demon clock.
+// Shares ENTERING a position. `isETF` preserves the Dividend Demon clock;
+// `free` marks shares that weren't bought (the daily drop).
 export const cohortAddUpdate = (
   userData: UserData | null | undefined,
   ticker: string,
   shares: number,
   now: number,
   isETF = false,
+  free = false,
 ) => {
   const existing = userData?.holdingCohorts?.[ticker] || null;
-  const next = addPendingShares(existing, shares, now);
+  const next = addPendingShares(existing, shares, now, free);
   if (isETF) next.firstHeldAt = existing?.firstHeldAt || now;
   return { [`holdingCohorts.${ticker}`]: next };
 };

@@ -3,6 +3,7 @@ import { ACHIEVEMENT_MAP } from '../../constants/achievements';
 import { SHOP_PINS } from '../../crews';
 import type { UserData } from '../../types';
 import AchievementIcon from './AchievementIcon';
+import CrewPin from './CrewPin';
 import { crewPinSrc, CREW_HEAD_PIN, PIXELATED, pixelatedIfSvg } from '../../constants/crests';
 
 /** The fields pins are drawn from. A full user doc or a public profile both fit. */
@@ -41,11 +42,7 @@ const PinDisplay = ({
       if (shouldShowCrewPin) {
         pins.push(
           <span key="crew" title={crew.name} className={`inline-flex items-center ${sizeClass}`}>
-            {crewPinSrc(crew) ? (
-              <img src={crewPinSrc(crew)} alt={crew.name} className={`${imgSize} object-contain`} style={PIXELATED} />
-            ) : (
-              crew.emblem
-            )}
+            {crewPinSrc(crew) ? <CrewPin crew={crew} alt={crew.name} className={imgSize} /> : crew.emblem}
           </span>,
         );
       }

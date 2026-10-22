@@ -135,14 +135,16 @@ async function runWeeklyMarketSummary() {
     await writeFeatureUsage({ users, tradesByUid, since: weekAgo, now });
 
     // Top portfolios — bots and banned accounts are excluded from all
-    // user-facing rankings
+    // user-facing rankings. Net worth (margin debt off), matching the site's
+    // board and the weekly leaderboard.
     const topPortfolios = users
       .filter((u) => !u.isBot && !u.isBanned && u.portfolioValue > 0)
-      .sort((a, b) => b.portfolioValue - a.portfolioValue)
+      .map((u) => ({ name: u.displayName || 'Anonymous', worth: netWorthOf(u as DocumentData) }))
+      .sort((a, b) => b.worth - a.worth)
       .slice(0, 5);
 
-    // The shop's featured item turns over at this same moment (Monday 00:00
-    // UTC), so the report announces the new one.
+    // The shop's featured item turns over at the Thursday reopen, just before
+    // this runs, so the report announces the new one.
     const featuredId = featuredCosmeticId(COSMETIC_PRICE_LIST, now + 60 * 1000);
     const featured = featuredId ? COSMETIC_CATALOG[featuredId] : null;
 
@@ -176,8 +178,7 @@ async function runWeeklyMarketSummary() {
           value:
             topPortfolios
               .map(
-                (u, i) =>
-                  `${i + 1}. ${u.displayName || 'Anonymous'} - $${u.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                (u, i) => `${i + 1}. ${u.name} - $${u.worth.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
               )
               .join('\n') || 'None',
           inline: false,
@@ -186,7 +187,7 @@ async function runWeeklyMarketSummary() {
           ? [
               {
                 name: `${pxe('shop')} Featured in the Shop This Week`,
-                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until next Monday.`,
+                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until the next Thursday reopen.`,
                 inline: false,
               },
             ]
@@ -207,7 +208,7 @@ async function runWeeklyMarketSummary() {
 }
 
 export const weeklyMarketSummary = cf()
-  .pubsub.schedule('0 0 * * 1')
+  .pubsub.schedule('10 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
     const result = await runWeeklyMarketSummary();
@@ -231,10 +232,10 @@ export const triggerWeeklyMarketSummary = cf().https.onCall(async (data, context
 });
 
 /**
- * Weekly Leaderboard - Runs Mondays at 01:00 UTC
+ * Weekly Leaderboard - Runs at the Thursday reopen (21:15 UTC)
  */
 export const weeklyLeaderboard = cf()
-  .pubsub.schedule('0 1 * * 1')
+  .pubsub.schedule('15 21 * * 4')
   .timeZone('UTC')
   .onRun(async (_context) => {
     try {
@@ -296,7 +297,7 @@ export const weeklyLeaderboard = cf()
 // up to 18 Discord round-trips. Billed on actual runtime, so the headroom is
 // free unless something is genuinely slow.
 export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
-  .pubsub.schedule('30 1 * * 1')
+  .pubsub.schedule('5 21 * * 4')
   .timeZone('UTC')
   .onRun(async (_context) => {
     try {
@@ -313,7 +314,7 @@ export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
 /**
  * Admin-only manual re-run. Seeds/refreshes market/crewStats (underdog
  * multipliers) and optionally re-posts the Discord rankings. Useful right
- * after a deploy or if the Monday run failed.
+ * after a deploy or if the Thursday run failed.
  * Pass { skipDiscord: true } to only recompute the stats doc.
  * Pass { rolesOnly: true } to only re-sync the crew head Discord roles, or
  * { rolesOnly: true, dryRun: true } to just check the Discord setup.

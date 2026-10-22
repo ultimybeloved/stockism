@@ -29,7 +29,6 @@ interface OpenSummary {
   stopLossFilled: number;
   stopLossSkipped: number;
 }
-import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
 import { computePriceUpdates } from '../trading/tradePricing';
@@ -283,7 +282,6 @@ export const runMarketOpenProcessing = async (trigger: string) => {
       const executionPrice = order.action === 'buy' ? prices.openingAsk : prices.openingBid;
       const userRef = db.collection('users').doc(order.userId);
       let fillShares = order.shares; // overwritten by the committed transaction result
-      let userCrew: string | null = null;
 
       try {
         await db.runTransaction(async (transaction) => {
@@ -297,7 +295,6 @@ export const runMarketOpenProcessing = async (trigger: string) => {
           const userSnap = await transaction.get(userRef);
           if (!userSnap.exists) throw new Error('User not found');
           const ud = userSnap.data() as UserData;
-          userCrew = ud.crew || null;
           if (ud.isBanned) throw new Error('Account is banned');
           if (ud.requiresDiscordLink && !ud.discordId) throw new Error('Discord verification required');
           if (ud.isBankrupt || (ud.cash || 0) < 0) throw new Error('Account is bankrupt or in debt');
@@ -333,6 +330,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               totalValue: executionPrice * localFillShares,
               executionPrice,
               marketPrice: prices.openingPrice,
+              viaAuction: true,
             });
             transaction.update(userRef, {
               cash: FieldValue.increment(-executionPrice * localFillShares),
@@ -382,6 +380,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               totalValue: executionPrice * localFillShares,
               executionPrice,
               marketPrice: prices.openingPrice,
+              viaAuction: true,
             });
             const updates: Record<string, unknown> = {
               cash: FieldValue.increment(executionPrice * localFillShares),
@@ -427,18 +426,6 @@ export const runMarketOpenProcessing = async (trigger: string) => {
 
           fillShares = localFillShares;
         });
-
-        // Crew mission progress (fire-and-forget, same as executeTrade)
-        if (userCrew) {
-          updateCrewMissionProgress(
-            userCrew,
-            order.userId,
-            order.action,
-            fillShares,
-            order.ticker,
-            executionPrice * fillShares,
-          );
-        }
 
         const partialNote = fillShares < order.shares ? ` (filled ${fillShares} of ${order.shares})` : '';
         await writeNotification(order.userId, {
@@ -493,7 +480,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
     await writeNotification(order.userId, {
       type: 'trade',
       title: 'Pre-Market Order Expired',
-      message: `Your ${order.action} of ${order.shares} $${order.ticker} missed its opening auction and was cancelled. No cash or shares were taken.`,
+      message: `Your ${order.action} of ${order.shares} $${order.ticker} missed its opening auction and was canceled. No cash or shares were taken.`,
       data: { ticker: order.ticker, orderId: doc.id },
     });
     summary.pmExpired++;

@@ -14,7 +14,7 @@ interface FeatureUsageReport {
 }
 
 // Distinct players who touched each system in the last 7 days. Written by
-// weeklyMarketSummary (Monday 00:00 UTC) from data it already has in memory, so
+// weeklyMarketSummary (Thursday 21:10 UTC) from data it already has in memory, so
 // reading it here is one document read and the report itself costs nothing.
 // Point of it: find the systems nobody uses, so they can be improved or retired.
 const LABELS: Record<string, string> = {

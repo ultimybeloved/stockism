@@ -193,3 +193,44 @@ export interface BulkActionResponse {
   dms?: number;
   failed: { uid: string; reason: string }[];
 }
+
+/** adminCutAccount: the preview, or what was applied. Money in dollars. */
+export interface CutAccountResponse {
+  skipped: boolean;
+  preview: boolean;
+  before?: number;
+  after?: number;
+  cash?: number;
+  newCash?: number;
+  stocks?: number;
+  newStocks?: number;
+  debt?: number;
+  newDebt?: number;
+  event?: number;
+  dropPercent?: number;
+  /** The bell (and DM) text the player gets. */
+  message: string | null;
+  dmSent?: boolean;
+}
+
+export interface CoTraderPerson {
+  uid: string;
+  name: string | null;
+  deleted: boolean;
+}
+
+export interface CoTradersResponse {
+  days: number;
+  /** The player's own trades in the window. */
+  trades: number;
+  rows: (CoTraderPerson & {
+    /** Their trades that traded the same stock the same way within 10 minutes. */
+    matches: number;
+    ownTrades: number;
+    sharedFlags: number;
+    tickers: string[];
+    value: number;
+  })[];
+  /** Shared a coordinated-pressure flag but never traded alongside in the window. */
+  flagOnly: (CoTraderPerson & { sharedFlags: number })[];
+}

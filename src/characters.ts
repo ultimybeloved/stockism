@@ -30,7 +30,8 @@ export type RarityTier = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 /** A lot ledger for one ticker (users/{uid}.holdingCohorts[ticker]). */
 export interface HoldingCohort {
   eligible?: number;
-  pending?: { shares?: number; availableAt?: number }[];
+  /** `free`: shares that weren't bought (the daily drop). They don't count as a buy for missions. */
+  pending?: { shares?: number; availableAt?: number; free?: boolean }[];
 }
 
 export const CHARACTERS: Character[] = [

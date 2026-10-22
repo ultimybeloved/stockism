@@ -3,6 +3,7 @@
 export = [
   'alerts',
   'botTrader',
+  'chapterMarkers',
   'dividends',
   'market',
   'marketMaker',

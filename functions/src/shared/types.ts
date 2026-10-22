@@ -11,6 +11,8 @@ export type StoredTime = Timestamp | number | string;
 export interface CohortLot {
   shares: number;
   availableAt?: number;
+  /** Not bought (the daily drop), so it doesn't count as a buy for missions. */
+  free?: boolean;
 }
 
 /** holdingCohorts[ticker]. Invariant: eligible + sum(pending.shares) === holdings[ticker]. */

@@ -20,6 +20,8 @@ export interface Mission {
   reward: number;
   checkType: string;
   requirement?: number;
+  /** Only offered to players in a crew. */
+  crewOnly?: boolean;
 }
 
 export interface ShopPin {
@@ -330,149 +332,151 @@ export const getActiveShopPins = () => {
 // DAILY MISSIONS
 // ============================================
 
-// Every daily mission rewards an ACTION you take today (buy/sell/trade) or a
-// portfolio COMPOSITION you actively maintain (percentage in crew). Missions
-// that paid out for a static holding you already had were removed - they were
-// free recurring income for zero effort.
+// Missions 2.0 (2026-10-22). Every mission rewards a real trade or a portfolio
+// balance you keep, and throwaway trades can't finish them:
+// - a trade counts only if it is worth 1% of your net worth ($50 to $500,
+//   rules/missions missionMinTrade)
+// - a buy counts only while you still hold the shares when you claim
+// - a sell counts only on shares you've held a day or more
+// Players without a crew get the missions not marked crewOnly.
 export const DAILY_MISSIONS: Record<string, Mission> = {
-  // ============================================
-  // TRADING ACTIONS
-  // ============================================
   BUY_CREW_MEMBER: {
     id: 'BUY_CREW_MEMBER',
     name: 'Crew Support',
-    description: 'Buy shares of any crew member',
+    description: 'Buy a member of your crew and keep the shares',
     reward: 100,
     checkType: 'BUY_CREW',
-  },
-  MAKE_TRADES: {
-    id: 'MAKE_TRADES',
-    name: 'Active Trader',
-    description: 'Make 5 trades today',
-    reward: 100,
-    checkType: 'TRADE_COUNT',
-    requirement: 5,
-  },
-  BUY_ANY_STOCK: {
-    id: 'BUY_ANY_STOCK',
-    name: 'Market Buyer',
-    description: 'Buy any stock today',
-    reward: 75,
-    checkType: 'BUY_ANY',
-  },
-  SELL_ANY_STOCK: {
-    id: 'SELL_ANY_STOCK',
-    name: 'Profit Taker',
-    description: 'Sell any stock today',
-    reward: 75,
-    checkType: 'SELL_ANY',
-  },
-  TRADE_VOLUME: {
-    id: 'TRADE_VOLUME',
-    name: 'Volume Trader',
-    description: 'Trade 100+ total shares today',
-    reward: 100,
-    checkType: 'TRADE_VOLUME',
-    requirement: 100,
+    crewOnly: true,
   },
   RIVAL_TRADER: {
     id: 'RIVAL_TRADER',
     name: 'Rival Trader',
-    description: 'Buy shares of a rival crew member today',
+    description: "Buy a rival crew's member and keep the shares",
     reward: 75,
-    checkType: 'RIVAL_TRADER',
+    checkType: 'BUY_RIVAL',
+    crewOnly: true,
   },
   UNDERDOG_INVESTOR: {
     id: 'UNDERDOG_INVESTOR',
     name: 'Underdog Investor',
-    description: 'Buy a character priced under $20 today',
+    description: 'Buy a stock priced under $20 and keep the shares',
     reward: 75,
-    checkType: 'UNDERDOG_INVESTOR',
+    checkType: 'BUY_UNDERDOG',
   },
-  CREW_ACCUMULATOR: {
-    id: 'CREW_ACCUMULATOR',
-    name: 'Crew Accumulator',
-    description: 'Buy 20+ total shares of crew members today',
-    reward: 150,
-    checkType: 'CREW_ACCUMULATOR',
-    requirement: 20,
+  BARGAIN_HUNTER: {
+    id: 'BARGAIN_HUNTER',
+    name: 'Bargain Hunter',
+    description: 'Buy a stock that is down 5%+ this week and keep the shares',
+    reward: 100,
+    checkType: 'BUY_BARGAIN',
+    requirement: 5,
   },
-
-  // ============================================
-  // CREW LOYALTY (percentage-based, scales fairly across account sizes)
-  // ============================================
+  SPREAD_OUT: {
+    id: 'SPREAD_OUT',
+    name: 'Spread Out',
+    description: 'Buy 3 different stocks today and keep them',
+    reward: 125,
+    checkType: 'BUY_SPREAD',
+    requirement: 3,
+  },
+  PROFIT_TAKER: {
+    id: 'PROFIT_TAKER',
+    name: 'Profit Taker',
+    description: "Sell shares you've held at least a day",
+    reward: 75,
+    checkType: 'SELL_HELD',
+  },
+  CUT_LOSSES: {
+    id: 'CUT_LOSSES',
+    name: 'Cut Your Losses',
+    description: "Sell shares you've held at least a day for less than you paid",
+    reward: 75,
+    checkType: 'SELL_LOSS',
+  },
+  ORDER_FILLED: {
+    id: 'ORDER_FILLED',
+    name: 'Order Filled',
+    description: 'Have a limit order fill today',
+    reward: 100,
+    checkType: 'LIMIT_FILL',
+  },
   CREW_MAJORITY: {
     id: 'CREW_MAJORITY',
     name: 'Crew Majority',
-    description: 'Have 50%+ of your stock value in crew members',
+    description: 'Have 50%+ of your stock value in your crew',
     reward: 125,
     checkType: 'CREW_MAJORITY',
     requirement: 50,
+    crewOnly: true,
+  },
+  SHORT_SELLER: {
+    id: 'SHORT_SELLER',
+    name: 'Short Seller',
+    description: 'Open a short and keep it open',
+    reward: 100,
+    checkType: 'SHORT_OPEN',
+  },
+  COVERED: {
+    id: 'COVERED',
+    name: 'Covered',
+    description: "Close a short you've held at least a day for a profit",
+    reward: 100,
+    checkType: 'COVER_PROFIT',
+  },
+  BASKET_BUYER: {
+    id: 'BASKET_BUYER',
+    name: 'Basket Buyer',
+    description: 'Buy an index fund (ETF) and keep the shares',
+    reward: 75,
+    checkType: 'BUY_ETF',
+  },
+  BUY_THE_DIP: {
+    id: 'BUY_THE_DIP',
+    name: 'Buy the Dip',
+    description: 'Buy a stock that is below its last daily close and keep the shares',
+    reward: 75,
+    checkType: 'BUY_DIP',
+  },
+  RIDE_THE_WAVE: {
+    id: 'RIDE_THE_WAVE',
+    name: 'Ride the Wave',
+    description: 'Buy a stock that is up 5%+ this week and keep the shares',
+    reward: 100,
+    checkType: 'BUY_MOMENTUM',
+    requirement: 5,
+  },
+  BLUE_CHIP: {
+    id: 'BLUE_CHIP',
+    name: 'Blue Chip',
+    description: 'Buy a Legendary or Epic stock and keep the shares',
+    reward: 100,
+    checkType: 'BUY_BLUE_CHIP',
   },
 };
 
 // ============================================
-// WEEKLY MISSIONS (Harder - 2 randomly assigned per crew each week)
-// Week starts Monday 12:00am
+// WEEKLY MISSIONS
 // ============================================
 
-// Weekly missions reward a week's worth of ACTIVITY (trade value/volume/count,
-// trading + checkin streaks, portfolio growth) or an actively-maintained crew
-// COMPOSITION (percentage of value in crew). Static-snapshot missions that paid
-// out just for holding a position were removed - they auto-completed every week
-// with no effort and favoured big established accounts.
-export const WEEKLY_MISSIONS: Record<string, Mission> = {
-  // ============================================
-  // TRADING VOLUME
-  // ============================================
-  MARKET_WHALE: {
-    id: 'MARKET_WHALE',
-    name: 'Market Whale',
-    description: 'Accumulate $20,000+ in total trade value this week',
-    reward: 750,
-    checkType: 'WEEKLY_TRADE_VALUE',
-    requirement: 20000,
-  },
-  VOLUME_KING: {
-    id: 'VOLUME_KING',
-    name: 'Volume King',
-    description: 'Trade 200+ total shares this week',
-    reward: 500,
-    checkType: 'WEEKLY_TRADE_VOLUME',
-    requirement: 200,
-  },
-  TRADING_MACHINE: {
-    id: 'TRADING_MACHINE',
-    name: 'Trading Machine',
-    description: 'Make 40+ trades this week',
-    reward: 400,
-    checkType: 'WEEKLY_TRADE_COUNT',
-    requirement: 40,
-  },
-  SHARE_MOGUL: {
-    id: 'SHARE_MOGUL',
-    name: 'Share Mogul',
-    description: 'Trade 400+ total shares this week',
-    reward: 700,
-    checkType: 'WEEKLY_TRADE_VOLUME',
-    requirement: 400,
-  },
-  TRADE_MASTER: {
-    id: 'TRADE_MASTER',
-    name: 'Trade Master',
-    description: 'Make 75+ trades this week',
-    reward: 600,
-    checkType: 'WEEKLY_TRADE_COUNT',
-    requirement: 75,
-  },
+// Each week is Opening Bell plus one mission from WEEKLY_MISSIONS. A week runs
+// from the Thursday reopen (21:00 UTC) to the next one (rules/missions).
 
-  // ============================================
-  // CONSISTENCY
-  // ============================================
+// Opening Bell is every week's first mission: an order that filled in the
+// opening auction that started the week (rules/missions auctionWeekId). The
+// auction fills minutes before the week begins, so it can't be a surprise draw.
+export const OPENING_BELL: Mission = {
+  id: 'OPENING_BELL',
+  name: 'Opening Bell',
+  description: "Have an order fill in Thursday's opening auction",
+  reward: 500,
+  checkType: 'WEEKLY_AUCTION',
+};
+
+export const WEEKLY_MISSIONS: Record<string, Mission> = {
   TRADING_STREAK: {
     id: 'TRADING_STREAK',
     name: 'Trading Streak',
-    description: 'Make at least 1 trade on 5 different days',
+    description: 'Make a real trade on 5 different days',
     reward: 600,
     checkType: 'WEEKLY_TRADING_DAYS',
     requirement: 5,
@@ -480,27 +484,35 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
   DAILY_GRINDER: {
     id: 'DAILY_GRINDER',
     name: 'Daily Grinder',
-    description: 'Check in every day this week (7 days)',
+    description: 'Check in on 7 days this week',
     reward: 500,
     checkType: 'WEEKLY_CHECKIN_STREAK',
     requirement: 7,
   },
-
-  // ============================================
-  // CREW LOYALTY (percentage-based, scales fairly across account sizes)
-  // ============================================
+  BUY_AND_HOLD: {
+    id: 'BUY_AND_HOLD',
+    name: 'Buy and Hold',
+    description: 'Buy a stock Thursday to Saturday and still own it on Wednesday',
+    reward: 500,
+    checkType: 'WEEKLY_BUY_HOLD',
+  },
+  DIVERSIFIED: {
+    id: 'DIVERSIFIED',
+    name: 'Diversified',
+    description: 'Hold 5+ stocks with none over 40% of your stock value',
+    reward: 500,
+    checkType: 'WEEKLY_DIVERSIFIED',
+    requirement: 5,
+  },
   CREW_MAXIMALIST: {
     id: 'CREW_MAXIMALIST',
     name: 'Crew Maximalist',
-    description: 'Have 80%+ of portfolio value in crew members',
+    description: 'Have 80%+ of your stock value in your crew',
     reward: 600,
     checkType: 'WEEKLY_CREW_PERCENT',
     requirement: 80,
+    crewOnly: true,
   },
-
-  // ============================================
-  // PORTFOLIO GROWTH
-  // ============================================
   PORTFOLIO_BUILDER: {
     id: 'PORTFOLIO_BUILDER',
     name: 'Portfolio Builder',
@@ -509,118 +521,94 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
     checkType: 'WEEKLY_PORTFOLIO_GROWTH',
     requirement: 15, // percent growth from the week's starting value
   },
-  PORTFOLIO_MOONSHOT: {
-    id: 'PORTFOLIO_MOONSHOT',
-    name: 'Portfolio Moonshot',
-    description: 'Grow your portfolio value by 35%+ this week',
-    reward: 1000,
-    checkType: 'WEEKLY_PORTFOLIO_GROWTH',
-    requirement: 35, // percent growth from the week's starting value
+  BEAT_THE_MARKET: {
+    id: 'BEAT_THE_MARKET',
+    name: 'Beat the Market',
+    description: 'Grow your portfolio more than the market index this week',
+    reward: 600,
+    checkType: 'WEEKLY_BEAT_MARKET',
+  },
+  SHOPPING_SPREE: {
+    id: 'SHOPPING_SPREE',
+    name: 'Shopping Spree',
+    description: 'Buy 5 different stocks this week and keep them',
+    reward: 500,
+    checkType: 'WEEKLY_BUY_SPREAD',
+    requirement: 5,
+  },
+  MISSION_MACHINE: {
+    id: 'MISSION_MACHINE',
+    name: 'Mission Machine',
+    description: 'Finish 10 daily missions this week',
+    reward: 600,
+    checkType: 'WEEKLY_DAILY_CLAIMS',
+    requirement: 10,
+  },
+  FORTUNE_TELLER: {
+    id: 'FORTUNE_TELLER',
+    name: 'Fortune Teller',
+    description: 'Bet on a prediction or buy Futures shares this week',
+    reward: 500,
+    checkType: 'WEEKLY_PREDICTION',
+  },
+  DIP_COLLECTOR: {
+    id: 'DIP_COLLECTOR',
+    name: 'Dip Collector',
+    description: 'Buy 3 different stocks that are down 10%+ this week and keep them',
+    reward: 600,
+    checkType: 'WEEKLY_BUY_DIPS',
+    requirement: 3,
   },
 };
 
 // ============================================
-// CREW MISSION REWARDS + CONTRIBUTION MINIMUMS
+// CREW RIVALRIES
 // ============================================
-// This file is the single source of truth for crew rosters and mission
-// economy values. The backend copy (functions/src/shared/crews.ts) is generated by
-// `npm run sync:chars` - never edit that file directly.
-
-// Crew mission payouts, claimed per player once the crew-wide goal is met.
-// Each one requires a real personal trading contribution to claim (see
-// CREW_CONTRIB). The old "Full Roster" and "Open Recruitment" missions were
-// removed: their crew goals were near-permanently true for any active crew, so
-// every member collected the payout every week for doing nothing.
-export const CREW_MISSION_REWARDS = {
-  CREW_BUY_500: 500,
-  CREW_SELL_500: 400,
-  CREW_VOLUME: 500,
+// Crew missions until 2026-10-22. Every Thursday reopen crews are paired 1 vs 1
+// by how many active players they have (a 3-way when the count is odd), never
+// the same opponent two weeks running. A crew's score is the share of its
+// members who finished at least one mission that week who finished
+// qualifyMissions missions while in the crew. Members who qualified are paid at
+// the next reopen: winReward on the winning crew, loseReward on the losing one,
+// times the underdog bonus. A tie is a win for both. The winners' crest glows
+// for the next week.
+export const RIVALRY = {
+  qualifyMissions: 5,
+  winReward: 1500,
+  loseReward: 500,
 };
 
-// Minimum personal contribution required to claim a crew mission payout.
-// The crew goal stays collective; these stop one-share freeloading.
-export const CREW_CONTRIB = {
-  BUY_SHARES: 50, // shares of your crew's stocks you personally bought
-  SELL_SHARES: 50, // shares of your crew's stocks you personally sold
-  VOLUME: 500, // dollars of crew-stock trade volume you personally generated
-};
-
-// The buy / sell / volume crew goals only count trades of the crew's OWN
-// roster stocks, so the target scales with roster size. Otherwise a 3-member
-// crew (God Dog) and a 19-member crew (Workers) would chase the same number
-// using very different amounts of stock and manpower.
-export const CREW_BUY_PER_MEMBER = 100;
-export const CREW_SELL_PER_MEMBER = 100;
-export const CREW_VOLUME_PER_MEMBER = 2000;
-export const CREW_BUY_MIN = 300;
-export const CREW_SELL_MIN = 300;
-export const CREW_VOLUME_MIN = 6000;
-
-export const getCrewBuyTarget = (memberCount: number | null | undefined): number =>
-  Math.max(CREW_BUY_MIN, CREW_BUY_PER_MEMBER * (memberCount || 0));
-export const getCrewSellTarget = (memberCount: number | null | undefined): number =>
-  Math.max(CREW_SELL_MIN, CREW_SELL_PER_MEMBER * (memberCount || 0));
-export const getCrewVolumeTarget = (memberCount: number | null | undefined): number =>
-  Math.max(CREW_VOLUME_MIN, CREW_VOLUME_PER_MEMBER * (memberCount || 0));
-
-// Helper function to get current week identifier (Monday 12:00am start)
-export const getWeekId = (date: Date | number | string = new Date()): string => {
-  const d = new Date(date);
-  // Get Monday of current week (UTC to match server)
-  const day = d.getUTCDay();
-  const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
-  d.setUTCDate(diff);
-  d.setUTCHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0]!; // Returns "YYYY-MM-DD" of Monday
-};
-
-// Helper to check if we're in a new week
-export const isNewWeek = (lastWeekId: string | null | undefined): boolean => {
-  return getWeekId() !== lastWeekId;
-};
-
-// Deterministic random selection based on crew ID and week
-export const getCrewWeeklyMissions = (crewId: string, weekId: string, rerollSeed = 0): Mission[] => {
-  const seed = `${crewId}-${weekId}`;
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    const char = seed.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  hash = hash + rerollSeed; // Apply reroll offset
-
-  const missionKeys = Object.keys(WEEKLY_MISSIONS);
-  const count = missionKeys.length;
-
-  const idx1 = Math.abs(hash) % count;
-  const idx2 = Math.abs(hash * 31) % count;
-  const finalIdx2 = idx2 === idx1 ? (idx2 + 1) % count : idx2;
-
-  return [WEEKLY_MISSIONS[missionKeys[idx1]!]!, WEEKLY_MISSIONS[missionKeys[finalIdx2]!]!];
-};
-
-// Deterministic daily mission selection based on date and crew
-export const getDailyMissions = (today: string, crewId: string | null | undefined, rerollSeed = 0): Mission[] => {
-  const allMissions = Object.values(DAILY_MISSIONS);
-
-  const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
-  const crewSeed = crewId ? crewId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
-  const seed = dateSeed + crewSeed + rerollSeed;
-
-  const shuffled = [...allMissions];
-  let currentSeed = seed;
-  const seededRandom = () => {
-    currentSeed = (currentSeed * 9301 + 49297) % 233280;
-    return currentSeed / 233280;
+const seededShuffle = <T>(items: T[], seed: number): T[] => {
+  const out = [...items];
+  let s = seed;
+  const rand = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
   };
-
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(seededRandom() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j]!, shuffled[i]!];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
   }
+  return out;
+};
 
-  return shuffled.slice(0, 3);
+const missionPool = (missions: Record<string, Mission>, crewId: string | null | undefined) =>
+  Object.values(missions).filter((m) => !m.crewOnly || !!crewId);
+
+const textSeed = (text: string) => text.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+
+// The week's missions: Opening Bell, then one weekly picked by crew and week.
+export const getWeeklyMissions = (crewId: string | null | undefined, weekId: string, rerollSeed = 0): Mission[] => {
+  const pool = missionPool(WEEKLY_MISSIONS, crewId);
+  const seed = textSeed(`${crewId || 'solo'}-${weekId}`) * 31 + rerollSeed;
+  return [OPENING_BELL, pool[Math.abs(seed) % pool.length]!];
+};
+
+// Today's 3 daily missions, picked by date and crew.
+export const getDailyMissions = (today: string, crewId: string | null | undefined, rerollSeed = 0): Mission[] => {
+  const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
+  const seed = dateSeed + (crewId ? textSeed(crewId) : 0) + rerollSeed;
+  return seededShuffle(missionPool(DAILY_MISSIONS, crewId), seed).slice(0, 3);
 };
 
 // ============================================
@@ -637,12 +625,12 @@ export const PIN_SLOT_COSTS = {
 // ============================================
 
 // Crews with fewer active players earn a reward multiplier for the following
-// week. Computed every Monday by weeklyCrewRankings from last week's activity
+// week. Computed every Thursday reopen by weeklyCrewRankings from last week's activity
 // (trades, mission claims, or check-ins) and stored in the public
 // market/crewStats doc:
 //   multiplier = 1 + ((maxActive - crewActive) / maxActive) * (MAX - 1)
 // The most active crew gets 1x; an empty crew gets the full max. It applies to
-// daily, weekly, and crew mission payouts. Because it recomputes weekly, an
+// daily and weekly missions and rivalry payouts. Because it recomputes weekly, an
 // influx of new members shrinks the bonus on its own — no cap juggling needed.
 export const CREW_UNDERDOG_MULT_MAX = 2;
 

@@ -174,13 +174,10 @@ const sellMath = (
 };
 
 const todayDate = () => new Date().toISOString().split('T')[0];
-const weekIdOf = () => {
-  const nowDate = new Date();
-  const weekStart = new Date(nowDate);
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
-  if (weekStart > nowDate) weekStart.setDate(weekStart.getDate() - 7);
-  return weekStart.toISOString().split('T')[0];
-};
+// The mission week, from the shared rules (it starts at the Thursday reopen).
+const { missionWeekId } =
+  require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
+const weekIdOf = () => missionWeekId();
 
 // ════════════════════════════════════════════════════════════════════════════
 // A. VALIDATION & GATING
@@ -339,8 +336,8 @@ async function testBuy() {
 
   const daily = u.dailyMissions?.[todayDate()];
   check(
-    'buy: daily mission counters',
-    daily && daily.tradesCount === 1 && daily.tradeVolume === 10 && daily.boughtAny === true,
+    'buy: daily mission buy record (shares, value, low price)',
+    daily?.buys?.[T]?.shares === 10 && near(daily.buys[T].value, exp.cost) && near(daily.buys[T].low, 80),
     JSON.stringify(daily),
   );
   const weekly = u.weeklyMissions?.[weekIdOf()];
@@ -348,8 +345,8 @@ async function testBuy() {
     'buy: weekly mission counters',
     weekly &&
       weekly.tradeCount === 1 &&
-      near(weekly.tradeValue, exp.cost) &&
-      weekly.tradingDays?.[todayDate()] === true,
+      // A $50+ trade (the floor for an account with no synced net worth) counts as a trading day.
+      exp.cost >= 50 === (weekly.tradingDays?.[todayDate()] === true),
     JSON.stringify(weekly),
   );
   check('buy: totalTrades incremented', u.totalTrades === 1, `${u.totalTrades}`);
@@ -470,7 +467,12 @@ async function testSell() {
     JSON.stringify(u.holdingCohorts[T]),
   );
   const daily = u.dailyMissions?.[todayDate()];
-  check('sell: daily mission soldAny set', daily?.soldAny === true, JSON.stringify(daily));
+  // All 4 came out of shares held for weeks, below the $80 cost basis.
+  check(
+    'sell: day-old shares sold below cost are booked for the sell missions',
+    near(daily?.heldSoldValue, round2(4 * r.executionPrice)) && near(daily?.heldLossValue, daily?.heldSoldValue),
+    JSON.stringify(daily),
+  );
 
   // Sell ALL → full cleanup
   await db.collection('users').doc('sell_gold').update({ lastTradeTime: admin.firestore.FieldValue.delete() });
@@ -603,6 +605,12 @@ async function testShort() {
   );
   check('short: shortHistory stamped', (u.shortHistory?.[T] || []).length === 1, JSON.stringify(u.shortHistory));
   check('short: hasOpenShorts flag set', u.hasOpenShorts === true, `${u.hasOpenShorts}`);
+  const shortDay = u.dailyMissions?.[new Date().toISOString().slice(0, 10)]?.shorts?.[T];
+  check(
+    'short: counts toward Short Seller',
+    shortDay?.shares === 5 && Math.abs(shortDay.value / (exp.exec * 5) - 1) < 0.01,
+    JSON.stringify(shortDay),
+  );
 
   // Adding to an existing short: weighted basis, accumulated margin
   await seedMarket({ [T]: 50 });
@@ -701,6 +709,24 @@ async function testCover() {
     'cover: transaction log SHORT_CLOSE with profit',
     tx?.type === 'SHORT_CLOSE' && near(tx.totalProfit, (90 - exp.exec) * 5),
     JSON.stringify(tx),
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  check(
+    'cover: a short opened a minute ago does not count toward Covered',
+    !u.dailyMissions?.[today]?.coverProfitValue,
+    JSON.stringify(u.dailyMissions?.[today]),
+  );
+  await seedMarket({ [T]: 80 });
+  await setUser('cov_old', {
+    cash: 100,
+    shorts: { [T]: { shares: 5, costBasis: 90, margin: 400, openedAt: now - 2 * DAY, system: 'v2' } },
+  });
+  const rOld = await ok({ ticker: T, action: 'cover', amount: 5 }, 'cov_old');
+  const uOld = await getUser('cov_old');
+  check(
+    'cover: a profitable cover of a day-old short counts toward Covered',
+    Math.abs((uOld.dailyMissions?.[today]?.coverProfitValue || 0) / (rOld.executionPrice * 5) - 1) < 0.01,
+    JSON.stringify(uOld.dailyMissions?.[today]),
   );
 
   // Partial cover: proportional margin return
@@ -1128,11 +1154,7 @@ async function testAchievements() {
   await ok({ ticker: 'GOO', action: 'buy', amount: 2 }, 'ach_crew');
   let uC = await getUser('ach_crew');
   let dC = uC.dailyMissions?.[todayDate()];
-  check(
-    'crew buy sets boughtCrewMember + crewSharesBought',
-    dC?.boughtCrewMember === true && dC?.crewSharesBought === 2,
-    JSON.stringify(dC),
-  );
+  check('crew buy is recorded per stock', dC?.buys?.GOO?.shares === 2, JSON.stringify(dC));
   await db.collection('users').doc('ach_crew').update({
     lastTradeTime: admin.firestore.FieldValue.delete(),
     lastTickerTradeTime: admin.firestore.FieldValue.delete(),
@@ -1140,7 +1162,11 @@ async function testAchievements() {
   await ok({ ticker: 'JAKE', action: 'buy', amount: 1 }, 'ach_crew');
   uC = await getUser('ach_crew');
   dC = uC.dailyMissions?.[todayDate()];
-  check('rival-crew buy sets boughtRival', dC?.boughtRival === true, JSON.stringify(dC));
+  check(
+    'a second stock gets its own record',
+    dC?.buys?.JAKE?.shares === 1 && dC?.buys?.GOO?.shares === 2,
+    JSON.stringify(dC),
+  );
 
   // Underdog buy (< $20)
   await seedMarket({ [UND]: 12 });
@@ -1148,8 +1174,8 @@ async function testAchievements() {
   await ok({ ticker: UND, action: 'buy', amount: 1 }, 'ach_und');
   const uUnd = await getUser('ach_und');
   check(
-    'underdog buy flag (< $20)',
-    uUnd.dailyMissions?.[todayDate()]?.boughtUnderdog === true,
+    'an underdog buy keeps its pre-impact price as the low',
+    uUnd.dailyMissions?.[todayDate()]?.buys?.[UND]?.low === 12,
     JSON.stringify(uUnd.dailyMissions?.[todayDate()]),
   );
 }

@@ -111,7 +111,6 @@ export const chargeMarginInterestFunction = callable<Record<string, never>, Api.
   'chargeMarginInterest',
 );
 // Server-side portfolio sync
-export const claimCrewMissionFunction = callable<{ missionId: string }>('claimCrewMission');
 export const syncPortfolioFunction = callable<void, Api.SyncPortfolioResponse>('syncPortfolio');
 // Admin: remove achievement from user
 export const removeAchievementFunction = callable<{ userId: string; achievementId: string }>('removeAchievement');
@@ -307,6 +306,17 @@ export const adminWelcomeTrackerFunction = callable<void, Panel.WelcomeTrackerRe
 export const adminDiscordActivityFunction = callable<void, Panel.DiscordActivityResponse>('adminDiscordActivity');
 export const adminMoneyFlowFunction = callable<{ days: number }, Panel.MoneyFlowResponse>('adminMoneyFlow');
 export const adminBulkActionFunction = callable<Panel.BulkActionRequest, Panel.BulkActionResponse>('adminBulkAction');
+export const adminCutAccountFunction = callable<
+  { uid: string; target: number; note?: string; dm?: boolean; preview: boolean },
+  Panel.CutAccountResponse
+>('adminCutAccount');
+export const adminSetChapterNoteFunction = callable<
+  { weekId: string; label: string; note: string },
+  { success: boolean }
+>('adminSetChapterNote');
+export const adminCoTradersFunction = callable<{ uid: string; days: number }, Panel.CoTradersResponse>(
+  'adminCoTraders',
+);
 export const adminMarketGuardFunction = callable<Panel.MarketGuardRequest, Panel.MarketGuardResponse>(
   'adminMarketGuard',
 );

@@ -10,6 +10,7 @@ import DiscordActivity from './discordActivity/DiscordActivity';
 import MarketGuard from './guard/MarketGuard';
 import BotActivity from './bots/BotActivity';
 import WeeklyChanges from './weekly/WeeklyChanges';
+import ChapterNotes from './weekly/ChapterNotes';
 import IpoTab from './IpoTab';
 import PredictionsTab from './PredictionsTab';
 import HoldersTab from './HoldersTab';
@@ -141,7 +142,12 @@ const AdminContent = ({
     case 'bots':
       return <BotActivity />;
     case 'weekly':
-      return <WeeklyChanges />;
+      return (
+        <div className="space-y-3">
+          <WeeklyChanges />
+          <ChapterNotes />
+        </div>
+      );
     case 'ipo':
       return <IpoTab {...common} {...h.ipo} setMessage={setMessage} />;
     case 'predictions':
