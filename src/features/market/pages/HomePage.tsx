@@ -96,7 +96,7 @@ const HomePage = ({
 
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
-      <div className="max-w-6xl lg:max-w-[88rem] mx-auto">
+      <div className="max-w-6xl lg:max-w-[96rem] mx-auto">
         {/* Sub-header buttons */}
         <div className="flex gap-2 mb-4 sm:flex-wrap sm:justify-center max-sm:overflow-x-auto max-sm:-mx-4 max-sm:px-4 max-sm:pt-2 no-scrollbar">
           <button onClick={isGuest ? onShowLogin : onShowMissions} className={subHeaderBtnClass}>

@@ -214,7 +214,7 @@ const CharacterCard = ({
     <>
       <div
         style={rarityStyle}
-        className={`${cardClass} border rounded-sm p-3 transition-all relative flex flex-col ${frameClass} ${
+        className={`${cardClass} border rounded-sm p-4 transition-all relative flex flex-col ${frameClass} ${
           highlight === 'open' ? 'ring-2 ring-orange-500' : highlight === 'compare' ? 'ring-2 ring-blue-500' : ''
         } ${
           tradeAnimation
@@ -237,7 +237,7 @@ const CharacterCard = ({
           {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
           <div className="flex justify-between items-baseline gap-2">
             <div className="flex items-center gap-1 min-w-0">
-              <p className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</p>
+              <p className="text-orange-500 font-mono text-[15px] font-semibold">${character.ticker}</p>
               {isETF && <span className="text-[10px] bg-purple-600 text-white px-1 rounded">ETF</span>}
               {!isETF && statusBadge(character) && (
                 <span title={STATUS_MAP[statusOf(character)]?.hint}>
@@ -245,7 +245,7 @@ const CharacterCard = ({
                 </span>
               )}
             </div>
-            <p className={`font-semibold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
+            <p className={`text-lg font-semibold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
           </div>
           <div className="flex justify-between items-baseline gap-2">
             <p className={`text-xs truncate ${mutedClass}`}>{character.name}</p>
@@ -257,64 +257,77 @@ const CharacterCard = ({
           <div className="max-md:hidden">
             <CharacterMeta character={character} />
           </div>
-          <div className="my-2">
-            <SimpleLineChart data={miniChartData} colorBlindMode={colorBlindMode} width={240} height={36} stretch />
+          <div className="my-3">
+            <SimpleLineChart
+              data={miniChartData}
+              colorBlindMode={colorBlindMode}
+              width={260}
+              height={44}
+              className="h-11"
+              stretch
+            />
           </div>
         </div>
 
-        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 min-h-[26px]">
-          <span className={`text-[10px] ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
-          {/* Phones get Details, alerts and the watchlist from press and hold. */}
-          <Link
-            to={`/stock/${character.ticker}`}
-            onClick={(e) => e.stopPropagation()}
-            className={`max-md:hidden text-[10px] ${mutedClass} hover:text-orange-500`}
-          >
-            Details ↗
-          </Link>
-          {owned && <span className="text-[11px] text-blue-500 font-semibold">{holdings} long</span>}
-          <ShortRiskTag
-            shortPosition={shortPosition}
-            ticker={character.ticker}
-            price={price}
-            colorBlindMode={colorBlindMode}
-          />
-          <div className="ml-auto flex items-center gap-1.5">
-            {onToggleWatchlist && user && onSetAlert && !phone && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSetAlert(character.ticker);
-                }}
-                className={`transition-opacity ${mutedClass} opacity-40 hover:opacity-100`}
-                title="Set price alert"
-              >
-                <PixelIcon name="bell" className="w-3.5 h-3.5 block" />
-              </button>
-            )}
-            {onToggleWatchlist && user && !phone && (
+        <div className="mt-auto">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-2">
+            <span className={`text-[10px] ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
+            {owned && <span className="text-[11px] text-blue-500 font-semibold">{holdings} long</span>}
+            <ShortRiskTag
+              shortPosition={shortPosition}
+              ticker={character.ticker}
+              price={price}
+              colorBlindMode={colorBlindMode}
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {onToggleWatchlist && user && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleWatchlist(character.ticker);
                 }}
-                className={`text-base leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-40 hover:opacity-100'}`}
+                className={`text-lg leading-none transition-colors ${isWatchlisted ? 'text-yellow-400' : mutedClass + ' hover:text-yellow-400 opacity-50 hover:opacity-100'}`}
                 title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+                aria-label={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
               >
                 {isWatchlisted ? '★' : '☆'}
               </button>
             )}
-            <CardTradeMenu
-              character={character}
-              price={price}
-              holdings={holdings}
-              shortPosition={shortPosition}
-              userCash={userCash}
-              onTrade={onTrade}
-              haltInfo={haltInfo}
-              blocked={isHalted || marketClosed}
-              label={isHalted ? 'Halted' : marketState.label}
-            />
+            {user && onSetAlert && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetAlert(character.ticker);
+                }}
+                className="transition-opacity opacity-50 hover:opacity-100"
+                title="Set price alert"
+                aria-label="Set price alert"
+              >
+                <PixelIcon name="bell" className="w-4 h-4 block" />
+              </button>
+            )}
+            {/* Phones open Details from press and hold. */}
+            <Link
+              to={`/stock/${character.ticker}`}
+              onClick={(e) => e.stopPropagation()}
+              className={`max-md:hidden text-[11px] ${mutedClass} hover:text-orange-500`}
+            >
+              Details ↗
+            </Link>
+            <div className="ml-auto">
+              <CardTradeMenu
+                character={character}
+                price={price}
+                holdings={holdings}
+                shortPosition={shortPosition}
+                userCash={userCash}
+                onTrade={onTrade}
+                haltInfo={haltInfo}
+                blocked={isHalted || marketClosed}
+                label={isHalted ? 'Halted' : marketState.label}
+              />
+            </div>
           </div>
         </div>
       </div>

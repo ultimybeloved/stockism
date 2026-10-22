@@ -11,6 +11,8 @@ import type { Character } from '../../../characters';
 import type { UserData } from '../../../types';
 import type { useMarketBrowser } from '../hooks/useMarketBrowser';
 import ToggleChip from '../../../shared/components/ToggleChip';
+import { useSwipePager } from '../hooks/useSwipePager';
+import { usePhone } from '../../../shared/hooks/useMediaQuery';
 
 type CardProps = ComponentProps<typeof CharacterCard>;
 
@@ -77,6 +79,8 @@ const MarketGrid = ({
   const activeSection = reviewSections?.some((s) => s.id === openSection) ? openSection : 'all';
   // Phones: the stock someone pressed and held, for its quick actions.
   const [quick, setQuick] = useState<Character | null>(null);
+  const phone = usePhone();
+  const pager = useSwipePager(currentPage, totalPages, setCurrentPage, phone && !showAll && !reviewSections);
 
   // One card, wherever it is being rendered.
   const renderCard = (character: Character) => (
@@ -105,7 +109,7 @@ const MarketGrid = ({
     />
   );
 
-  // Two columns on phones, four on desktop (two rows a page), or the list view.
+  // Two columns on phones, four on desktop (three rows a page), or the list view.
   const cardGrid = (list: Character[]) =>
     view === 'list' ? (
       <MarketList
@@ -161,7 +165,18 @@ const MarketGrid = ({
             ))}
         </>
       ) : (
-        cardGrid(displayedCharacters)
+        <div
+          ref={pager.box}
+          {...pager.handlers}
+          className="scroll-mt-20 max-md:touch-pan-y max-md:overscroll-x-contain"
+        >
+          <div
+            key={currentPage}
+            className={pager.dir === 'next' ? 'page-in-next' : pager.dir === 'prev' ? 'page-in-prev' : ''}
+          >
+            {cardGrid(displayedCharacters)}
+          </div>
+        </div>
       )}
 
       {/* Empty state for the grid */}
@@ -180,17 +195,18 @@ const MarketGrid = ({
         <div className={`${cardClass} border rounded-sm p-4 mt-4`}>
           <div className="flex justify-center items-center gap-4">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onClick={() => pager.go(currentPage - 1)}
               disabled={currentPage === 1}
               className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
             >
               Previous
             </button>
-            <span className={`text-sm ${mutedClass}`}>
+            <span className={`text-sm text-center ${mutedClass}`}>
               Page {currentPage} of {totalPages}
+              {phone && <span className="block text-[11px] opacity-70">or swipe the cards</span>}
             </span>
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => pager.go(currentPage + 1)}
               disabled={currentPage === totalPages}
               className={`px-4 py-2 text-sm font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`}
             >

@@ -1482,3 +1482,29 @@ html.dark .slip-tear {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Market pages slide in from the side they were turned toward. */
+.page-in-next {
+  animation: page-in-next 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.page-in-prev {
+  animation: page-in-prev 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes page-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+@keyframes page-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-in-next,
+  .page-in-prev {
+    animation: none;
+  }
+}

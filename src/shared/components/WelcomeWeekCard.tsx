@@ -1,8 +1,7 @@
 import { useSession } from '../../context/AppContext';
 import { themeClasses } from '../../utils/theme';
 import { formatCurrency } from '../../utils/formatters';
-import { STARTING_CASH } from '../../constants/economy';
-import { WELCOME_STREAK_DAYS, WELCOME_STREAK_REWARDS, WELCOME_STREAK_TOTAL, welcomeTrack } from '../../rules/welcome';
+import { WELCOME_STREAK_DAYS, WELCOME_STREAK_REWARDS, WELCOME_STREAK_TOTAL } from '../../rules/welcome';
 import { DISCORD_INVITE_URL } from '../../constants';
 
 // Points players at the Discord welcome week (/welcome in the official server)
@@ -11,7 +10,7 @@ import { DISCORD_INVITE_URL } from '../../constants';
 // done, and for guests.
 const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
   const { user, userData } = useSession();
-  const { cardClass, textClass, mutedClass } = themeClasses;
+  const { cardClass, mutedClass } = themeClasses;
   if (!user || !userData || userData.isBot) return null;
 
   const claimed = userData.welcomeStreak?.day || 0;
@@ -28,22 +27,40 @@ const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
       className={`${cardClass} border rounded-sm px-3 py-2.5 mb-4 flex items-center gap-3 light:border-indigo-200 dark:border-indigo-900 ${className}`}
     >
       <div className="min-w-0 flex-1">
-        <p className={`text-[10px] font-semibold uppercase ${mutedClass}`}>Welcome week</p>
-        {!linked ? (
-          <p className={`text-xs ${textClass}`}>
-            Link Discord for your full {formatCurrency(STARTING_CASH)}, then <code>/welcome</code> daily for{' '}
-            {formatCurrency(WELCOME_STREAK_TOTAL)} more.
+        <div className="flex items-center justify-between gap-2">
+          <p className={`text-[10px] font-semibold uppercase ${mutedClass}`}>Welcome week</p>
+          <p className={`text-[10px] font-semibold tabular-nums ${mutedClass}`}>
+            Day {claimed}/{WELCOME_STREAK_DAYS}
           </p>
-        ) : (
-          <p className={`text-xs ${textClass}`}>
-            <span className="font-mono tracking-widest mr-2">{welcomeTrack(claimed)}</span>
-            <span className={mutedClass}>
-              {doneToday
-                ? `Day ${claimed + 1} (${formatCurrency(nextReward)}) at 00:00 UTC`
-                : `/welcome for ${formatCurrency(nextReward)}`}
-            </span>
-          </p>
-        )}
+        </div>
+        {/* One segment per day, filled as each is claimed. */}
+        <div className="flex gap-1 my-1.5" aria-hidden="true">
+          {Array.from({ length: WELCOME_STREAK_DAYS }, (_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 flex-1 rounded-full ${
+                i < claimed
+                  ? 'bg-indigo-500'
+                  : i === claimed && linked && !doneToday
+                    ? 'bg-indigo-500/40'
+                    : 'light:bg-zinc-200 dark:bg-zinc-800'
+              }`}
+            />
+          ))}
+        </div>
+        <p className={`text-xs ${mutedClass}`}>
+          {!linked ? (
+            <>
+              Link Discord, then <code>/welcome</code> daily for {formatCurrency(WELCOME_STREAK_TOTAL)} more
+            </>
+          ) : doneToday ? (
+            `Next: ${formatCurrency(nextReward)} at 00:00 UTC`
+          ) : (
+            <>
+              <code>/welcome</code> today for {formatCurrency(nextReward)}
+            </>
+          )}
+        </p>
       </div>
       {!linked ? (
         <a href="/link-discord" className={`${btn} bg-indigo-600 hover:bg-indigo-700 text-white`}>

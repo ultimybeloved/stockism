@@ -3,7 +3,7 @@
 // ============================================
 
 // General
-export const ITEMS_PER_PAGE = 8;
+export const ITEMS_PER_PAGE = 12;
 // The list view is compact, so a page holds more.
 export const LIST_ITEMS_PER_PAGE = 20;
 // Numbers the server enforces too live in the shared rule module.
