@@ -46,7 +46,7 @@ function Row({ e, now, onOpen }: { e: ActivityEntry; now: number; onOpen: (t: st
         </span>
         {e.count > 1 && (
           <span
-            key={e.bump}
+            key={e.count}
             className={`act-bump shrink-0 px-1.5 rounded-sm text-xs font-bold tabular-nums ${color}`}
             style={tint}
           >
@@ -87,7 +87,7 @@ export default function ActivityFeed({ ticker, limit = 8, className = '' }: Acti
   const [tick, setTick] = useState(0);
   const [flash, setFlash] = useState(false);
   const last = useRef('');
-  const head = entries[0] ? `${entries[0].id}:${entries[0].bump}` : '';
+  const head = entries[0] ? `${entries[0].id}:${entries[0].count}` : '';
   useEffect(() => {
     if (!head || head === last.current) return;
     last.current = head;

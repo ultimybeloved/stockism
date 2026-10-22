@@ -29,6 +29,7 @@
     "test:emulator:core": "firebase emulators:exec --config firebase.emulator-test.json --only auth,firestore \"vitest run -c tests/emulator/vitest.config.ts --project core\"",
     "test:rules": "firebase emulators:exec --config firebase.emulator-test.json --only auth,firestore \"vitest run -c tests/emulator/vitest.config.ts --project core firestoreRules.test\"",
     "test:ipcap": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core ipCap.test\"",
+    "test:activity": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core activityFeed.test\"",
     "test:trading": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core trading.test\"",
     "test:limitorders": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core limitOrders.test\"",
     "test:premarket": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core preMarket.test\"",
