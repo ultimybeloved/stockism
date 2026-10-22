@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type TouchEvent } from 'react';
+import { createPortal } from 'react-dom';
 import TradeActionModal from '../../trading/components/TradeActionModal';
 import PreMarketModal from '../../trading/components/PreMarketModal';
 import { useSession } from '../../../context/AppContext';
@@ -52,6 +53,8 @@ const CardTradeMenu = ({
     else setTradeAction(action);
   };
 
+  const stop = (e: TouchEvent) => e.stopPropagation();
+
   return (
     <>
       {!open ? (
@@ -103,29 +106,40 @@ const CardTradeMenu = ({
         </div>
       )}
 
-      {tradeAction && (
-        <TradeActionModal
-          character={character}
-          action={tradeAction}
-          price={price}
-          holdings={holdings}
-          shortPosition={shortPosition}
-          userCash={userCash}
-          onTrade={onTrade}
-          onClose={() => setTradeAction(null)}
-          haltInfo={haltInfo}
-        />
-      )}
-      {preMarket && (
-        <PreMarketModal
-          character={character}
-          price={price}
-          holdings={holdings}
-          userCash={userCash}
-          initialAction={preMarket}
-          onClose={() => setPreMarket(null)}
-        />
-      )}
+      {/* The windows render on the page body, not inside the card. The card
+          lifts on hover with a transform, and a transformed parent shrinks a
+          full-screen window into the card, so taps fell through to other
+          stocks. Touches also stop here so a swipe in the window can't turn
+          the market page behind it. */}
+      {(tradeAction || preMarket) &&
+        createPortal(
+          <div onTouchStart={stop} onTouchEnd={stop}>
+            {tradeAction && (
+              <TradeActionModal
+                character={character}
+                action={tradeAction}
+                price={price}
+                holdings={holdings}
+                shortPosition={shortPosition}
+                userCash={userCash}
+                onTrade={onTrade}
+                onClose={() => setTradeAction(null)}
+                haltInfo={haltInfo}
+              />
+            )}
+            {preMarket && (
+              <PreMarketModal
+                character={character}
+                price={price}
+                holdings={holdings}
+                userCash={userCash}
+                initialAction={preMarket}
+                onClose={() => setPreMarket(null)}
+              />
+            )}
+          </div>,
+          document.body,
+        )}
     </>
   );
 };
