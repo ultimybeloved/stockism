@@ -95,7 +95,7 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
           </h2>
           <span
             key={tick}
-            className={`act-dot ${flash ? 'act-live' : ''} w-2 h-2 rounded-full bg-current transition-colors duration-500 ${flash ? up : down}`}
+            className={`act-dot ${flash ? 'act-live' : ''} w-2 h-2 rounded-full bg-current ${flash ? up : down}`}
           />
         </div>
         {/* Buys against sells over the last hour of the feed. */}
