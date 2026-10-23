@@ -115,7 +115,8 @@ export const weekMovePrices = (ctx: MissionContext): Record<string, number> => {
   const open = ctx.weekOpenPrices || {};
   const lock = ctx.haltPrices;
   const start = missionWeekStartMs(ctx.now);
-  if (!lock?.prices || !lock.savedAt || lock.savedAt > start || start - lock.savedAt > HALT_LOCK_MAX_AGE_MS) return open;
+  if (!lock?.prices || !lock.savedAt || lock.savedAt > start || start - lock.savedAt > HALT_LOCK_MAX_AGE_MS)
+    return open;
   return { ...open, ...lock.prices };
 };
 
