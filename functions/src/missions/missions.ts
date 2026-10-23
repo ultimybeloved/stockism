@@ -24,7 +24,7 @@ import { getLadderChips } from '../shared/ladderMath';
 import { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchievementFor } from './missionChecks';
 import { recordLedger } from '../shared/ledger';
 import { getWeekId } from '../shared/tradeRecords';
-import { nextRivalry, rivalryQualified } from '../shared/rules/missionProgress';
+import { holdsShortForMissions, nextRivalry, rivalryQualified } from '../shared/rules/missionProgress';
 import { weeklyMissionsOpen } from '../shared/rules/missions';
 import { noteRivalryActivity } from '../shared/rivalries';
 
@@ -81,7 +81,14 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     // a crew get missions too since 2026-10-22, from the non-crew pool.
     const rerollSeed = userData.weeklyMissions?.[weekId]?.rerollSeed || 0;
     const assignedMissions =
-      type === 'daily' ? getDailyMissions(today, crew, rerollSeed) : getWeeklyMissions(crew, weekId, rerollSeed);
+      type === 'daily'
+        ? getDailyMissions(
+            today,
+            crew,
+            rerollSeed,
+            holdsShortForMissions(userData, userData.dailyMissions?.[today], now),
+          )
+        : getWeeklyMissions(crew, weekId, rerollSeed);
     const assignedMission = assignedMissions.find((m) => m.id === missionId);
     if (!assignedMission) {
       throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
@@ -214,9 +221,10 @@ export const rerollMissions = cf().https.onCall(async (data, context) => {
     // A random seed offset, re-drawn until the $50 actually buys something new:
     // a different weekly mission and not the same three dailies.
     const crew: string | null = userData.crew || null;
+    const holdsShort = holdsShortForMissions(userData, dailyProgress, now);
     const weeklyBefore = getWeeklyMissions(crew, weekId)[1]?.id;
     const dailyKey = (seed: number) =>
-      getDailyMissions(today, crew, seed)
+      getDailyMissions(today, crew, seed, holdsShort)
         .map((m) => m.id)
         .sort()
         .join();

@@ -3,6 +3,7 @@
 export {
   dailyMissionProgress,
   weeklyMissionProgress,
+  holdsShortForMissions,
   rivalryCount,
   rivalryQualified,
   playerMinTrade,

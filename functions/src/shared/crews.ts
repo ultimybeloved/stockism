@@ -23,6 +23,10 @@ export interface Mission {
   requirement?: number;
   /** Only offered to players in a crew. */
   crewOnly?: boolean;
+  /** Daily only: offered only to players holding a short (holdsShortForMissions). */
+  shortHoldersOnly?: boolean;
+  /** Daily only: out of the rotation from DAILY_POOL_CHANGE on. */
+  retired?: boolean;
 }
 
 export interface ShopPin {
@@ -409,6 +413,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
     checkType: 'CREW_MAJORITY',
     requirement: 50,
     crewOnly: true,
+    retired: true,
   },
   SHORT_SELLER: {
     id: 'SHORT_SELLER',
@@ -423,6 +428,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
     description: "Close a short you've held at least a day for a profit",
     reward: 100,
     checkType: 'COVER_PROFIT',
+    shortHoldersOnly: true,
   },
   BASKET_BUYER: {
     id: 'BASKET_BUYER',
@@ -605,11 +611,24 @@ export const getWeeklyMissions = (crewId: string | null | undefined, weekId: str
   return [OPENING_BELL, pool[Math.abs(seed) % pool.length]!];
 };
 
-// Today's 3 daily missions, picked by date and crew.
-export const getDailyMissions = (today: string, crewId: string | null | undefined, rerollSeed = 0): Mission[] => {
+// The daily pool changed on this UTC date: Crew Majority retired, Covered only
+// for short holders. Earlier days keep the old pool so no list reshuffles mid-day.
+export const DAILY_POOL_CHANGE = '2026-10-24';
+
+// Today's 3 daily missions, picked by date and crew. holdsShort comes from
+// rules/missionProgress holdsShortForMissions.
+export const getDailyMissions = (
+  today: string,
+  crewId: string | null | undefined,
+  rerollSeed = 0,
+  holdsShort = false,
+): Mission[] => {
   const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
   const seed = dateSeed + (crewId ? textSeed(crewId) : 0) + rerollSeed;
-  return seededShuffle(missionPool(DAILY_MISSIONS, crewId), seed).slice(0, 3);
+  const pool = missionPool(DAILY_MISSIONS, crewId).filter(
+    (m) => today < DAILY_POOL_CHANGE || !(m.retired || (m.shortHoldersOnly && !holdsShort)),
+  );
+  return seededShuffle(pool, seed).slice(0, 3);
 };
 
 // ============================================

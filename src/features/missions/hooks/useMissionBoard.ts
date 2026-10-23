@@ -7,6 +7,7 @@ import {
   getWeekId,
   dailyMissionProgress,
   weeklyMissionProgress,
+  holdsShortForMissions,
   playerMinTrade,
   type DailyProgress,
   type WeeklyProgress,
@@ -55,7 +56,12 @@ export function useMissionBoard() {
     now,
   };
 
-  const dailyMissions: BoardMission[] = getDailyMissions(today, crew, rerollSeed).map((m) => ({
+  const dailyMissions: BoardMission[] = getDailyMissions(
+    today,
+    crew,
+    rerollSeed,
+    holdsShortForMissions(ctx.player, daily, now),
+  ).map((m) => ({
     ...m,
     reward: Math.round(m.reward * multiplier),
     ...dailyMissionProgress(m, daily, ctx),

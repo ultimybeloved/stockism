@@ -89,7 +89,7 @@ export interface MissionPlayer {
   portfolioValue?: number;
   marginUsed?: number;
   grantedValue?: number;
-  shorts?: Record<string, { shares?: number } | null | undefined>;
+  shorts?: Record<string, { shares?: number; openedAt?: unknown } | null | undefined>;
   eventPositions?: Record<string, { shares?: Record<string, number>; settled?: boolean } | null | undefined>;
 }
 
@@ -165,6 +165,23 @@ const weekBuysStillHeld = (ctx: MissionContext) => {
 const holdsFutures = (p: MissionPlayer, marketId: string) => {
   const pos = p.eventPositions?.[marketId];
   return !!pos && (!!pos.settled || Object.values(pos.shares || {}).some((s) => s > 0));
+};
+
+const stampToMs = (v: unknown): number =>
+  typeof v === 'number' ? v : ((v as { toMillis?: () => number } | null)?.toMillis?.() ?? 0);
+
+/**
+ * Whether Covered can be in today's daily missions: a short opened before
+ * today (UTC), or one already covered at a profit today. Stays true after the
+ * cover, so the mission doesn't vanish before it is claimed.
+ */
+export const holdsShortForMissions = (player: MissionPlayer, dp: DailyProgress | null | undefined, now: number) => {
+  const dayStart = new Date(now).setUTCHours(0, 0, 0, 0);
+  if ((dp?.coverProfitValue || 0) > 0) return true;
+  return Object.values(player.shorts || {}).some((s) => {
+    const opened = stampToMs(s?.openedAt);
+    return (s?.shares || 0) > 0 && opened > 0 && opened < dayStart;
+  });
 };
 
 const pct = (n: number) => `${n >= 0 ? 'up' : 'down'} ${Math.abs(n).toFixed(1)}%`;

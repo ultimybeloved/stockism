@@ -38,6 +38,7 @@ import {
 } from '../missions/missionChecks';
 import { countRankAbove, netWorthOf } from '../shared/equity';
 import { getWeekId } from '../shared/tradeRecords';
+import { holdsShortForMissions } from '../shared/rules/missionProgress';
 import { crewEmoji, pxe, pxButton } from '../shared/discordApi';
 import type { PixelEmoji } from '../shared/constants/pixelEmojis';
 // Circular on purpose: discordWelcome reuses this file's helpers. Safe because
@@ -452,7 +453,7 @@ const cmdMissions = async (interaction: Interaction) => {
       })
       .join('\n') || 'None assigned.';
 
-  const daily = getDailyMissions(today, crew, seed);
+  const daily = getDailyMissions(today, crew, seed, holdsShortForMissions(data, dailyProgress, now));
   const weekly = getWeeklyMissions(crew, weekId, seed);
 
   return {

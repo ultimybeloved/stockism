@@ -13,6 +13,7 @@ import {
 } from './missions';
 import {
   dailyMissionProgress,
+  holdsShortForMissions,
   weeklyMissionProgress,
   weekMovePrices,
   rivalryCount,
@@ -141,6 +142,37 @@ describe('daily missions', () => {
       expect(list).toHaveLength(3);
       expect(list.some((x) => x.crewOnly)).toBe(false);
     }
+  });
+
+  it('from the pool change, Crew Majority is gone and Covered goes only to short holders', () => {
+    const ids = (holdsShort: boolean) => {
+      const seen = new Set<string>();
+      for (let d = 1; d <= 28; d++)
+        for (let seed = 0; seed < 20; seed++)
+          getDailyMissions(`2026-11-${String(d).padStart(2, '0')}`, crew.id, seed, holdsShort).forEach((m) =>
+            seen.add(m.id),
+          );
+      return seen;
+    };
+    expect(ids(true).has('CREW_MAJORITY')).toBe(false);
+    expect(ids(true).has('COVERED')).toBe(true);
+    expect(ids(false).has('COVERED')).toBe(false);
+    // Days before the change keep the old pool.
+    const before = new Set<string>();
+    for (let seed = 0; seed < 200; seed++)
+      getDailyMissions('2026-10-23', crew.id, seed).forEach((m) => before.add(m.id));
+    expect(before.has('CREW_MAJORITY') && before.has('COVERED')).toBe(true);
+  });
+
+  it('a short counts for Covered if opened before today, or covered at a profit today', () => {
+    const now = Date.UTC(2026, 10, 3, 15);
+    const yesterday = Date.UTC(2026, 10, 2, 20);
+    const thisMorning = Date.UTC(2026, 10, 3, 9);
+    expect(holdsShortForMissions({ shorts: { A: { shares: 5, openedAt: yesterday } } }, {}, now)).toBe(true);
+    expect(holdsShortForMissions({ shorts: { A: { shares: 5, openedAt: thisMorning } } }, {}, now)).toBe(false);
+    expect(holdsShortForMissions({ shorts: { A: { shares: 0, openedAt: yesterday } } }, {}, now)).toBe(false);
+    expect(holdsShortForMissions({}, { coverProfitValue: 200 }, now)).toBe(true);
+    expect(holdsShortForMissions({}, {}, now)).toBe(false);
   });
 });
 
