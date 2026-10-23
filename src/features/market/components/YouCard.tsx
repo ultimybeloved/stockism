@@ -97,7 +97,8 @@ const YouCard = ({
             Margin <span className="text-amber-500 font-semibold">{margin.tierName}</span>
           </span>
           <span>
-            <span className="text-amber-500 font-semibold">{formatCurrency(margin.availableMargin)}</span> available
+            <span className="text-amber-500 font-semibold">{formatCurrency(margin.availableMargin)}</span> of{' '}
+            {formatCurrency(margin.maxBorrowable)} available
             {(activeUserData.marginUsed || 0) > 0 && (
               <span className="text-orange-500"> · {formatCurrency(activeUserData.marginUsed)} owed</span>
             )}

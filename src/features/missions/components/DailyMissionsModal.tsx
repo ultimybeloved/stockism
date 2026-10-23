@@ -51,6 +51,7 @@ const DailyMissionsModal = ({
   const { userData } = useSession();
   const board = useMissionBoard();
   const [activeTab, setActiveTab] = useState<MissionTab>('daily');
+  const [confirmReroll, setConfirmReroll] = useState(false);
   const { textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
   const dot = <span className={`ml-1 ${userData?.colorBlindMode ? 'text-teal-500' : 'text-green-500'}`}>●</span>;
   const joinCrew = () => {
@@ -108,7 +109,12 @@ const DailyMissionsModal = ({
             </p>
             {board.canReroll && (
               <button
-                onClick={onRerollMissions}
+                onClick={() => {
+                  if (!confirmReroll) return setConfirmReroll(true);
+                  setConfirmReroll(false);
+                  onRerollMissions();
+                }}
+                onBlur={() => setConfirmReroll(false)}
                 disabled={rerollLoading}
                 className={`flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-sm transition-colors shrink-0 ${
                   rerollLoading
@@ -119,6 +125,8 @@ const DailyMissionsModal = ({
               >
                 {rerollLoading ? (
                   '...'
+                ) : confirmReroll ? (
+                  'Confirm reroll for $50?'
                 ) : (
                   <>
                     <PixelIcon name="reroll" className="w-3.5 h-3.5 mr-1 align-[-2px]" />

@@ -87,13 +87,14 @@ const TradeConfirmModal = ({ confirmation, onConfirm, onCancel, loading }: Trade
           </div>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className={`flex-1 py-2 rounded-sm font-semibold ${chipClass} light:hover:bg-slate-300 dark:hover:bg-zinc-700 disabled:opacity-50`}
-          >
-            Cancel
-          </button>
+          {!loading && (
+            <button
+              onClick={onCancel}
+              className={`flex-1 py-2 rounded-sm font-semibold ${chipClass} light:hover:bg-slate-300 dark:hover:bg-zinc-700`}
+            >
+              Cancel
+            </button>
+          )}
           <button
             onClick={onConfirm}
             disabled={loading}
