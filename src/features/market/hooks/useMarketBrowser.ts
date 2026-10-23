@@ -55,10 +55,11 @@ export function useMarketBrowser({
   launchedTickers,
   ipoRestrictedTickers,
   storedReviewChanges,
+  perPage = ITEMS_PER_PAGE,
 }: Pick<
   AppContextValue,
   'prices' | 'priceHistory' | 'launchedTickers' | 'ipoRestrictedTickers' | 'storedReviewChanges'
-> & { userData: UserData | null }) {
+> & { userData: UserData | null; perPage?: number }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState('price-high');
   const [currentPage, setCurrentPage] = useState(1);
@@ -146,13 +147,15 @@ export function useMarketBrowser({
   ]);
 
   // Floor at 1 so an empty result set shows "1/1", not "1/0".
-  const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / perPage));
+  // Switching to cards (smaller pages) can leave the page number past the end.
+  const page = Math.min(currentPage, totalPages);
   // The Review tab is grouped into sections and is a bounded list anyway, so it
   // always shows everything. Paging it would split a section across pages.
   const displayedCharacters =
     showAll || filters.tab === 'review'
       ? filteredCharacters
-      : filteredCharacters.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+      : filteredCharacters.slice((page - 1) * perPage, page * perPage);
 
   // Review tab only. Null everywhere else, which is how the grid knows to stay flat.
   const reviewSections = useMemo(

@@ -16,6 +16,7 @@ import PlayerMoney from './PlayerMoney';
 import PlayerTrades from './PlayerTrades';
 import PlayerTimeline from './PlayerTimeline';
 import PlayerSecurity from './PlayerSecurity';
+import PlayerCoTraders from './PlayerCoTraders';
 import PlayerNotes from './PlayerNotes';
 import PlayerAdmin from './PlayerAdmin';
 import type { PlayerAdminProps } from './PlayerAdmin';
@@ -127,7 +128,12 @@ const PlayerFile = (props: Props) => {
           {tab === 'money' && <PlayerMoney file={file} />}
           {tab === 'trades' && <PlayerTrades file={file} />}
           {tab === 'timeline' && <PlayerTimeline file={file} />}
-          {tab === 'security' && <PlayerSecurity file={file} />}
+          {tab === 'security' && (
+            <>
+              <PlayerSecurity file={file} />
+              <PlayerCoTraders uid={selectedUser.id} />
+            </>
+          )}
           {tab === 'notes' && <PlayerNotes notes={file.notes} onAdd={addNote} onDelete={deleteNote} />}
         </>
       )}

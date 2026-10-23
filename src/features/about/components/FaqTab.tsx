@@ -116,6 +116,18 @@ const FaqTab = () => {
       </div>
 
       <div>
+        <h3 className="font-semibold text-orange-500 mb-1">How do missions work?</h3>
+        <p className={`text-sm ${mutedClass}`}>
+          You get 3 daily missions and 2 weekly ones, paid in cash. They need real trades: a trade counts if it&apos;s
+          worth at least 1% of your net worth (between $50 and $500), a buy only while you still hold the shares, and a
+          sell only on shares you held a day or more. The week runs from one Thursday reopen to the next. Every week
+          starts with Opening Bell: queue a pre-market order during the halt, and if it fills in the opening auction,
+          you can claim it once the week begins. In a crew, finishing 5 missions in a week also earns your Rivalry
+          reward.
+        </p>
+      </div>
+
+      <div>
         <h3 className="font-semibold text-orange-500 mb-1">How do predictions work?</h3>
         <p className={`text-sm ${mutedClass}`}>
           Place bets on story outcomes (e.g., "Will X defeat Y?"). All bets go into a pool, and winners split the entire
@@ -138,9 +150,11 @@ const FaqTab = () => {
       <div>
         <h3 className="font-semibold text-orange-500 mb-1">How do crews work?</h3>
         <p className={`text-sm ${mutedClass}`}>
-          Pick a crew from the story to unlock crew missions. Joining is free. Switching costs 5% of your portfolio and
-          keeps you out of the crew you left for 30 days. Crews with fewer active players pay up to double on mission
-          rewards. Each week the member with the biggest net worth becomes the crew head and gets a crown by their name.
+          Pick a crew from the story to unlock crew missions and weekly Rivalries. Joining is free. Switching costs 5%
+          of your portfolio and keeps you out of the crew you left for 30 days. Each week your crew faces another one,
+          and the crew with more members finishing 5 missions wins. Crews with fewer active players pay up to double on
+          mission and Rivalry rewards. Each week the member with the biggest net worth becomes the crew head and gets a
+          crown by their name.
         </p>
       </div>
 

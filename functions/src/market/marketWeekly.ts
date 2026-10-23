@@ -14,6 +14,7 @@ import { netWorthOf } from '../shared/equity';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
 import { runWeeklyCrewRankings, runCrewRoleSyncOnly } from './crewRankings';
+import { holdForDelayedOpen } from './delayedOpenState';
 import { COSMETIC_CATALOG, COSMETIC_PRICE_LIST } from '../shared/constants/cosmetics';
 import { featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
 
@@ -73,7 +74,7 @@ async function writeFeatureUsage({
 
 // Builds and posts the weekly market report. Read-only apart from the Discord
 // post, so it is safe to re-run by hand (see triggerWeeklyMarketSummary).
-async function runWeeklyMarketSummary() {
+export async function runWeeklyMarketSummary() {
   try {
     const marketRef = db.collection('market').doc('current');
     const marketSnap = await marketRef.get();
@@ -135,14 +136,16 @@ async function runWeeklyMarketSummary() {
     await writeFeatureUsage({ users, tradesByUid, since: weekAgo, now });
 
     // Top portfolios — bots and banned accounts are excluded from all
-    // user-facing rankings
+    // user-facing rankings. Net worth (margin debt off), matching the site's
+    // board and the weekly leaderboard.
     const topPortfolios = users
       .filter((u) => !u.isBot && !u.isBanned && u.portfolioValue > 0)
-      .sort((a, b) => b.portfolioValue - a.portfolioValue)
+      .map((u) => ({ name: u.displayName || 'Anonymous', worth: netWorthOf(u as DocumentData) }))
+      .sort((a, b) => b.worth - a.worth)
       .slice(0, 5);
 
-    // The shop's featured item turns over at this same moment (Monday 00:00
-    // UTC), so the report announces the new one.
+    // The shop's featured item turns over at the Thursday reopen, just before
+    // this runs, so the report announces the new one.
     const featuredId = featuredCosmeticId(COSMETIC_PRICE_LIST, now + 60 * 1000);
     const featured = featuredId ? COSMETIC_CATALOG[featuredId] : null;
 
@@ -176,8 +179,7 @@ async function runWeeklyMarketSummary() {
           value:
             topPortfolios
               .map(
-                (u, i) =>
-                  `${i + 1}. ${u.displayName || 'Anonymous'} - $${u.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                (u, i) => `${i + 1}. ${u.name} - $${u.worth.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
               )
               .join('\n') || 'None',
           inline: false,
@@ -186,7 +188,7 @@ async function runWeeklyMarketSummary() {
           ? [
               {
                 name: `${pxe('shop')} Featured in the Shop This Week`,
-                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until next Monday.`,
+                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until the next Thursday reopen.`,
                 inline: false,
               },
             ]
@@ -207,9 +209,10 @@ async function runWeeklyMarketSummary() {
 }
 
 export const weeklyMarketSummary = cf()
-  .pubsub.schedule('0 0 * * 1')
+  .pubsub.schedule('10 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
+    if (await holdForDelayedOpen('weeklyMarketSummary')) return null;
     const result = await runWeeklyMarketSummary();
     // Only a summary that actually posted counts. A failure is caught inside and
     // returned as posted: false, so beating unconditionally hid every failure.
@@ -231,75 +234,81 @@ export const triggerWeeklyMarketSummary = cf().https.onCall(async (data, context
 });
 
 /**
- * Weekly Leaderboard - Runs Mondays at 01:00 UTC
+ * Weekly Leaderboard - Runs at the Thursday reopen (21:15 UTC)
  */
-export const weeklyLeaderboard = cf()
-  .pubsub.schedule('0 1 * * 1')
-  .timeZone('UTC')
-  .onRun(async (_context) => {
-    try {
-      const usersSnapshot = await db.collection('users').get();
+export async function runWeeklyLeaderboard() {
+  try {
+    const usersSnapshot = await db.collection('users').get();
 
-      if (usersSnapshot.empty) {
-        logger.info('No users found');
-        return null;
-      }
-
-      // Calculate portfolio values and sort
-      const activeCutoff = Date.now() - ACTIVE_USER_WINDOW_MS;
-      let activeCount = 0;
-      const traders: { username: string; portfolioValue: number }[] = [];
-      usersSnapshot.forEach((doc) => {
-        const user = doc.data()!;
-        if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
-        // Bots and banned accounts are excluded from all user-facing rankings.
-        // Ranked on net worth (margin debt off), matching the site's board.
-        if (!user.isBankrupt && !user.isBot && !user.isBanned) {
-          traders.push({
-            username: user.displayName,
-            portfolioValue: user.portfolioValue != null ? netWorthOf(user) : user.cash || 0,
-          });
-        }
-      });
-
-      traders.sort((a, b) => b.portfolioValue - a.portfolioValue);
-      const top5 = traders.slice(0, 5);
-
-      const leaderboardText = top5
-        .map((trader, idx) => {
-          const medal = pxe((['rank1', 'rank2', 'rank3', 'rank4', 'rank5'] as const)[idx]!);
-          return `${medal} **${trader.username}** - $${trader.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-        })
-        .join('\n');
-
-      const embed = {
-        color: 0xffd700, // Gold
-        title: `${pxe('trophy')} Weekly Leaderboard`,
-        description: leaderboardText,
-        footer: {
-          text: `Total Active Users (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`,
-        },
-        timestamp: new Date().toISOString(),
-      };
-
-      await sendDiscordMessage(null, [embed]);
-      logger.info('Weekly leaderboard sent');
-      await recordHeartbeat('weeklyLeaderboard');
-      return null;
-    } catch (error) {
-      reportError(error, { where: 'weeklyLeaderboard' });
+    if (usersSnapshot.empty) {
+      logger.info('No users found');
       return null;
     }
+
+    // Calculate portfolio values and sort
+    const activeCutoff = Date.now() - ACTIVE_USER_WINDOW_MS;
+    let activeCount = 0;
+    const traders: { username: string; portfolioValue: number }[] = [];
+    usersSnapshot.forEach((doc) => {
+      const user = doc.data()!;
+      if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
+      // Bots and banned accounts are excluded from all user-facing rankings.
+      // Ranked on net worth (margin debt off), matching the site's board.
+      if (!user.isBankrupt && !user.isBot && !user.isBanned) {
+        traders.push({
+          username: user.displayName,
+          portfolioValue: user.portfolioValue != null ? netWorthOf(user) : user.cash || 0,
+        });
+      }
+    });
+
+    traders.sort((a, b) => b.portfolioValue - a.portfolioValue);
+    const top5 = traders.slice(0, 5);
+
+    const leaderboardText = top5
+      .map((trader, idx) => {
+        const medal = pxe((['rank1', 'rank2', 'rank3', 'rank4', 'rank5'] as const)[idx]!);
+        return `${medal} **${trader.username}** - $${trader.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+      })
+      .join('\n');
+
+    const embed = {
+      color: 0xffd700, // Gold
+      title: `${pxe('trophy')} Weekly Leaderboard`,
+      description: leaderboardText,
+      footer: {
+        text: `Total Active Users (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`,
+      },
+      timestamp: new Date().toISOString(),
+    };
+
+    await sendDiscordMessage(null, [embed]);
+    logger.info('Weekly leaderboard sent');
+    await recordHeartbeat('weeklyLeaderboard');
+    return null;
+  } catch (error) {
+    reportError(error, { where: 'weeklyLeaderboard' });
+    return null;
+  }
+}
+
+export const weeklyLeaderboard = cf()
+  .pubsub.schedule('15 21 * * 4')
+  .timeZone('UTC')
+  .onRun(async () => {
+    if (await holdForDelayedOpen('weeklyLeaderboard')) return null;
+    return runWeeklyLeaderboard();
   });
 
 // 5 min rather than the 60s default: this scans every user doc and then makes
 // up to 18 Discord round-trips. Billed on actual runtime, so the headroom is
 // free unless something is genuinely slow.
 export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
-  .pubsub.schedule('30 1 * * 1')
+  .pubsub.schedule('5 21 * * 4')
   .timeZone('UTC')
   .onRun(async (_context) => {
     try {
+      if (await holdForDelayedOpen('weeklyCrewRankings')) return null;
       await runWeeklyCrewRankings();
       await recordHeartbeat('weeklyCrewRankings');
     } catch (error) {
@@ -313,7 +322,7 @@ export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
 /**
  * Admin-only manual re-run. Seeds/refreshes market/crewStats (underdog
  * multipliers) and optionally re-posts the Discord rankings. Useful right
- * after a deploy or if the Monday run failed.
+ * after a deploy or if the Thursday run failed.
  * Pass { skipDiscord: true } to only recompute the stats doc.
  * Pass { rolesOnly: true } to only re-sync the crew head Discord roles, or
  * { rolesOnly: true, dryRun: true } to just check the Discord setup.

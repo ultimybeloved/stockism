@@ -67,7 +67,7 @@ const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
     setCancelling(orderId);
     try {
       await cancelPreMarketOrderFunction({ orderId });
-      showNotification('success', 'Order cancelled.');
+      showNotification('success', 'Order canceled.');
     } catch (err) {
       showNotification('error', errorMessage(err) || 'Failed to cancel order.');
     } finally {

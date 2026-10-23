@@ -410,9 +410,9 @@ service cloud.firestore {
     }
 
     // ============================================
-    // CREW MISSIONS (shared weekly goals)
+    // CREW RIVALRIES (weekly matches and the live board)
     // ============================================
-    match /crewMissions/{docId} {
+    match /rivalries/{weekId} {
       allow read: if isAuthenticated();
       allow write: if false;
     }

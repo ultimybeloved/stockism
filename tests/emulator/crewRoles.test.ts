@@ -8,7 +8,7 @@
 // they lost), and Discord IDs must never reach market/crewStats, which is
 // world-readable.
 
-import { it } from 'vitest';
+import { it, vi } from 'vitest';
 import { createRequire } from 'module';
 import { check, type Loose } from './harness';
 
@@ -59,6 +59,18 @@ axios.request = async (cfg: AxiosConfig) => {
 const constants =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 const { CREW_HEAD_ROLE_IDS } = constants;
+
+// The "Your week" recap starts after the first full Thursday week
+// (FIRST_MISSION_WEEK_ID). Run before then, the suite moves its clock ahead in
+// whole weeks (same weekday and hour) until last week is a real one.
+{
+  const { missionWeekId, missionWeekStartMs, weeklyMissionsOpen } =
+    require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  let shift = 0;
+  while (!weeklyMissionsOpen(missionWeekId(missionWeekStartMs(Date.now() + shift) - 1))) shift += WEEK;
+  if (shift) vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + shift, shouldAdvanceTime: true });
+}
 
 // Give every crew a usable role ID for the test run.
 const ROLE: Record<string, string> = {};
@@ -231,10 +243,12 @@ it('crew head roles', async () => {
 
   const { getWeekId } =
     require('../../functions/src/shared/helpers') as typeof import('../../functions/src/shared/helpers');
-  // Must match how the job itself resolves "last week" (marketWeekly.js:220),
-  // otherwise the seeded activity lands in the wrong bucket and nobody
-  // qualifies as active.
-  const prevWeekId = getWeekId(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
+  const { missionWeekStartMs } =
+    require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
+  // Must match how the job itself resolves "last week" (crewRankings.ts: the
+  // last full week), otherwise the seeded activity lands in the wrong bucket
+  // and nobody qualifies as active.
+  const prevWeekId = getWeekId(missionWeekStartMs() - 1);
   // The job only considers members who were active last week.
   const activeLastWeek = { weeklyMissions: { [prevWeekId]: { tradeCount: 3 } } };
 
@@ -246,9 +260,10 @@ it('crew head roles', async () => {
       displayName: 'Whale',
       crew: C1,
       portfolioValue: 500000,
+      cash: 500000,
       portfolioSnapshot7d: { value: 495000 },
       discordId: '900000000000000042',
-      ...activeLastWeek,
+      weeklyMissions: { [prevWeekId]: { tradeCount: 3, startPortfolioValue: 490000, startGrantedValue: 0 } },
     });
   await db
     .collection('users')
@@ -262,10 +277,30 @@ it('crew head roles', async () => {
       ...activeLastWeek,
     });
 
+  // First run of the week: the week-open mark is from an older week.
+  await db.collection('market').doc('current').set({ prices: {}, weekOpenId: '2000-01-06' }, { merge: true });
   const { runWeeklyCrewRankings } =
     require('../../functions/src/market/marketWeekly') as typeof import('../../functions/src/market/marketWeekly');
   await runWeeklyCrewRankings({ postToDiscord: true });
 
+  const recap = await db
+    .collection('users')
+    .doc('whale')
+    .collection('notifications')
+    .where('title', '==', 'Your week')
+    .get();
+  check(
+    'E2E: an active player gets their "Your week" recap',
+    recap.size === 1 && recap.docs[0].data().message.startsWith('Net worth $500,000: +$10,000 from trading'),
+    recap.docs[0]?.data().message,
+  );
+  const noStart = await db
+    .collection('users')
+    .doc('rocket')
+    .collection('notifications')
+    .where('title', '==', 'Your week')
+    .get();
+  check('E2E: no recap without a starting value for the week', noStart.size === 0);
   const stats = (await db.collection('market').doc('crewStats').get()).data() || {};
   const crowned = (stats.heads || {})[C1];
   check(
@@ -284,4 +319,13 @@ it('crew head roles', async () => {
   const whaleDoc = (await db.collection('users').doc('whale').get()).data();
   check('E2E: crown written to the user doc', whaleDoc.isCrewHead === true && whaleDoc.crewHeadStreak === 1);
   check('E2E: first reign starts the record', whaleDoc.crewHeadBest?.weeks === 1 && !!whaleDoc.crewHeadBest?.crew);
+
+  await runWeeklyCrewRankings({ postToDiscord: false });
+  const twice = await db
+    .collection('users')
+    .doc('whale')
+    .collection('notifications')
+    .where('title', '==', 'Your week')
+    .get();
+  check('E2E: a re-run in the same week sends no second recap', twice.size === 1);
 });

@@ -17,6 +17,7 @@ import { recordLedger } from '../shared/ledger';
 import { cohortAddUpdate } from '../shared/cohorts';
 import { sideGameRoom } from '../shared/rules/equity';
 import { getLadderWithdrawable } from '../shared/ladderMath';
+import { getWeekId } from '../shared/tradeRecords';
 
 export const placeBet = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -129,7 +130,6 @@ export const placeBet = cf().https.onCall(async (data, context) => {
     updatedList[predictionIndex] = updatedPrediction;
 
     const newBetAmount = (existingBet?.amount || 0) + amount;
-    const today = new Date().toISOString().split('T')[0];
 
     transaction.update(predictionsRef, { list: updatedList });
     transaction.update(userRef, {
@@ -141,7 +141,7 @@ export const placeBet = cf().https.onCall(async (data, context) => {
         placedAt: Date.now(),
         question: prediction.question,
       },
-      [`dailyMissions.${today}.placedBet`]: true,
+      [`weeklyMissions.${getWeekId()}.betValue`]: FieldValue.increment(amount),
     });
     recordLedger(transaction, {
       uid,
@@ -192,7 +192,7 @@ export const claimPredictionPayout = cf().https.onCall(async (data, context) => 
     const prediction = predictionsList.find((p: { id: string }) => p.id === predictionId);
     if (!prediction) throw new functions.https.HttpsError('not-found', 'Prediction not found.');
     if (prediction.cancelled)
-      throw new functions.https.HttpsError('failed-precondition', 'This prediction was cancelled.');
+      throw new functions.https.HttpsError('failed-precondition', 'This prediction was canceled.');
     if (!prediction.resolved) throw new functions.https.HttpsError('failed-precondition', 'Not resolved yet.');
     predictionLabel = prediction.question || prediction.title || predictionLabel;
 
@@ -469,7 +469,7 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
       await sendDiscordMessage(null, [
         {
           title: `${pxe('party')} IPO Sold Out!`,
-          description: `**${result.ticker}** IPO sold out! Price jumped to $${newPrice.toFixed(2)} — now trading normally.`,
+          description: `**${result.ticker}** IPO sold out! Price jumped to $${newPrice.toFixed(2)}. Now trading normally.`,
           color: 0x00ff00,
           fields: [
             { name: 'Shares Sold', value: `${result.ipoTotalShares}/${result.ipoTotalShares}`, inline: true },

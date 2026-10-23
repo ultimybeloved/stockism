@@ -355,11 +355,11 @@ export const syncAllPortfolios = cf()
 
           // The weekly growth missions measure from the week's starting value,
           // which syncPortfolio records on the player's first visit of the week.
-          // Recording it here too means the week starts at Monday's run for
+          // Recording it here too means the week starts at the first nightly run for
           // everyone, not whenever they happened to log in (a player could
           // stay away until their portfolio dipped, then start the clock).
           const weekStartFields: Record<string, number> = {};
-          if (userData.crew && !userData.isBot) {
+          if (!userData.isBot) {
             const week = (userData.weeklyMissions as Record<string, WeeklyProgress> | undefined)?.[weekId];
             if (week?.startPortfolioValue === undefined) {
               weekStartFields[`weeklyMissions.${weekId}.startPortfolioValue`] = portfolioValue;

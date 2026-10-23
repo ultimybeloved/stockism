@@ -3,7 +3,7 @@ import { playSound } from '../../../utils/sounds';
 import { claimMissionRewardFunction, rerollMissionsFunction } from '../../../api/callables';
 import { fireDailyRewardConfetti, fireWeeklyRewardConfetti } from '../../../utils/confetti';
 import { ACHIEVEMENTS, achievementToast } from '../../../constants/achievements';
-import { getWeekId } from '../../../crews';
+import { getWeekId } from '../../../utils/missionProgress';
 import { getTodayDateString } from '../../../utils/date';
 import { formatCurrency } from '../../../utils/formatters';
 import { callableErrorCode } from '../../../utils/errors';

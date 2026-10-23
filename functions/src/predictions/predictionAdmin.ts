@@ -78,8 +78,8 @@ export const adminCancelPrediction = cf({ timeoutSeconds: 300 }).https.onCall(
           total += amount;
           await writeNotification(doc.id, {
             type: 'system',
-            title: 'Prediction cancelled',
-            message: `"${label}" was cancelled. Your $${amount.toLocaleString('en-US')} stake was refunded.`,
+            title: 'Prediction canceled',
+            message: `"${label}" was canceled. Your $${amount.toLocaleString('en-US')} stake was refunded.`,
             data: { predictionId },
           }).catch(() => {});
         }

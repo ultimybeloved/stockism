@@ -3,7 +3,6 @@ import SeasonCard from '../../season/components/SeasonCard';
 import IPOHypeCard from '../../ipo/components/IPOHypeCard';
 import IPOActiveCard from '../../ipo/components/IPOActiveCard';
 import DashboardRail from '../components/DashboardRail';
-import WelcomeWeekCard from '../../../shared/components/WelcomeWeekCard';
 import PhoneSummaryBar from '../components/PhoneSummaryBar';
 import StockPopup from '../components/StockPopup';
 import CompareTray from '../components/CompareTray';
@@ -18,12 +17,11 @@ import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import { useMarketView } from '../hooks/useMarketView';
 import { useState, type ComponentProps } from 'react';
-import { useNavigate } from 'react-router-dom';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
 import NewBadge from '../../../shared/components/NewBadge';
 import { SHOP_DROP_ID } from '../../../constants/cosmetics';
-import { CREW_MAP } from '../../../crews';
+import { ITEMS_PER_PAGE, LIST_ITEMS_PER_PAGE } from '../../../constants/economy';
 
 type GridProps = ComponentProps<typeof MarketGrid>;
 
@@ -38,7 +36,6 @@ type HomePageProps = Pick<
     onCheckin: () => void;
     onShowMissions: () => void;
     onShowPinShop: () => void;
-    onShowCrews: () => void;
     onShowMargin: () => void;
     onShowAbout: () => void;
   };
@@ -59,19 +56,20 @@ const HomePage = ({
   onSetAlert,
   onShowMissions,
   onShowPinShop,
-  onShowCrews,
   onShowMargin,
   onShowAbout,
   onShowLogin,
   onShowPortfolio,
   onShowBailout,
 }: HomePageProps) => {
-  const { user, userData } = useSession();
+  const { userData } = useSession();
   const { prices, priceHistory, activeIPOs, ipoRestrictedTickers, launchedTickers, storedReviewChanges } = useMarket();
   const portfolioValue = calculatePortfolioValue(activeUserData, prices);
   const { bgClass, mutedClass, ghostBtnClass } = themeClasses;
 
+  const { view, setView } = useMarketView();
   const browser = useMarketBrowser({
+    perPage: view === 'list' ? LIST_ITEMS_PER_PAGE : ITEMS_PER_PAGE,
     userData,
     prices,
     priceHistory,
@@ -81,7 +79,6 @@ const HomePage = ({
   });
 
   const [railOpen, setRailOpen] = useState(false);
-  const { view, setView } = useMarketView();
   const desk = useDesktopMarket({
     characters: browser.reviewSections
       ? browser.reviewSections.flatMap((s) => s.characters)
@@ -90,49 +87,31 @@ const HomePage = ({
   });
 
   const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
-  const navigate = useNavigate();
-  const subHeaderBtnClass = `px-3 py-1.5 text-sm font-medium rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
+  const subHeaderBtnClass = `relative whitespace-nowrap px-3 py-1.5 text-sm font-medium max-sm:flex max-sm:flex-col max-sm:items-center max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
-      <div className="max-w-6xl lg:max-w-none mx-auto">
+      <div className="max-w-6xl lg:max-w-[96rem] mx-auto">
         {/* Sub-header buttons */}
-        <div className="flex flex-wrap gap-2 mb-4 justify-center">
+        {/* Phones: all four in one row, icon over label. */}
+        <div className="grid grid-cols-4 gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
           <button onClick={isGuest ? onShowLogin : onShowMissions} className={subHeaderBtnClass}>
-            <PixelIcon name="missions" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            <PixelIcon name="missions" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             Missions
           </button>
-          {user && !isGuest && (
-            <button onClick={onShowPinShop} className={`relative ${subHeaderBtnClass}`}>
-              <PixelIcon name="palette" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              Customization
-              {shopDropUnseen && <NewBadge />}
-            </button>
-          )}
-          <button onClick={() => navigate('/achievements')} className={subHeaderBtnClass}>
-            <PixelIcon name="medal" className="w-4 h-4 mr-1.5 align-[-3px]" />
-            Achievements
+          {/* Everyone sees the same buttons; guests get the sign-in prompt. */}
+          <button onClick={isGuest ? onShowLogin : onShowPinShop} className={subHeaderBtnClass}>
+            <PixelIcon name="palette" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
+            <span className="sm:hidden">Customize</span>
+            <span className="max-sm:hidden">Customization</span>
+            {shopDropUnseen && !isGuest && <NewBadge />}
           </button>
-          {userData?.crew && !isGuest && CREW_MAP[userData.crew] && (
-            <button onClick={() => navigate(`/crew/${userData.crew}`)} className={subHeaderBtnClass}>
-              <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              My Crew
-            </button>
-          )}
-          {(!userData?.crew || isGuest) && (
-            <button onClick={onShowCrews} className={subHeaderBtnClass}>
-              <PixelIcon name="crews" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              Crews
-            </button>
-          )}
-          {user && !isGuest && (
-            <button onClick={onShowMargin} className={subHeaderBtnClass}>
-              <PixelIcon name="margin" className="w-4 h-4 mr-1.5 align-[-3px]" />
-              Margin
-            </button>
-          )}
+          <button onClick={isGuest ? onShowLogin : onShowMargin} className={subHeaderBtnClass}>
+            <PixelIcon name="margin" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
+            Margin
+          </button>
           <button onClick={onShowAbout} className={subHeaderBtnClass}>
-            <PixelIcon name="about" className="w-4 h-4 mr-1.5 align-[-3px]" />
+            <PixelIcon name="about" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             About
           </button>
         </div>
@@ -148,9 +127,6 @@ const HomePage = ({
           onShowLogin={onShowLogin}
           onShowBailout={onShowBailout}
         />
-
-        {/* Phones: welcome week up top so it isn't buried under the other cards. */}
-        <WelcomeWeekCard className="md:hidden" />
 
         {/* Guest Banner */}
         {isGuest && (
@@ -172,7 +148,7 @@ const HomePage = ({
         {activeIPOs.length > 0 && (
           <div className="mb-4">
             <h2 className={`text-sm font-semibold uppercase tracking-wide mb-3 ${mutedClass}`}>
-              <PixelIcon name="rocket" className="w-4 h-4 mr-1.5 align-[-3px]" />
+              <PixelIcon name="rocket" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
               IPO
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -23,6 +23,7 @@ const NO_LEDGER_NEEDED: Record<string, string> = {
   'season/seasonCheckpoint.ts': 'field list for a read',
   'season/seasonDryRun.ts': 'field list for a read',
   'trading/tradeState.ts': 'builds the update; trading.ts books it through recordTrade',
+  'admin/cutAccountMath.ts': 'builds the update; adminEnforcement.ts books it',
   'shared/ledger.ts': 'the ledger itself',
   'shared/eventTradeRecords.ts': 'books its own ledger entry',
   'shared/accountArchive.ts': 'copies a deleted account; no balance changes',

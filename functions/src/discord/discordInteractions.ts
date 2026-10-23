@@ -226,7 +226,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
             content:
               `${pxe('link')} Your Discord isn't linked to a Stockism account yet!\n\n` +
               '**Link now:** https://stockism.app/link-discord\n\n' +
-              "Once linked, come back and click the button again — this doesn't count as your daily claim!",
+              "Once linked, come back and click the button again. This doesn't count as your daily claim!",
           });
           return;
         }
@@ -370,6 +370,7 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
               pick.shares,
               claimedAt,
               !!CHARACTER_MAP[pick.ticker]?.isETF,
+              true,
             );
             Object.assign(updates, lot);
             workingCohorts[pick.ticker] = lot[`holdingCohorts.${pick.ticker}`];

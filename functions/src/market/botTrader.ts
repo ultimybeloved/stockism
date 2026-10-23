@@ -33,6 +33,7 @@ import { etfFollowUpdates } from '../trading/tradePricing';
 import { recordHeartbeat } from '../shared/activity';
 import type { PricePoint } from '../shared/types';
 import { decayTarget, isNeglected } from './neglectDecayRules';
+import { publishActivity } from './activityFeed';
 import {
   type Kind,
   type Storyline,
@@ -260,6 +261,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
       waves[0] = [...guardMoves, ...waves[0]!];
 
       let moved = 0;
+      const allApplied: { ticker: string; frac: number }[] = [];
       for (let i = 0; i < waves.length; i++) {
         if (i > 0) await sleep(15000 + Math.floor(Math.random() * 25000));
         if (!waves[i]!.length && i > 0) continue;
@@ -267,6 +269,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
         const at = Date.now();
         for (const a of applied) {
           moved++;
+          allApplied.push(a);
           const why = guardWhy.get(a.ticker);
           if (why) {
             // Guard moves are logged for the admin and never touch storyline totals.
@@ -291,6 +294,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
       logger.info(
         `botTrader: ${moved} moves (${guardMoves.length} guard), ${picked.length} picked, ${activeTickers} active stocks`,
       );
+      await publishActivity(allApplied);
       await recordHeartbeat('botTrader');
       return null;
     } catch (error) {

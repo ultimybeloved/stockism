@@ -23,6 +23,8 @@ export interface HeaderProps {
   onShowLogin: () => void;
   notificationCount: number;
   onToggleNotifications: () => void;
+  /** Crew picker, for the account menu when the player has no crew. */
+  onShowCrews: () => void;
 }
 
 // Ladder icon component - tan circle with X
@@ -33,6 +35,7 @@ const Header = ({
   onShowLogin,
   notificationCount,
   onToggleNotifications,
+  onShowCrews,
 }: HeaderProps) => {
   const { darkMode } = useTheme();
   const soundOn = useSoundsEnabled();
@@ -330,7 +333,7 @@ const Header = ({
 
               {/* Account menu: portfolio, profile, achievements, sign out */}
               {user ? (
-                <AccountMenu value={liveValue} />
+                <AccountMenu value={liveValue} onShowCrews={onShowCrews} />
               ) : (
                 <button
                   onClick={onShowLogin}

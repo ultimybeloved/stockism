@@ -49,7 +49,7 @@ export default function EmbedPreview({ draft }: { draft: MessageDraft }) {
       )}
 
       <p className={`text-[11px] mt-2 ${muted}`}>
-        Role and user mentions show as raw codes here. In Discord they render as coloured pills.
+        Role and user mentions show as raw codes here. In Discord they render as colored pills.
       </p>
     </div>
   );

@@ -133,8 +133,9 @@ const MarketControls = ({
         />
       )}
 
-      <div className={`${cardClass} ${raisedClass} border rounded-sm p-4 mb-4`}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className={`${cardClass} ${raisedClass} border rounded-sm p-3 md:p-4 mb-4`}>
+        {/* Phones page from the bar under the grid, so only sort and search here. */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           <select
             aria-label="Sort by"
             value={sortBy}
@@ -165,7 +166,7 @@ const MarketControls = ({
               it would only split a section in half. */}
           {!isReviewTab && (
             <>
-              <div className="flex items-center justify-center gap-2">
+              <div className="max-md:hidden flex items-center justify-center gap-2">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={showAll || currentPage === 1}
@@ -186,7 +187,7 @@ const MarketControls = ({
               </div>
               <button
                 onClick={() => setShowAll(!showAll)}
-                className={`px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`}`}
+                className={`max-md:hidden px-3 py-2 text-sm font-semibold rounded-sm ${showAll ? 'bg-amber-500 text-white' : `border ${ghostBtnClass}`}`}
               >
                 {showAll ? 'Show Pages' : 'Show All'}
               </button>

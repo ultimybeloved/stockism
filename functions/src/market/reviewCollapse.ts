@@ -10,41 +10,11 @@
 // review would appear on the chart AFTER the fills that were priced off it.
 
 import { cf } from '../shared/fnConfig';
-import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
-const db = admin.firestore();
 
-import { WEEKLY_HALT_START_MINUTE, WEEKLY_HALT_END_MINUTE } from '../shared/constants';
 import { reportError } from '../shared/sentry';
-import { writeReviewChanges, collapseReviewWindow } from './reviewChanges';
-
-// The halt window for a given moment's date, in UTC.
-const haltWindowFor = (when: Date) => {
-  const dayStart = Date.UTC(when.getUTCFullYear(), when.getUTCMonth(), when.getUTCDate());
-  return {
-    haltStart: dayStart + WEEKLY_HALT_START_MINUTE * 60 * 1000,
-    haltEnd: dayStart + WEEKLY_HALT_END_MINUTE * 60 * 1000,
-  };
-};
-
-/**
- * Save the review's numbers, then tidy the chart.
- *
- * Order is not optional. Collapsing destroys the step-by-step detail the
- * set/knock-on split is derived from, so the split has to be written first.
- * Re-running writeReviewChanges here also picks up anything adjusted after the
- * 20:30 recap posted.
- */
-const finalizeReview = async ({ haltStart, haltEnd }: { haltStart: number; haltEnd: number }) => {
-  // The pre-halt snapshot is usually deleted by the recap before this runs; it
-  // is only a fallback for a stock with no surviving pre-window point anyway.
-  const snapshotSnap = await db.collection('market').doc('preHaltSnapshot').get();
-  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data()!.prices || {} : {};
-
-  const payload = await writeReviewChanges({ haltStart, haltEnd, fallbackPrices, includeArchive: true });
-  const { tidied, folded } = await collapseReviewWindow({ haltStart, haltEnd });
-  return { tickerCount: payload.tickerCount, tidied, folded };
-};
+import { finalizeReview } from './reviewChanges';
+import { holdForDelayedOpen, scheduledReviewWindow } from './delayedOpenState';
 
 /**
  * Thursday 20:54 UTC, six minutes before the market reopens.
@@ -54,7 +24,8 @@ export const collapseReviewHistory = cf({ timeoutSeconds: 300 })
   .timeZone('UTC')
   .onRun(async () => {
     try {
-      const result = await finalizeReview(haltWindowFor(new Date()));
+      if (await holdForDelayedOpen('collapseReviewHistory')) return null;
+      const result = await finalizeReview(scheduledReviewWindow());
       logger.info(
         `collapseReviewHistory: ${result.tickerCount} tickers recorded, ` +
           `${result.tidied} tidied, ${result.folded} points folded`,

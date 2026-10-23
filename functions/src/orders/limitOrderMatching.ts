@@ -221,7 +221,6 @@ const fillOrder = async (
     fillShares,
     executedPrice,
     tradeValue,
-    crew: userData.crew || null,
   };
 };
 

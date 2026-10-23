@@ -8,10 +8,16 @@ import type { EventMarketDoc, IPO, PriceHistory, PriceMap, ShareMap, ShortMap, S
 export interface MarketData {
   marketHalted?: boolean;
   haltReason?: string;
+  /** A late Thursday open (functions/src/market/delayedOpenState). */
+  delayedOpen?: { openAt: number; done?: string[] };
   /** ticker -> circuit-breaker pause, while one is running. */
   haltedTickers?: Record<string, { resumeAt?: number }>;
   /** retired ticker -> its current name, kept after a rename. */
   tickerAliases?: Record<string, string>;
+  /** Prices at the Thursday reopen, for Bargain Hunter. */
+  weekOpenPrices?: Record<string, number>;
+  /** Prices at the last daily close (21:00 UTC), for Buy the Dip. */
+  dayClosePrices?: Record<string, number>;
   [key: string]: unknown;
 }
 
@@ -53,6 +59,8 @@ export interface MarketContextValue {
     multipliers?: Record<string, number>;
     /** crew -> players active this week. */
     activeCounts?: Record<string, number>;
+    /** Last week's rivalry winners: their crest glows this week. */
+    rivalryWinners?: string[];
     [key: string]: unknown;
   } | null;
   /** market/reviewChanges: the last chapter review's moves, rebuilt server-side. */

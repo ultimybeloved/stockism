@@ -27,6 +27,8 @@ process.env.GCLOUD_PROJECT = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 // Use the SAME firebase-admin instance the functions code resolves
 // (functions/node_modules), or its initializeApp won't be visible there.
 const admin = require('../../functions/node_modules/firebase-admin');
+const { auctionWeekId } =
+  require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT });
 const db = admin.firestore();
 
@@ -259,6 +261,13 @@ async function main() {
     'auction buy opened a dividend lot for the filled shares',
     !!richLot && (richLot.pending || []).reduce((s: Loose, p: Loose) => s + p.shares, 0) === 50,
     JSON.stringify(richLot),
+  );
+  // Opening Bell: the fill counts in the week the reopen starts.
+  const bellWeek = richUser.weeklyMissions?.[auctionWeekId()];
+  check(
+    'auction buy counts toward Opening Bell',
+    bellWeek?.auctionBuys?.[TICKER]?.shares === 50,
+    JSON.stringify(richUser.weeklyMissions),
   );
 
   const t2 = await get('pm_t2');

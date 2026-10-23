@@ -47,7 +47,8 @@ const { adminCancelPrediction } =
 const DAY = 24 * 60 * 60 * 1000;
 const near = (a: number, b: number, tol = 0.011) => Math.abs(a - b) < tol;
 const ctx = (uid: string) => ({ auth: { uid } });
-const today = () => new Date().toISOString().split('T')[0]!;
+const { missionWeekId } =
+  require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
 
 const predictionsRef = db.collection('predictions').doc('current');
 const marketRef = db.collection('market').doc('current');
@@ -133,7 +134,11 @@ async function main() {
     firstUser.predictionFlowValue === -300 && firstUser.grantedValue === -300,
     `flow=${firstUser.predictionFlowValue} granted=${firstUser.grantedValue}`,
   );
-  check('the daily mission flag is set', firstUser.dailyMissions?.[today()]?.placedBet === true);
+  check(
+    'the bet counts toward Fortune Teller',
+    firstUser.weeklyMissions?.[missionWeekId()]?.betValue === 300,
+    firstUser.weeklyMissions,
+  );
 
   // One bet per prediction, as the bet card enforces, unless the admin reopened
   // it for top-ups. Before 2026-10-13 only the card enforced it, so a direct
@@ -423,7 +428,7 @@ async function main() {
     'no new bets on a cancelled prediction',
     (await rejects(() => bet('c_one', 'p_cancel', 'Yes', 10), /ended/i)) === true,
   );
-  check('and no payout claims', (await rejects(() => claim('c_two', 'p_cancel'), /cancelled/i)) === true);
+  check('and no payout claims', (await rejects(() => claim('c_two', 'p_cancel'), /canceled/i)) === true);
   const history = (await db.collection('adminLog').where('action', '==', 'cancel_prediction').get()).docs.map(
     (d: Loose) => d.data(),
   );

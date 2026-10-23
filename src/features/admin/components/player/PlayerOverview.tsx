@@ -124,7 +124,7 @@ const PlayerOverview = ({ file }: { file: PlayerFileResponse; prices: PriceMap }
           <Fact label="Profile">{u.isPublic === false ? 'private' : 'public'}</Fact>
           <Fact label="Theme">
             {u.darkMode === false ? 'light' : 'dark'}
-            {u.colorBlindMode ? ', colour-blind mode' : ''}
+            {u.colorBlindMode ? ', color-blind mode' : ''}
           </Fact>
         </Panel>
 

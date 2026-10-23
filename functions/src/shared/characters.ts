@@ -31,7 +31,8 @@ export type RarityTier = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 /** A lot ledger for one ticker (users/{uid}.holdingCohorts[ticker]). */
 export interface HoldingCohort {
   eligible?: number;
-  pending?: { shares?: number; availableAt?: number }[];
+  /** `free`: shares that weren't bought (the daily drop). They don't count as a buy for missions. */
+  pending?: { shares?: number; availableAt?: number; free?: boolean }[];
 }
 
 export const CHARACTERS: Character[] = [
@@ -500,6 +501,7 @@ export const CHARACTERS: Character[] = [
   },
   { name: 'Renji Yamazaki', ticker: 'BRCR', basePrice: 30, dateAdded: '2026-09-03T00:03:00', generation: 'pre' },
   { name: 'Shunya Yamazaki', ticker: 'GRVS', basePrice: 30, dateAdded: '2026-09-03T00:04:00', generation: 'pre' },
+  { name: 'Flower Girl', ticker: 'FLWR', basePrice: 15, dateAdded: '2026-10-22T00:00:00', generation: 'pre' },
 
   // Characters that launched via IPO. `ipoRequired: true` gates a character out
   // of trading until an admin launches it; every gate reads it as

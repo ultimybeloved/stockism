@@ -9,6 +9,7 @@ import * as admin from 'firebase-admin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import * as logger from 'firebase-functions/logger';
 import { reportError } from '../shared/sentry';
 import { getLadderChips } from '../shared/ladderMath';
 import type { UserData } from '../shared/types';
@@ -77,14 +78,9 @@ export const runLadderGame = async (
   try {
     const gameResult = await db.runTransaction(async (transaction) => {
       const userRef = db.collection('ladderGameUsers').doc(uid);
-      const globalRef = db.collection('ladderGame').doc('global');
       const mainUserRef = db.collection('users').doc(uid);
 
-      const [userDoc, globalDoc, mainUserDoc] = await Promise.all([
-        transaction.get(userRef),
-        transaction.get(globalRef),
-        transaction.get(mainUserRef),
-      ]);
+      const [userDoc, mainUserDoc] = await Promise.all([transaction.get(userRef), transaction.get(mainUserRef)]);
 
       // Get or create ladder game user
       const userData: LadderPlayer = userDoc.exists
@@ -150,9 +146,6 @@ export const runLadderGame = async (
       const payout = won ? amount * 2 : 0;
 
       // Calculate odds distribution (for UI) - add randomness for visual variety
-      const globalData = globalDoc.exists ? globalDoc.data()! : { history: [], totalGamesPlayed: 0 };
-      const recentHistory: unknown[] = globalData.history || [];
-
       // Generate random percentages with some constraints (between 30-70%)
       const randomBase = 30 + Math.floor(Math.random() * 41); // 30-70
       const variance = Math.floor(Math.random() * 11) - 5; // -5 to +5
@@ -211,7 +204,7 @@ export const runLadderGame = async (
         detail: { bet: amount },
       });
 
-      // Update global history
+      // The public recent-games feed, written after the bet commits (below).
       const gameRecord = {
         id: `${uid}_${Date.now()}`,
         timestamp: now,
@@ -225,16 +218,6 @@ export const runLadderGame = async (
         oddPct,
         evenPct,
       };
-
-      const updatedHistory = [gameRecord, ...recentHistory].slice(0, 5);
-      transaction.set(
-        globalRef,
-        {
-          history: updatedHistory,
-          totalGamesPlayed: (globalData.totalGamesPlayed || 0) + 1,
-        },
-        { merge: true },
-      );
 
       // Check ladder game achievements
       const currentAchievements = mainUser.achievements || [];
@@ -266,8 +249,31 @@ export const runLadderGame = async (
         currentStreak: userData.currentStreak,
         newAchievements: ladderNewAchievements,
         checkCasinoChampion: !currentAchievements.includes('CASINO_CHAMPION'),
+        gameRecord,
       };
     });
+
+    // Every play used to read and write this one shared doc inside its own
+    // transaction, so players betting at the same moment queued behind each
+    // other. It's only the recent-games feed, so it now updates after the bet
+    // has committed, in a transaction of its own, and a miss costs nothing.
+    const { gameRecord } = gameResult;
+    try {
+      const globalRef = db.collection('ladderGame').doc('global');
+      await db.runTransaction(async (tx) => {
+        const global = (await tx.get(globalRef)).data() || {};
+        tx.set(
+          globalRef,
+          {
+            history: [gameRecord, ...((global.history as unknown[]) || [])].slice(0, 5),
+            totalGamesPlayed: FieldValue.increment(1),
+          },
+          { merge: true },
+        );
+      });
+    } catch (err) {
+      logger.warn('ladder recent-games feed update failed:', (err as Error).message);
+    }
 
     // Check Casino Champion after transaction (requires additional query)
     if (gameResult.checkCasinoChampion) {
@@ -287,9 +293,8 @@ export const runLadderGame = async (
         reportError(err, { where: 'playLadderGame.casinoChampion', uid });
       }
     }
-    delete (gameResult as Partial<typeof gameResult>).checkCasinoChampion;
-
-    return gameResult;
+    const { rungs, result, won, payout, newBalance, currentStreak, newAchievements } = gameResult;
+    return { rungs, result, won, payout, newBalance, currentStreak, newAchievements };
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {
       throw error;
