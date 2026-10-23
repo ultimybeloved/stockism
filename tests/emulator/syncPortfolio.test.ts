@@ -43,14 +43,10 @@ const DAY = 24 * HOUR;
 const near = (a: number, b: number, tol = 0.011) => Math.abs(a - b) < tol;
 const ctx = (uid: string) => ({ auth: { uid } });
 
-// Same week maths as the backend (weeks start Monday).
-const weekId = () => {
-  const now = new Date();
-  const start = new Date(now);
-  start.setDate(start.getDate() - start.getDay() + 1);
-  if (start > now) start.setDate(start.getDate() - 7);
-  return start.toISOString().split('T')[0]!;
-};
+// The backend's week clock (weeks start at the Thursday reopen).
+const { missionWeekId } =
+  require('../../functions/src/shared/rules/missions') as typeof import('../../functions/src/shared/rules/missions');
+const weekId = () => missionWeekId();
 
 const PRICES = { AAA: 10, BBB: 20, CCC: 5, DDD: 1, EEE: 2, FFF: 3 };
 

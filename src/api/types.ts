@@ -702,7 +702,10 @@ export interface PlayerSearchResult {
   netWorth: number;
 }
 
-/** getPublicProfile: what anyone can see about a player whose profile is public. */
+/**
+ * getPublicProfile. Every profile opens; when `isPublic` is false the holdings,
+ * shorts, chart and trading stats come back empty.
+ */
 export interface PublicProfile {
   displayName: string;
   crew: string | null;
@@ -729,6 +732,14 @@ export interface PublicProfile {
   /** Only filled in when an admin is looking. */
   adminData: import('../features/profile/components/ProfileAdminPanel').ProfileAdminData | null;
   achievements: string[];
+  /** False: holdings, shorts, chart and stats are hidden (empty or zero). */
+  isPublic: boolean;
+  /** Trophy ids (rules/trophies), still-owned only, in the player's order. */
+  trophyCase: string[];
+  /** Labels for the season titles in the case, by title id. */
+  trophyTitles: Record<string, string>;
+  /** Longest reign as a crew head, or null if never one. */
+  headReign: import('../rules/trophies').CrewHeadBest | null;
   stats: {
     totalTrades: number;
     predictionWins: number;

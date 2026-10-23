@@ -23,6 +23,7 @@ import { recordEventTrade } from '../shared/eventTradeRecords';
 import { logAdminAction, withAdminLog } from '../shared/adminLog';
 import { sideGameRoom } from '../shared/rules/equity';
 import { getLadderWithdrawable } from '../shared/ladderMath';
+import { getWeekId } from '../shared/tradeRecords';
 
 /** One entry in predictions/current.list, the fields these lookups read. */
 type PredictionEntry = { id: string; type?: string; resolved?: boolean; settled?: boolean };
@@ -87,7 +88,7 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
 
     const market = list[idx];
     if (market.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market has resolved.');
-    if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been cancelled.');
+    if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been canceled.');
     if (market.opensAt && Date.now() < market.opensAt) {
       throw new functions.https.HttpsError('failed-precondition', 'This market is not open for betting yet.');
     }
@@ -158,6 +159,8 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
         { ...(userData.eventPositions || {}), [marketId]: newPosition },
         updatedList,
       ),
+      // Fortune Teller (missions).
+      [`weeklyMissions.${getWeekId()}.futuresBuys.${marketId}`]: FieldValue.increment(cost),
     });
 
     return { success: true, cost, shares: qty, outcome };
@@ -211,7 +214,7 @@ export const sellEventShares = cf().https.onCall(async (data, context) => {
 
     const market = list[idx];
     if (market.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market has resolved.');
-    if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been cancelled.');
+    if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been canceled.');
 
     const outcomes = market.outcomes || [];
     const oi = outcomes.indexOf(outcome);
@@ -435,7 +438,7 @@ export const cancelEventMarket = cf().https.onCall(async (data, context) => {
   const predictionsRef = db.collection('predictions').doc('current');
 
   // 1. Mark the market cancelled first so the trade guards block any new buy/sell
-  //    while we refund. Reject if it is missing, already resolved, or already cancelled.
+  //    while we refund. Reject if it is missing, already resolved, or already canceled.
   const market = await db.runTransaction(async (tx) => {
     const snap = await tx.get(predictionsRef);
     if (!snap.exists) throw new functions.https.HttpsError('not-found', 'Markets not found.');
@@ -444,7 +447,7 @@ export const cancelEventMarket = cf().https.onCall(async (data, context) => {
     if (idx === -1) throw new functions.https.HttpsError('not-found', 'Market not found.');
     const m = list[idx];
     if (m.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market already resolved.');
-    if (m.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market already cancelled.');
+    if (m.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market already canceled.');
     list[idx] = { ...m, cancelled: true, cancelledAt: Date.now() };
     tx.update(predictionsRef, { list });
     return list[idx];
@@ -504,8 +507,8 @@ export const cancelEventMarket = cf().https.onCall(async (data, context) => {
       refundedTotal = round2(refundedTotal + refund);
       await writeNotification(userDoc.id, {
         type: 'system',
-        title: 'Market Cancelled',
-        message: `"${market.question}" was cancelled. $${Math.round(refund).toLocaleString()} refunded to your cash.`,
+        title: 'Market Canceled',
+        message: `"${market.question}" was canceled. $${Math.round(refund).toLocaleString()} refunded to your cash.`,
         data: { marketId },
       });
     }

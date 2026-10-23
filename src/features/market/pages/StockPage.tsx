@@ -12,6 +12,7 @@ import { getMarketClosedState } from '../../../utils/marketHours';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import { useStockPageData } from '../hooks/useStockPageData';
 import { useTickerAliasRedirect } from '../hooks/useTickerAliasRedirect';
+import ActivityFeed from '../../activity/components/ActivityFeed';
 import StockPositionCard from '../components/StockPositionCard';
 import EtfLinks from '../components/EtfLinks';
 import type { ReactNode } from 'react';
@@ -237,6 +238,8 @@ const StockPage = ({ onTrade }: StockPageProps) => {
             ? stat('Dividend', `${(dividendRate * 100).toFixed(2)}% / week`, upColor)
             : stat('Dividend', 'None', mutedClass)}
         </div>
+
+        <ActivityFeed ticker={ticker} limit={5} />
 
         <StockPositionCard
           ticker={ticker}

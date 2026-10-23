@@ -1,4 +1,5 @@
 import SeasonPanel from './SeasonPanel';
+import LateOpenControl from './LateOpenControl';
 import { marketTimes, localDailyTime, localWeeklyTime } from '../../../utils/localTime';
 
 import type { AdminCommonProps } from './types';
@@ -81,6 +82,8 @@ const MarketTab = ({
           <p className={`text-sm mb-2 ${mutedClass}`}>Reason: {marketHaltReason}</p>
         )}
       </div>
+
+      <LateOpenControl mutedClass={mutedClass} />
 
       {/* Emergency Halt Controls */}
       <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
@@ -182,9 +185,9 @@ const MarketTab = ({
       <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700">
         <h4 className="font-semibold mb-1 light:text-slate-900 dark:text-white">Crew Head Discord Roles</h4>
         <p className={`text-xs mb-3 ${mutedClass}`}>
-          Crew heads get their crew's Discord role automatically every Monday. Check Setup looks for missing roles and
-          the hierarchy problem that makes every assignment fail silently. Sync Now re-hands the roles from the current
-          standings, and is safe to press again.
+          Crew heads get their crew's Discord role automatically every Thursday reopen. Check Setup looks for missing
+          roles and the hierarchy problem that makes every assignment fail silently. Sync Now re-hands the roles from
+          the current standings, and is safe to press again.
         </p>
         <div className="flex gap-2">
           <button

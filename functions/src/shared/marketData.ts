@@ -184,14 +184,21 @@ export const neglectFloorPrice = (
 /**
  * Write one day's closing prices. Idempotent: a re-run for the same day
  * overwrites that day rather than appending a second copy of it.
+ * `setDayClose` also stores them on market/current as dayClosePrices, the
+ * close the Buy the Dip mission measures from.
  */
-export const recordDailyCloses = async (prices: Prices | null | undefined, now = Date.now()) => {
+export const recordDailyCloses = async (
+  prices: Prices | null | undefined,
+  now = Date.now(),
+  { setDayClose = false } = {},
+) => {
   const closes: Prices = {};
   for (const [ticker, price] of Object.entries(prices || {})) {
     if (!(price > 0) || !isRosterTicker(ticker)) continue;
     closes[ticker] = price;
   }
   if (!Object.keys(closes).length) return 0;
+  if (setDayClose) await db.collection('market').doc('current').update({ dayClosePrices: closes, dayCloseAt: now });
   await dailyClosesRef(monthIdOf(now)).set(
     {
       month: monthIdOf(now),

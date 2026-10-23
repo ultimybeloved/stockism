@@ -8,6 +8,31 @@ import { localDailyTime } from './localTime';
 import { CHARACTER_MAP } from '../characters';
 import type { Character } from '../characters';
 
+// A late reopen (market/current.delayedOpen, set from the admin panel when the
+// chapter is late). While one is pending, the halt helpers below read the clock
+// that far behind, so the pre-market queue, the lock, the countdowns and the
+// Review tab window all move with the open. useMarketData keeps it current.
+let delayedOpenAt: number | null = null;
+export const setDelayedOpenAt = (openAt: number | null | undefined) => {
+  delayedOpenAt = openAt || null;
+};
+const DAY_MS = 24 * 60 * 60 * 1000;
+const utcDay = (ms: number) => Math.floor(ms / DAY_MS);
+/** How far the reopen on the UTC day of `ms` was pushed back, in ms. 0 when it wasn't. */
+export const reopenDelayOn = (ms: number) => {
+  if (!delayedOpenAt || utcDay(delayedOpenAt) !== utcDay(ms)) return 0;
+  return Math.max(0, delayedOpenAt - (utcDay(ms) * DAY_MS + 21 * 60 * 60 * 1000));
+};
+/** A late open is set for today and hasn't happened yet. */
+export const isLateOpenPending = (now = Date.now()) => reopenDelayOn(now) > 0 && now < delayedOpenAt!;
+const haltNow = () => {
+  const now = Date.now();
+  const delay = reopenDelayOn(now);
+  if (!delay || now >= delayedOpenAt! + GRACE_PERIOD_MINUTES * 60 * 1000) return new Date(now);
+  const haltStart = utcDay(now) * DAY_MS + 13 * 60 * 60 * 1000;
+  return new Date(now >= haltStart ? Math.max(now - delay, haltStart) : now);
+};
+
 /** A chart point as the review math reads it. */
 export interface ReviewPoint {
   price: number;
@@ -41,14 +66,14 @@ export interface ReviewSection<C extends ReviewCharacter = Character> {
 }
 
 export const isWeeklyHalt = () => {
-  const now = new Date();
+  const now = haltNow();
   if (now.getUTCDay() !== 4) return false; // Thursday = 4
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   return utcMins >= 780 && utcMins < 1260; // 13:00 (780) to 21:00 (1260)
 };
 
 export const getHaltTimeRemaining = () => {
-  const now = new Date();
+  const now = haltNow();
   const reopenToday = new Date(now);
   reopenToday.setUTCHours(21, 0, 0, 0);
   return Math.max(0, reopenToday.getTime() - now.getTime());
@@ -103,8 +128,9 @@ export const getMostRecentHaltWindow = () => {
   // 2026-08-20, because a 20:56 fill took back everything the review gave it.
   const reviewEnd = new Date(d);
   reviewEnd.setUTCHours(20, 55, 0, 0);
+  const delay = reopenDelayOn(start.getTime());
 
-  return { start: start.getTime(), end: end.getTime(), reviewEnd: reviewEnd.getTime() };
+  return { start: start.getTime(), end: end.getTime() + delay, reviewEnd: reviewEnd.getTime() + delay };
 };
 
 // How long a chapter review stays visible in the Review tab before it is
@@ -387,6 +413,7 @@ export function spliceReviewDetail(
  * If it's Thursday before 21:00 UTC, that's today; otherwise the coming Thursday.
  */
 export const getNextMarketOpen = () => {
+  if (isLateOpenPending()) return new Date(delayedOpenAt!);
   const next = new Date();
   next.setUTCHours(21, 0, 0, 0);
   while (next.getUTCDay() !== 4 || next.getTime() <= Date.now()) {
@@ -402,7 +429,7 @@ export const PRE_MARKET_LOCK_MINUTE = 1255; // 20:55 UTC
 export const GRACE_PERIOD_MINUTES = 30;
 
 export const isPreMarketWindow = () => {
-  const now = new Date();
+  const now = haltNow();
   if (now.getUTCDay() !== 4) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   return utcMins >= PRE_MARKET_START_MINUTE && utcMins < HALT_END_MINUTE;
@@ -410,7 +437,7 @@ export const isPreMarketWindow = () => {
 
 // Final 5 minutes before open — orders are committed, no cancellations allowed
 export const isPreMarketLockout = () => {
-  const now = new Date();
+  const now = haltNow();
   if (now.getUTCDay() !== 4) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   return utcMins >= PRE_MARKET_LOCK_MINUTE && utcMins < HALT_END_MINUTE;
@@ -425,7 +452,7 @@ export const isPreMarketLockout = () => {
  */
 export const getWeeklyHaltPhase = () => {
   if (!isWeeklyHalt()) return null;
-  const now = new Date();
+  const now = haltNow();
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   const target = new Date(now);
   if (utcMins < PRE_MARKET_START_MINUTE) {
@@ -441,14 +468,14 @@ export const getWeeklyHaltPhase = () => {
 };
 
 export const getPreMarketTimeRemaining = () => {
-  const now = new Date();
+  const now = haltNow();
   const open = new Date(now);
   open.setUTCHours(21, 0, 0, 0);
   return Math.max(0, open.getTime() - now.getTime());
 };
 
 export const isMarketOpenGracePeriod = () => {
-  const now = new Date();
+  const now = haltNow();
   if (now.getUTCDay() !== 4) return false;
   const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
   return utcMins >= HALT_END_MINUTE && utcMins < HALT_END_MINUTE + GRACE_PERIOD_MINUTES;
@@ -463,7 +490,10 @@ export const isMarketOpenGracePeriod = () => {
 export const getMarketClosedState = (
   marketData: { marketHalted?: boolean } | null | undefined,
 ): { closed: boolean; preMarket: boolean; label: string } => {
-  if (marketData?.marketHalted) return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
+  // A late open keeps the market halted, but the clock helpers already tell
+  // that story, pre-market queue included.
+  if (marketData?.marketHalted && !isLateOpenPending())
+    return { closed: true, preMarket: false, label: 'MARKET CLOSED' };
   if (isPreMarketWindow()) return { closed: false, preMarket: true, label: 'Pre-Market Queue' };
   // Weekly halt: say when orders can go in again, not just that it's closed
   if (isWeeklyHalt())

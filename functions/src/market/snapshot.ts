@@ -70,7 +70,7 @@ const page = (title: string, bodyHtml: string, takenAt: string) => `<!doctype ht
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)} — Stockism</title>
+<title>${esc(title)} | Stockism</title>
 <meta name="description" content="Archived snapshot of the Stockism market, ${esc(takenAt)}.">
 <style>
  body{font:14px/1.5 system-ui,sans-serif;margin:0;padding:24px;background:#18181b;color:#e4e4e7}
@@ -139,13 +139,13 @@ ${rows.map((r) => `<tr><td>${esc(r.ticker)}</td><td>${esc(r.name)}</td><td class
 // reaches all of them without guessing dates.
 const monthIndexSection = (monthId: string, days: string[]) => {
   if (!days.length) return `<h2>${esc(monthId)}</h2><p class="meta">Nothing recorded.</p>`;
-  return `<h2>${esc(monthId)} — ${days.length} day${days.length === 1 ? '' : 's'}</h2>
+  return `<h2>${esc(monthId)}: ${days.length} day${days.length === 1 ? '' : 's'}</h2>
 <p>${days.map((d) => `<a href="${SITE}/snapshot/${esc(d)}">${esc(d)}</a>`).join(' · ')}</p>`;
 };
 
 const leaderboardSection = (entries: BoardEntry[]) => {
   if (!entries.length) return '';
-  return `<h2>Leaderboard — top ${entries.length}</h2>
+  return `<h2>Leaderboard: top ${entries.length}</h2>
 <table><thead><tr><th>#</th><th>Player</th><th>Crew</th><th class="n">Portfolio</th></tr></thead><tbody>
 ${entries.map((e, i) => `<tr><td>${i + 1}</td><td>${esc(e.displayName || 'Anonymous')}</td><td>${esc(e.crew || '')}</td><td class="n">$${money(e.portfolioValue)}</td></tr>`).join('\n')}
 </tbody></table>`;
@@ -154,7 +154,7 @@ ${entries.map((e, i) => `<tr><td>${i + 1}</td><td>${esc(e.displayName || 'Anonym
 const seasonSection = (season: Doc | null | undefined, standings: Doc | null | undefined) => {
   if (!season || season.status !== 'active') return '';
   const rows: SeasonBoardEntry[] = (standings?.entries || []).slice(0, 25);
-  return `<h2>Season ${esc(season.number)} — ${esc(season.name)}</h2>
+  return `<h2>Season ${esc(season.number)}: ${esc(season.name)}</h2>
 <p class="meta">Week ${esc(standings?.weeks ?? '')} · ranked on trading return, free stock and bonuses excluded</p>
 ${
   rows.length

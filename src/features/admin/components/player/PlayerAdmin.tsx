@@ -9,6 +9,7 @@ import { utc } from '../../utils/termFormat';
 import UserFinancials from '../users/UserFinancials';
 import UserTradeAs from '../users/UserTradeAs';
 import UserAdminActions from '../users/UserAdminActions';
+import PlayerCut from './PlayerCut';
 import { Empty, Panel, Tag } from '../shell/ui';
 import { t } from '../shell/terminal';
 import type { AdminCommonProps } from '../types';
@@ -145,6 +146,7 @@ const PlayerAdmin = ({
           </p>
           {guardError && <p className={`text-xs ${t.red} mt-1`}>{guardError}</p>}
         </Panel>
+        <PlayerCut uid={selectedUser.id} name={name} onChanged={onChanged} />
         <Panel title="Danger">
           <button
             className={t.btnDanger}

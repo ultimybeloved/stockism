@@ -21,7 +21,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import { COSMETIC_CATALOG, COSMETIC_PRICE_LIST } from '../shared/constants/cosmetics';
 import { BUNDLE_MAP, bundleQuote, featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
-import { networkKey } from '../shared/accountGuards';
+import { networkKey, checkDiscordWall } from '../shared/accountGuards';
 import { recordLedger } from '../shared/ledger';
 import { touchLastActive } from '../shared/activity';
 import { writeNotification } from '../shared/notifications';
@@ -85,6 +85,9 @@ export const giftCosmetic = cf().https.onCall(
       if (giver.isBot || giver.isBanned) {
         throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
       }
+      // A suspected alt behind the Discord wall can't trade, so it must not be able to
+      // turn its cash into gifts for another account either.
+      checkDiscordWall(giver);
       if (target.isBot || target.isBanned) {
         throw new functions.https.HttpsError('failed-precondition', "That player can't receive gifts.");
       }

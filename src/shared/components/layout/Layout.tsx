@@ -20,6 +20,7 @@ const Layout = ({
   onShowLogin,
   notificationCount,
   onToggleNotifications,
+  onShowCrews,
 }: LayoutProps) => {
   const { darkMode } = useTheme();
   usePageTitle();
@@ -34,6 +35,7 @@ const Layout = ({
         onShowLogin={onShowLogin}
         notificationCount={notificationCount}
         onToggleNotifications={onToggleNotifications}
+        onShowCrews={onShowCrews}
       />
 
       <MarketTicker />

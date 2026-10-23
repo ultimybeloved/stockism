@@ -3,6 +3,7 @@
 // reach production.
 import { expect } from 'vitest';
 import { execFileSync } from 'child_process';
+import { createRequire } from 'module';
 
 export const PROJECT_ID = process.env.GCLOUD_PROJECT || 'stockism-abb28';
 
@@ -17,6 +18,23 @@ export const check = (label: string, cond: unknown, detail?: unknown) => {
   console.log(`${cond ? '  ✅' : '  ❌'} ${label}${cond ? '' : describeDetail(detail)}`);
   expect.soft(Boolean(cond), `${label}${describeDetail(detail)}`).toBe(true);
 };
+
+/**
+ * Suites that trade can't run during the Thursday halt, when every order path
+ * is closed. Run then, every suite moves its clock a day ahead, to Friday, and
+ * the seed script follows (clockShift.cjs). Suites that test the halt fake it
+ * themselves.
+ */
+export function leaveWeeklyHalt() {
+  const now = new Date();
+  const mins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  if (now.getUTCDay() === 4 && mins >= 13 * 60 && mins < 21 * 60) {
+    const shift = 24 * 60 * 60 * 1000;
+    process.env.EMULATOR_CLOCK_SHIFT_MS = String(shift);
+    // A fixed offset, not vi.useFakeTimers: its clock falls behind real waits.
+    createRequire(import.meta.url)('./clockShift.cjs');
+  }
+}
 
 /** Wipes the emulator's Firestore (and Auth, when it is running). */
 export async function resetEmulator() {
@@ -33,7 +51,11 @@ export async function resetEmulator() {
 
 /** Writes the starting market doc, as `npm run seed:emulator` does. */
 export function seedEmulator() {
-  execFileSync(process.execPath, ['--import', 'tsx', 'scripts/seed-emulator.cjs'], { stdio: 'inherit' });
+  execFileSync(
+    process.execPath,
+    ['--require', './tests/emulator/clockShift.cjs', '--import', 'tsx', 'scripts/seed-emulator.cjs'],
+    { stdio: 'inherit' },
+  );
 }
 
 /**

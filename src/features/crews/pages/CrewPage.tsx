@@ -7,6 +7,8 @@ import { getReadableCrewColor, themeClasses } from '../../../utils/theme';
 import LeaderboardRow from '../../leaderboard/components/LeaderboardRow';
 import CrewStocks from '../components/CrewStocks';
 import { useCrewPlayers } from '../hooks/useCrewPlayers';
+import RivalryMatch from '../../missions/components/RivalryMatch';
+import { rivalryMatchOf, useRivalryBoard } from '../../missions/hooks/useRivalryBoard';
 
 interface CrewHead {
   uid?: string;
@@ -18,8 +20,8 @@ interface CrewHead {
 // Players shown before "Show all", so the fund isn't buried on phones.
 const PREVIEW_ROWS = 10;
 
-// /crew/:crewId: one crew's page. Its head, its players by net worth, and its
-// fund and characters. Any crew's page is open to anyone.
+// /crew/:crewId: one crew's page. Its head, this week's rivalry, its players by
+// net worth, and its fund and characters. Any crew's page is open to anyone.
 const CrewPage = () => {
   const { crewId = '' } = useParams();
   const crew = CREW_MAP[crewId.toUpperCase()];
@@ -29,6 +31,7 @@ const CrewPage = () => {
   const { players, loading, failed } = useCrewPlayers(crew?.id ?? null);
   const userRowRef = useRef<HTMLDivElement | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const rivalryBoard = useRivalryBoard();
   const { cardClass, textClass, mutedClass, borderClass } = themeClasses;
 
   if (!crew) return <Navigate to="/leaderboard" replace />;
@@ -40,6 +43,8 @@ const CrewPage = () => {
   const memberCount = (crewStats?.memberCounts as Record<string, number> | undefined)?.[crew.id];
   const activeCount = crewStats?.activeCounts?.[crew.id];
   const mine = userData?.crew === crew.id;
+  const match = rivalryMatchOf(rivalryBoard, crew.id);
+  const wonLastWeek = (crewStats?.rivalryWinners || []).includes(crew.id);
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
@@ -91,6 +96,20 @@ const CrewPage = () => {
               <p className={`text-sm ${mutedClass}`}>No crew head this week.</p>
             )}
           </div>
+
+          {/* Rivalry */}
+          {wonLastWeek && (
+            <p className="px-3 py-2 rounded-sm border border-amber-500/40 bg-amber-500/10 text-xs font-semibold text-amber-500">
+              Won last week's rivalry. Their crest glows all week.
+            </p>
+          )}
+          {match ? (
+            <div className={`${cardClass} border rounded-sm p-1`}>
+              <RivalryMatch match={match} board={rivalryBoard} yourCrew={userData?.crew || null} />
+            </div>
+          ) : (
+            rivalryBoard && <p className={`text-sm ${mutedClass}`}>No rivalry this week.</p>
+          )}
 
           {/* Players */}
           <div className={`${cardClass} border rounded-sm overflow-hidden`}>

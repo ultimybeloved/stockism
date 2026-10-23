@@ -52,38 +52,36 @@ const MarketIndex = ({ prices, priceHistory, colorBlindMode = false }: MarketInd
 
   return (
     <>
-      {/* Banner card */}
+      {/* Small card: the one market-wide number. Click for the full chart. */}
       <div
-        className={`${cardClass} border rounded-sm p-4 mb-4 cursor-pointer hover:border-orange-600 transition-colors`}
+        className={`${cardClass} border rounded-sm px-4 py-3 mb-4 cursor-pointer hover:border-orange-600 transition-colors flex items-center gap-4`}
         {...pressable(() => setExpanded(true))}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold tracking-wider mb-1 light:text-zinc-500 dark:text-zinc-400">
-              STOCKISM MARKET INDEX
-            </div>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-2xl font-bold light:text-zinc-900 dark:text-white">
-                {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className={`text-sm font-semibold ${changeColor}`}>
-                {isUp ? '\u25B2' : '\u25BC'} {isUp ? '+' : ''}
-                {change24h.toFixed(2)} ({isUp ? '+' : ''}
-                {changePct24h.toFixed(2)}%) 24h
-              </span>
-            </div>
+        <div className="min-w-0">
+          <div className="text-[10px] font-semibold tracking-wider light:text-zinc-500 dark:text-zinc-400">
+            MARKET INDEX
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-bold tabular-nums light:text-zinc-900 dark:text-white">
+              {currentIndex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className={`text-xs font-semibold tabular-nums ${changeColor}`}>
+              {isUp ? '▲' : '▼'} {isUp ? '+' : ''}
+              {changePct24h.toFixed(2)}%
+            </span>
             {change30dPct != null && (
-              <div className={`text-xs mt-0.5 ${thirtyColor}`}>
-                {thirtyIsUp ? '\u2191' : '\u2193'} {Math.abs(change30dPct).toFixed(2)}% 30d
-              </div>
+              <span className={`text-[11px] tabular-nums ${thirtyColor}`}>
+                {thirtyIsUp ? '+' : ''}
+                {change30dPct.toFixed(1)}% 30d
+              </span>
             )}
           </div>
-          {sparklineData.length >= 2 && (
-            <div className="w-full sm:w-40 h-10 flex-shrink-0">
-              <SimpleLineChart data={sparklineData} colorBlindMode={colorBlindMode} width={160} height={40} />
-            </div>
-          )}
         </div>
+        {sparklineData.length >= 2 && (
+          <div className="ml-auto w-24 shrink-0">
+            <SimpleLineChart data={sparklineData} colorBlindMode={colorBlindMode} width={96} height={32} />
+          </div>
+        )}
       </div>
 
       {/* Expanded chart modal — portaled to body so the sticky sidebar's

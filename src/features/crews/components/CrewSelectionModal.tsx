@@ -123,7 +123,7 @@ const CrewSelectionModal = ({
           )}
           {!isGuest && !currentCrew && (
             <p className={`text-sm ${mutedClass} mt-1`}>
-              Join a crew to unlock missions. Less active crews pay bonus rewards!
+              Join a crew for crew missions and weekly Rivalries. Less active crews pay bonus rewards!
             </p>
           )}
         </div>

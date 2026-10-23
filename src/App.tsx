@@ -206,6 +206,7 @@ export default function App() {
             onShowLogin={showLogin}
             notificationCount={alerts.userNotifications.filter((n) => !n.read).length}
             onToggleNotifications={() => setShowNotificationPanel((prev) => !prev)}
+            onShowCrews={() => setShowCrewSelection(true)}
           >
             <InAppBrowserBanner />
             <AppRoutes
@@ -222,7 +223,6 @@ export default function App() {
                 onSetAlert: (ticker) => setShowPriceAlertModal(ticker),
                 onShowMissions: () => setShowDailyMissions(true),
                 onShowPinShop: () => setShowPinShop(true),
-                onShowCrews: () => setShowCrewSelection(true),
                 onShowMargin: () => setShowLending(true),
                 onShowAbout: () => setShowAbout(true),
                 onShowLogin: showLogin,

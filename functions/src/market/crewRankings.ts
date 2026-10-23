@@ -7,9 +7,13 @@ import { TWENTY_FOUR_HOURS_MS, CREWS, CREW_UNDERDOG_MULT_MAX, CREW_HEAD_DYNASTY_
 import { writeNotification } from '../shared/notifications';
 import { sendDiscordMessage, crewEmoji, pxe } from '../shared/discordApi';
 import { getWeekId } from '../shared/tradeRecords';
-import { netWorthOf, tradingNetWorthOf, snapshotNetWorth } from '../shared/equity';
+import { missionWeekStartMs, weeklyMissionsOpen } from '../shared/rules/missions';
+import { netWorthOf, tradingNetWorthOf, snapshotNetWorth, netEquityAt } from '../shared/equity';
 import { reportError } from '../shared/sentry';
 import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
+import { settleRivalryWeek, pairRivalryWeek, type RivalryResult } from '../crews/rivalries';
+import { buildWeeklyRecap } from './weeklyRecap';
+import { rivalryQualified, type WeeklyProgress } from '../shared/rules/missionProgress';
 import type { DocumentData } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
@@ -41,13 +45,15 @@ export interface CrewTally {
   activeGain: number;
 }
 /**
- * Weekly Crew Rankings - Runs Mondays at 01:30 UTC
- *
- * Two jobs:
+ * Weekly Crew Rankings - Runs at the Thursday reopen (21:05 UTC), when the
+ * mission week turns over (rules/missions). The jobs, in order:
+ * 0. Record the week-open prices (Bargain Hunter) and settle last week's Crew
+ *    Rivalries, paid at last week's multipliers.
  * 1. Compute each crew's active-player count for the week that just ended and
  *    derive the underdog reward multiplier for the new week. Written to the
  *    public market/crewStats doc, which every mission claim path reads.
- * 2. Post the Discord rankings, ranked by average weekly gain per ACTIVE
+ * 2. Pair the new week's rivalries.
+ * 3. Post the Discord rankings, ranked by average weekly gain per ACTIVE
  *    member so small crews compete on equal footing with big ones.
  *
  * "Active" = made a trade, claimed any mission, or checked in during the week.
@@ -63,18 +69,27 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     return null;
   }
 
-  // The week that just ended (this runs Monday 01:30 UTC, so 48h back
-  // lands safely inside last week).
-  const prevWeekId = getWeekId(new Date(Date.now() - 2 * TWENTY_FOUR_HOURS_MS));
-  const prevWeekDates = [...Array(7)].map((_, i) => {
-    const d = new Date(`${prevWeekId}T00:00:00Z`); // prevWeekId is that Monday
+  // The last full week, whenever this runs (the admin can re-run it mid-week).
+  // A week starts Thursday 21:00, so it touches 8 UTC dates.
+  const prevWeekId = getWeekId(missionWeekStartMs() - 1);
+  const prevWeekDates = [...Array(8)].map((_, i) => {
+    const d = new Date(`${prevWeekId}T00:00:00Z`); // prevWeekId is that Thursday
     d.setUTCDate(d.getUTCDate() + i);
     return d.toISOString().split('T')[0]!;
   });
+  // Weeks were keyed by their Monday until 2026-10-22, so the first run after
+  // the switch finds last week's activity under Monday keys inside the window.
+  // Later, only prevWeekId itself falls in it.
+  const prevDayMs = Date.parse(`${prevWeekId}T00:00:00Z`);
+  const prevWeekKeys = (wms: Record<string, unknown> | undefined) =>
+    Object.keys(wms || {}).filter((k) => {
+      const ms = Date.parse(`${k}T00:00:00Z`);
+      return ms >= prevDayMs - 3 * TWENTY_FOUR_HOURS_MS && ms < prevDayMs + 7 * TWENTY_FOUR_HOURS_MS;
+    });
 
   const wasActiveLastWeek = (user: DocumentData) => {
-    const wm = user.weeklyMissions?.[prevWeekId];
-    if (wm) {
+    for (const key of prevWeekKeys(user.weeklyMissions)) {
+      const wm = user.weeklyMissions[key];
       if ((wm.tradeCount || 0) > 0) return true;
       if (wm.claimed && Object.keys(wm.claimed).length > 0) return true;
       if (wm.checkinDays && Object.keys(wm.checkinDays).length > 0) return true;
@@ -148,6 +163,33 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       staleHeads.push(doc.id);
     }
   });
+
+  // Week-open prices, which Bargain Hunter measures "down this week" from.
+  // Runs after the opening auction has filled, so the week opens where trading did.
+  // Only the first run of a week: a mid-week re-run must not move the mark.
+  // The first run of a week also sends everyone their "Your week" recap, priced
+  // from last week's open to now.
+  let recapPrices: { open: Record<string, number>; now: Record<string, number> } | null = null;
+  try {
+    const market = await db.collection('market').doc('current').get();
+    if (market.exists && market.data()?.weekOpenId !== getWeekId()) {
+      recapPrices = { open: market.data()?.weekOpenPrices || {}, now: market.data()?.prices || {} };
+      await market.ref.update({ weekOpenPrices: market.data()?.prices || {}, weekOpenId: getWeekId() });
+    }
+  } catch (err) {
+    reportError(err, { where: 'runWeeklyCrewRankings.weekOpenPrices' });
+  }
+
+  // Last week's rivalries, paid at last week's multipliers (still in crewStats
+  // until the write below). Isolated: a failure must not cost the crowns.
+  let rivalry: { results: Record<string, RivalryResult>; winners: string[] } | null = null;
+  try {
+    const oldStats = (await db.collection('market').doc('crewStats').get()).data();
+    const users = usersSnapshot.docs.map((d) => ({ id: d.id, data: d.data() }));
+    rivalry = await settleRivalryWeek(prevWeekId, users, oldStats);
+  } catch (err) {
+    reportError(err, { where: 'runWeeklyCrewRankings.settleRivalryWeek', prevWeekId });
+  }
 
   // Underdog multipliers for the new week: the most active crew gets 1x,
   // an empty crew gets CREW_UNDERDOG_MULT_MAX, everyone else in between.
@@ -243,17 +285,33 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     userUpdates.push({ uid, update: { isCrewHead: false, crewHeadStreak: 0 }, note: null });
   });
 
+  // This week's rivalries: every crew with members, matched on last week's activity.
+  let matches: string[][] = [];
+  try {
+    const withMembers = Object.values(crews)
+      .filter((c) => c.members.length > 0)
+      .map((c) => c.id);
+    matches = await pairRivalryWeek(getWeekId(), prevWeekId, withMembers, activeCounts);
+  } catch (err) {
+    reportError(err, { where: 'runWeeklyCrewRankings.pairRivalryWeek' });
+  }
+
   // Write the stats doc BEFORE the Discord send so a webhook failure
   // can't leave the week without multipliers.
-  await db.collection('market').doc('crewStats').set({
-    weekId: getWeekId(), // the week these multipliers apply to
-    basedOnWeekId: prevWeekId, // the activity week they were computed from
-    computedAt: Date.now(),
-    activeCounts,
-    memberCounts,
-    multipliers,
-    heads,
-  });
+  await db
+    .collection('market')
+    .doc('crewStats')
+    .set({
+      weekId: getWeekId(), // the week these multipliers apply to
+      basedOnWeekId: prevWeekId, // the activity week they were computed from
+      computedAt: Date.now(),
+      activeCounts,
+      memberCounts,
+      multipliers,
+      heads,
+      // Last week's rivalry winners: their crest glows this week.
+      rivalryWinners: rivalry?.winners || [],
+    });
 
   // Apply crown updates. Isolated so one bad user doc can't take down
   // the multipliers (already written) or the Discord post.
@@ -263,6 +321,22 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       if (note) await writeNotification(uid, note);
     } catch (err) {
       logger.error(`Crew head update failed for ${uid}:`, (err as Error).message);
+    }
+  }
+
+  // No recap for the stub week before the first Thursday week: it was only the
+  // hours between the deploy and the reopen.
+  if (recapPrices && weeklyMissionsOpen(prevWeekId)) {
+    try {
+      await sendWeeklyRecaps(
+        usersSnapshot.docs,
+        prevWeekId,
+        rivalry?.results || {},
+        recapPrices,
+        (id) => crews[id]?.name || id,
+      );
+    } catch (err) {
+      reportError(err, { where: 'runWeeklyCrewRankings.sendWeeklyRecaps', prevWeekId });
     }
   }
 
@@ -312,6 +386,38 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     };
   });
 
+  // Rivalries: last week's results, then this week's matches.
+  const crewLabel = (id: string) => `${crewEmoji(id)} ${crews[id]?.name || id}`;
+  const settled = rivalry?.results || {};
+  const seenMatches = new Set<string>();
+  const resultLines: string[] = [];
+  for (const [id, r] of Object.entries(settled)) {
+    const match = [id, ...r.opponents].sort();
+    if (seenMatches.has(match.join('|'))) continue;
+    seenMatches.add(match.join('|'));
+    resultLines.push(
+      match
+        .map((c) => {
+          const cr = settled[c];
+          return `${cr?.won ? `${pxe('trophy')} ` : ''}**${crews[c]?.name || c}** ${Math.round((cr?.score || 0) * 100)}%`;
+        })
+        .join(' vs '),
+    );
+  }
+  if (resultLines.length > 0) {
+    fields.push({ name: 'Rivalry Results', value: resultLines.join('\n').slice(0, 1024), inline: false });
+  }
+  if (matches.length > 0) {
+    fields.push({
+      name: "This Week's Rivalries",
+      value: matches
+        .map((m) => m.map(crewLabel).join(' vs '))
+        .join('\n')
+        .slice(0, 1024),
+      inline: false,
+    });
+  }
+
   const embed = {
     color: 0x5865f2, // Discord blurple
     title: `${pxe('swords')} Weekly Crew Rankings`,
@@ -319,7 +425,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
       '*Crews ranked by average weekly gain per active member. Less active crews get a mission reward bonus this week. Join one and cash in. The biggest active portfolio in each crew takes the crown.*',
     fields: fields,
     footer: {
-      text: 'Reward bonus applies to daily, weekly, and crew mission payouts. It recalculates every Monday from crew activity.',
+      text: 'Reward bonus applies to missions and rivalry payouts. It recalculates every Thursday reopen from crew activity.',
     },
     timestamp: new Date().toISOString(),
   };
@@ -345,10 +451,45 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   }
   return { multipliers, activeCounts, memberCounts, roleSync };
 }
+/** "Your week" bells for everyone who did anything last week. */
+async function sendWeeklyRecaps(
+  docs: admin.firestore.QueryDocumentSnapshot[],
+  weekId: string,
+  results: Record<string, RivalryResult>,
+  prices: { open: Record<string, number>; now: Record<string, number> },
+  crewName: (id: string) => string,
+) {
+  let sent = 0;
+  for (const d of docs) {
+    const u = d.data();
+    if (u.isBot || u.isBanned) continue;
+    const wp: WeeklyProgress | undefined = u.weeklyMissions?.[weekId];
+    const active = !!wp && ((wp.tradeCount || 0) > 0 || Object.keys(wp.claimed || {}).length > 0 || !!wp.checkinDays);
+    if (!active) continue;
+    const crew: string | null = u.crew || null;
+    const lines = buildWeeklyRecap({
+      netWorth: netEquityAt(u, prices.now) + Math.max(0, u.eventPositionsValue || 0),
+      grantedValue: u.grantedValue || 0,
+      holdings: u.holdings,
+      wp,
+      crew,
+      qualified: rivalryQualified(wp, crew),
+      rivalry: crew && results[crew] ? results[crew]! : null,
+      crewName,
+      openPrices: prices.open,
+      prices: prices.now,
+    });
+    if (!lines) continue;
+    await writeNotification(d.id, { type: 'system', title: 'Your week', message: lines.join(' ') });
+    sent++;
+  }
+  logger.info(`Weekly recaps ${weekId}: ${sent} sent`);
+}
+
 /**
  * Re-hand the crew head Discord roles from the CURRENT market/crewStats,
  * without recomputing anything. Used by the admin buttons so setup can be
- * checked and fixed without waiting for Monday.
+ * checked and fixed without waiting for Thursday.
  */
 export async function runCrewRoleSyncOnly({ dryRun = false } = {}) {
   if (dryRun) return preflightCrewRoles();

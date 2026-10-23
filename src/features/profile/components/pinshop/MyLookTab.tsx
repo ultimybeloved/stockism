@@ -8,7 +8,8 @@ import { themeClasses } from '../../../../utils/theme';
 import { useSession } from '../../../../context/AppContext';
 import type { PinAction } from '../../hooks/usePinShop';
 import AchievementIcon from '../../../../shared/components/AchievementIcon';
-import { crewPinSrc, PIXELATED, pixelatedIfSvg } from '../../../../constants/crests';
+import CrewPin from '../../../../shared/components/CrewPin';
+import { crewPinSrc, pixelatedIfSvg } from '../../../../constants/crests';
 import { COSMETIC_MAP } from '../../../../constants/cosmetics';
 import { SPLIT_FLAP_ID } from '../../../../constants/cosmeticLayers';
 import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '../../../../rules/cosmetics';
@@ -260,7 +261,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
                 className={`${chipClass(crewPinDisplayed)} ${isCrewHead ? 'cursor-default' : ''} inline-flex items-center`}
               >
                 {crew && crewPinSrc(crew) ? (
-                  <img src={crewPinSrc(crew)} alt="" className="w-5 h-5 object-contain mr-1" style={PIXELATED} />
+                  <CrewPin crew={crew} className="w-5 h-5 mr-1" />
                 ) : (
                   <span className="mr-1">{crew?.emblem}</span>
                 )}

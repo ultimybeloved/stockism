@@ -62,6 +62,7 @@ export const getLeaderboardFunction = callable<Api.GetLeaderboardRequest, Api.Ge
 export const getPublicProfileFunction = callable<{ username: string | undefined }, Api.PublicProfile>(
   'getPublicProfile',
 );
+export const setTrophyCaseFunction = callable<{ trophies: string[] }, { trophyCase: string[] }>('setTrophyCase');
 export const searchPlayersFunction = callable<{ query: string }, { players: Api.PlayerSearchResult[] }>(
   'searchPlayers',
 );
@@ -111,7 +112,6 @@ export const chargeMarginInterestFunction = callable<Record<string, never>, Api.
   'chargeMarginInterest',
 );
 // Server-side portfolio sync
-export const claimCrewMissionFunction = callable<{ missionId: string }>('claimCrewMission');
 export const syncPortfolioFunction = callable<void, Api.SyncPortfolioResponse>('syncPortfolio');
 // Admin: remove achievement from user
 export const removeAchievementFunction = callable<{ userId: string; achievementId: string }>('removeAchievement');
@@ -221,6 +221,9 @@ export const adminTransferAccountFunction = callable<
 export const renameTickerFunction = callable<Api.RenameTickerRequest, Api.RenameTickerResponse>('renameTicker');
 export const splitStockFunction = callable<Api.SplitStockRequest, Api.SplitStockResponse>('splitStock');
 export const setMarketHaltFunction = callable<{ halted: boolean; reason: string }>('setMarketHalt');
+export const adminDelayOpenFunction = callable<{ minutes: number }, { success: boolean; openAt: number | null }>(
+  'adminDelayOpen',
+);
 // Admin: watchlist management
 export const addWatchedUserFunction = callable<
   { userId: string; reason: string; maxAccountsPerIP: number },
@@ -307,6 +310,17 @@ export const adminWelcomeTrackerFunction = callable<void, Panel.WelcomeTrackerRe
 export const adminDiscordActivityFunction = callable<void, Panel.DiscordActivityResponse>('adminDiscordActivity');
 export const adminMoneyFlowFunction = callable<{ days: number }, Panel.MoneyFlowResponse>('adminMoneyFlow');
 export const adminBulkActionFunction = callable<Panel.BulkActionRequest, Panel.BulkActionResponse>('adminBulkAction');
+export const adminCutAccountFunction = callable<
+  { uid: string; target: number; note?: string; dm?: boolean; preview: boolean },
+  Panel.CutAccountResponse
+>('adminCutAccount');
+export const adminSetChapterNoteFunction = callable<
+  { weekId: string; label: string; note: string },
+  { success: boolean }
+>('adminSetChapterNote');
+export const adminCoTradersFunction = callable<{ uid: string; days: number }, Panel.CoTradersResponse>(
+  'adminCoTraders',
+);
 export const adminMarketGuardFunction = callable<Panel.MarketGuardRequest, Panel.MarketGuardResponse>(
   'adminMarketGuard',
 );

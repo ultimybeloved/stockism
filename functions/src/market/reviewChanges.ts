@@ -20,7 +20,7 @@ import { priceHistoryRef, getReviewWindowChanges } from '../shared/marketData';
 import type { PricePoint } from '../shared/types';
 
 type History = Record<string, PricePoint[]>;
-import { WEEKLY_HALT_START_MINUTE, PRE_MARKET_LOCK_MINUTE, REVIEW_COLLAPSE_MINUTE } from '../shared/constants';
+import { scheduledReviewWindow, type ReviewWindow } from './delayedOpenState';
 
 const REVIEW_DOC = 'reviewChanges';
 
@@ -80,11 +80,13 @@ const withCollapsedDetail = async (history: History, haltEnd: number): Promise<H
 export const writeReviewChanges = async ({
   haltStart,
   haltEnd,
+  reviewEnd = scheduledReviewWindow(haltStart).reviewEnd,
   fallbackPrices = {},
   includeArchive = false,
 }: {
   haltStart: number;
   haltEnd: number;
+  reviewEnd?: number;
   fallbackPrices?: Record<string, number | undefined>;
   includeArchive?: boolean;
 }) => {
@@ -92,7 +94,6 @@ export const writeReviewChanges = async ({
   // The review stops at the pre-market lock. The opening auction settles at
   // 20:56, still inside the halt, and those are real fills at real demand — not
   // something the chapter review did.
-  const reviewEnd = haltStart + (PRE_MARKET_LOCK_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
 
   // Already in the shape the Review tab speaks, so nothing to translate.
   const changes = getReviewWindowChanges(priceHistory, haltStart, reviewEnd, fallbackPrices);
@@ -133,9 +134,17 @@ export const writeReviewChanges = async ({
  * appends to. Reading it, rebuilding arrays and writing back outside one would
  * silently drop any point a trade added in between.
  */
-export const collapseReviewWindow = async ({ haltStart, haltEnd }: { haltStart: number; haltEnd: number }) => {
-  const reviewEnd = haltStart + (PRE_MARKET_LOCK_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
-  const stamp = haltStart + (REVIEW_COLLAPSE_MINUTE - WEEKLY_HALT_START_MINUTE) * 60 * 1000;
+export const collapseReviewWindow = async ({
+  haltStart,
+  haltEnd,
+  reviewEnd = scheduledReviewWindow(haltStart).reviewEnd,
+  collapseAt: stamp = scheduledReviewWindow(haltStart).collapseAt,
+}: {
+  haltStart: number;
+  haltEnd: number;
+  reviewEnd?: number;
+  collapseAt?: number;
+}) => {
   const REVIEW_SOURCES = new Set(['admin_adjust', 'trailing']);
 
   let tidied = 0;
@@ -205,4 +214,23 @@ export const collapseReviewWindow = async ({ haltStart, haltEnd }: { haltStart: 
 
   logger.info(`collapseReviewWindow: ${tidied} stocks tidied, ${folded} intermediate points folded`);
   return { tidied, folded };
+};
+
+/**
+ * Save the review's numbers, then tidy the chart.
+ *
+ * Order is not optional. Collapsing destroys the step-by-step detail the
+ * set/knock-on split is derived from, so the split has to be written first.
+ * Re-running writeReviewChanges here also picks up anything adjusted after the
+ * 20:30 recap posted.
+ */
+export const finalizeReview = async (win: ReviewWindow) => {
+  // The pre-halt snapshot is usually deleted by the recap before this runs; it
+  // is only a fallback for a stock with no surviving pre-window point anyway.
+  const snapshotSnap = await db.collection('market').doc('preHaltSnapshot').get();
+  const fallbackPrices = snapshotSnap.exists ? snapshotSnap.data()!.prices || {} : {};
+
+  const payload = await writeReviewChanges({ ...win, fallbackPrices, includeArchive: true });
+  const { tidied, folded } = await collapseReviewWindow(win);
+  return { tickerCount: payload.tickerCount, tidied, folded };
 };

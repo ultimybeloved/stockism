@@ -90,11 +90,11 @@ describe('featured item', () => {
   const eligible = catalog.filter(
     (c) => !c.earned && c.price >= FEATURED_MIN_PRICE && !NEVER_DISCOUNTED.includes(c.id),
   );
-  const monday = Date.UTC(2026, 9, 12); // Monday 12 Oct 2026, 00:00 UTC
+  const reopen = Date.UTC(2026, 9, 22, 21, 0); // the Thursday reopen, 22 Oct 2026
 
   it('is never Gilded, Comet, a season reward, or a cheap item', () => {
     for (let w = 0; w < 300; w++) {
-      const id = featuredCosmeticId(catalog, monday + w * WEEK);
+      const id = featuredCosmeticId(catalog, reopen + w * WEEK);
       expect(NEVER_DISCOUNTED).not.toContain(id);
       expect(COSMETIC_MAP[id!]!.earned, id!).toBeUndefined();
       expect(COSMETIC_MAP[id!]!.price).toBeGreaterThanOrEqual(FEATURED_MIN_PRICE);
@@ -102,16 +102,17 @@ describe('featured item', () => {
   });
 
   it('features every eligible item once before repeating', () => {
-    const start = Math.ceil(shopWeek(monday) / eligible.length) * eligible.length;
-    const firstWeek = Date.UTC(2024, 0, 1) + start * WEEK;
+    const start = Math.ceil(shopWeek(reopen) / eligible.length) * eligible.length;
+    const firstWeek = Date.UTC(2023, 11, 28, 21, 0) + start * WEEK;
     const ids = eligible.map((_, w) => featuredCosmeticId(catalog, firstWeek + w * WEEK));
     expect(new Set(ids).size).toBe(eligible.length);
   });
 
-  it('holds all week and changes at Monday 00:00 UTC', () => {
-    expect(featuredCosmeticId(catalog, monday + 1000)).toBe(featuredCosmeticId(catalog, monday + WEEK - 1000));
-    expect(shopWeekEndsAt(monday + 1000)).toBe(monday + WEEK);
-    expect(new Date(shopWeekEndsAt(monday + 3 * 24 * 3600 * 1000)).getUTCDay()).toBe(1);
+  it('holds all week and changes at the Thursday reopen', () => {
+    expect(featuredCosmeticId(catalog, reopen + 1000)).toBe(featuredCosmeticId(catalog, reopen + WEEK - 1000));
+    expect(shopWeekEndsAt(reopen + 1000)).toBe(reopen + WEEK);
+    const end = new Date(shopWeekEndsAt(reopen + 3 * 24 * 3600 * 1000));
+    expect([end.getUTCDay(), end.getUTCHours()]).toEqual([4, 21]);
   });
 
   it('takes 25% off', () => {

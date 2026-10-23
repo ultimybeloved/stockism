@@ -41,7 +41,6 @@ export interface TradeResult {
   totalCost?: number;
   [field: string]: unknown;
 }
-import { updateCrewMissionProgress } from '../crews/crewMissionProgress';
 import { trackWatchedIpTrade } from '../moderation/watchlist';
 
 // Compute achievement context inside the transaction (the caller has all the
@@ -298,11 +297,6 @@ export async function writeTradeSideEffects({
           data: { achievementId: achId },
         });
       }
-    }
-
-    // Update crew mission progress counters (buy/sell only)
-    if (uData.crew && (action === 'buy' || action === 'sell')) {
-      updateCrewMissionProgress(uData.crew, uid, action, amount, ticker, result.totalCost || 0);
     }
 
     // Watched-IP fraud tracking (position-opening trades only, fire-and-forget)

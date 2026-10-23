@@ -54,16 +54,25 @@ Stocks can also be **split** (for example 3-for-1): the price divides, every hol
 There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel, White Tiger Job Center, Workers, Kitae Kim Union, and Yamazaki Syndicate.
 
 - Joining is free. Switching costs 5% of your portfolio and locks you out of the crew you left for 30 days.
-- **Underdog bonus.** Crews with fewer active players earn a reward multiplier of up to 2x on all mission payouts, recalculated every Monday from last week's activity.
-- **Crew head.** Every Monday the biggest net worth (portfolio minus margin debt, since 2026-10-14) among a crew's active members is crowned. Crew totals and weekly gains in the Monday report are net of margin debt too. Four straight weeks earns a dynasty, and taking the crown off a long-reigning head is tracked separately. The crown is cosmetic and pays nothing.
-- **Crew missions.** Collective goals (buy, sell, and volume targets on the crew's own stocks) that scale with roster size. You need a minimum personal contribution to claim the payout, so one share does not earn you a share of the reward.
+- **Underdog bonus.** Crews with fewer active players earn a reward multiplier of up to 2x on all mission and rivalry payouts, recalculated every Thursday reopen from last week's activity.
+- **Crew head.** Every Thursday reopen (Monday until 2026-10-22) the biggest net worth (portfolio minus margin debt, since 2026-10-14) among a crew's active members is crowned. Crew totals and weekly gains in the weekly report are net of margin debt too. Four straight weeks earns a dynasty, and taking the crown off a long-reigning head is tracked separately. The crown is cosmetic and pays nothing.
+- **Crew Rivalries** (replaced crew missions 2026-10-22). Every Thursday reopen crews are paired 1 vs 1 by last week's active players (a 3-way when the count is odd), never the same opponent two weeks running. A crew's score is the share of its members who finished at least one mission in the crew that week and went on to finish 5. A member who only checked in does not count against the crew. At the next reopen, members who finished 5 get $1,500 if their crew won and $500 if it lost, times the underdog bonus. A tie is a win for both; a 0% crew never wins. The winners' crest glows gold everywhere for the following week. Players without a crew are not in Rivalries.
 
 ### Missions
 
-- **Daily:** 3 missions per crew per day, $75 to $150 each.
-- **Weekly:** 2 missions per week, $400 to $1,000 each. Rerollable once per week before you claim anything.
+Missions 2.0 since 2026-10-22. Missions are a way to start earning money to invest, and every one needs a real trade or a portfolio balance you keep:
 
-Growth missions measure net worth: free money received that week and margin debt are both taken out. The week's starting point is recorded at the Monday nightly sync (01:20 UTC), or at your first visit that week if that comes sooner. Crew Majority (daily) and Crew Maximalist (weekly) count your stock by value, not by number of shares. Every mission rewards an action you take or a portfolio balance you actively maintain. Missions that paid out for simply owning something were removed, because they were free income for no effort.
+- **Real trades only.** A trade counts if it is worth at least 1% of your net worth, never less than $50 and never more than $500. A buy counts only while you still hold those shares when you claim. A sell counts only on shares held a day or more (shares leave oldest first).
+- **The week** runs from the Thursday reopen (21:00 UTC) to the next one. The halt hours belong to the week that is ending. Daily missions still reset at 00:00 UTC. The first week is 2026-10-22: between the deploy and that reopen no weekly mission can be claimed or rerolled (`FIRST_MISSION_WEEK_ID`), since that week's claims were recorded on the old Monday week.
+- **Daily:** 3 a day, picked by date and crew, $75 to $125 each: Crew Support, Rival Trader, Underdog Investor (under $20), Bargain Hunter (down 5%+ from the week-open price), Spread Out (3 different stocks), Profit Taker, Cut Your Losses (sold below cost), Order Filled (a limit order), Crew Majority (50%+ of stock value in your crew), Short Seller (a short still open at claim), Covered (a profitable cover of a short opened a day or more ago), Basket Buyer (an ETF), Buy the Dip (paid under the last 21:00 UTC daily close, `market/current.dayClosePrices`), Ride the Wave (paid 5%+ over the week-open price), Blue Chip (a Legendary or Epic stock at current prices).
+- **Weekly:** Opening Bell plus one of Trading Streak (real trades on 5 days, $600), Daily Grinder (7 check-ins, $500), Buy and Hold (bought Thursday to Saturday, still held Wednesday, $500; daily drop shares don't count), Diversified (5+ stocks worth 1% of net worth each, none over 40% of stock value, $500), Crew Maximalist (80%+ in your crew, $600), Portfolio Builder (15%+ growth, $750), Beat the Market (growth above zero and above the index's move this week, $600), Shopping Spree (5 stocks bought this week and still held, $500), Mission Machine (10 daily missions claimed this week, $600), Fortune Teller (a prediction bet or a Futures buy still held, $500), Dip Collector (3 stocks bought 10%+ under the week-open price and still held, $600).
+- **"This week" price moves** (Dip Collector, and the daily down 5%+ / up 5%+ buys) count from the prices when the chapter halt began (`market/callBaseline`, 13:00 UTC), not the reopen, so the chapter review's changes count toward the week they open (`weekMovePrices`, 2026-10-22). A lock older than a day falls back to the reopen prices.
+- **Opening Bell** ($500) is every week's first mission: an order that filled in the opening auction that started the week, or any buy or sell in the first 24 hours after the reopen (`inOpeningDay`, added 2026-10-22, Darth YG: a 25-minute window was too easy to miss). Either way it is a kept buy or a sale of shares held a day. The auction fills at 20:56 UTC, minutes before the week starts, so its fills are credited to the new week (`auctionWeekId`) and the mission is always on the board before anyone queues an order. Miss both and that week's Opening Bell can't be finished.
+- **The weekly Call was removed before launch** (2026-10-20, Darth YG). Its 13:00 halt price lock and 20:55 job still run, for the chapter markers (`weeklyCallsLock`, `weeklyCallsResolve` in `functions/src/market/chapterMarkers.ts`; the names can't change once deployed).
+- **Crew missions** (Crew Support, Rival Trader, Crew Majority, Crew Maximalist) are only offered to players in a crew. Everyone else gets missions from the rest.
+- Rerollable once per week for $50 (today's dailies and the week's second mission) before you claim anything. A reroll always gives a different weekly mission and a different set of dailies. The underdog bonus applies to every payout.
+
+Growth missions measure net worth: free money received that week and margin debt are both taken out. The week's starting point is recorded at the nightly sync (01:20 UTC), or at your first visit that week if that comes sooner. Crew Majority and Crew Maximalist count your stock by value, not by number of shares.
 
 ### Dividends
 
@@ -147,12 +156,14 @@ Platinum and Diamond are ranked within four size divisions (Rookie under $10k, T
 ### Progression and Social
 
 - **Leaderboards** by net worth (portfolio value minus margin debt plus long-term market positions at sell-back value, since 2026-10-14, so borrowing never lifts your rank), by weekly gain in dollars or percent (also net of margin debt at both ends; the percent board has a minimum baseline so a $50 account doubling up cannot top it), by crew, and the season board. Banned players are left off.
-- **Public profiles** at `/u/username` with stats, portfolio sparkline, top holdings, and pinned achievements. Value, sparkline and rank are net worth, matching the leaderboard. Banned players' profiles are hidden.
+- **Profiles** at `/u/username`. Every profile opens (since 2026-10-21): the player's cosmetics as a banner, crew, net worth, global and crew rank, join date, trophy case and every achievement (unearned ones faded). Holdings, shorts, the 30-day chart and trading stats only show when the profile is public. Value, chart and rank are net worth, matching the leaderboard. Banned players' profiles are hidden.
+- **Trophy case.** Up to 6 things the player picks to show off, in their order: any earned achievement, any season title they own, any owned shop item (names, effects, frames and backdrops play their animation; pins show big), and their crew head record. The crew head record is their longest reign in weeks (`crewHeadBest`, written by the weekly crew rankings from 2026-10-22) and stays after the crown is lost; a player who only has the Crowned achievement shows 1 week. The server only saves and only shows items the player still owns (`src/rules/trophies.ts`, `setTrophyCase`).
 - **49 achievements** with pinnable badges. Extra pin slots are purchasable.
 - **88 shop cosmetics**: names, effects (row glows), backdrops and frames, $5,000 to $250,000, plus 5 season reward frames that are earned only (never sold, gifted, bundled or featured). The shop shows one category at a time on three shelves: Showcase ($100k and up), Premium ($30k to $99k) and Classics (under $30k), with a search box that lists everything most expensive first. Since 2026-10-16: the plain glows are $5,000 (pulsing $10,000), the plain color backdrops $5,000 (each comes with both a Fade and a Solid look), Steel, Jade and Ruby $5,000, Bull / Bear $50,000, Shimmer $100,000 and Rainbow $75,000. The 2026-10 drop added 13 animated names (Cash and Split Flap $100k, Chrome $85k, Holographic, Galaxy, Neon Sign and Glitch (was Corrupted) $75k, Wildfire, Glacier, Toxic, Sunset, Ocean and Sakura $50k), 12 effects (Overcome Mastery $250k; Make It Rain and Gold Rush $150k; Strength, Speed, Endurance and Technique Mastery $100k; Path to Mastery and Spotlight $50k; Paparazzi, Premiere and Static Shock $35k) and 12 animated backdrops (Vault and Banknote $100k, Terminal $85k, Night Skyline $75k, Trading Floor $50k, Thunderstorm, Neon Alley, Chalkboard, Graffiti Wall, Shooting Stars, Rooftop Sunset and Fight Night $30k). Three items come with a style the owner picks anytime (`cosmeticStyle`, src/rules/cosmetics.ts): Split Flap (Random, Scramble or Arrivals), Bull / Bear (Daily, or Split to always show both halves) and the color backdrops (Fade or Solid). Frame animations are offset per player so identical frames never move in step; the Ticker Tape, Terminal and Banknote serial are unique per player. Cosmetics given out without payment (admin grants) are booked in the ledger at their shop price. Players who paid more than the new price for a cheaper item got the difference back (scripts/refund-price-drops.cjs, ledger type `shop_price_refund`).
 - **Shop pins** (src/crews.ts, original pixel art): Black Card $100k, Ultra-Instinct $75k, Gold Mongkol and Gapryong's Cap $50k, Polycoria $35k, Shiba $10k, Red Mongkol $5k.
-- **Shop deals** (src/rules/shop.ts): 10 bundles (name colour + glow + backdrop + frame) at 20% off the pieces you don't own yet; one featured item each week at 25% off, rotating Monday 00:00 UTC through every item worth $25,000+, announced in the Monday Discord report. Gilded Frame and Comet are never discounted.
+- **Shop deals** (src/rules/shop.ts): 10 bundles (name colour + glow + backdrop + frame) at 20% off the pieces you don't own yet; one featured item each week at 25% off, rotating at the Thursday reopen (Monday 00:00 UTC until 2026-10-22) through every item worth $25,000+, announced in the weekly Discord report. Gilded Frame and Comet are never discounted.
 - **Gifting** (functions/src/users/cosmeticGifts.ts): buy any shop cosmetic or bundle for another player by name, at the price you would pay yourself (a gifted bundle always costs the whole set at the bundle discount; the recipient gets the pieces they don't own). No message box (harassment channel); the recipient gets a bell notification and a Discord DM naming the sender. Max 10 gifts a day; no gifts to yourself, bots, banned players or someone who already owns the item. Both sides are booked in the ledger, and every gift goes in the admin-only giftLog with the giver's connection; Admin, Watchlist, Gift Log flags pairs that look like one person (shared connection, alt-scan pair, watchlist link, receiver under a week old).
+- **Your week.** At each Thursday reopen, everyone who did anything that week gets a bell notification summing it up: net worth, split into what trading made and what came in as rewards, the biggest mover they hold, missions finished and their crew's rivalry result (`functions/src/market/weeklyRecap.ts`).
 - **Daily check-in** with a streak: $300 on day one, rising to $500 by day seven.
 - **Streak saver** (shop perk, src/rules/economy.ts): while active, every check-in pays $500 even after missed days. $10,000 for 30 days (buying again adds 30 more) or $100,000 permanent. Buying needs a live 7-day check-in streak, unless a saver is already running. The streak number itself still resets on a missed day, so streak achievements and the margin unlock still need real check-ins.
 - **Price alerts** you set per ticker (up to 10), checked every 5 minutes against every price since the last check, so a quick spike that comes back down still fires. You get a bell notification, and a Discord DM if your Discord is linked.
@@ -179,7 +190,11 @@ The Thursday timeline:
 | 20:56 | Opening auction runs, IPO price jumps apply, stop-losses sweep |
 | 21:00 | Market reopens |
 
+Every stock chart flags each chapter review with a marker (since 2026-10-22, with past reviews filled in from price history). Hovering or tapping it shows that stock's move from the halt to the 20:55 lock and the admin's chapter name and note (Admin, Weekly). Recorded at 20:55 by `market/chapterMarkers`, shape in `src/rules/chapterMarkers.ts`.
+
 Admins can also halt the market manually at any time with a custom reason.
+
+**Late open** (since 2026-10-22). When the chapter is late, the admin can push a Thursday's reopen back by up to 175 minutes (Admin, Market, Late Open), any time before 20:30. The whole tail of the timeline moves with it: the recap and pre-market queue start 30 minutes before the new open, the lock is 5 minutes before, the auction 4 minutes before, and the weekly posts follow the open. The market stays halted until then. Code: `functions/src/market/delayedOpen.ts`; the site reads `market/current.delayedOpen` (`setDelayedOpenAt` in `src/utils/marketHours.ts`).
 
 ---
 
@@ -207,8 +222,9 @@ Admins can also halt the market manually at any time with a custom reason.
 | Crew switch penalty | 5% of portfolio |
 | Crew rejoin lockout | 30 days |
 | Crew underdog bonus | up to 2x |
-| Daily missions | 3 per day, $75 to $150 |
-| Weekly missions | 2 per week, $400 to $1,000 |
+| Daily missions | 3 per day, $75 to $125 |
+| Weekly missions | Opening Bell ($500) + 1 more, $500 to $750 |
+| Crew rivalry | $1,500 win / $500 loss, for finishing 5 missions |
 | Dividend hold requirement | 10 days |
 | Dividend loyalty ladder | 1x / 1.25x at 4 weeks / 1.5x at 8 weeks |
 | Exit impact discount | 10% / 25% / 40% on the same ladder |
@@ -283,9 +299,11 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | Chapter recap | Thursday 20:30 |
 | Opening auction | Thursday 20:56 |
 | Season checkpoint | Thursday 14:00 |
-| Weekly market summary | Monday 00:00 |
-| Weekly leaderboard | Monday 01:00 |
-| Weekly crew rankings | Monday 01:30 |
+| Call price lock | Thursday 13:00 |
+| Calls scored and paid | Thursday 20:55 |
+| Weekly crew rankings, rivalries, week-open prices | Thursday 21:05 |
+| Weekly market summary | Thursday 21:10 |
+| Weekly leaderboard | Thursday 21:15 |
 | Monthly permanent backup | 1st of month 00:00 |
 
 ---
