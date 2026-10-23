@@ -173,7 +173,9 @@
 /* ---------- Make It Rain: someone off-screen throws a wad of cash in from the
    left; it spreads across the row, tumbles and falls out the bottom, staying
    inside the row. Between throws a green (left) and gold (right) glow breathes.
-   cqw = the effect layer's width, so the throw spans any row. ---------- */
+   cqw = the effect layer's width, so the throw spans any row. The heights in
+   the markup are for a row; --k stretches them on taller cards (podium,
+   profile, auction) so the throw fills the card, and --bs grows the bills. ---------- */
 .cos-g-rain {
   box-shadow:
     -10px 0 18px -6px rgba(34, 197, 94, 0.55),
@@ -183,7 +185,25 @@
 }
 .cos-g-rain > .cos-fx {
   overflow: hidden;
-  container-type: inline-size;
+  container-type: size;
+}
+@container (min-height: 100px) {
+  .cos-g-rain .rw {
+    --k: 2;
+    --bs: 1.25;
+  }
+}
+@container (min-height: 160px) {
+  .cos-g-rain .rw {
+    --k: 3;
+    --bs: 1.5;
+  }
+}
+@container (min-height: 210px) {
+  .cos-g-rain .rw {
+    --k: 4;
+    --bs: 1.75;
+  }
 }
 .cos-g-rain > .cos-fx::after {
   content: '';
@@ -210,7 +230,7 @@
 }
 .cos-g-rain .rw {
   left: 0;
-  top: var(--y0);
+  top: calc(var(--y0) * var(--k, 1));
   animation: cosRainX 12s infinite backwards;
   animation-delay: var(--d);
 }
@@ -222,9 +242,9 @@
 }
 .cos-g-rain .bf {
   display: block;
-  width: 22px;
-  height: 11px;
-  margin: -5.5px -11px;
+  width: calc(22px * var(--bs, 1));
+  height: calc(11px * var(--bs, 1));
+  margin: calc(-5.5px * var(--bs, 1)) calc(-11px * var(--bs, 1));
   border-radius: 1.5px;
   transform-style: preserve-3d;
   background: linear-gradient(#a7f3d0, #4ade80 40%, #22c55e);
@@ -233,7 +253,7 @@
     inset 0 0 0 2.5px rgba(220, 252, 231, 0.6);
   color: #14532d;
   font:
-    800 8px/11px system-ui,
+    800 calc(8px * var(--bs, 1)) / calc(11px * var(--bs, 1)) system-ui,
     sans-serif;
   font-style: normal;
   text-align: center;
@@ -257,7 +277,7 @@
     animation-timing-function: cubic-bezier(0.3, 0, 0.7, 0.5);
   }
   100% {
-    transform: translateY(var(--fall));
+    transform: translateY(calc(var(--fall) * var(--k, 1)));
   }
 }
 @keyframes cosFlutter {
