@@ -89,14 +89,14 @@ const HomePage = ({
   });
 
   const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
-  const subHeaderBtnClass = `relative whitespace-nowrap px-3 py-1.5 text-sm font-medium max-sm:flex max-sm:flex-col max-sm:items-center max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
+  const subHeaderBtnClass = `relative whitespace-nowrap px-3 py-1.5 text-sm font-medium max-sm:flex max-sm:flex-col max-sm:items-center max-sm:gap-1 max-sm:px-0.5 max-sm:py-2 max-sm:text-[10px] rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
     <div className={`min-h-screen ${bgClass} p-4`}>
       <div className="max-w-6xl lg:max-w-[96rem] mx-auto">
         {/* Sub-header buttons */}
         {/* Phones: all five in one row, icon over label. */}
-        <div className="grid grid-cols-5 gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
+        <div className="grid grid-cols-5 gap-1.5 sm:gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
           <button onClick={isGuest ? onShowLogin : onShowMissions} className={subHeaderBtnClass}>
             <PixelIcon name="missions" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             Missions
@@ -108,13 +108,13 @@ const HomePage = ({
             <span className="max-sm:hidden">Customization</span>
             {shopDropUnseen && !isGuest && <NewBadge />}
           </button>
+          <button onClick={() => navigate('/auction')} className={subHeaderBtnClass}>
+            <PixelIcon name="gavel" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
+            Auction
+          </button>
           <button onClick={isGuest ? onShowLogin : onShowMargin} className={subHeaderBtnClass}>
             <PixelIcon name="margin" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             Margin
-          </button>
-          <button onClick={() => navigate('/auction')} className={subHeaderBtnClass}>
-            <PixelIcon name="cash" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
-            Auction
           </button>
           <button onClick={onShowAbout} className={subHeaderBtnClass}>
             <PixelIcon name="about" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />

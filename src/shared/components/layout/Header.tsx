@@ -7,6 +7,7 @@ import { isPreMarketWindow } from '../../../utils/marketHours';
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
 import { useNewCharacters } from '../../../features/market/hooks/useNewCharacters';
 import { useAdminAlerts } from '../../../features/admin/hooks/useAdminAlerts';
+import AuctionHeaderButton from '../../../features/auctions/components/AuctionHeaderButton';
 import MyPreMarketOrdersModal from '../../../features/trading/components/MyPreMarketOrdersModal';
 import { themeClasses } from '../../../utils/theme';
 import { OPEN_SEARCH_EVENT } from './GlobalShortcuts';
@@ -240,6 +241,8 @@ const Header = ({
                   )}
                 </button>
               )}
+
+              <AuctionHeaderButton />
 
               {/* New Characters Notification */}
               {newCharacters.length > 0 && (

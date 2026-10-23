@@ -43,3 +43,18 @@ export function useNow(intervalMs = 1000) {
   }, [intervalMs]);
   return now;
 }
+
+/** The live auction, if there is one. One small listener, for the header. */
+export function useLiveAuction() {
+  const [live, setLive] = useState<Auction | null>(null);
+  useEffect(
+    () =>
+      onSnapshot(
+        query(collection(db, 'auctions'), where('status', '==', 'live'), limit(1)),
+        (snap) => setLive(snap.empty ? null : { ...(snap.docs[0]!.data() as Auction), id: snap.docs[0]!.id }),
+        () => setLive(null),
+      ),
+    [],
+  );
+  return live;
+}

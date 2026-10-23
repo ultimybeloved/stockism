@@ -74,9 +74,14 @@ const AuctionPage = ({ onShowLogin }: { onShowLogin: () => void }) => {
               return (
                 <WornCard key={a.id} itemId={a.itemId} seedKey={a.winnerName || 'Unsold'} className="min-h-[132px]">
                   <div className={`font-semibold ${textClass}`}>{c?.name || a.itemId}</div>
-                  <div className={`text-[11px] ${mutedClass}`}>
-                    {a.winnerName ? `${a.winnerName} · ${formatCurrency(a.topBid || 0)}` : 'No bids'}
-                  </div>
+                  {a.winnerName ? (
+                    <>
+                      <div className="text-sm font-bold text-amber-400">Sold for {formatCurrency(a.topBid || 0)}</div>
+                      <div className={`text-[11px] ${mutedClass}`}>Owned by {a.winnerName}</div>
+                    </>
+                  ) : (
+                    <div className={`text-[11px] ${mutedClass}`}>No bids</div>
+                  )}
                 </WornCard>
               );
             })}

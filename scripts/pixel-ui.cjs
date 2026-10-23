@@ -641,6 +641,24 @@ const icons = {
     rect(8, 15, 11, 16, 'Y');
     rect(9, 17, 10, 18, 'y');
   },
+  // Auctions: a wooden gavel with gold bands, over its sound block.
+  gavel: ({ rect, px }) => {
+    rect(1, 15, 9, 15, 'O');
+    rect(1, 16, 9, 17, 'n');
+    rect(2, 18, 8, 18, 'm');
+    // u runs along the head (up and to the right), v down the handle.
+    for (let y = 0; y < 20; y++)
+      for (let x = 0; x < 20; x++) {
+        const dx = x + 0.5 - 7.5;
+        const dy = y + 0.5 - 7.5;
+        const u = (dx - dy) / Math.SQRT2;
+        const v = (dx + dy) / Math.SQRT2;
+        if (Math.abs(u) <= 5.2 && Math.abs(v) <= 2.3) {
+          const band = Math.abs(u) >= 3.1 && Math.abs(u) <= 4.2;
+          px(x, y, band ? 'Y' : v < -0.8 ? 'O' : v > 0.8 ? 'm' : 'n');
+        } else if (v > 2.3 && v <= 11 && Math.abs(u) <= 0.8) px(x, y, u < 0 ? 'O' : 'n');
+      }
+  },
   // IPO sold out: a red no-sign.
   sold_out: ({ disc, line }) => {
     disc(C, C, 8.6, 'R');
