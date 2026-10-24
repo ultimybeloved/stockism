@@ -626,11 +626,9 @@ export const getDailyMissions = (
 ): Mission[] => {
   const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
   const seed = dateSeed + (crewId ? textSeed(crewId) : 0) + rerollSeed;
-  const pool = missionPool(DAILY_MISSIONS, crewId).filter(
-    (m) =>
-      !(m.retiredFrom && today >= m.retiredFrom) &&
-      !(today >= DAILY_POOL_CHANGE && m.shortHoldersOnly && !holdsShort),
-  );
+  const retired = (m: Mission) => !!m.retiredFrom && today >= m.retiredFrom;
+  const shortsOnly = (m: Mission) => today >= DAILY_POOL_CHANGE && !!m.shortHoldersOnly && !holdsShort;
+  const pool = missionPool(DAILY_MISSIONS, crewId).filter((m) => !retired(m) && !shortsOnly(m));
   return seededShuffle(pool, seed).slice(0, 3);
 };
 
