@@ -14,6 +14,7 @@ export = [
   'adminMarketGuard',
   'adminMigrate',
   'adminMoneyFlow',
+  'adminNameUnnamed',
   'adminOps',
   'adminPlayerFile',
   'adminUserEdit',

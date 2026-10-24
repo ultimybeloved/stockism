@@ -194,6 +194,8 @@ export interface UserData {
   eventPositions?: Record<string, EventPosition>;
   isPublic?: boolean;
   nameChangedAt?: TimestampLike;
+  /** Name changes with no cost or cooldown, handed out with an assigned name. */
+  freeNameChanges?: number;
   displayedAchievementPins?: unknown;
   displayedShopPins?: unknown;
   displayCrewPin?: boolean;

@@ -195,7 +195,7 @@ Admins can also halt the market manually at any time with a custom reason.
 | Starting cash (Discord linked) | $3,000 |
 | Daily check-in | $300 to $500 by streak |
 | Bailout | $1,500 |
-| Name change | $10,000 |
+| Name change | $10,000, once every 14 days. A free change (given with an admin-assigned name, `freeNameChanges`) skips both |
 | Base price impact | 1.2% per sqrt share, liquidity base 100 |
 | Max price change per trade | 5% |
 | Bid/ask spread | 0.2% stocks, 0.1% ETFs |

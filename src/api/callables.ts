@@ -254,6 +254,8 @@ export const auditUserDropsFunction = callable<{ uid?: string; username?: string
 export const runDividendPayoutNowFunction = callable<void, Api.DividendRunResponse>('runDividendPayoutNow');
 // Username reservation audit
 export const auditUsernamesFunction = callable<Record<string, never>, Api.AuditUsernamesResponse>('migrateUsernames');
+// Name players who have none, with a free name change each
+export const adminNameUnnamedFunction = callable<{ dryRun: boolean }, Api.NameUnnamedResponse>('adminNameUnnamed');
 // Admin: initialize prices for new characters
 export const initNewCharacterPricesFunction = callable<void, { initialized: { ticker: string }[]; message: string }>(
   'initNewCharacterPrices',

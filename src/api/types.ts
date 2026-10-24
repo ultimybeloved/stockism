@@ -631,6 +631,14 @@ export interface IpHealthReport {
   discordWall: { pending: number; lifted: number };
 }
 
+/** adminNameUnnamed: the names planned (dry run) or written. */
+export interface NameUnnamedResponse {
+  dryRun: boolean;
+  plan: { uid: string; from: string | null; to: string; source: 'discord' | 'random' }[];
+  applied: number;
+  skipped: { uid: string; reason: string }[];
+}
+
 export interface AuditUsernamesResponse {
   reservationsWritten: number;
   usersUpdated: number;

@@ -1,6 +1,7 @@
 import RecoveryRenameTicker from './recovery/RecoveryRenameTicker';
 import RecoverySplitStock from './recovery/RecoverySplitStock';
 import RecoveryPriceHistory from './recovery/RecoveryPriceHistory';
+import RecoveryUnnamedPlayers from './recovery/RecoveryUnnamedPlayers';
 
 import type { AdminCommonProps } from './types';
 import type { ShowMessage } from '../utils/adminShared';
@@ -118,6 +119,8 @@ const RecoveryTab = ({
             </div>
           ))}
       </div>
+
+      <RecoveryUnnamedPlayers textClass={textClass} mutedClass={mutedClass} showMessage={showMessage} />
 
       {/* Manual Backup */}
       <div className="p-4 rounded-sm light:bg-white dark:bg-slate-800 border light:border-slate-200 dark:border-slate-700">

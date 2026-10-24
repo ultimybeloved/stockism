@@ -36,7 +36,10 @@ const ProfileHeader = ({
   const msSinceChange = nameChangedAt ? Date.now() - nameChangedAt.getTime() : Infinity;
   const daysUntilChange =
     msSinceChange < cooldownMs ? Math.ceil((cooldownMs - msSinceChange) / (24 * 60 * 60 * 1000)) : 0;
-  const canChangeName = daysUntilChange === 0;
+  // A free change (given with an assigned name) skips the cost and the cooldown.
+  const freeChange = (userData?.freeNameChanges || 0) > 0;
+  const canChangeName = freeChange || daysUntilChange === 0;
+  const cost = freeChange ? 'free' : '$10,000';
 
   const handleNameSave = async () => {
     setNameError('');
@@ -103,7 +106,7 @@ const ProfileHeader = ({
               className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
             >
               <PixelIcon name="pencil" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
-              Change name ($10,000)
+              Change name ({cost})
             </button>
           ) : (
             <p className={`text-xs ${mutedClass}`}>
@@ -133,7 +136,7 @@ const ProfileHeader = ({
               disabled={nameSaving || !newName.trim()}
               className="flex-1 py-1.5 text-xs font-semibold rounded-sm bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
             >
-              {nameSaving ? 'Saving…' : 'Confirm ($10,000)'}
+              {nameSaving ? 'Saving…' : `Confirm (${cost})`}
             </button>
             <button
               onClick={() => {

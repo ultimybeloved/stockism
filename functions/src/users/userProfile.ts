@@ -31,6 +31,7 @@ interface NameEntry {
 type ProfileUser = UserData & {
   displayNameLower?: string;
   nameChangedAt?: Timestamp;
+  freeNameChanges?: number;
   ownedCosmetics?: string[];
 };
 
@@ -272,8 +273,11 @@ export const changeDisplayName = cf().https.onCall(async (data: { displayName?: 
     if (userData.isBot || userData.isBanned)
       throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
 
+    // A free change (handed out with an assigned name) skips the cost and the cooldown.
+    const free = (userData.freeNameChanges || 0) > 0;
+
     // Cooldown: 14 days between changes
-    if (userData.nameChangedAt) {
+    if (userData.nameChangedAt && !free) {
       const msSinceChange = Date.now() - userData.nameChangedAt.toMillis();
       if (msSinceChange < NAME_CHANGE_COOLDOWN_MS) {
         const daysLeft = Math.ceil((NAME_CHANGE_COOLDOWN_MS - msSinceChange) / TWENTY_FOUR_HOURS_MS);
@@ -290,7 +294,7 @@ export const changeDisplayName = cf().https.onCall(async (data: { displayName?: 
     if (newNameLower === oldNameLower)
       throw new functions.https.HttpsError('invalid-argument', 'That is already your current name.');
 
-    if ((userData.cash || 0) < NAME_CHANGE_COST) {
+    if (!free && (userData.cash || 0) < NAME_CHANGE_COST) {
       throw new functions.https.HttpsError(
         'failed-precondition',
         `Name change costs $${NAME_CHANGE_COST.toLocaleString()}. You don't have enough cash.`,
@@ -306,15 +310,16 @@ export const changeDisplayName = cf().https.onCall(async (data: { displayName?: 
       displayNameLower: newNameLower,
       previousDisplayName: oldDisplayName,
       nameChangedAt: FieldValue.serverTimestamp(),
-      cash: FieldValue.increment(-NAME_CHANGE_COST),
+      ...(free ? { freeNameChanges: FieldValue.increment(-1) } : { cash: FieldValue.increment(-NAME_CHANGE_COST) }),
     });
-    recordLedger(transaction, {
-      uid,
-      type: 'name_change',
-      amount: -NAME_CHANGE_COST,
-      cashAfter: (userData.cash || 0) - NAME_CHANGE_COST,
-      detail: { from: oldDisplayName, to: trimmed },
-    });
+    if (!free)
+      recordLedger(transaction, {
+        uid,
+        type: 'name_change',
+        amount: -NAME_CHANGE_COST,
+        cashAfter: (userData.cash || 0) - NAME_CHANGE_COST,
+        detail: { from: oldDisplayName, to: trimmed },
+      });
 
     return { success: true };
   });
