@@ -2,20 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { buildWeeklyRecap } = require('./weeklyRecap') as typeof import('./weeklyRecap');
+const { recapLines } = require('./weeklyRecap') as typeof import('./weeklyRecap');
+const { computeWeeklyRecap } = require('../shared/rules/weeklyRecap') as typeof import('../shared/rules/weeklyRecap');
 const { CHARACTERS } = require('../shared/characters') as typeof import('../shared/characters');
 
 const T = CHARACTERS.find((c) => !c.isETF)!.ticker;
 const base = {
+  weekId: '2026-10-22',
   netWorth: 11500,
   grantedValue: 1300,
   holdings: { [T]: 10 },
   crew: 'ALLIED',
   qualified: true,
   rivalry: { won: true, opponents: ['HOSTEL'] },
-  crewName: (id: string) => (id === 'ALLIED' ? 'Allied' : 'Hostel'),
   openPrices: { [T]: 100 },
   prices: { [T]: 110 },
+};
+const crewName = (id: string) => (id === 'ALLIED' ? 'Allied' : 'Hostel');
+const buildWeeklyRecap = (input: Parameters<typeof computeWeeklyRecap>[0]) => {
+  const recap = computeWeeklyRecap(input);
+  return recap && recapLines(recap, crewName);
 };
 
 describe('weekly recap', () => {
@@ -47,5 +53,22 @@ describe('weekly recap', () => {
       wp: { startPortfolioValue: 10000, startGrantedValue: 1000 },
     })!;
     expect(lines).toEqual(['Net worth $9,000: -$1,000 from trading (-10.0%).']);
+  });
+
+  it('stores only what the card draws', () => {
+    const recap = computeWeeklyRecap({
+      ...base,
+      rivalry: { won: false, opponents: ['HOSTEL'], score: 3 } as never,
+      wp: {
+        startPortfolioValue: 10000,
+        startGrantedValue: 1000,
+        tradingDays: { '2026-10-23': true, '2026-10-24': true },
+        checkinDays: { '2026-10-23': true },
+      },
+    })!;
+    expect(recap).toMatchObject({ weekId: '2026-10-22', missions: 0 });
+    expect(recap.tradingDays).toEqual(['2026-10-23', '2026-10-24']);
+    expect(recap.checkinDays).toEqual(['2026-10-23']);
+    expect(recap.rivalry).toEqual({ crew: 'ALLIED', opponents: ['HOSTEL'], won: false, qualified: true });
   });
 });

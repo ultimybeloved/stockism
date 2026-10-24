@@ -6,6 +6,7 @@ import type { HoldingCohort } from '../characters';
 import type { DailyProgress, WeeklyProgress } from '../utils/missionProgress';
 import type { SeasonBaseline, SeasonWeekRecord } from '../utils/seasonWeeks';
 import type { WelcomeStreakState } from '../rules/welcome';
+import type { WeeklyRecap } from '../rules/weeklyRecap';
 
 /** users/{uid}.seasonBaseline: the player's numbers when the season pinned them. */
 export interface SeasonBaselineDoc extends SeasonBaseline {
@@ -209,6 +210,8 @@ export interface UserData {
   holdingCohorts?: Record<Ticker, HoldingCohort>;
   dailyMissions?: Record<string, MissionDayState & DailyProgress>;
   weeklyMissions?: Record<string, MissionDayState & WeeklyProgress & { rerolled?: boolean; rerollSeed?: number }>;
+  /** Last week's Weekly Slip summary, written at the Thursday reopen. */
+  weeklyRecap?: WeeklyRecap;
   checkinStreak?: number;
   /** Best check-in streak ever reached. */
   maxCheckinStreak?: number;

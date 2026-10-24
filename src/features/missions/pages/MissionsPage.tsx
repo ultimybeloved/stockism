@@ -10,6 +10,8 @@ import MissionCard from '../components/MissionCard';
 import RivalryTab from '../components/RivalryTab';
 import RerollButton from '../components/RerollButton';
 import WeekStrip from '../components/WeekStrip';
+import WeekRecapCard from '../components/WeekRecapCard';
+import { useWeeklyRecap } from '../hooks/useWeeklyRecap';
 import { useMissionBoard } from '../hooks/useMissionBoard';
 
 type ClaimReward = (missionId: string, reward: number) => unknown;
@@ -51,6 +53,7 @@ export default function MissionsPage({
 }: MissionsPageProps) {
   const { userData } = useSession();
   const board = useMissionBoard();
+  const { recap } = useWeeklyRecap();
   const { cardClass, mutedClass } = themeClasses;
 
   if (isGuest) {
@@ -125,6 +128,8 @@ export default function MissionsPage({
               ))}
             </div>
           </Section>
+
+          {recap && <WeekRecapCard recap={recap} />}
 
           <div className={`p-3 rounded-sm border ${themeClasses.borderClass} space-y-1`}>
             <p className={`text-xs ${mutedClass}`}>

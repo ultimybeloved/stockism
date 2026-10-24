@@ -12,7 +12,8 @@ import { netWorthOf, tradingNetWorthOf, snapshotNetWorth, netEquityAt } from '..
 import { reportError } from '../shared/sentry';
 import { syncCrewHeadRoles, preflightCrewRoles } from '../discord/discordRoles';
 import { settleRivalryWeek, pairRivalryWeek, type RivalryResult } from '../crews/rivalries';
-import { buildWeeklyRecap } from './weeklyRecap';
+import { recapLines } from './weeklyRecap';
+import { computeWeeklyRecap } from '../shared/rules/weeklyRecap';
 import { rivalryQualified, type WeeklyProgress } from '../shared/rules/missionProgress';
 import type { DocumentData } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
@@ -167,7 +168,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   // Week-open prices, which Bargain Hunter measures "down this week" from.
   // Runs after the opening auction has filled, so the week opens where trading did.
   // Only the first run of a week: a mid-week re-run must not move the mark.
-  // The first run of a week also sends everyone their "Your week" recap, priced
+  // The first run of a week also sends everyone their Weekly Slip, priced
   // from last week's open to now.
   let recapPrices: { open: Record<string, number>; now: Record<string, number> } | null = null;
   try {
@@ -451,7 +452,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
   }
   return { multipliers, activeCounts, memberCounts, roleSync };
 }
-/** "Your week" bells for everyone who did anything last week. */
+/** Weekly Slip bells for everyone who did anything last week. */
 async function sendWeeklyRecaps(
   docs: admin.firestore.QueryDocumentSnapshot[],
   weekId: string,
@@ -467,7 +468,8 @@ async function sendWeeklyRecaps(
     const active = !!wp && ((wp.tradeCount || 0) > 0 || Object.keys(wp.claimed || {}).length > 0 || !!wp.checkinDays);
     if (!active) continue;
     const crew: string | null = u.crew || null;
-    const lines = buildWeeklyRecap({
+    const recap = computeWeeklyRecap({
+      weekId,
       netWorth: netEquityAt(u, prices.now) + Math.max(0, u.eventPositionsValue || 0),
       grantedValue: u.grantedValue || 0,
       holdings: u.holdings,
@@ -475,12 +477,18 @@ async function sendWeeklyRecaps(
       crew,
       qualified: rivalryQualified(wp, crew),
       rivalry: crew && results[crew] ? results[crew]! : null,
-      crewName,
       openPrices: prices.open,
       prices: prices.now,
     });
-    if (!lines) continue;
-    await writeNotification(d.id, { type: 'system', title: 'Your week', message: lines.join(' ') });
+    if (!recap) continue;
+    // Stored for the home card and the Missions page; the bell links there.
+    await d.ref.update({ weeklyRecap: recap });
+    await writeNotification(d.id, {
+      type: 'system',
+      title: 'Your Weekly Slip',
+      message: recapLines(recap, crewName).join(' '),
+      data: { weeklyRecap: weekId },
+    });
     sent++;
   }
   logger.info(`Weekly recaps ${weekId}: ${sent} sent`);

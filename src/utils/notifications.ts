@@ -109,6 +109,7 @@ export const getNotificationRoute = (notification: AppNotification | null | unde
   const data = notification?.data || {};
   if (data.ticker) return `/stock/${data.ticker}`;
   if (data.predictionId || data.marketId) return '/predictions';
+  if (data.weeklyRecap) return '/missions';
   if (notification?.type === 'achievement') return '/achievements';
   return null;
 };

@@ -16,6 +16,8 @@ import { themeClasses } from '../../../utils/theme';
 import { calculatePortfolioValue } from '../../../utils/calculations';
 import { useMarketBrowser } from '../hooks/useMarketBrowser';
 import { useMarketView } from '../hooks/useMarketView';
+import WeekRecapCard from '../../missions/components/WeekRecapCard';
+import { useWeeklyRecap } from '../../missions/hooks/useWeeklyRecap';
 import { useState, type ComponentProps } from 'react';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
@@ -87,6 +89,7 @@ const HomePage = ({
   });
 
   const [shopDropUnseen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
+  const weekRecap = useWeeklyRecap();
   const subHeaderBtnClass = `relative whitespace-nowrap px-3 py-1.5 text-sm font-medium max-sm:flex max-sm:flex-col max-sm:items-center max-sm:gap-1 max-sm:px-1 max-sm:py-2 max-sm:text-[11px] rounded-sm border transition-colors light:bg-white dark:bg-zinc-900 ${ghostBtnClass}`;
 
   return (
@@ -143,6 +146,12 @@ const HomePage = ({
         <ShortRiskAlert onOpenPortfolio={onShowPortfolio} />
 
         {!isGuest && <SeasonCard />}
+
+        {!isGuest && weekRecap.recap && !weekRecap.closed && (
+          <div className="mb-4">
+            <WeekRecapCard recap={weekRecap.recap} onClose={weekRecap.close} />
+          </div>
+        )}
 
         {/* IPO Announcements */}
         {activeIPOs.length > 0 && (
