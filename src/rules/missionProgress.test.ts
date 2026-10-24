@@ -164,6 +164,16 @@ describe('daily missions', () => {
     expect(before.has('CREW_MAJORITY') && before.has('COVERED')).toBe(true);
   });
 
+  it('Order Filled leaves the pool on 2026-10-25', () => {
+    const ids = (day: string) => {
+      const seen = new Set<string>();
+      for (let seed = 0; seed < 200; seed++) getDailyMissions(day, crew.id, seed, true).forEach((m) => seen.add(m.id));
+      return seen;
+    };
+    expect(ids('2026-10-24').has('ORDER_FILLED')).toBe(true);
+    expect(ids('2026-10-25').has('ORDER_FILLED')).toBe(false);
+  });
+
   it('a short counts for Covered if opened before today, or covered at a profit today', () => {
     const now = Date.UTC(2026, 10, 3, 15);
     const yesterday = Date.UTC(2026, 10, 2, 20);

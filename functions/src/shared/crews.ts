@@ -25,8 +25,8 @@ export interface Mission {
   crewOnly?: boolean;
   /** Daily only: offered only to players holding a short (holdsShortForMissions). */
   shortHoldersOnly?: boolean;
-  /** Daily only: out of the rotation from DAILY_POOL_CHANGE on. */
-  retired?: boolean;
+  /** Daily only: out of the rotation from this UTC date on. */
+  retiredFrom?: string;
 }
 
 export interface ShopPin {
@@ -404,6 +404,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
     description: 'Have a limit order fill today',
     reward: 100,
     checkType: 'LIMIT_FILL',
+    retiredFrom: '2026-10-25',
   },
   CREW_MAJORITY: {
     id: 'CREW_MAJORITY',
@@ -413,7 +414,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
     checkType: 'CREW_MAJORITY',
     requirement: 50,
     crewOnly: true,
-    retired: true,
+    retiredFrom: '2026-10-24',
   },
   SHORT_SELLER: {
     id: 'SHORT_SELLER',
@@ -611,8 +612,8 @@ export const getWeeklyMissions = (crewId: string | null | undefined, weekId: str
   return [OPENING_BELL, pool[Math.abs(seed) % pool.length]!];
 };
 
-// The daily pool changed on this UTC date: Crew Majority retired, Covered only
-// for short holders. Earlier days keep the old pool so no list reshuffles mid-day.
+// From this UTC date Covered goes only to short holders. Retired missions leave
+// on their own date. Earlier days keep the old pool so no list reshuffles mid-day.
 export const DAILY_POOL_CHANGE = '2026-10-24';
 
 // Today's 3 daily missions, picked by date and crew. holdsShort comes from
@@ -626,7 +627,9 @@ export const getDailyMissions = (
   const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
   const seed = dateSeed + (crewId ? textSeed(crewId) : 0) + rerollSeed;
   const pool = missionPool(DAILY_MISSIONS, crewId).filter(
-    (m) => today < DAILY_POOL_CHANGE || !(m.retired || (m.shortHoldersOnly && !holdsShort)),
+    (m) =>
+      !(m.retiredFrom && today >= m.retiredFrom) &&
+      !(today >= DAILY_POOL_CHANGE && m.shortHoldersOnly && !holdsShort),
   );
   return seededShuffle(pool, seed).slice(0, 3);
 };
