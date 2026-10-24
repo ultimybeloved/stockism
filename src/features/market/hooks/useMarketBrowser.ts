@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { setBrowseList } from '../utils/browseList';
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS } from '../../../characters';
 import { ITEMS_PER_PAGE } from '../../../constants';
@@ -145,6 +146,9 @@ export function useMarketBrowser({
     crewMembership,
     reviewChanges,
   ]);
+
+  // The stock page swipes through this list, in this order.
+  useEffect(() => setBrowseList(filteredCharacters.map((c) => c.ticker)), [filteredCharacters]);
 
   // Floor at 1 so an empty result set shows "1/1", not "1/0".
   const totalPages = Math.max(1, Math.ceil(filteredCharacters.length / perPage));

@@ -23,13 +23,13 @@ interface PriceChartProps {
   onHover?: (point: PricePoint | null) => void;
 }
 
-const TIME_RANGES: { key: PriceChartRange; label: string; hours: number }[] = [
-  { key: '1d', label: 'Today', hours: 24 },
-  { key: '7d', label: '7 Days', hours: 168 },
-  { key: '1m', label: '1 Month', hours: 720 },
-  { key: '3m', label: '3 Months', hours: 2160 },
-  { key: '1y', label: '1 Year', hours: 8760 },
-  { key: 'all', label: 'All Time', hours: Infinity },
+const TIME_RANGES: { key: PriceChartRange; label: string; short: string; hours: number }[] = [
+  { key: '1d', label: 'Today', short: '1D', hours: 24 },
+  { key: '7d', label: '7 Days', short: '7D', hours: 168 },
+  { key: '1m', label: '1 Month', short: '1M', hours: 720 },
+  { key: '3m', label: '3 Months', short: '3M', hours: 2160 },
+  { key: '1y', label: '1 Year', short: '1Y', hours: 8760 },
+  { key: 'all', label: 'All Time', short: 'All', hours: Infinity },
 ];
 
 const SVG_W = 600;
