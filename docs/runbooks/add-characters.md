@@ -42,10 +42,11 @@ portfolio value) pick up new characters through the data and need no deploy.
 
 ## 4. Seed prices (automatic)
 
-Nothing to do. `marketMakerCycle` runs every hour outside the halts and writes
-`basePrice` into the live price map for every non-IPO, non-ETF character missing
-one (`functions/src/market/seedPrices.ts`). New characters added during the
-Thursday halt get their price in the first hour after the reopen.
+Nothing to do. `marketMakerCycle` runs every hour on the hour, halts included,
+and first writes `basePrice` into the live price map for every non-IPO, non-ETF
+character missing one (`functions/src/market/seedPrices.ts`). A new character is
+priced within an hour of the functions deploy: added before 20:00 UTC on a
+Thursday, it is priced before the 21:00 reopen.
 
 Admin panel -> IPO tab -> **Init Prices** (`initNewCharacterPrices`) does the
 same thing at once, if you can't wait for the hour. Safe to click twice.

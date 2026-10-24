@@ -1,7 +1,7 @@
 // Starting prices for characters that are in the roster but not yet in the live
 // price map. Every automated mover (bots, market maker, daily summary) iterates
 // the price map, so an unseeded character sits frozen until someone trades it.
-// Run every hour by marketMakerCycle and on demand by the admin Init Prices
+// Run every hour by marketMakerCycle (halts included) and on demand by the admin Init Prices
 // button (initNewCharacterPrices). INTERNAL MODULE: exports no Cloud Functions.
 import * as admin from 'firebase-admin';
 import { CHARACTERS } from '../shared/characters';

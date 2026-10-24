@@ -91,7 +91,21 @@ export const marketMakerCycle = cf()
   .pubsub.schedule('0 * * * *')
   .timeZone('UTC')
   .onRun(async () => {
-    // Never run during the weekly Thursday halt (13:00–21:00 UTC)
+    // New characters get their starting price first, halts included, so one
+    // added during Thursday's review is priced within the hour with no admin
+    // step. Its own try: a failure must not stop the stabilizer.
+    try {
+      const seeded = await seedMissingPrices({ waitOnOrphans: true });
+      if (seeded?.initialized.length) {
+        logger.info(`marketMakerCycle: seeded ${seeded.initialized.map((s) => s.ticker).join(', ')}`);
+      } else if (seeded?.waiting) {
+        logger.warn(`marketMakerCycle: new characters unpriced, waiting on rename of ${seeded.orphans.join(', ')}`);
+      }
+    } catch (e) {
+      logger.error('marketMakerCycle: seeding new prices failed', e);
+    }
+
+    // The stabilizer never runs during the weekly Thursday halt (13:00–21:00 UTC)
     if (isWeeklyTradingHalt()) {
       logger.info('marketMakerCycle: skipping — weekly halt active');
       return null;
@@ -110,19 +124,6 @@ export const marketMakerCycle = cf()
       if (marketData.marketHalted) {
         logger.info('marketMakerCycle: skipping — manual halt active');
         return null;
-      }
-
-      // New characters get their starting price here, so adding one needs no
-      // admin step. Its own try: a failure must not stop the stabilizer.
-      try {
-        const seeded = await seedMissingPrices({ waitOnOrphans: true });
-        if (seeded?.initialized.length) {
-          logger.info(`marketMakerCycle: seeded ${seeded.initialized.map((s) => s.ticker).join(', ')}`);
-        } else if (seeded?.waiting) {
-          logger.warn(`marketMakerCycle: new characters unpriced, waiting on rename of ${seeded.orphans.join(', ')}`);
-        }
-      } catch (e) {
-        logger.error('marketMakerCycle: seeding new prices failed', e);
       }
 
       const historySnap = await priceHistoryRef().get();
