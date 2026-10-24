@@ -75,7 +75,7 @@ const LeaderboardRow = ({ leader, displayRank, isCurrentUser, userRowRef, sortBy
       </div>
       <div className="flex-1 min-w-0">
         <div className={`font-semibold truncate ${textClass} flex items-center gap-1`}>
-          {leader.isPublic ? (
+          {leader.displayName ? (
             <Link to={`/u/${(leader.displayName || '').toLowerCase()}`} className="hover:underline">
               <CosmeticName name={name} styles={cosmetics} fallbackColor={crownColor} />
             </Link>

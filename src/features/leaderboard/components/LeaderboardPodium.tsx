@@ -90,7 +90,7 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
       <div
         className={`font-semibold ${isFirst ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'} ${textClass} truncate mt-1`}
       >
-        {leader.isPublic ? (
+        {leader.displayName ? (
           <Link to={`/u/${(leader.displayName || '').toLowerCase()}`} className="hover:underline">
             <CosmeticName name={name} styles={cosmetics} fallbackColor={crownColor} />
           </Link>

@@ -82,7 +82,7 @@ const PlayerSearch = () => {
                 </>
               );
               const rowClass = 'flex items-center gap-2 px-3 py-2 text-sm';
-              return p.isPublic ? (
+              return p.displayName ? (
                 <Link
                   key={p.displayName}
                   to={`/u/${p.displayName.toLowerCase()}`}
