@@ -40,16 +40,24 @@ node scripts/deploy-functions.cjs --only executeTrade,createPreMarketOrder,cance
 Functions that only multiply prices by holdings (leaderboard, dividends, margin,
 portfolio value) pick up new characters through the data and need no deploy.
 
-## 4. Seed prices
+## 4. Seed prices (automatic)
 
-Admin panel -> IPO tab -> **Init Prices** (`initNewCharacterPrices`). It
-writes `basePrice` into the live price map for every non-IPO, non-ETF character
-missing one, and skips the rest, so it is safe to click twice.
+Nothing to do. `marketMakerCycle` runs every hour outside the halts and writes
+`basePrice` into the live price map for every non-IPO, non-ETF character missing
+one (`functions/src/market/seedPrices.ts`). New characters added during the
+Thursday halt get their price in the first hour after the reopen.
 
-This is not optional. A character with no entry in the price map still shows and
+Admin panel -> IPO tab -> **Init Prices** (`initNewCharacterPrices`) does the
+same thing at once, if you can't wait for the hour. Safe to click twice.
+
+The seeding matters. A character with no entry in the price map still shows and
 trades (the first trade creates the entry), but every automated system iterates
 the price map: no bot trades it, the market maker skips it, the daily summary
 leaves it out, its chart is blank, and its holders get $0 dividends.
+
+The hourly run waits, and logs a warning, while any priced ticker is missing
+from the roster: that is a ticker rename deployed but not yet migrated, and
+seeding then would create a duplicate stock.
 
 ## Adding during the Thursday halt
 

@@ -5,9 +5,11 @@ the game computes on it. The engine is `functions/src/market/tickerRename.ts`, a
 internal module not listed in its domain's `services.js`.
 
 **Order is enforced. Source edit and deploy come first, migration second.**
-Running the migration first makes `initNewCharacterPrices` see the old ticker
-still in the roster with no price and re-seed it at base price, creating a
-duplicate stock at the wrong price.
+Running the migration first makes the price seeder see the old ticker still in
+the roster with no price and re-seed it at base price, creating a duplicate
+stock at the wrong price. The hourly seeder in `marketMakerCycle` waits while a
+priced ticker is missing from the roster, but the admin **Init Prices** button
+does not: don't press it between the deploy and the migration.
 
 1. Edit `src/characters.ts` (the `ticker`, plus **every** ETF `constituents` and
    `trailingFactors` reference) and `src/crews.ts` `members`.

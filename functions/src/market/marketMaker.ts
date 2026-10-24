@@ -20,6 +20,7 @@ import { recordHeartbeat } from '../shared/activity';
 import type { PricePoint } from '../shared/types';
 import { netFlowByTicker, stabilizerShouldSkip } from './botRules';
 import { loadConfirmed, loadGroupExposure, loadGroupTrades } from './manipulatorActivity';
+import { seedMissingPrices } from './seedPrices';
 
 // Trigger if price deviates more than 12% from the 7-day rolling average
 const DEVIATION_THRESHOLD = 0.12;
@@ -109,6 +110,19 @@ export const marketMakerCycle = cf()
       if (marketData.marketHalted) {
         logger.info('marketMakerCycle: skipping — manual halt active');
         return null;
+      }
+
+      // New characters get their starting price here, so adding one needs no
+      // admin step. Its own try: a failure must not stop the stabilizer.
+      try {
+        const seeded = await seedMissingPrices({ waitOnOrphans: true });
+        if (seeded?.initialized.length) {
+          logger.info(`marketMakerCycle: seeded ${seeded.initialized.map((s) => s.ticker).join(', ')}`);
+        } else if (seeded?.waiting) {
+          logger.warn(`marketMakerCycle: new characters unpriced, waiting on rename of ${seeded.orphans.join(', ')}`);
+        }
+      } catch (e) {
+        logger.error('marketMakerCycle: seeding new prices failed', e);
       }
 
       const historySnap = await priceHistoryRef().get();

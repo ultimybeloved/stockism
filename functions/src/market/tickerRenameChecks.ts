@@ -22,7 +22,7 @@ export const journalRef = () => db.collection('market').doc(RENAME_JOURNAL_DOC);
  *
  * The two that matter most are 2 and 3, which together prove the source edit
  * and the functions deploy already happened. Running the migration first makes
- * initNewCharacterPrices see the old ticker still in the roster with no price
+ * the price seeder (seedPrices.ts) see the old ticker still in the roster with no price
  * and re-seed it at base price, producing a duplicate stock at the wrong price.
  */
 export const runPreflight = async ({ old, nw, marketData }: { old: string; nw: string; marketData: DocumentData }) => {

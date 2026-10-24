@@ -10,8 +10,7 @@ import { cf, requireAdmin } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
-import { CHARACTERS } from '../shared/characters';
-import { appendPriceHistory } from '../shared/marketData';
+import { seedMissingPrices } from '../market/seedPrices';
 import { runPreflight, countDryRun, runRename, PHASES } from '../market/tickerRename';
 import * as split from '../market/stockSplit';
 import { logAdminAction } from '../shared/adminLog';
@@ -31,9 +30,9 @@ import { logAdminAction } from '../shared/adminLog';
  *
  * ORDER MATTERS: edit src/characters.ts and src/crews.ts, run check:data and
  * sync:chars, and DEPLOY FUNCTIONS before running this. Preflight refuses
- * otherwise. Migrating first makes initNewCharacterPrices see the old ticker
- * still in the roster with no price and re-seed it at base price, which
- * creates a duplicate stock at the wrong price.
+ * otherwise. Migrating first makes the price seeder (market/seedPrices) see
+ * the old ticker still in the roster with no price and re-seed it at base
+ * price, which creates a duplicate stock at the wrong price.
  */
 export const renameTicker = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
   requireAdmin(context);
@@ -155,41 +154,23 @@ export const splitStock = cf({ timeoutSeconds: 540, memory: '1GB' }).https.onCal
 });
 
 /**
- * Initialize prices for any character in characters.ts that doesn't have a
- * live price in Firestore yet. Skips IPO characters. Safe to run multiple
- * times — only writes missing entries.
+ * Give every new character its starting price now, instead of waiting for the
+ * hourly run in marketMakerCycle. Skips IPO characters and ETFs. Safe to run
+ * multiple times: only writes missing entries. Unlike the hourly run it does
+ * not wait on a half-done rename, because an admin pressed it on purpose.
  */
 export const initNewCharacterPrices = cf().https.onCall(async (data, context) => {
   requireAdmin(context);
 
-  const marketRef = db.collection('market').doc('current');
-  const marketSnap = await marketRef.get();
-  if (!marketSnap.exists) {
+  const result = await seedMissingPrices({ waitOnOrphans: false });
+  if (!result) {
     throw new functions.https.HttpsError('not-found', 'Market document not found');
   }
-
-  const prices = marketSnap.data()!.prices || {};
-  const now = Date.now();
-  const updates: Record<string, number> = {};
-  const historyPoints: Record<string, { timestamp: number; price: number; source: string }> = {};
-  const initialized = [];
-
-  for (const c of CHARACTERS) {
-    if (c.ipoRequired || c.isETF) continue;
-    if (prices[c.ticker]) continue;
-
-    updates[`prices.${c.ticker}`] = c.basePrice;
-    // Tagged so a seeded starting price is never mistaken for a trade.
-    historyPoints[c.ticker] = { timestamp: now, price: c.basePrice, source: 'init' };
-    initialized.push({ ticker: c.ticker, price: c.basePrice });
-  }
-
+  const { initialized } = result;
   if (initialized.length === 0) {
     return { message: 'All characters already have prices', initialized: [] };
   }
 
-  await marketRef.update(updates);
-  await appendPriceHistory(null, historyPoints);
   logger.info(`Initialized prices for ${initialized.length} characters:`, initialized.map((i) => i.ticker).join(', '));
   await logAdminAction(context, { action: 'init_prices', detail: { initialized } });
   return { message: `Initialized ${initialized.length} character prices`, initialized };

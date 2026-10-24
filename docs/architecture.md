@@ -323,6 +323,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/admin/adminOps.ts` | Small direct admin ops: grant/revoke achievements and cosmetics, reinstate, set cash, broadcast |
 | `functions/src/admin/adminUserEdit.ts` | Direct edits to one player's game state: crew, achievements, margin, a single holding. Skips player-facing penalties/cooldowns on purpose |
 | `functions/src/admin/adminMigrate.ts` | Ticker/roster migrations: renameTicker, initNewCharacterPrices |
+| `functions/src/market/seedPrices.ts` | Starting prices for new characters, run hourly by marketMakerCycle and by Init Prices |
 | `functions/src/margin/margin.ts` | User-facing margin actions: repay, bailout, toggle, interest |
 | `functions/src/margin/marginScanners.ts` | The two scheduled liquidation scanners (checkShortMarginCalls, checkMarginLending). Covered by test:trading sections J and K |
 | `functions/src/users/portfolio.ts` | syncPortfolio, sweepDustPositions |
