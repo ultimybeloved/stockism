@@ -49,7 +49,10 @@ const PhoneSummaryBar = ({
   }
 
   return (
-    <div className={`md:hidden sticky top-16 z-30 -mx-4 mb-3 px-4 py-2 border-b ${cardClass} flex items-center gap-3`}>
+    <div
+      data-tour="money"
+      className={`md:hidden sticky top-16 z-30 -mx-4 mb-3 px-4 py-2 border-b ${cardClass} flex items-center gap-3`}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -81,6 +84,7 @@ const PhoneSummaryBar = ({
       {action && (
         <button
           type="button"
+          data-tour={canCheckIn && !activeUserData.isBankrupt ? 'checkin' : undefined}
           onClick={action.onClick}
           disabled={checkinLoading}
           className={`shrink-0 px-3 py-2 text-xs font-semibold uppercase rounded-sm ${action.cls}`}

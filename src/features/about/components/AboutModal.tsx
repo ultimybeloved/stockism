@@ -7,6 +7,7 @@ import FaqTab from './FaqTab';
 import PrivacyTab from './PrivacyTab';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import { startTour } from '../../tour/hooks/useTour';
 
 type AboutTabKey = 'about' | 'faq' | 'privacy';
 
@@ -59,7 +60,14 @@ const AboutModal = ({ onClose }: { onClose: () => void }) => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {/* ABOUT TAB */}
-          {activeTab === 'about' && <AboutTab />}
+          {activeTab === 'about' && (
+            <AboutTab
+              onStartTour={() => {
+                onClose();
+                startTour();
+              }}
+            />
+          )}
 
           {/* FAQ TAB */}
           {activeTab === 'faq' && <FaqTab />}

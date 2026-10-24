@@ -9,7 +9,7 @@ import LoginModal from '../features/account/components/LoginModal';
 import UsernameModal from '../features/account/components/UsernameModal';
 import EmailVerificationModal from '../features/account/components/EmailVerificationModal';
 import NotificationPanel from '../features/notifications/components/NotificationPanel';
-import OnboardingTutorial from '../features/account/components/OnboardingTutorial';
+import GuidedTour from '../features/tour/components/GuidedTour';
 import PriceAlertModal from '../features/market/components/PriceAlertModal';
 import WatchlistPicker from '../features/market/components/WatchlistPicker';
 import TradeConfirmModal from '../features/trading/components/TradeConfirmModal';
@@ -218,8 +218,10 @@ const AppModals = ({
         />
       )}
 
-      {/* Onboarding Tutorial */}
-      {user && userData && !userData.onboardingComplete && <OnboardingTutorial onComplete={handleOnboardingComplete} />}
+      {/* Guided tour: opens once for a new player, replayable from the account menu and About */}
+      {user && userData && (
+        <GuidedTour autoStart={!userData.onboardingComplete} onFirstRunDone={handleOnboardingComplete} />
+      )}
 
       {/* Price Alert Modal */}
       {showPriceAlertModal && (

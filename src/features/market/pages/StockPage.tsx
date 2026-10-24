@@ -144,18 +144,20 @@ const StockPage = ({ onTrade }: StockPageProps) => {
           >
             {/* Phones trade from the bar pinned to the bottom instead. */}
             {user && (
-              <StockTradeMenu
-                marketClosed={marketClosed}
-                canSell={positionShares > 0}
-                canCover={!!shortPosition?.shares}
-                colorBlindMode={colorBlindMode}
-                onAction={setTradeAction}
-              />
+              <div data-tour="trade" className="w-fit">
+                <StockTradeMenu
+                  marketClosed={marketClosed}
+                  canSell={positionShares > 0}
+                  canCover={!!shortPosition?.shares}
+                  colorBlindMode={colorBlindMode}
+                  onAction={setTradeAction}
+                />
+              </div>
             )}
           </StockHeader>
 
           {/* Chart */}
-          <div className={`${cardClass} border rounded-sm mb-4 overflow-hidden`}>
+          <div data-tour="chart" className={`${cardClass} border rounded-sm mb-4 overflow-hidden`}>
             <div className="px-3 md:px-4 py-2 border-b flex flex-wrap gap-2 justify-between items-center light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-900/50">
               <SegmentedSwitch
                 label="Time range"
@@ -198,7 +200,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          <div data-tour="stock-stats" className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {stat('7d Change', cd(priceStats.change7d), cc(priceStats.change7d))}
             {stat('30d Change', cd(priceStats.change30d), cc(priceStats.change30d))}
             {stat('30d High', formatCurrency(priceStats.high30d), upColor)}

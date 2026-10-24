@@ -20,7 +20,7 @@ src/
 ├── features/<feature>/        components/, hooks/, pages/, utils/ per feature:
 │                              admin, ladder, trading, margin, market, portfolio,
 │                              predictions, ipo, leaderboard, missions, crews,
-│                              season, profile, account, notifications, about
+│                              season, profile, account, notifications, about, tour
 ├── shared/                    components/ (layout, charts, common) and hooks/
 │                              used by several features
 ├── app/                       App shell: routes, modals, market data provider,
@@ -109,7 +109,7 @@ If a new feature would push a file past its limit, **split the file first, then 
 
 ### Frontend: Where Code Lives
 
-**Feature folders** (`src/features/<feature>/{components,hooks,pages,utils}`): admin, ladder, trading, margin, market (home + stock pages), portfolio, predictions, ipo, leaderboard, missions, crews, season, profile, account, notifications, about. Code used by several features lives in `src/shared/{components,hooks}`; the app shell (modal stack, status screens, install prompt) in `src/app/`. `src/utils`, `src/constants`, `src/context`, `src/types`, `src/api`, `src/rules` stay at the top level. A new file goes in the feature that owns it; it moves to `src/shared/` only once a second feature needs it.
+**Feature folders** (`src/features/<feature>/{components,hooks,pages,utils}`): admin, ladder, trading, margin, market (home + stock pages), portfolio, predictions, ipo, leaderboard, missions, crews, season, profile, account, notifications, about, tour. Code used by several features lives in `src/shared/{components,hooks}`; the app shell (modal stack, status screens, install prompt) in `src/app/`. `src/utils`, `src/constants`, `src/context`, `src/types`, `src/api`, `src/rules` stay at the top level. A new file goes in the feature that owns it; it moves to `src/shared/` only once a second feature needs it.
 
 **Components** (`src/features/<feature>/components/`)
 - One component per file, named to match the file
@@ -284,6 +284,7 @@ Quick reference so you know where to look and where to add things.
 | `src/shared/hooks/useMediaQuery.ts` | `usePhone` / `useWideScreen` for features that only exist on one screen size (phone list rows, long-press, swipe rows, the desktop stock window and comparison). Prefer plain Tailwind breakpoints when only the look changes |
 | `src/shared/hooks/useSwipeToClose.ts` | `useSheetRef`: bottom-sheet modals on phones (with `themeClasses.sheetOverlayClass` / `sheetShellClass` and `SheetHandle`), ordinary modals from `md` up |
 | `src/features/trading/components/TradeLauncher.tsx` | The one way to open an order form outside a character card (list view, quick actions, desktop stock window, stock page, portfolio swipe, limit requests). Sends pre-market buys and sells to the opening auction |
+| `src/features/tour/` | The guided tour (new players, replay from the account menu and About). Steps in `utils/tourSteps.ts` point at `data-tour` attributes on the page; give a phone and a desktop element the same name and the visible one is lit up. Renaming or removing a `data-tour` element breaks its step (it falls back to a box in the middle) |
 | `src/features/market/hooks/useDesktopMarket.ts` | Home page wide-screen extras: big stock window (StockPopup) instead of the plain chart window, shift-click comparison, market keyboard shortcuts |
 
 ### Backend (`functions/`)

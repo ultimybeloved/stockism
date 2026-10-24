@@ -213,6 +213,7 @@ const CharacterCard = ({
   return (
     <>
       <div
+        data-tour="card"
         style={rarityStyle}
         className={`${cardClass} border rounded-sm p-4 transition-all relative flex flex-col ${frameClass} ${
           highlight === 'open' ? 'ring-2 ring-orange-500' : highlight === 'compare' ? 'ring-2 ring-blue-500' : ''

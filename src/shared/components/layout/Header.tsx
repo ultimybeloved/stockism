@@ -143,7 +143,7 @@ const Header = ({
             </Link>
 
             {/* Desktop: Nav links on left */}
-            <nav className="hidden md:flex items-center space-x-1">
+            <nav className="hidden md:flex items-center space-x-1" data-tour="nav">
               {navLinks.map((link) => (
                 <button
                   key={link.path}

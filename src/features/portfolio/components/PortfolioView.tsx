@@ -174,7 +174,7 @@ const PortfolioView = ({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
-        <section className={`${cardClass} border rounded-sm overflow-hidden lg:col-span-2`}>
+        <section data-tour="portfolio" className={`${cardClass} border rounded-sm overflow-hidden lg:col-span-2`}>
           <div className={`p-4 border-b ${cardEdgeClass}`}>
             <div className="flex justify-between items-center">
               <div>

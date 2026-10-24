@@ -24,6 +24,7 @@ const WelcomeWeekCard = ({ className = '' }: { className?: string }) => {
   const btn = 'px-2 py-0.5 text-[10px] font-semibold rounded-sm text-center whitespace-nowrap';
   return (
     <div
+      data-tour="welcome-week"
       className={`${cardClass} border rounded-sm px-3 py-2.5 mb-4 flex items-center gap-3 light:border-indigo-200 dark:border-indigo-900 ${className}`}
     >
       <div className="min-w-0 flex-1">

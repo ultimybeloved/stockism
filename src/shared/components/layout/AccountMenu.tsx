@@ -9,6 +9,7 @@ import { useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { formatCurrency } from '../../../utils/formatters';
 import PixelIcon from '../PixelIcon';
+import { startTour } from '../../../features/tour/hooks/useTour';
 
 import { CREW_MAP } from '../../../crews';
 
@@ -47,6 +48,7 @@ const AccountMenu = ({ value, onShowCrews }: { value: number; onShowCrews: () =>
     crew
       ? { path: `/crew/${crew}`, label: 'My Crew', icon: 'crews' }
       : { run: onShowCrews, label: 'Join a crew', icon: 'crews' },
+    { run: startTour, label: 'Replay the tour', icon: 'book' },
   ];
 
   const name = userData?.displayName || user?.email?.split('@')[0] || 'Anonymous';
@@ -55,7 +57,7 @@ const AccountMenu = ({ value, onShowCrews }: { value: number; onShowCrews: () =>
     'w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left transition-colors light:text-zinc-700 light:hover:bg-amber-50 dark:text-zinc-200 dark:hover:bg-zinc-800';
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative" ref={ref} data-tour="account">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

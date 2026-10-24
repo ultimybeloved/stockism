@@ -2,8 +2,8 @@ import { themeClasses } from '../../../utils/theme';
 import { useSession } from '../../../context/AppContext';
 
 // The About tab: what the game is, who made it, and where the community is.
-const AboutTab = () => {
-  const { userData } = useSession();
+const AboutTab = ({ onStartTour }: { onStartTour: () => void }) => {
+  const { user, userData } = useSession();
   const { textClass, mutedClass } = themeClasses;
 
   return (
@@ -23,6 +23,15 @@ const AboutTab = () => {
           your knowledge of the webtoon to make smart investments. You can also bet on weekly predictions about upcoming
           chapters.
         </p>
+        {user && (
+          <button
+            type="button"
+            onClick={onStartTour}
+            className="mt-3 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold rounded-sm"
+          >
+            Take the tour
+          </button>
+        )}
       </div>
 
       <div>

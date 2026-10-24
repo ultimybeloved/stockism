@@ -27,6 +27,7 @@ const StickyTradeBar = ({ price, canSell, canCover, disabledReason, onAction }: 
       {/* Room at the bottom of the page so the bar never covers the last card. */}
       <div className="md:hidden h-20" aria-hidden="true" />
       <div
+        data-tour="trade"
         className={`md:hidden fixed inset-x-0 z-30 border-t px-3 py-2 transition-[bottom] duration-300 ${cardClass} ${
           navVisible ? 'bottom-16' : 'bottom-0'
         }`}

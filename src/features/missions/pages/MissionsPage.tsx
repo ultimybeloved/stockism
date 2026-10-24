@@ -146,9 +146,11 @@ export default function MissionsPage({
           </div>
         </div>
 
-        <Section title="Rivalry">
-          <RivalryTab multiplier={board.multiplier} onJoinCrew={onOpenCrewSelection} />
-        </Section>
+        <div data-tour="rivalry" className="self-start">
+          <Section title="Rivalry">
+            <RivalryTab multiplier={board.multiplier} onJoinCrew={onOpenCrewSelection} />
+          </Section>
+        </div>
       </div>
     </div>
   );

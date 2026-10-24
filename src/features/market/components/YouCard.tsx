@@ -61,7 +61,7 @@ const YouCard = ({
   const margin = activeUserData.marginEnabled ? calculateMarginStatus(activeUserData, prices, priceHistory) : null;
 
   return (
-    <div className={`${cardClass} border rounded-sm p-4 mb-4 ${cash < 0 ? 'border-red-500' : ''}`}>
+    <div data-tour="money" className={`${cardClass} border rounded-sm p-4 mb-4 ${cash < 0 ? 'border-red-500' : ''}`}>
       <button type="button" onClick={() => !isGuest && onShowPortfolio()} className="w-full text-left group">
         <div className="flex items-center justify-between">
           <p className={`text-xs font-semibold uppercase ${mutedClass}`}>Portfolio value</p>
@@ -117,15 +117,17 @@ const YouCard = ({
         </button>
       )}
 
-      <CheckInButton
-        isGuest={isGuest}
-        lastCheckin={userData?.lastCheckin}
-        checkinStreak={userData?.checkinStreak || 0}
-        streakSaver={streakSaverActive(userData)}
-        onCheckin={onCheckin}
-        onSignIn={onShowLogin}
-        loading={checkinLoading}
-      />
+      <div data-tour="checkin">
+        <CheckInButton
+          isGuest={isGuest}
+          lastCheckin={userData?.lastCheckin}
+          checkinStreak={userData?.checkinStreak || 0}
+          streakSaver={streakSaverActive(userData)}
+          onCheckin={onCheckin}
+          onSignIn={onShowLogin}
+          loading={checkinLoading}
+        />
+      </div>
 
       {holdings.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-1.5">

@@ -93,6 +93,7 @@ const MarketTicker = () => {
 
   return (
     <div
+      data-tour="ticker"
       className={`w-full overflow-hidden ${
         halted
           ? preMarketTone

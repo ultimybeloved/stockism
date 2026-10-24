@@ -81,7 +81,7 @@ const PhoneRow = ({ character, onOpen, onHold }: { character: Character; onOpen:
   const { change24, line } = rowStats(priceHistory[character.ticker], price);
   const held = userData?.holdings?.[character.ticker] || 0;
   return (
-    <li>
+    <li data-tour="card">
       <button
         type="button"
         {...press}
@@ -164,6 +164,7 @@ const MarketList = ({
               return (
                 <tr
                   key={c.ticker}
+                  data-tour="card"
                   onClick={() => onViewChart(c, '7d')}
                   aria-selected={c.ticker === selectedTicker}
                   className="cursor-pointer aria-selected:bg-orange-500/10 border-b last:border-0 light:border-amber-100 dark:border-zinc-800/70 light:hover:bg-amber-50 dark:hover:bg-zinc-800/50"

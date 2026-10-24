@@ -23,7 +23,7 @@ export default function WeekStrip({ weekly }: { weekly: WeeklyProgress }) {
   const checkedIn = Object.keys(weekly.checkinDays || {}).length;
 
   return (
-    <div className={`${cardClass} border rounded-sm p-4`}>
+    <div data-tour="week" className={`${cardClass} border rounded-sm p-4`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-3">
         <h1 className={`text-2xl font-bold ${textClass}`}>This week</h1>
         <p className={`text-sm ${mutedClass}`}>New missions {formatDateTime(end)}</p>
