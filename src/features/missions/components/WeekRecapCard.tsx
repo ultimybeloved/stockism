@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { WeeklyRecap } from '../../../rules/weeklyRecap';
 import { themeClasses } from '../../../utils/theme';
-import WeekRecapSlip, { NOTCH_RADIUS, PERFORATION_Y } from './WeekRecapSlip';
+import WeekRecapSlip, { NOTCH_RADIUS, PERFORATION_Y, SLIP_WIDTH } from './WeekRecapSlip';
 
 const PIXEL_RATIO = 2;
 
@@ -17,26 +17,55 @@ const punchNotches = (canvas: HTMLCanvasElement) => {
   }
 };
 
+// Copy needs the image clipboard (most current browsers; not older Firefox).
+const canCopy = () => typeof ClipboardItem !== 'undefined' && !!navigator.clipboard?.write;
+
 // The Weekly Slip: last week's summary, from the recap the server stores at the
-// Thursday reopen, with Save image (the share sheet on phones) and Close
-// below it. The slip is capped in width, so the picture never comes out a strip.
+// Thursday reopen, with Copy image, Save image (the share sheet on phones) and
+// Close below it. Both draw a hidden copy at SLIP_WIDTH, so a phone and a
+// computer get the same picture whatever width the slip has on screen.
 export default function WeekRecapCard({ recap, onClose }: { recap: WeeklyRecap; onClose?: () => void }) {
   const slipRef = useRef<HTMLDivElement>(null);
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState<'' | 'copy' | 'save'>('');
   const [note, setNote] = useState('');
   const { mutedClass, ghostBtnClass } = themeClasses;
   const fileName = `stockism-week-${recap.weekId}.png`;
   const btn = `px-2.5 py-1 text-xs font-semibold rounded-sm border ${ghostBtnClass} disabled:opacity-50`;
 
-  const saveImage = async () => {
-    if (!slipRef.current) return;
-    setSaving(true);
+  const drawImage = async () => {
+    const { toCanvas } = await import('html-to-image');
+    // Let the hidden copy mount and lay out first.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    if (!slipRef.current) throw new Error('no slip');
+    const canvas = await toCanvas(slipRef.current, { pixelRatio: PIXEL_RATIO, cacheBust: true });
+    punchNotches(canvas);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('no image');
+    return blob;
+  };
+
+  const finish = () => {
+    setBusy('');
+    window.setTimeout(() => setNote(''), 2500);
+  };
+
+  const copyImage = async () => {
+    setBusy('copy');
     try {
-      const { toCanvas } = await import('html-to-image');
-      const canvas = await toCanvas(slipRef.current, { pixelRatio: PIXEL_RATIO, cacheBust: true });
-      punchNotches(canvas);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-      if (!blob) throw new Error('no image');
+      // The clipboard item gets the image as a promise, so Safari still counts it as part of the click.
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': drawImage() })]);
+      setNote('Image copied');
+    } catch {
+      setNote('Could not copy the image');
+    } finally {
+      finish();
+    }
+  };
+
+  const saveImage = async () => {
+    setBusy('save');
+    try {
+      const blob = await drawImage();
       const file = new File([blob], fileName, { type: 'image/png' });
       // Phones get the share sheet (save to photos, send to Discord); computers download it.
       if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) {
@@ -53,18 +82,27 @@ export default function WeekRecapCard({ recap, onClose }: { recap: WeeklyRecap; 
     } catch {
       setNote('Could not save the image');
     } finally {
-      setSaving(false);
-      window.setTimeout(() => setNote(''), 2500);
+      finish();
     }
   };
 
   return (
-    <div className="max-w-[720px] mx-auto">
-      <WeekRecapSlip ref={slipRef} recap={recap} />
+    <div style={{ maxWidth: SLIP_WIDTH }} className="mx-auto">
+      <WeekRecapSlip recap={recap} />
+      {busy && (
+        <div aria-hidden className="fixed top-0 -left-[10000px]" style={{ width: SLIP_WIDTH }}>
+          <WeekRecapSlip ref={slipRef} recap={recap} />
+        </div>
+      )}
       <div className="mt-2 flex items-center justify-end gap-2">
         {note && <span className={`text-xs ${mutedClass}`}>{note}</span>}
-        <button onClick={() => void saveImage()} disabled={saving} className={btn}>
-          {saving ? 'Saving...' : 'Save image'}
+        {canCopy() && (
+          <button onClick={() => void copyImage()} disabled={!!busy} className={btn}>
+            {busy === 'copy' ? 'Copying...' : 'Copy image'}
+          </button>
+        )}
+        <button onClick={() => void saveImage()} disabled={!!busy} className={btn}>
+          {busy === 'save' ? 'Saving...' : 'Save image'}
         </button>
         {onClose && (
           <button onClick={onClose} className={btn} title="Find it again on the Missions page">
