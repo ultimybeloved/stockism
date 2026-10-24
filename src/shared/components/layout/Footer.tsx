@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { DISCORD_INVITE_URL } from '../../../constants/links';
 
 const Footer = () => {
   const links = [
-    { href: 'https://discord.gg/hpVm8nQMvY', label: 'Discord', external: true },
+    { href: DISCORD_INVITE_URL, label: 'Discord', external: true },
     { href: 'https://reddit.com/r/stockismapp', label: 'Reddit', external: true },
     // Plain-HTML view of the live market. Linked here so archive crawlers and
     // search engines can reach it from the front page, and so it is findable by

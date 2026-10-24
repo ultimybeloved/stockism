@@ -31,7 +31,7 @@ const API = 'https://discord.com/api/v10';
 
 // Posted bare so Discord renders the server card. Swap in a vanity here and
 // re-run to update the existing message.
-const INVITE_URL = 'https://discord.com/invite/hpVm8nQMvY';
+const INVITE_URL = 'https://discord.gg/X875CEvtx2';
 
 // Custom emoji are uploaded to the bot application itself (Developer Portal ->
 // Emojis), so they render anywhere the bot posts and can't vanish with a server.

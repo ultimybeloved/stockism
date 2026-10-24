@@ -123,7 +123,7 @@ export const DIRECT_REPLY_BUDGET_MS = 1200;
 // point of the "trade on the website" buttons).
 export const SITE_URL = 'https://stockism.app';
 // The official server's public invite (same link as the site footer).
-export const DISCORD_INVITE_URL = 'https://discord.gg/hpVm8nQMvY';
+export const DISCORD_INVITE_URL = 'https://discord.gg/X875CEvtx2';
 // How many leaderboard rows a /leaderboard reply shows. Discord embeds get
 // unreadable past ~10 lines on mobile.
 export const DISCORD_LEADERBOARD_ROWS = 10;

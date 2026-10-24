@@ -10,6 +10,7 @@ import {
 import { marketTimes, localDailyTime } from '../../../utils/localTime';
 import { useSession, useMarket } from '../../../context/AppContext';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import { DISCORD_INVITE_URL } from '../../../constants/links';
 
 const MarketTicker = () => {
   const { userData } = useSession();
@@ -136,7 +137,7 @@ const MarketTicker = () => {
           <>
             <span className="text-xs font-medium px-4 light:text-slate-600 dark:text-zinc-300">
               <a
-                href="https://discord.gg/hpVm8nQMvY"
+                href={DISCORD_INVITE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
@@ -174,7 +175,7 @@ const MarketTicker = () => {
             {/* Duplicate for seamless loop */}
             <span className="text-xs font-medium px-4 light:text-slate-600 dark:text-zinc-300">
               <a
-                href="https://discord.gg/hpVm8nQMvY"
+                href={DISCORD_INVITE_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"

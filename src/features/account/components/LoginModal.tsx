@@ -11,6 +11,7 @@ import {
 import { auth, googleProvider, twitterProvider } from '../../../firebase';
 import { themeClasses } from '../../../utils/theme';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
+import { DISCORD_INVITE_URL } from '../../../constants/links';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -370,7 +371,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
           </a>
           {' • '}
           <a
-            href="https://discord.gg/hpVm8nQMvY"
+            href={DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-orange-500 underline"

@@ -1,5 +1,6 @@
 import { themeClasses } from '../../../utils/theme';
 import { useSession } from '../../../context/AppContext';
+import { DISCORD_INVITE_URL } from '../../../constants/links';
 
 // The About tab: what the game is, who made it, and where the community is.
 const AboutTab = ({ onStartTour }: { onStartTour: () => void }) => {
@@ -66,7 +67,7 @@ const AboutTab = ({ onStartTour }: { onStartTour: () => void }) => {
         <h3 className="font-semibold text-orange-500 mb-2">Join the Community</h3>
         <div className="flex gap-3">
           <a
-            href="https://discord.gg/hpVm8nQMvY"
+            href={DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-3 py-2 rounded light:bg-indigo-500 light:hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-sm font-medium"
