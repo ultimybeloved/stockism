@@ -106,17 +106,21 @@ const PRICES = { [MINE]: 1000, [THEIRS]: 1, [SPARE]: 1 };
 const WEEK_OPEN = { [MINE]: 100, [THEIRS]: 100, [SPARE]: 100 };
 const DAY_CLOSE = WEEK_OPEN;
 
+// Seeded players count as short sellers (FULL_DAILY has coverProfitValue), so
+// the server hands them the short-seller daily set.
+const dailyFor = (crew: string | null, seed: number) => getDailyMissions(today(), crew, seed, true);
+
 /** A reroll seed under which the given mission is assigned to CREW right now. */
 function seedAssigning(type: 'daily' | 'weekly', missionId: string) {
   for (let s = 0; s < 100000; s++) {
-    const list = type === 'daily' ? getDailyMissions(today(), CREW, s) : getWeeklyMissions(CREW, weekId(), s);
+    const list = type === 'daily' ? dailyFor(CREW, s) : getWeeklyMissions(CREW, weekId(), s);
     if (list.some((m) => m.id === missionId)) return s;
   }
   throw new Error(`no seed assigns ${missionId}`);
 }
 /** A daily mission that is NOT assigned under the given seed. */
 function unassignedDaily(seed: number) {
-  const assigned = new Set(getDailyMissions(today(), CREW, seed).map((m) => m.id));
+  const assigned = new Set(dailyFor(CREW, seed).map((m) => m.id));
   return Object.keys(DAILY_MISSIONS).find((id) => !assigned.has(id))!;
 }
 
@@ -313,7 +317,7 @@ async function main() {
   // ── D. Mission claims ─────────────────────────────────────────────────────
   console.log('\nD. Mission claims');
 
-  const [daily] = getDailyMissions(today(), CREW, 0);
+  const [daily] = dailyFor(CREW, 0);
   await seedMissionUser('m_claim');
   const claim = await claimMissionReward.run({ missionId: daily!.id, type: 'daily', reward: 999999 }, ctx('m_claim'));
   const claimUser = await getUser('m_claim');
@@ -381,17 +385,19 @@ async function main() {
     )) === true,
   );
 
+  // No short and no progress, so this player gets the regular daily set.
+  const [plain] = getDailyMissions(today(), CREW, 0);
   await seedUser('m_unfinished', { crew: CREW });
   check(
     'an unfinished mission is refused',
     (await rejects(
-      () => claimMissionReward.run({ missionId: daily!.id, type: 'daily' }, ctx('m_unfinished')),
+      () => claimMissionReward.run({ missionId: plain!.id, type: 'daily' }, ctx('m_unfinished')),
       /not completed/i,
     )) === true,
   );
 
   // Players without a crew get missions too, from the non-crew pool.
-  const [solo] = getDailyMissions(today(), null, 0);
+  const [solo] = dailyFor(null, 0);
   await seedMissionUser('m_nocrew', { extra: { crew: null } });
   const soloClaim = await claimMissionReward.run({ missionId: solo!.id, type: 'daily' }, ctx('m_nocrew'));
   const soloUser = await getUser('m_nocrew');

@@ -60,7 +60,7 @@ const constants =
   require('../../functions/src/shared/constants') as typeof import('../../functions/src/shared/constants');
 const { CREW_HEAD_ROLE_IDS } = constants;
 
-// The "Your week" recap starts after the first full Thursday week
+// The Weekly Slip starts after the first full Thursday week
 // (FIRST_MISSION_WEEK_ID). Run before then, the suite moves its clock ahead in
 // whole weeks (same weekday and hour) until last week is a real one.
 {
@@ -287,10 +287,10 @@ it('crew head roles', async () => {
     .collection('users')
     .doc('whale')
     .collection('notifications')
-    .where('title', '==', 'Your week')
+    .where('title', '==', 'Your Weekly Slip')
     .get();
   check(
-    'E2E: an active player gets their "Your week" recap',
+    'E2E: an active player gets their Weekly Slip',
     recap.size === 1 && recap.docs[0].data().message.startsWith('Net worth $500,000: +$10,000 from trading'),
     recap.docs[0]?.data().message,
   );
@@ -298,7 +298,7 @@ it('crew head roles', async () => {
     .collection('users')
     .doc('rocket')
     .collection('notifications')
-    .where('title', '==', 'Your week')
+    .where('title', '==', 'Your Weekly Slip')
     .get();
   check('E2E: no recap without a starting value for the week', noStart.size === 0);
   const stats = (await db.collection('market').doc('crewStats').get()).data() || {};
@@ -325,7 +325,7 @@ it('crew head roles', async () => {
     .collection('users')
     .doc('whale')
     .collection('notifications')
-    .where('title', '==', 'Your week')
+    .where('title', '==', 'Your Weekly Slip')
     .get();
   check('E2E: a re-run in the same week sends no second recap', twice.size === 1);
 });
