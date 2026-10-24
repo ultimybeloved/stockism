@@ -17,7 +17,7 @@ import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
-import { DISCORD_API_TIMEOUT_MS, isWeeklyTradingHalt } from '../shared/constants';
+import { isWeeklyTradingHalt } from '../shared/constants';
 import { isRosterTicker } from '../shared/roster';
 
 /** One row of the cached global leaderboard. */
@@ -264,17 +264,26 @@ export const publicSnapshot = cf().https.onRequest(async (req, res) => {
  *
  * Best-effort by design: Save Page Now is a free public service that rate-limits
  * and can be slow, and a missed week is not worth failing a scheduled run over.
+ *
+ * A save takes 15 to 30 seconds. The old 10 second wait gave up first, and from
+ * 2026-10-08 an abandoned request no longer got saved: three Thursdays were lost.
+ * A success answers with a redirect to the stored copy (not followed).
  */
+const SAVE_TIMEOUT_MS = 120_000;
 const savePage = async (path: string) => {
   const url = `https://web.archive.org/save/${SITE}${path}`;
   try {
-    await axios.get(url, {
-      timeout: DISCORD_API_TIMEOUT_MS,
-      maxRedirects: 2,
+    const res = await axios.get(url, {
+      timeout: SAVE_TIMEOUT_MS,
+      maxRedirects: 0,
       headers: { 'User-Agent': 'stockism-archiver/1.0 (+https://stockism.app)' },
       validateStatus: () => true,
     });
-    logger.info(`ARCHIVE requested: ${path}`);
+    if (res.status >= 400) {
+      logger.error(`Archive refused ${path}: status ${res.status}`);
+      return { path, requested: false, error: `status ${res.status}` };
+    }
+    logger.info(`ARCHIVE saved: ${path} -> ${res.headers.location || res.status}`);
     return { path, requested: true };
   } catch (err) {
     logger.error(`Archive request failed for ${path}:`, (err as Error).message);
@@ -298,7 +307,8 @@ const runArchive = async (includePredictions: boolean) => {
 // (/snapshot/YYYY-MM-DD) which are backed by our own daily closes.
 //
 // Predictions ride along on the 1st-8th, which works out to roughly monthly.
-export const archiveSnapshot = cf()
+// Two saves at up to 2 minutes each.
+export const archiveSnapshot = cf({ timeoutSeconds: 300 })
   .pubsub.schedule('30 21 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
@@ -307,7 +317,7 @@ export const archiveSnapshot = cf()
     return null;
   });
 
-export const triggerArchiveSnapshot = cf().https.onCall(async (_data: unknown, context) => {
+export const triggerArchiveSnapshot = cf({ timeoutSeconds: 300 }).https.onCall(async (_data: unknown, context) => {
   // The public snapshot ROUTES are deliberately App Check free so crawlers can
   // read them. This admin trigger is not one of those routes, and was the only
   // callable in the codebase missing the check.
