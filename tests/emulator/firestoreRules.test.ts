@@ -137,6 +137,9 @@ async function main() {
   await check('grant self a title', 'blocked', { ownedTitles: ['season_9_diamond'] });
   await check('write own title label', 'blocked', { 'titleMeta.season_1_gold': 'Site Owner' });
 
+  await check('stuff the user doc with watchlists', 'blocked', {
+    watchlists: Array.from({ length: 11 }, (_, i) => ({ id: `l${i}`, name: 'x', tickers: [] })),
+  });
   await check('grant self a permanent streak saver', 'blocked', { streakSaverPermanent: true });
   await check('extend own streak saver', 'blocked', { streakSaverUntil: 9e12 });
 
@@ -148,6 +151,13 @@ async function main() {
   await check('complete margin tutorial', 'allowed', { marginTutorialCompleted: true });
   await check('complete ladder tutorial', 'allowed', { ladderTutorial2Completed: true });
   await check('update watchlist', 'allowed', { watchlist: ['JAY', 'GUN'] });
+  await check('save named watchlists', 'allowed', {
+    watchlist: ['JAY', 'GUN'],
+    watchlists: [
+      { id: 'main', name: 'Watchlist', tickers: ['JAY'] },
+      { id: 'l1', name: 'Sleepers', tickers: ['GUN'] },
+    ],
+  });
   await check('enable DRIP on a ticker', 'allowed', { 'drip.JAY': true });
   await check('disable DRIP on a ticker', 'allowed', { 'drip.JAY': deleteField() });
   await check('set shop pin order', 'allowed', { displayedShopPins: ['a', 'b'] });

@@ -62,6 +62,13 @@ export type PriceHistory = Record<Ticker, PricePoint[]>;
 /** ticker -> share count. Used for holdings and shorts. */
 export type ShareMap = Record<Ticker, number>;
 
+/** One of a player's named watchlists (features/market/utils/watchlists.ts). */
+export interface Watchlist {
+  id: string;
+  name: string;
+  tickers: Ticker[];
+}
+
 export type TradeAction = 'buy' | 'sell' | 'short' | 'cover';
 
 /** users/{uid}.shorts[ticker]. Legacy (pre-v2) shorts have no `system`. */
@@ -180,6 +187,7 @@ export interface UserData {
   lastMarginInterestCharge?: number;
   ipoPurchases?: Record<Ticker, number>;
   watchlist?: Ticker[];
+  watchlists?: Watchlist[];
   drip?: Record<Ticker, boolean>;
   crewSwitchCooldown?: number;
   ladderTutorial2Completed?: boolean;

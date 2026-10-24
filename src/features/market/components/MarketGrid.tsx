@@ -184,7 +184,7 @@ const MarketGrid = ({
         <div className={`${cardClass} border rounded-sm p-8 text-center`}>
           <p className={`text-sm ${mutedClass}`}>
             {marketTab === 'watchlist' && !searchQuery
-              ? 'Your watchlist is empty. Tap the ☆ on any character to add it.'
+              ? 'This list is empty. Tap the ☆ on any character to add it.'
               : 'No characters match your search.'}
           </p>
         </div>

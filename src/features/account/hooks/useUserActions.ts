@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
 import { doc, runTransaction, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { openWatchlistPicker, saveWatchlists } from '../../market/hooks/useWatchlists';
+import { getWatchlists, toggleInList } from '../../market/utils/watchlists';
 import { deleteAccountFunction } from '../../../api/callables';
 import { ADMIN_UIDS } from '../../../constants';
 import { errorMessage as messageOf } from '../../../utils/errors';
@@ -27,14 +29,15 @@ export function useUserActions({
   showNotification: AppContextValue['showNotification'];
   setLimitOrderRequest: (request: LimitOrderRequest | null) => void;
 }) {
-  // Watchlist toggle
+  // The star on a stock: with one list it adds or removes the stock; with more,
+  // it opens "Save to list" to pick which.
   const toggleWatchlist = useCallback(
     async (ticker: string) => {
       if (!user || !userData) return;
-      const current = userData.watchlist || [];
-      const updated = current.includes(ticker) ? current.filter((t) => t !== ticker) : [...current, ticker];
+      const lists = getWatchlists(userData);
+      if (lists.length > 1) return openWatchlistPicker(ticker);
       try {
-        await updateDoc(doc(db, 'users', user.uid), { watchlist: updated });
+        await saveWatchlists(user.uid, toggleInList(lists, lists[0]!.id, ticker));
       } catch (err) {
         console.error('Failed to update watchlist:', err);
       }

@@ -15,6 +15,7 @@ import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { formatShares } from '../../../utils/tradeLimits';
 import { priceAt } from '../../../utils/marketStats';
 import { getMarketClosedState } from '../../../utils/marketHours';
+import { getWatchlists } from '../utils/watchlists';
 import type { Character } from '../../../characters';
 import type { PricePoint, TradeAction } from '../../../types';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
@@ -70,6 +71,7 @@ const StockPopup = ({
   const cost = userData?.costBasis?.[ticker] || 0;
   const short = userData?.shorts?.[ticker];
   const watched = (userData?.watchlist || []).includes(ticker);
+  const manyLists = getWatchlists(userData).length > 1;
   const halted = Date.now() < (marketData?.haltedTickers?.[ticker]?.resumeAt ?? 0);
   const closed = getMarketClosedState(marketData).closed;
   const canTrade = !!user && !halted && !closed;
@@ -218,7 +220,7 @@ const StockPopup = ({
                     onClick={() => onToggleWatchlist(ticker)}
                     className={watched ? 'text-yellow-500' : `${mutedClass} hover:text-yellow-500`}
                   >
-                    {watched ? '★ Watching' : '☆ Watch'}
+                    {manyLists ? `${watched ? '★' : '☆'} Save to list` : watched ? '★ Watching' : '☆ Watch'}
                   </button>
                 )}
                 {user && onSetAlert && (

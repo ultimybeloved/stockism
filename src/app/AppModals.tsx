@@ -11,6 +11,7 @@ import EmailVerificationModal from '../features/account/components/EmailVerifica
 import NotificationPanel from '../features/notifications/components/NotificationPanel';
 import OnboardingTutorial from '../features/account/components/OnboardingTutorial';
 import PriceAlertModal from '../features/market/components/PriceAlertModal';
+import WatchlistPicker from '../features/market/components/WatchlistPicker';
 import TradeConfirmModal from '../features/trading/components/TradeConfirmModal';
 import BailoutModal from '../features/margin/components/BailoutModal';
 import TradeLauncher from '../features/trading/components/TradeLauncher';
@@ -139,6 +140,7 @@ const AppModals = ({
         <UsernameModal suggestedName={suggestedName} onComplete={() => adoptUserDoc(user.uid)} />
       )}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {user && <WatchlistPicker />}
       {showLending && !isGuest && !userData?.marginTutorialCompleted && (
         <MarginTutorialModal onClose={() => setShowLending(false)} onComplete={handleMarginTutorialComplete} />
       )}

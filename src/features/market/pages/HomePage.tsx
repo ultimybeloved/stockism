@@ -205,6 +205,8 @@ const HomePage = ({
               showAll={browser.showAll}
               setShowAll={browser.setShowAll}
               reviewChanges={browser.reviewChanges}
+              activeList={browser.activeList}
+              setActiveList={browser.setActiveList}
               view={view}
               setView={setView}
             />

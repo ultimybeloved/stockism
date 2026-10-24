@@ -75,6 +75,26 @@ describe('remapArrayOfStrings', () => {
   });
 });
 
+describe('named watchlists', () => {
+  it('swaps the ticker in every list that has it and leaves the others alone', () => {
+    const lists = [
+      { id: 'main', name: 'Watchlist', tickers: [OLD, OTHER] },
+      { id: 'l1', name: 'Sleepers', tickers: [OTHER] },
+    ];
+    const u = R.buildUserUpdates({ watchlist: [OLD, OTHER], watchlists: lists }, OLD, NEW);
+    expect(u.watchlists).toEqual([
+      { id: 'main', name: 'Watchlist', tickers: [NEW, OTHER] },
+      { id: 'l1', name: 'Sleepers', tickers: [OTHER] },
+    ]);
+    expect(u.watchlist).toEqual([NEW, OTHER]);
+  });
+
+  it('writes nothing when no list has the ticker', () => {
+    const u = R.buildUserUpdates({ watchlists: [{ id: 'main', name: 'W', tickers: [OTHER] }] }, OLD, NEW);
+    expect(u.watchlists).toBeUndefined();
+  });
+});
+
 describe('remapObjectArray', () => {
   it('returns null when no entry matches', () => {
     expect(R.remapObjectArray([{ ticker: OTHER }], 'ticker', OLD, NEW)).toBeNull();

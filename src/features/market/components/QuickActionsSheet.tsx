@@ -10,6 +10,7 @@ import { useSession, useMarket } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { getMarketClosedState } from '../../../utils/marketHours';
+import { getWatchlists } from '../utils/watchlists';
 import type { Character } from '../../../characters';
 import type { TradeAction } from '../../../types';
 
@@ -42,6 +43,7 @@ const QuickActionsSheet = ({
   const held = userData?.holdings?.[ticker] || 0;
   const shorted = (userData?.shorts?.[ticker]?.shares || 0) > 0;
   const watched = (userData?.watchlist || []).includes(ticker);
+  const manyLists = getWatchlists(userData).length > 1;
   const halted = Date.now() < (marketData?.haltedTickers?.[ticker]?.resumeAt ?? 0);
   const canTrade = !!user && !halted && !getMarketClosedState(marketData).closed;
 
@@ -97,7 +99,7 @@ const QuickActionsSheet = ({
           })}
           {user &&
             onToggleWatchlist &&
-            plainBtn(watched ? '★ Unwatch' : '☆ Watch', () => {
+            plainBtn(manyLists ? `${watched ? '★' : '☆'} Save to list` : watched ? '★ Unwatch' : '☆ Watch', () => {
               onToggleWatchlist(ticker);
               onClose();
             })}

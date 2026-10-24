@@ -38,6 +38,19 @@ export const remapArrayOfStrings = (arr: unknown, old: string, nw: string): unkn
   return swapped.filter((t, i) => swapped.indexOf(t) === i);
 };
 
+/** The player's named watchlists ([{id, name, tickers}]), each list's tickers swapped. */
+export const remapWatchlists = (lists: unknown, old: string, nw: string): unknown[] | null => {
+  if (!Array.isArray(lists)) return null;
+  let hit = false;
+  const out = lists.map((l: { tickers?: unknown } | null) => {
+    const tickers = remapArrayOfStrings(l?.tickers, old, nw);
+    if (!tickers) return l;
+    hit = true;
+    return { ...l, tickers };
+  });
+  return hit ? out : null;
+};
+
 /** An array of objects (transactionLog, indexHistory.constituents, ipos.list). */
 export const remapObjectArray = (arr: unknown, field: string, old: string, nw: string): unknown[] | null => {
   if (!Array.isArray(arr)) return null;
@@ -132,6 +145,8 @@ export const buildUserUpdates = (userData: Doc, old: string, nw: string) => {
   }
   const watchlist = remapArrayOfStrings(userData.watchlist, old, nw);
   if (watchlist) updates.watchlist = watchlist;
+  const watchlists = remapWatchlists(userData.watchlists, old, nw);
+  if (watchlists) updates.watchlists = watchlists;
 
   const log = remapObjectArray(userData.transactionLog, 'ticker', old, nw);
   if (log) updates.transactionLog = log;

@@ -1,5 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { setBrowseList } from '../utils/browseList';
+import { getWatchlists } from '../utils/watchlists';
+import { useActiveWatchlist } from './useWatchlists';
 import { useSearchParams } from 'react-router-dom';
 import { CHARACTERS } from '../../../characters';
 import { ITEMS_PER_PAGE } from '../../../constants';
@@ -109,6 +111,8 @@ export function useMarketBrowser({
   }, [priceHistory, storedReviewChanges]);
 
   const crewMembership = useMemo(buildCrewMembership, []);
+  const watchlists = useMemo(() => getWatchlists(userData), [userData]);
+  const [activeList, setActiveList] = useActiveWatchlist(watchlists);
 
   const change24h = useCallback((ticker: string) => get24hChange(ticker, prices, priceHistory), [prices, priceHistory]);
 
@@ -116,7 +120,7 @@ export function useMarketBrowser({
     const ctx = {
       reviewChanges,
       crewMembership,
-      watchlist: userData?.watchlist || [],
+      watchlist: activeList.tickers,
       launchedTickers,
       ipoRestrictedTickers,
     };
@@ -142,7 +146,7 @@ export function useMarketBrowser({
     change24h,
     ipoRestrictedTickers,
     launchedTickers,
-    userData?.watchlist,
+    activeList,
     crewMembership,
     reviewChanges,
   ]);
@@ -182,5 +186,8 @@ export function useMarketBrowser({
     displayedCharacters,
     reviewSections,
     change24h,
+    watchlists,
+    activeList,
+    setActiveList,
   };
 }

@@ -3,6 +3,7 @@ import { useSession } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
 import { REVIEW_SORTS, activeFilterCount } from '../../../utils/marketFilters';
 import MarketFilterPanel from './MarketFilterPanel';
+import WatchlistTabs from './WatchlistTabs';
 import type { useMarketBrowser } from '../hooks/useMarketBrowser';
 import type { MarketView } from '../hooks/useMarketView';
 import { MARKET_SEARCH_ID } from '../hooks/useDesktopMarket';
@@ -21,6 +22,8 @@ type MarketControlsProps = Pick<
   | 'showAll'
   | 'setShowAll'
   | 'reviewChanges'
+  | 'activeList'
+  | 'setActiveList'
 > & { view: MarketView; setView: (view: MarketView) => void };
 
 const TABS: { id: string; label: string; needsUser?: boolean; needsReview?: boolean }[] = [
@@ -59,6 +62,8 @@ const MarketControls = ({
   showAll,
   setShowAll,
   reviewChanges,
+  activeList,
+  setActiveList,
   view,
   setView,
 }: MarketControlsProps) => {
@@ -122,6 +127,8 @@ const MarketControls = ({
           onChange={setView}
         />
       </div>
+
+      {filters.tab === 'watchlist' && user && <WatchlistTabs active={activeList} setActive={setActiveList} />}
 
       {panelOpen && (
         <MarketFilterPanel

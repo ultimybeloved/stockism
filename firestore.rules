@@ -76,7 +76,13 @@ service cloud.firestore {
     // own doc. If you add a new preference the client writes directly, add its
     // top-level key here too.
     function validateSafeUserUpdate() {
-      return safeUserKeysOnly() && titleIsOwned();
+      return safeUserKeysOnly() && titleIsOwned() && watchlistsBounded();
+    }
+
+    // Named watchlists: a list of at most 10, so the user doc can't be stuffed.
+    function watchlistsBounded() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['watchlists'])
+        || (request.resource.data.watchlists is list && request.resource.data.watchlists.size() <= 10);
     }
 
     // activeTitle is on the allowlist so the client can equip a season title
@@ -100,7 +106,8 @@ service cloud.firestore {
         'onboardingComplete',        // first-run tutorial flag (App.jsx)
         'marginTutorialCompleted',   // margin tutorial flag (App.jsx)
         'ladderTutorial2Completed',  // ladder tutorial flag (LadderGame)
-        'watchlist',                 // personal watchlist (App.jsx)
+        'watchlist',                 // every watched ticker, flat (useWatchlists)
+        'watchlists',                // named watchlists, at most 10 (useWatchlists)
         'drip',                      // per-ticker dividend reinvest toggles (App.jsx/StockPage)
         'displayedShopPins',         // pin display order (usePinShop)
         'displayedAchievementPins',  // pin display order (usePinShop)
