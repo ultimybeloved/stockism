@@ -185,25 +185,26 @@ const crests = {
     rect(5, 9, 14, 17, 'N');
     rect(6, 10, 7, 17, 'h');
     rect(12, 10, 13, 17, 'h');
-    rect(8, 12, 11, 13, 'h');
+    // The crossbar sits at the middle of the posts (rows 10 to 17).
+    rect(8, 13, 11, 14, 'h');
     rect(9, 5, 10, 6, 'h');
   },
   kitae_union: ({ disc, line, px }) => {
     disc(C, C, 8.6, 'k');
-    // Traced from the original: handle tilted top-left, black blade sweeping
-    // right with a curved edge and a bearded lower tip.
-    line(6, 3, 10, 15, 'O');
-    line(7, 3, 11, 15, 'n');
-    paint(px, 5, 1, [
+    // Traced from the original: handle tilted top-left, black blade with a
+    // curved edge, its top and bottom halves mirrored. A row below the disc's
+    // top edge so the tip doesn't touch the outline.
+    line(6, 4, 10, 16, 'O');
+    line(7, 4, 11, 16, 'n');
+    paint(px, 5, 2, [
       '.....s...',
       '....NNs..',
       '...NNNNs.',
       'NNNNNNNs.',
       'NNNNNNNs.',
-      '..NNNNNs.',
-      '...NNNNNs',
-      '.....NNNs',
-      '.......Ns',
+      '...NNNNs.',
+      '....NNs..',
+      '.....s...',
     ]);
   },
   secret_friends: ({ disc, line, px }) => {
@@ -244,7 +245,7 @@ const crests = {
       '..pppO.',
     ]);
   },
-  workers: ({ disc, px }) => {
+  workers: ({ disc, px, rect }) => {
     disc(C, C, 8.6, 'W');
     disc(C, C, 7.6, 'x');
     bmp(
@@ -263,6 +264,13 @@ const crests = {
       ],
       'W',
     );
+    // Three dots over the W: one above its middle peak, one either side.
+    for (const [x, y] of [
+      [9, 4],
+      [5, 4],
+      [13, 4],
+    ])
+      rect(x, y, x + 1, y + 1, 'W');
   },
   // A white-tiger-striped dollar sign.
   wtjc: ({ rect, px }) => {
