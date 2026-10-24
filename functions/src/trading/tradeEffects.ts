@@ -272,7 +272,6 @@ export async function writeTradeSideEffects({
   uid,
   ticker,
   action,
-  amount,
   result,
   ip,
 }: {

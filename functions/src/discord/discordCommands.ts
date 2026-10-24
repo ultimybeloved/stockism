@@ -30,12 +30,7 @@ import { getDailyMissions, getWeeklyMissions, CREWS } from '../shared/crews';
 import type { Mission } from '../shared/crews';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { UserData } from '../shared/types';
-import {
-  isDailyMissionDone,
-  isWeeklyMissionDone,
-  missionContext,
-  type WeeklyProgress,
-} from '../missions/missionChecks';
+import { isDailyMissionDone, isWeeklyMissionDone, missionContext } from '../missions/missionChecks';
 import { countRankAbove, netWorthOf } from '../shared/equity';
 import { getWeekId } from '../shared/tradeRecords';
 import { holdsShortForMissions } from '../shared/rules/missionProgress';
