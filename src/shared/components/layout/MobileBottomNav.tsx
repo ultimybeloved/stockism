@@ -1,12 +1,10 @@
 import { useHideOnScroll } from '../../hooks/useHideOnScroll';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useSession } from '../../../context/AppContext';
 
 import { useNewPredictions } from '../../../features/predictions/hooks/useNewPredictions';
 import PixelIcon from '../PixelIcon';
 
 const MobileBottomNav = () => {
-  const { user } = useSession();
   const location = useLocation();
   const navigate = useNavigate();
   const isVisible = useHideOnScroll();
@@ -30,12 +28,10 @@ const MobileBottomNav = () => {
       label: 'Predict',
       badge: newPredictions,
     },
+    // Same order as the desktop header. Portfolio opens from the summary bar
+    // on the home page.
+    { path: '/missions', icon: <PixelIcon name="missions" className="w-7 h-7" />, label: 'Missions' },
     { path: '/ladder', icon: <PixelIcon name="ladder" className="w-7 h-7" />, label: 'Ladder' },
-    // Signed in, the slot goes to the portfolio (achievements are a link on the
-    // profile page); guests have no portfolio, so they keep achievements.
-    user
-      ? { path: '/portfolio', icon: <PixelIcon name="cash" className="w-7 h-7" />, label: 'Portfolio' }
-      : { path: '/achievements', icon: <PixelIcon name="medal" className="w-7 h-7" />, label: 'Achievements' },
   ];
 
   return (
@@ -44,7 +40,7 @@ const MobileBottomNav = () => {
         isVisible ? 'translate-y-0' : 'translate-y-full'
       } light:bg-white light:border-amber-200 dark:bg-zinc-900 dark:border-zinc-800`}
     >
-      <div className="flex items-center justify-around h-16">
+      <div className="flex items-center justify-around h-16" data-tour="nav">
         {navItems.map((item) => (
           <button
             key={item.path}

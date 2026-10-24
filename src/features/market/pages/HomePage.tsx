@@ -96,9 +96,9 @@ const HomePage = ({
     <div className={`min-h-screen ${bgClass} p-4`}>
       <div className="max-w-6xl lg:max-w-[96rem] mx-auto">
         {/* Sub-header buttons */}
-        {/* Phones: all four in one row, icon over label. */}
-        <div className="grid grid-cols-4 gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
-          <button onClick={onShowMissions} className={subHeaderBtnClass}>
+        {/* Phones: one row, icon over label. Missions is in the bottom bar there. */}
+        <div className="grid grid-cols-3 gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
+          <button onClick={onShowMissions} className={`${subHeaderBtnClass} max-md:!hidden`}>
             <PixelIcon name="missions" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             Missions
           </button>
