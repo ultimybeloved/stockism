@@ -43,7 +43,6 @@ export const buildTradeCreditUpdates = ({
   totalValue,
   executionPrice,
   marketPrice,
-  viaLimitOrder = false,
   viaAuction = false,
   now = Date.now(),
 }: {
@@ -54,8 +53,6 @@ export const buildTradeCreditUpdates = ({
   totalValue: number;
   executionPrice: number;
   marketPrice: number;
-  /** A limit order (not a stop-loss or the opening auction) filled this. */
-  viaLimitOrder?: boolean;
   /** The opening auction filled this (Opening Bell, credited to the week the reopen starts). */
   viaAuction?: boolean;
   now?: number;
@@ -84,10 +81,6 @@ export const buildTradeCreditUpdates = ({
     updates[`${day}.buys.${ticker}.low`] = round2(Math.min(prev?.low ?? marketPrice, marketPrice));
     updates[`${day}.buys.${ticker}.high`] = round2(Math.max(prev?.high ?? marketPrice, marketPrice));
     updates[`${week}.buys.${ticker}.low`] = round2(Math.min(prevWeekLow ?? marketPrice, marketPrice));
-    if (viaLimitOrder) {
-      updates[`${day}.limitBuys.${ticker}.shares`] = FieldValue.increment(shares);
-      updates[`${day}.limitBuys.${ticker}.value`] = FieldValue.increment(totalValue);
-    }
     if (openingBell) {
       updates[`${auctionWeek}.auctionBuys.${ticker}.shares`] = FieldValue.increment(shares);
       updates[`${auctionWeek}.auctionBuys.${ticker}.value`] = FieldValue.increment(totalValue);
@@ -112,7 +105,6 @@ export const buildTradeCreditUpdates = ({
       if (executionPrice < (userData.costBasis?.[ticker] || 0)) {
         updates[`${day}.heldLossValue`] = FieldValue.increment(oldValue);
       }
-      if (viaLimitOrder) updates[`${day}.limitSoldValue`] = FieldValue.increment(oldValue);
       if (openingBell) updates[`${auctionWeek}.auctionSoldValue`] = FieldValue.increment(oldValue);
     }
     if (oldValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
