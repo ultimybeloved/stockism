@@ -14,12 +14,14 @@ const PublicProfilePage = lazy(() => import('../features/profile/pages/PublicPro
 const PredictionsPage = lazy(() => import('../features/predictions/pages/PredictionsPage'));
 const PortfolioPage = lazy(() => import('../features/portfolio/pages/PortfolioPage'));
 const CrewPage = lazy(() => import('../features/crews/pages/CrewPage'));
+const MissionsPage = lazy(() => import('../features/missions/pages/MissionsPage'));
 
 interface AppRoutesProps {
   home: ComponentProps<typeof HomePage>;
   predictions: ComponentProps<typeof PredictionsPage>;
   profile: ComponentProps<typeof ProfilePage>;
   portfolio: ComponentProps<typeof PortfolioPage>;
+  missions: ComponentProps<typeof MissionsPage>;
   onPinAction: ComponentProps<typeof AchievementsPage>['onPinAction'];
   onTrade: ComponentProps<typeof StockPage>['onTrade'];
   onShowLogin: () => void;
@@ -31,6 +33,7 @@ export default function AppRoutes({
   predictions,
   profile,
   portfolio,
+  missions,
   onPinAction,
   onTrade,
   onShowLogin,
@@ -56,6 +59,7 @@ export default function AppRoutes({
           <Route path="/leaderboard" element={<LeaderboardPage />} />
           <Route path="/achievements" element={<AchievementsPage onPinAction={onPinAction} />} />
           <Route path="/ladder" element={<LadderPage />} />
+          <Route path="/missions" element={<MissionsPage {...missions} />} />
           <Route path="/predictions" element={<PredictionsPage {...predictions} />} />
           <Route path="/profile" element={<ProfilePage {...profile} />} />
           <Route path="/portfolio" element={<PortfolioPage {...portfolio} />} />

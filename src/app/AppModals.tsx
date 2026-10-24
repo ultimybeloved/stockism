@@ -34,7 +34,6 @@ const AdminPanel = lazy(() => import('../features/admin/components/AdminPanel'))
 const AboutModal = lazy(() => import('../features/about/components/AboutModal'));
 const CrewSelectionModal = lazy(() => import('../features/crews/components/CrewSelectionModal'));
 const PinShopModal = lazy(() => import('../features/profile/components/PinShopModal'));
-const DailyMissionsModal = lazy(() => import('../features/missions/components/DailyMissionsModal'));
 const MarginModal = lazy(() => import('../features/margin/components/MarginModal'));
 const MarginTutorialModal = lazy(() => import('../features/margin/components/MarginTutorialModal'));
 const ChartModal = lazy(() => import('../features/market/components/ChartModal'));
@@ -71,8 +70,6 @@ const AppModals = ({
   adoptUserDoc,
   dismissNotification,
   handleBailout,
-  handleClaimMissionReward,
-  handleClaimWeeklyMissionReward,
   handleClearAllNotifications,
   handleCreatePriceAlert,
   handleCrewLeave,
@@ -94,7 +91,6 @@ const AppModals = ({
   handlePurchaseBundle,
   handleGiftCosmetic,
   handleRepayMargin,
-  handleRerollMissions,
   handleTrade,
   isGuest,
   needsEmailVerification,
@@ -109,7 +105,6 @@ const AppModals = ({
   setShowAdmin,
   setShowBailout,
   setShowCrewSelection,
-  setShowDailyMissions,
   setShowLending,
   setShowLoginModal,
   setShowMarginTutorialReview,
@@ -122,7 +117,6 @@ const AppModals = ({
   showAdmin,
   showBailout,
   showCrewSelection,
-  showDailyMissions,
   showLending,
   showLoginModal,
   showMarginTutorialReview,
@@ -188,19 +182,6 @@ const AppModals = ({
           onEquipCosmetic={handleEquipCosmetic}
           onSetCosmeticStyle={handleSetCosmeticStyle}
           portfolioValue={portfolioValue}
-        />
-      )}
-      {showDailyMissions && (
-        <DailyMissionsModal
-          onClose={() => setShowDailyMissions(false)}
-          onClaimReward={handleClaimMissionReward}
-          onClaimWeeklyReward={handleClaimWeeklyMissionReward}
-          onOpenCrewSelection={() => setShowCrewSelection(true)}
-          isGuest={isGuest}
-          claimLoading={actionLoading.claimMission}
-          claimWeeklyLoading={actionLoading.claimWeeklyMission}
-          onRerollMissions={handleRerollMissions}
-          rerollLoading={actionLoading.rerollMissions}
         />
       )}
       {showBailout && !isGuest && userData?.isBankrupt && (

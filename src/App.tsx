@@ -57,7 +57,6 @@ export default function App() {
     setShowBailout,
     setShowCrewSelection,
     setShowPinShop,
-    setShowDailyMissions,
     setShowAdmin,
     setShowNotificationPanel,
     setShowPriceAlertModal,
@@ -221,7 +220,7 @@ export default function App() {
                 onToggleWatchlist: toggleWatchlist,
                 tradeAnimation,
                 onSetAlert: (ticker) => setShowPriceAlertModal(ticker),
-                onShowMissions: () => setShowDailyMissions(true),
+                onShowMissions: () => navigate('/missions'),
                 onShowPinShop: () => setShowPinShop(true),
                 onShowMargin: () => setShowLending(true),
                 onShowAbout: () => setShowAbout(true),
@@ -248,6 +247,17 @@ export default function App() {
                 onOpenTradeHistory: () => setShowTradeHistory(true),
                 onToggleDrip: handleToggleDrip,
                 onShowLogin: showLogin,
+              }}
+              missions={{
+                isGuest,
+                onClaimReward: missions.handleClaimMissionReward,
+                onClaimWeeklyReward: missions.handleClaimWeeklyMissionReward,
+                onRerollMissions: missions.handleRerollMissions,
+                onOpenCrewSelection: () => setShowCrewSelection(true),
+                onShowLogin: showLogin,
+                claimLoading: actionLoading.claimMission,
+                claimWeeklyLoading: actionLoading.claimWeeklyMission,
+                rerollLoading: actionLoading.rerollMissions,
               }}
               onPinAction={isGuest ? undefined : pinShop.handlePinAction}
               onTrade={requestTrade}

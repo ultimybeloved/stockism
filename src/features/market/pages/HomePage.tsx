@@ -95,7 +95,7 @@ const HomePage = ({
         {/* Sub-header buttons */}
         {/* Phones: all four in one row, icon over label. */}
         <div className="grid grid-cols-4 gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
-          <button onClick={isGuest ? onShowLogin : onShowMissions} className={subHeaderBtnClass}>
+          <button onClick={onShowMissions} className={subHeaderBtnClass}>
             <PixelIcon name="missions" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
             Missions
           </button>

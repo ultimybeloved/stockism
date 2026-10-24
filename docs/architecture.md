@@ -254,6 +254,7 @@ Quick reference so you know where to look and where to add things.
 | `src/features/trading/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.ts`) |
 | `src/features/missions/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
 | `src/features/missions/hooks/useMissionBoard.ts` | Today's and this week's missions with progress, from the shared rules |
+| `src/features/missions/pages/MissionsPage.tsx` | /missions: the week strip, weekly and daily missions, reroll, the crew rivalry |
 | `src/features/margin/hooks/useMarginManagement.ts` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
 | `src/features/crews/hooks/useCrewManagement.ts` | handleCrewSelect, handleCrewLeave |
 | `src/features/predictions/hooks/usePredictionManagement.ts` | handleBet |

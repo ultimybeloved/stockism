@@ -17,7 +17,6 @@ export function useModalManager() {
   const [showBailout, setShowBailout] = useState(false);
   const [showCrewSelection, setShowCrewSelection] = useState(false);
   const [showPinShop, setShowPinShop] = useState(false);
-  const [showDailyMissions, setShowDailyMissions] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
   const [showPriceAlertModal, setShowPriceAlertModal] = useState<string | null>(null); // ticker
@@ -40,8 +39,6 @@ export function useModalManager() {
     setShowCrewSelection,
     showPinShop,
     setShowPinShop,
-    showDailyMissions,
-    setShowDailyMissions,
     showAdmin,
     setShowAdmin,
     showNotificationPanel,

@@ -119,9 +119,9 @@ const Header = ({
       icon: <PixelIcon name="crystal" className="w-5 h-5" />,
       badge: newPredictions,
     },
+    { path: '/missions', label: 'Missions', icon: <PixelIcon name="missions" className="w-5 h-5" /> },
+    // Portfolio is reached from the home page; Achievements from the home button row.
     { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5" /> },
-    // Guests have no portfolio. Achievements live in the home page's button row.
-    ...(user ? [{ path: '/portfolio', label: 'Portfolio', icon: <PixelIcon name="cash" className="w-5 h-5" /> }] : []),
   ];
 
   return (
@@ -147,6 +147,8 @@ const Header = ({
               {navLinks.map((link) => (
                 <button
                   key={link.path}
+                  title={link.label}
+                  aria-label={link.label}
                   onClick={() => navigate(isActivePage(link.path) ? '/' : link.path)}
                   className={`relative inline-flex items-center px-3 py-2 rounded-sm text-sm font-medium transition-colors ${
                     isActivePage(link.path)
@@ -154,8 +156,9 @@ const Header = ({
                       : 'light:text-zinc-600 light:hover:bg-amber-50 dark:text-zinc-300 dark:hover:bg-zinc-800'
                   }`}
                 >
-                  <span className="mr-1.5 flex">{link.icon}</span>
-                  {link.label}
+                  {/* Icons only until there's room for the labels and the controls. */}
+                  <span className="lg:mr-1.5 flex">{link.icon}</span>
+                  <span className="hidden lg:inline">{link.label}</span>
                   {!!link.badge && link.badge > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
                       {link.badge > 9 ? '9+' : link.badge}

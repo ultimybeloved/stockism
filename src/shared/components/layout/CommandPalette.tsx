@@ -17,6 +17,7 @@ const PAGES = [
   { label: 'Leaderboard', path: '/leaderboard' },
   { label: 'Predictions', path: '/predictions' },
   { label: 'Ladder', path: '/ladder' },
+  { label: 'Missions', path: '/missions' },
   { label: 'Achievements', path: '/achievements' },
   { label: 'Profile', path: '/profile', needsUser: true },
 ];
