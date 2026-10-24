@@ -1,4 +1,4 @@
-import { CHARACTER_MAP } from '../../../characters';
+import { CHARACTERS, CHARACTER_MAP } from '../../../characters';
 import { MIN_PRICE, TRAILING_MAX_DEPTH } from '../../../constants';
 
 // Work out how an admin price adjustment ripples through the linked stocks.
@@ -17,10 +17,22 @@ import { MIN_PRICE, TRAILING_MAX_DEPTH } from '../../../constants';
 // A stock is only moved once per adjustment, at the shortest distance from the
 // stock that was adjusted. That is what stops the mutual links (GAP, JIN and
 // SHNG all point at each other) from looping forever.
+//
+// Then every crew ETF follows its members, the same as after a trade
+// (applyEtfPropagation in functions/src/trading/tradePricing.ts). Keep the two
+// in step.
 export interface PriceMove {
   ticker: string;
   from: number;
   to: number;
+}
+
+// stockTicker -> the ETFs holding it, with its weight in each.
+const PARENT_ETFS: Record<string, { etf: string; coefficient: number }[]> = {};
+for (const fund of CHARACTERS.filter((c) => c.isETF && c.trailingFactors)) {
+  for (const { ticker, coefficient } of fund.trailingFactors!) {
+    (PARENT_ETFS[ticker] ||= []).push({ etf: fund.ticker, coefficient });
+  }
 }
 
 export const buildTrailingCascade = ({
@@ -69,6 +81,29 @@ export const buildTrailingCascade = ({
       nextFrontier.push({ ticker: linked, oldPrice: from, newPrice: to });
     }
     frontier = nextFrontier;
+  }
+
+  // Total every member's move before writing a fund, so roster order can't leak
+  // in. A moved fund is not fed back into the walk (no fund -> member -> fund
+  // loop), and an adjusted fund isn't moved again by its own members.
+  const memberMoves = [{ ticker, from: oldPrice, to: newPrice }, ...moves];
+  const fundPushes = new Map<string, number>();
+  for (const move of memberMoves) {
+    if (CHARACTER_MAP[move.ticker]?.isETF || !(move.from > 0) || move.from === move.to) continue;
+    const change = (move.to - move.from) / move.from;
+    for (const { etf, coefficient } of PARENT_ETFS[move.ticker] || []) {
+      if (etf === ticker) continue;
+      fundPushes.set(etf, (fundPushes.get(etf) || 0) + change * coefficient);
+    }
+  }
+  for (const [etf, change] of fundPushes) {
+    const from = current[etf];
+    if (from == null || from <= 0) continue;
+    const to = Math.max(MIN_PRICE, Math.round(from * (1 + change) * 100) / 100);
+    if (to === from) continue;
+    const earlier = moves.find((m) => m.ticker === etf);
+    if (earlier) earlier.to = to;
+    else moves.push({ ticker: etf, from, to });
   }
 
   return moves;

@@ -51,6 +51,7 @@ const CommandPalette = ({ onClose }: { onClose: () => void }) => {
       if (n.startsWith(q)) return 2;
       if (n.split(/\s+/).some((w) => w.startsWith(q))) return 3;
       if (n.includes(q) || t.includes(q)) return 4;
+      if ((c.altNames || []).some((a) => a.toLowerCase().includes(q))) return 5;
       return 9;
     };
     const stocks = CHARACTERS.map((c) => ({ c, s: score(c) }))

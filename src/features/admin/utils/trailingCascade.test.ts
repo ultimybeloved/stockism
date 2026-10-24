@@ -73,4 +73,22 @@ describe('buildTrailingCascade', () => {
   it('does nothing for a stock with no links', () => {
     expect(buildTrailingCascade({ ticker: 'VIN', oldPrice: 100, newPrice: 110, prices })).toEqual([]);
   });
+
+  it('moves the crew ETF by its members, knock-on included', () => {
+    // BDNL and LDNL are linked and both sit in ALLY: the fund takes both moves.
+    const fundPrices = { BDNL: 100, LDNL: 100, ALLY: 200 };
+    const moves = buildTrailingCascade({ ticker: 'BDNL', oldPrice: 100, newPrice: 110, prices: fundPrices });
+    const ldnl = moveOf(moves, 'LDNL');
+    const expected =
+      200 * (1 + 0.1 * linkTo('ALLY', 'BDNL') + ((ldnl.to - ldnl.from) / ldnl.from) * linkTo('ALLY', 'LDNL'));
+    expect(moveOf(moves, 'ALLY').to).toBeCloseTo(expected, 2);
+    expect(moveOf(moves, 'ALLY').from).toBe(200);
+  });
+
+  it('does not move an adjusted ETF again through its own members', () => {
+    const fundPrices = { BDNL: 100, LDNL: 100, ALLY: 200 };
+    const moves = buildTrailingCascade({ ticker: 'ALLY', oldPrice: 200, newPrice: 220, prices: fundPrices });
+    expect(moveOf(moves, 'ALLY')).toBeUndefined();
+    expect(moveOf(moves, 'BDNL')).toBeDefined();
+  });
 });
