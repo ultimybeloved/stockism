@@ -41,8 +41,9 @@ const Layout = ({
       <MarketTicker />
       <SiteMessageBar />
 
-      {/* Desktop Hero Logo - sits below ticker, scrolls away naturally */}
-      <div className={`hidden md:flex justify-center ${isHome ? 'py-2' : 'py-1'}`}>
+      {/* Desktop Hero Logo - sits below ticker, scrolls away naturally. Layered
+          above a profile background (a fixed layer), which would cover it. */}
+      <div className={`relative z-[1] hidden md:flex justify-center ${isHome ? 'py-2' : 'py-1'}`}>
         <Link to="/">
           <img
             src={darkMode ? '/stockism grey splatter.png' : '/stockism logo.png'}

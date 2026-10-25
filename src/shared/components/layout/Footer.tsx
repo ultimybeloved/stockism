@@ -15,7 +15,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="py-6 text-center text-sm border-t light:bg-white light:border-amber-200 light:text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400">
+    <footer className="relative z-[1] py-6 text-center text-sm border-t light:bg-white light:border-amber-200 light:text-zinc-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
           {links.map((link) => (
