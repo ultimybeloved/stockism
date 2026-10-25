@@ -27,6 +27,17 @@ export interface ReportAlert {
   participantUIDs?: string[];
 }
 
+/** A signup refused this week, and the accounts already on its connection. */
+export interface ReportSignup {
+  name: string;
+  /** 'banned' (a connection a ban blocked), 'cap' (connection already full), 'email' (throwaway email). */
+  kind: 'banned' | 'cap' | 'email' | 'other';
+  /** The ban's reason, for 'banned'. */
+  reason?: string;
+  /** Names of the accounts already on that connection (the banned group, for 'banned'). */
+  linked: string[];
+}
+
 export interface ReportMember {
   name: string;
   banned: boolean;
@@ -43,6 +54,18 @@ const MAX_GROUPS = 8;
 const MAX_PUSHES = 6;
 const DISCORD_LIMIT = 2000;
 
+const openPairs = (alerts: ReportAlert[], now: number) =>
+  alerts
+    .filter(
+      (a) =>
+        a.type === 'alt_suspected' &&
+        !a.reviewed &&
+        now - a.at <= REPORT_LINK_MAX_AGE_MS &&
+        !!a.watchedUID &&
+        !!a.relatedUID,
+    )
+    .map((a) => [a.watchedUID!, a.relatedUID!] as const);
+
 /** The uids of each group of accounts linked by open alt pairs, biggest group first. */
 export const linkedGroups = (alerts: ReportAlert[], now: number): string[][] => {
   const parent = new Map<string, string>();
@@ -52,11 +75,9 @@ export const linkedGroups = (alerts: ReportAlert[], now: number): string[][] => 
     parent.set(u, r);
     return r;
   };
-  for (const a of alerts) {
-    if (a.type !== 'alt_suspected' || a.reviewed || now - a.at > REPORT_LINK_MAX_AGE_MS) continue;
-    if (!a.watchedUID || !a.relatedUID) continue;
-    for (const u of [a.watchedUID, a.relatedUID]) if (!parent.has(u)) parent.set(u, u);
-    parent.set(find(a.watchedUID), find(a.relatedUID));
+  for (const [a, b] of openPairs(alerts, now)) {
+    for (const u of [a, b]) if (!parent.has(u)) parent.set(u, u);
+    parent.set(find(a), find(b));
   }
   const groups = new Map<string, string[]>();
   for (const u of parent.keys()) {
@@ -82,35 +103,85 @@ const repeatPushers = (alerts: ReportAlert[], now: number) => {
   return [...count.entries()].filter(([, n]) => n >= 2).sort((x, y) => y[1] - x[1]);
 };
 
+const listNames = (names: string[]) =>
+  names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+/**
+ * Who in a group shares a connection with whom, one line per account with the
+ * most links first: "A shares a connection with B, C and D", then "B also
+ * shares one with C". Every pair appears exactly once.
+ */
+export const groupLinks = (group: string[], pairs: (readonly [string, string])[], nameOf: (uid: string) => string) => {
+  const inGroup = new Set(group);
+  const left = new Map<string, Set<string>>();
+  const link = (x: string, y: string) => {
+    if (!left.has(x)) left.set(x, new Set());
+    left.get(x)!.add(y);
+  };
+  for (const [a, b] of pairs) {
+    if (!inGroup.has(a) || a === b) continue;
+    link(a, b);
+    link(b, a);
+  }
+  const lines: string[] = [];
+  for (;;) {
+    const hub = [...left.entries()].filter(([, n]) => n.size).sort((x, y) => y[1].size - x[1].size)[0];
+    if (!hub) break;
+    const [uid, others] = hub;
+    const names = listNames([...others].map(nameOf));
+    lines.push(
+      lines.length
+        ? `${nameOf(uid)} also shares one with ${names}`
+        : `${nameOf(uid)} shares a connection with ${names}`,
+    );
+    for (const o of others) left.get(o)?.delete(uid);
+    others.clear();
+  }
+  return lines;
+};
+
+const signupLine = (s: ReportSignup) => {
+  const who = s.linked.length ? listNames(s.linked) : 'no accounts we could find';
+  if (s.kind === 'banned')
+    return `"${s.name}" tried to sign up from a connection blocked in a ban (${s.reason || 'banned group'}), used by ${who}`;
+  if (s.kind === 'cap') return `"${s.name}" was refused because their connection already has 2 accounts: ${who}`;
+  if (s.kind === 'email') return `"${s.name}" used a throwaway email address`;
+  return `"${s.name}" was refused at signup`;
+};
+
 const money = (n: number) =>
   n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}k` : `$${Math.round(n)}`;
 
 /**
- * The report. `members` has the current name, ban and net worth for every uid
- * in the groups; `blockedSignups` is signups refused this week from blocked
- * networks.
+ * The report, split into Discord-sized messages. `members` has the current
+ * name, ban and net worth for every uid in the groups; `signups` is this
+ * week's refused signups.
  */
 export const buildSuspicionReport = (
   alerts: ReportAlert[],
   members: Record<string, ReportMember>,
-  blockedSignups: number,
+  signups: ReportSignup[],
   now: number,
   heading: string,
-): string => {
+): string[] => {
   const lines = [`${heading} **Weekly suspicious-account report** (private, only you get this)`];
 
   const groups = linkedGroups(alerts, now);
+  const pairs = openPairs(alerts, now);
   if (groups.length) {
-    lines.push('', '**Linked accounts** (traded from the same connection)');
-    for (const g of groups.slice(0, MAX_GROUPS)) {
-      const ms = g.map((u) => members[u] || { name: u, banned: false, value: 0 });
-      const banned = ms.some((m) => m.banned);
-      const names = ms.map((m) => `${m.name}${m.banned ? ' (banned)' : ''}`).join(', ');
-      const value = ms.filter((m) => !m.banned).reduce((s, m) => s + m.value, 0);
+    lines.push('', '**Accounts that traded from the same internet connection**');
+    groups.slice(0, MAX_GROUPS).forEach((g, i) => {
+      const m = (u: string) => members[u] || { name: u, banned: false, value: 0 };
+      const nameOf = (u: string) => `${m(u).name}${m(u).banned ? ' (banned)' : ''}`;
+      const banned = g.filter((u) => m(u).banned).map((u) => m(u).name);
+      const value = g.filter((u) => !m(u).banned).reduce((s, u) => s + m(u).value, 0);
+      if (i) lines.push('');
       lines.push(
-        `• ${banned ? '**Tied to a banned account:** ' : ''}${names} · ${g.length} accounts · ${money(value)} combined`,
+        `**Group ${i + 1}:** ${g.length} accounts, ${money(value)} between the active ones` +
+          (banned.length ? `. **Includes banned ${listNames(banned)}**` : ''),
       );
-    }
+      for (const l of groupLinks(g, pairs, nameOf)) lines.push(`• ${l}`);
+    });
     if (groups.length > MAX_GROUPS) lines.push(`...and ${groups.length - MAX_GROUPS} more groups`);
   }
 
@@ -136,11 +207,12 @@ export const buildSuspicionReport = (
     );
   }
 
-  if (blockedSignups > 0) {
-    lines.push('', `**Blocked signups:** ${blockedSignups} this week from blocked networks`);
+  if (signups.length) {
+    lines.push('', '**Blocked signups** (this week)');
+    for (const s of signups) lines.push(`• ${signupLine(s)}`);
   }
 
-  if (!groups.length && !pushes.length && !repeats.length && !blockedSignups) {
+  if (!groups.length && !pushes.length && !repeats.length && !signups.length) {
     lines.push('', 'Quiet week: nothing new to look at.');
   }
   lines.push(
@@ -148,6 +220,20 @@ export const buildSuspicionReport = (
     'Leads, not proof. A shared connection can be a family or a school. Admin panel → Watchlist to review.',
   );
 
-  const text = lines.join('\n');
-  return text.length <= DISCORD_LIMIT ? text : `${text.slice(0, DISCORD_LIMIT - 40)}\n...(cut off, see Watchlist)`;
+  return splitForDiscord(lines);
+};
+
+/** Lines packed into messages under Discord's 2,000-character limit, never splitting a line. */
+export const splitForDiscord = (lines: string[]) => {
+  const out: string[] = [];
+  let cur = '';
+  for (const raw of lines) {
+    const line = raw.length > DISCORD_LIMIT ? `${raw.slice(0, DISCORD_LIMIT - 3)}...` : raw;
+    if (cur && cur.length + 1 + line.length > DISCORD_LIMIT) {
+      out.push(cur);
+      cur = line;
+    } else cur = cur ? `${cur}\n${line}` : line;
+  }
+  if (cur) out.push(cur);
+  return out;
 };
