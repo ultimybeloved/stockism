@@ -25,7 +25,11 @@ const Layout = ({
   const { darkMode } = useTheme();
   usePageTitle();
   // Full size on the home page; elsewhere it would push the page down for nothing.
-  const isHome = useLocation().pathname === '/';
+  const { pathname } = useLocation();
+  const isHome = pathname === '/';
+  // Profiles skip it: their logo stays in the header bar (Header), so a
+  // profile background starts right under the header.
+  const isProfile = pathname.startsWith('/u/');
   return (
     <div className="min-h-screen light:bg-amber-50 dark:bg-zinc-950">
       <Header
@@ -41,20 +45,21 @@ const Layout = ({
       <MarketTicker />
       <SiteMessageBar />
 
-      {/* Desktop Hero Logo - sits below ticker, scrolls away naturally. Layered
-          above a profile background (a fixed layer), which would cover it. */}
-      <div className={`relative z-[1] hidden md:flex justify-center ${isHome ? 'py-2' : 'py-1'}`}>
-        <Link to="/">
-          <img
-            src={darkMode ? '/stockism grey splatter.png' : '/stockism logo.png'}
-            alt="Stockism"
-            className={`${isHome ? 'h-40' : 'h-14'} w-auto select-none cursor-pointer hover:opacity-90 transition-opacity`}
-            draggable="false"
-            onContextMenu={(e) => e.preventDefault()}
-            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-          />
-        </Link>
-      </div>
+      {/* Desktop Hero Logo - sits below ticker, scrolls away naturally. */}
+      {!isProfile && (
+        <div className={`relative z-[1] hidden md:flex justify-center ${isHome ? 'py-2' : 'py-1'}`}>
+          <Link to="/">
+            <img
+              src={darkMode ? '/stockism grey splatter.png' : '/stockism logo.png'}
+              alt="Stockism"
+              className={`${isHome ? 'h-40' : 'h-14'} w-auto select-none cursor-pointer hover:opacity-90 transition-opacity`}
+              draggable="false"
+              onContextMenu={(e) => e.preventDefault()}
+              style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+            />
+          </Link>
+        </div>
+      )}
 
       <main className="pb-20 md:pb-6">{children}</main>
 

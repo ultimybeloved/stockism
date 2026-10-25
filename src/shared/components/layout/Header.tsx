@@ -168,11 +168,12 @@ const Header = ({
               ))}
             </nav>
 
-            {/* Desktop: Centered logo - appears in header on scroll */}
+            {/* Desktop: Centered logo - appears in header on scroll, and always on a
+                profile, which has no logo on the page (Layout). */}
             <Link
               to="/"
               className={`hidden md:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 transition-opacity duration-200 ease-in-out ${
-                scrolled ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                scrolled || location.pathname.startsWith('/u/') ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
             >
               <img

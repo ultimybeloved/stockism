@@ -16,14 +16,31 @@ import CosmeticName from '../../../../shared/components/cosmetics/CosmeticName';
 import TitleText from '../../../../shared/components/TitleText';
 import { themeClasses } from '../../../../utils/theme';
 
+export type SpotlightKind = 'holo' | 'champ' | 'alpha';
+
+/** Achievements and pins with their own spotlight set. */
+const SPECIAL_ACH: Record<string, SpotlightKind> = { TOP_1: 'champ' };
+const SPECIAL_PIN: Record<string, SpotlightKind> = { alpha_tester: 'alpha' };
+
+// The pin's art with a foil sheen across it, masked to the pin's own shape.
+const SheenPin = ({ src, gold = false, children }: { src: string; gold?: boolean; children: ReactNode }) => (
+  <span className={`trophy-holo-pin ${gold ? 'gold' : ''}`} style={{ '--pin': `url("${src}")` } as CSSProperties}>
+    {children}
+  </span>
+);
+
 export interface TrophyView {
   name: string;
   caption: string;
   art: ReactNode;
   /** A cosmetic the whole stand wears (effects, backdrops, frames). */
   wear?: string;
-  /** Pins on display get spotlights from the stand's bottom corners; the Crew Head's are holographic. */
-  spotlight?: boolean | 'holo';
+  /**
+   * Pins on display get spotlights from the stand's bottom corners. A few get
+   * their own set: holographic for the Crew Head, gold and grand for Champion,
+   * a gold glow with sparks for Alpha Tester.
+   */
+  spotlight?: true | SpotlightKind;
 }
 
 interface Context {
@@ -62,8 +79,15 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
         ? {
             name: a.name,
             caption: a.description,
-            art: <AchievementIcon achievement={a} className="w-12 h-12" />,
-            spotlight: true,
+            art:
+              SPECIAL_ACH[a.id] === 'champ' && a.icon ? (
+                <SheenPin src={`/pins/${a.icon}`} gold>
+                  <AchievementIcon achievement={a} className="block w-12 h-12" />
+                </SheenPin>
+              ) : (
+                <AchievementIcon achievement={a} className="w-12 h-12" />
+              ),
+            spotlight: SPECIAL_ACH[a.id] || true,
           }
         : null;
     }
@@ -73,8 +97,12 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
         ? {
             name: p.name,
             caption: 'Pin',
-            spotlight: true,
-            art: <img src={`/pins/${p.image}`} alt="" className="w-12 h-12 object-contain" style={pixelatedIfSvg(p.image)} />,
+            spotlight: SPECIAL_PIN[p.id] || true,
+            art: (
+              <span className={SPECIAL_PIN[p.id] === 'alpha' ? 'trophy-gold-pin' : undefined}>
+                <img src={`/pins/${p.image}`} alt="" className="w-12 h-12 object-contain" style={pixelatedIfSvg(p.image)} />
+              </span>
+            ),
           }
         : null;
     }
@@ -112,9 +140,9 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
         name: 'Crew Head',
         caption: crew ? `${crew.name} · ${weeks}` : weeks,
         art: (
-          <span className="trophy-holo-pin" style={{ '--pin': `url(${CREW_HEAD_PIN})` } as CSSProperties}>
+          <SheenPin src={CREW_HEAD_PIN}>
             <img src={CREW_HEAD_PIN} alt="" className="block w-12 h-12" style={PIXELATED} />
-          </span>
+          </SheenPin>
         ),
         spotlight: 'holo',
       };

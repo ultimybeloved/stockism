@@ -5,24 +5,36 @@ import { COSMETIC_MAP } from '../../../../constants/cosmetics';
 import { getCosmeticStyles } from '../../../../utils/cosmetics';
 import CosmeticLayers from '../../../../shared/components/cosmetics/CosmeticLayers';
 import { themeClasses } from '../../../../utils/theme';
-import { trophyView, type TrophyView } from './TrophyArt';
+import { trophyView, type SpotlightKind, type TrophyView } from './TrophyArt';
 import type { PublicProfile } from '../../../../api/types';
 
 const { cardClass, textClass, mutedClass, borderClass } = themeClasses;
 
-// Spotlights on a pin on display (styles/trophies.css); the Crew Head gets the holographic set.
-const Spotlights = ({ holo }: { holo: boolean }) => (
-  <div className={`trophy-spots ${holo ? 'holo' : ''}`} aria-hidden="true">
+// Spotlights on a pin on display (styles/trophies.css), in the pin's own set.
+const Spotlights = ({ kind }: { kind: SpotlightKind | null }) => (
+  <div className={`trophy-spots ${kind || ''}`} aria-hidden="true">
+    {kind === 'champ' && <i className="rays" />}
     <i className="pool" />
+    {kind === 'alpha' && <i className="aura" />}
     <div className="beams">
       <i className="beam l" />
       <i className="beam r" />
+      {kind === 'champ' && <i className="beam top" />}
     </div>
-    {holo && (
+    {(kind === 'holo' || kind === 'champ') && (
       <>
         <i className="glint g1" />
         <i className="glint g2" />
         <i className="glint g3" />
+        {kind === 'champ' && <i className="glint g4" />}
+      </>
+    )}
+    {kind === 'alpha' && (
+      <>
+        <i className="spark k1" />
+        <i className="spark k2" />
+        <i className="spark k3" />
+        <i className="spark k4" />
       </>
     )}
   </div>
@@ -35,7 +47,7 @@ export const TrophyStand = ({ view, seedKey }: { view: TrophyView; seedKey: stri
   const s = c ? getCosmeticStyles({ [c.type]: c.id }, null, { seedKey }) : null;
   return (
     <div
-      className={`trophy-stand relative flex flex-col items-center justify-end text-center gap-2 px-2 pt-4 pb-3 min-h-[132px] rounded-sm border ${
+      className={`trophy-stand ${view.spotlight === 'champ' ? 'champ' : ''} relative flex flex-col items-center justify-end text-center gap-2 px-2 pt-4 pb-3 min-h-[132px] rounded-sm border ${
         s
           ? `${cardClass} ${s.rowClass}`
           : `${borderClass} light:bg-gradient-to-b light:from-amber-50 light:to-white dark:bg-gradient-to-b dark:from-zinc-800 dark:to-zinc-900`
@@ -44,7 +56,7 @@ export const TrophyStand = ({ view, seedKey }: { view: TrophyView; seedKey: stri
       style={s ? { ...s.rowStyle, ...(s.glowColor ? { boxShadow: `0 0 20px ${s.glowColor}55` } : {}) } : undefined}
     >
       {s && <CosmeticLayers {...s.layers} seedKey={seedKey} />}
-      {view.spotlight && <Spotlights holo={view.spotlight === 'holo'} />}
+      {view.spotlight && <Spotlights kind={view.spotlight === true ? null : view.spotlight} />}
       {view.art && <div className="relative h-14 w-full flex items-center justify-center">{view.art}</div>}
       {view.art && <div className="relative w-10 h-1 rounded-full light:bg-amber-200 dark:bg-zinc-700" />}
       <div className={`relative min-w-0 w-full ${view.art ? '' : 'my-auto'}`}>
