@@ -69,7 +69,15 @@ export const BgPreview = ({ item, style, tickers }: { item: Cosmetic; style: Cos
   </div>
 );
 
-const ColorPick = ({ label, value, onChange }: { label: string; value: string; onChange: (hex: string) => void }) => (
+export const ColorPick = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (hex: string) => void;
+}) => (
   <label className="inline-flex items-center gap-1.5 text-[11.5px] light:text-slate-600 dark:text-zinc-400">
     {label}
     <input

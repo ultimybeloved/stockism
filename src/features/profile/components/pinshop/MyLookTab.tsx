@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES } from '../../../../constants/cosmetics';
+import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES, type CosmeticType } from '../../../../constants/cosmetics';
 import { SHOP_PINS, CREW_MAP } from '../../../../crews';
 import { ACHIEVEMENT_MAP } from '../../../../constants/achievements';
 import { getMaxAchievementSlots, getMaxShopSlots, toggleDisplayedPin } from '../../../../utils/pinSlots';
@@ -15,6 +15,8 @@ import { SPLIT_FLAP_ID } from '../../../../constants/cosmeticLayers';
 import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '../../../../rules/cosmetics';
 import StyleSwitch from '../../../../shared/components/SegmentedSwitch';
 import CosmeticSwatch from './CosmeticSwatch';
+import { ColorPick } from './ProfileShopShelf';
+import { STANDARD_MARK_ID } from '../../../../constants/cosmeticsProfile';
 
 interface MyLookTabProps {
   onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
@@ -73,9 +75,17 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
     (type) =>
       [
         type,
-        COSMETICS.filter((c) => c.type === type && ownedCosmetics.includes(c.id)).sort((a, b) => a.price - b.price),
+        COSMETICS.filter((c) => c.type === type && (c.free || ownedCosmetics.includes(c.id))).sort(
+          (a, b) => a.price - b.price,
+        ),
       ] as const,
   ).filter(([, items]) => items.length > 0);
+
+  // Wearing no holding mark means wearing Standard.
+  const equippedOf = (type: CosmeticType) =>
+    activeCosmetics[type] || (type === 'holdingMark' ? STANDARD_MARK_ID : undefined);
+  const wornMark = COSMETIC_MAP[equippedOf('holdingMark') || ''];
+  const tickerColors = (style.tickerColors || '#f97316,#ec4899').split(',');
 
   const chipClass = (active: boolean) =>
     `px-3 py-2 rounded-sm border ${active ? 'border-orange-500 bg-orange-500/10' : borderClass}`;
@@ -88,7 +98,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
         {ownedByType.length > 0 ? (
           <div className="space-y-3">
             {ownedByType.map(([type, items]) => {
-              const equippedId = activeCosmetics[type];
+              const equippedId = equippedOf(type);
               const equipped = items.find((i) => i.id === equippedId);
               return (
                 <div key={type}>
@@ -99,6 +109,21 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
                   <div className="flex flex-wrap gap-2">
                     {items.map((cosmetic) => {
                       const isEquipped = equippedId === cosmetic.id;
+                      // Marks and backgrounds are mostly plain colors, so they carry their name.
+                      if (type === 'holdingMark' || type === 'profileBg') {
+                        return (
+                          <button
+                            key={cosmetic.id}
+                            onClick={() => onEquipCosmetic(type, isEquipped ? null : cosmetic.id)}
+                            className={`${chipClass(isEquipped)} inline-flex items-center gap-1.5 py-1.5`}
+                          >
+                            <span className="w-4 h-4 shrink-0">
+                              <CosmeticSwatch cosmetic={cosmetic} style={style} />
+                            </span>
+                            <span className={`text-sm ${textClass}`}>{cosmetic.name}</span>
+                          </button>
+                        );
+                      }
                       return (
                         <button
                           key={cosmetic.id}
@@ -118,6 +143,30 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
             })}
             <p className={`text-xs ${mutedClass}`}>Tap to equip one, tap again to take it off.</p>
             {/* Style choices for owned items that come with one */}
+            {(wornMark?.pickColor || ownedCosmetics.includes('bg_tickers')) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
+                {wornMark?.pickColor && (
+                  <ColorPick
+                    label={`${wornMark.name} color`}
+                    value={style.markColor || '#3b82f6'}
+                    onChange={(hex) => onSetCosmeticStyle('markColor', hex)}
+                  />
+                )}
+                {ownedCosmetics.includes('bg_tickers') &&
+                  (['Top', 'Bottom'] as const).map((label, k) => (
+                    <ColorPick
+                      key={label}
+                      label={`Ticker Wall ${label.toLowerCase()}`}
+                      value={tickerColors[k] || '#f97316'}
+                      onChange={(hex) => {
+                        const next = [...tickerColors];
+                        next[k] = hex;
+                        onSetCosmeticStyle('tickerColors', next.join(','));
+                      }}
+                    />
+                  ))}
+              </div>
+            )}
             {(ownedCosmetics.includes(SPLIT_FLAP_ID) ||
               ownedCosmetics.includes(BULLBEAR_FRAME_ID) ||
               ownedCosmetics.some(

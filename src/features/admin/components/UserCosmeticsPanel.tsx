@@ -88,7 +88,7 @@ const UserCosmeticsPanel = ({
           <option value="">Pick a cosmetic to give...</option>
           {COSMETIC_TYPES.map((type) => (
             <optgroup key={type} label={COSMETIC_TYPE_LABELS[type]}>
-              {COSMETICS.filter((c) => c.type === type)
+              {COSMETICS.filter((c) => c.type === type && !c.free)
                 .sort(byPrice)
                 .map((c) => (
                   <option key={c.id} value={c.id} disabled={owned.includes(c.id)}>

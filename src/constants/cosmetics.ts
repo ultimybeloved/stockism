@@ -951,4 +951,11 @@ export const COSMETIC_TYPE_LABELS: Record<CosmeticType, string> = {
   profileBg: 'Profile Background',
 };
 
-export const COSMETIC_TYPES: CosmeticType[] = ['nameColor', 'rowGlow', 'rowFrame', 'rowBackdrop'];
+export const COSMETIC_TYPES: CosmeticType[] = [
+  'nameColor',
+  'rowGlow',
+  'rowFrame',
+  'rowBackdrop',
+  'holdingMark',
+  'profileBg',
+];

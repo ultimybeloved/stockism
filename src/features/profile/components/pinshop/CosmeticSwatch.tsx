@@ -27,6 +27,14 @@ const CosmeticSwatch = ({ cosmetic, style, seedKey }: CosmeticSwatchProps) => {
   const looks = getCosmeticStyles({ [cosmetic.type]: cosmetic.id }, null, { seedKey, style });
   const circle = 'cos-swatch block w-full h-full rounded-full';
 
+  // Holding marks and profile backgrounds don't style a row: show their color
+  // (the picked one for color marks, the pair for a Color Wash).
+  if (cosmetic.type === 'holdingMark' || cosmetic.type === 'profileBg') {
+    const [a, b] = cosmetic.colors || [];
+    const fill = cosmetic.pickColor ? style.markColor || cosmetic.color : cosmetic.color;
+    return <span className={circle} style={{ background: a && b ? `linear-gradient(135deg, ${a}, ${b})` : fill }} />;
+  }
+
   if (cosmetic.type === 'nameColor') {
     return (
       <span
