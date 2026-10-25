@@ -25,7 +25,7 @@ const ProfileBanner = ({ profile }: { profile: PublicProfile }) => {
 
   return (
     <div
-      className={`relative ${themeClasses.cardClass} border rounded-sm overflow-hidden ${c.rowClass}`}
+      className={`relative ${themeClasses.cardClass} border rounded-sm ${c.rowClass}`}
       data-trend={c.frameTrend}
       style={{ ...c.rowStyle, ...(c.glowColor ? { boxShadow: `0 0 28px ${c.glowColor}55` } : {}) }}
     >

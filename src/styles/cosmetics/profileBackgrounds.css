@@ -217,10 +217,11 @@
   opacity: 0.6;
   white-space: nowrap;
 }
+/* The foil runs down the right third of the right gutter, like on a real note */
 .pbg-note .holo {
   top: 0;
   bottom: 0;
-  left: calc(100cqw - var(--gut) * 0.04 - 3.2cqh);
+  left: calc(100cqw - var(--gut) * 0.3);
   width: 3.2cqh;
   opacity: 0.65;
   background: linear-gradient(180deg, #67e8f9, #c084fc, #fde047, #4ade80, #67e8f9, #c084fc, #fde047, #4ade80, #67e8f9);
@@ -265,6 +266,10 @@
   left: calc(var(--gut) * 0.85);
   width: 0.5cqh;
   background: repeating-linear-gradient(180deg, rgb(110 231 183 / 0.5) 0 2cqh, transparent 2cqh 3cqh);
+}
+/* The right-hand serial runs up beside the foil */
+.pbg-note .serial.up {
+  writing-mode: vertical-rl;
 }
 .pbg-note .micro {
   font:

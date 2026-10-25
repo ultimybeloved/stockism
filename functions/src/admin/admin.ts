@@ -9,7 +9,8 @@ import type { Timestamp } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
-import { sendDiscordMessage, pxe } from '../shared/discordApi';
+import { sendDiscordDM, pxe } from '../shared/discordApi';
+import { ADMIN_DISCORD_USER_ID } from '../shared/constants';
 import { priceHistoryRef } from '../shared/marketData';
 import { recordLedger } from '../shared/ledger';
 import { logAdminAction } from '../shared/adminLog';
@@ -170,15 +171,17 @@ export const banUser = cf().https.onCall(async (data, context) => {
       `USER BANNED: ${displayName} (${userId}) - Reason: ${reason} - cancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`,
     );
 
-    // Send Discord alert
+    // Tell the admin by DM. Never the public channel: bans aren't announced.
     try {
       const orderNote =
         cancelled.limit + cancelled.preMarket > 0
           ? `\nCancelled ${cancelled.limit} limit / ${cancelled.preMarket} pre-market orders`
           : '';
-      await sendDiscordMessage(
-        `${pxe('hammer')} **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
-      );
+      if (ADMIN_DISCORD_USER_ID)
+        await sendDiscordDM(
+          ADMIN_DISCORD_USER_ID,
+          `${pxe('hammer')} **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
+        );
     } catch (err) {
       logger.error('Failed to send Discord alert:', err);
     }

@@ -22,6 +22,8 @@ export interface TrophyView {
   art: ReactNode;
   /** A cosmetic the whole stand wears (effects, backdrops, frames). */
   wear?: string;
+  /** Pins on display get spotlights from the stand's bottom corners. */
+  spotlight?: boolean;
 }
 
 interface Context {
@@ -57,7 +59,12 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
     case 'ach': {
       const a = ACHIEVEMENT_MAP[t.ref];
       return a
-        ? { name: a.name, caption: a.description, art: <AchievementIcon achievement={a} className="w-12 h-12" /> }
+        ? {
+            name: a.name,
+            caption: a.description,
+            art: <AchievementIcon achievement={a} className="w-12 h-12" />,
+            spotlight: true,
+          }
         : null;
     }
     case 'pin': {
@@ -66,6 +73,7 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
         ? {
             name: p.name,
             caption: 'Pin',
+            spotlight: true,
             art: <img src={`/pins/${p.image}`} alt="" className="w-12 h-12 object-contain" style={pixelatedIfSvg(p.image)} />,
           }
         : null;

@@ -22,6 +22,15 @@ const fs = require('fs');
 const path = require('path');
 const admin = require('../functions/node_modules/firebase-admin');
 
+// The bot settings, so banUser's Discord alert goes out like it does from the admin panel.
+const ENV_PATH = path.join(__dirname, '..', 'functions', '.env');
+if (fs.existsSync(ENV_PATH)) {
+  for (const line of fs.readFileSync(ENV_PATH, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"|"$/g, '');
+  }
+}
+
 const KEY_PATH = path.join(__dirname, '..', 'service-account-key.json');
 if (!fs.existsSync(KEY_PATH)) {
   console.error('No service-account-key.json in the repo root.');
