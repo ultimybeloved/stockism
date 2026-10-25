@@ -19,14 +19,14 @@ const PAGES = [
   { label: 'Ladder', path: '/ladder' },
   { label: 'Missions', path: '/missions' },
   { label: 'Achievements', path: '/achievements' },
-  { label: 'Profile', path: '/profile', needsUser: true },
+  { label: 'Stats and settings', path: '/profile', needsUser: true },
 ];
 
 type Result = { key: string; path: string; label: string; sub?: string; ticker?: string };
 
 const CommandPalette = ({ onClose }: { onClose: () => void }) => {
   const navigate = useNavigate();
-  const { user } = useSession();
+  const { user, userData } = useSession();
   const { prices } = useMarket();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -36,12 +36,17 @@ const CommandPalette = ({ onClose }: { onClose: () => void }) => {
 
   const results = useMemo((): Result[] => {
     const q = query.trim().toLowerCase().replace(/^\$/, '');
-    const pages = PAGES.filter((p) => (!p.needsUser || user) && (!q || p.label.toLowerCase().includes(q))).map((p) => ({
-      key: p.path,
-      path: p.path,
-      label: p.label,
-      sub: 'Page',
-    }));
+    const own = userData?.displayName
+      ? [{ label: 'My profile', path: `/u/${userData.displayName.toLowerCase()}`, needsUser: true }]
+      : [];
+    const pages = [...own, ...PAGES]
+      .filter((p) => (!p.needsUser || user) && (!q || p.label.toLowerCase().includes(q)))
+      .map((p) => ({
+        key: p.path,
+        path: p.path,
+        label: p.label,
+        sub: 'Page',
+      }));
     if (!q) return pages;
     const score = (c: (typeof CHARACTERS)[number]) => {
       const t = c.ticker.toLowerCase();
@@ -66,7 +71,7 @@ const CommandPalette = ({ onClose }: { onClose: () => void }) => {
         ticker: c.ticker,
       }));
     return [...stocks, ...pages];
-  }, [query, user]);
+  }, [query, user, userData?.displayName]);
 
   const go = (path: string) => {
     onClose();

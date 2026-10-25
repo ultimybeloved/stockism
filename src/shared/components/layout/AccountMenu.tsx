@@ -1,6 +1,6 @@
 // The account corner of the header: your name and total value. Clicking it
-// opens a short menu: Profile and settings, Achievements, your crew (or the
-// crew picker), Sign out. Portfolio is in the top nav.
+// opens a short menu: your public profile, Stats and settings, Achievements,
+// your crew (or the crew picker), Sign out. Portfolio is in the top nav.
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
@@ -42,8 +42,11 @@ const AccountMenu = ({ value, onShowCrews }: { value: number; onShowCrews: () =>
   };
 
   const crew = userData?.crew && CREW_MAP[userData.crew] ? userData.crew : null;
-  const items: ({ label: string; icon: string } & ({ path: string } | { run: () => void }))[] = [
-    { path: '/profile', label: 'Profile and settings', icon: 'profile' },
+  const items: ({ label: string; icon: string; set?: 'admin' } & ({ path: string } | { run: () => void }))[] = [
+    ...(userData?.displayName
+      ? [{ path: `/u/${userData.displayName.toLowerCase()}`, label: 'My profile', icon: 'profile' }]
+      : []),
+    { path: '/profile', label: 'Stats and settings', icon: 'gear', set: 'admin' },
     { path: '/achievements', label: 'Achievements', icon: 'medal' },
     crew
       ? { path: `/crew/${crew}`, label: 'My Crew', icon: 'crews' }
@@ -96,7 +99,7 @@ const AccountMenu = ({ value, onShowCrews }: { value: number; onShowCrews: () =>
                 }}
                 className={`${item} ${here ? 'font-semibold text-orange-500' : ''}`}
               >
-                <PixelIcon name={it.icon} className="w-5 h-5 shrink-0" />
+                <PixelIcon name={it.icon} set={it.set} className="w-5 h-5 shrink-0" />
                 <span className="flex-1">{it.label}</span>
               </button>
             );

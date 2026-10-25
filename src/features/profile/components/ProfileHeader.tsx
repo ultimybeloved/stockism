@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { changeDisplayNameFunction } from '../../../api/callables';
 import { getCosmeticStyles, getActiveTitle } from '../../../utils/cosmetics';
@@ -82,7 +83,7 @@ const ProfileHeader = ({
         <CosmeticName name={userData?.displayName || ''} styles={cosmetics} />
       </h2>
       <TitleText title={activeTitle} className="text-sm" />
-      <p className={`text-sm ${mutedClass}`}>Profile & Stats</p>
+      <p className={`text-sm ${mutedClass}`}>Stats & Settings</p>
 
       {!editingName ? (
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -95,6 +96,15 @@ const ProfileHeader = ({
               Customize
               {shopDropUnseen && <NewBadge />}
             </button>
+          )}
+          {userData?.displayName && (
+            <Link
+              to={`/u/${userData.displayName.toLowerCase()}`}
+              className="px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-slate-300 light:text-slate-600 light:hover:border-orange-500 light:hover:text-orange-500 dark:border-zinc-600 dark:text-zinc-300 dark:hover:border-orange-500 dark:hover:text-orange-500 transition-colors"
+            >
+              <PixelIcon name="profile" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+              View my profile
+            </Link>
           )}
           {canChangeName ? (
             <button

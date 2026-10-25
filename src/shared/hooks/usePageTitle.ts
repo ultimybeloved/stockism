@@ -8,7 +8,7 @@ const PAGE_NAMES = {
   '/predictions': 'Predictions',
   '/ladder': 'Ladder',
   '/achievements': 'Achievements',
-  '/profile': 'Profile',
+  '/profile': 'Stats and settings',
 };
 
 // Sets the browser-tab title per route so bookmarks, history, and search

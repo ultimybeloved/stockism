@@ -67,7 +67,7 @@ describe('ProfilePage', () => {
     expect(await screen.findByText('TestTrader')).toBeInTheDocument();
     expect(screen.getByText('Portfolio Value')).toBeInTheDocument();
     expect(screen.getByText(/Trading Stats/)).toBeInTheDocument();
-    expect(screen.getByText(/Settings/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
     expect(screen.getByText(/Past Predictions/)).toBeInTheDocument();
     expect(screen.getByText(/Delete Account/)).toBeInTheDocument();
 
