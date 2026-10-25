@@ -139,6 +139,8 @@ export const buildTradeCreditUpdates = ({
     if (openedMs > 0 && now - openedMs >= MISSION_HELD_SELL_MS && executionPrice < entry) {
       updates[`${day}.coverProfitValue`] = FieldValue.increment(round2(shares * executionPrice));
     }
+    // Keeps today's mission list as it was (rules/missionProgress holdsShortForMissions).
+    if (openedMs > 0 && openedMs < Date.parse(todayDate)) updates[`${day}.oldShortCovered`] = true;
   }
 
   return { updates, animalProfitTotal };

@@ -183,7 +183,7 @@ Every stock chart flags each chapter review with a marker (since 2026-10-22, wit
 
 Admins can also halt the market manually at any time with a custom reason.
 
-**Late open** (since 2026-10-22). When the chapter is late, the admin can push a Thursday's reopen back by up to 175 minutes (Admin, Market, Late Open), any time before 20:30. The whole tail of the timeline moves with it: the recap and pre-market queue start 30 minutes before the new open, the lock is 5 minutes before, the auction 4 minutes before, and the weekly posts follow the open. The market stays halted until then. Code: `functions/src/market/delayedOpen.ts`; the site reads `market/current.delayedOpen` (`setDelayedOpenAt` in `src/utils/marketHours.ts`).
+**Late open** (since 2026-10-22). When the chapter is late, the admin can push a Thursday's reopen back by up to 160 minutes, so 23:40 UTC at the latest (Admin, Market, Late Open), any time before 20:30. The whole tail of the timeline moves with it: the recap and pre-market queue start 30 minutes before the new open, the lock is 5 minutes before, the auction 4 minutes before, and the weekly posts follow the open. The market stays halted until then. Code: `functions/src/market/delayedOpen.ts`; the site reads `market/current.delayedOpen` (`setDelayedOpenAt` in `src/utils/marketHours.ts`).
 
 ---
 

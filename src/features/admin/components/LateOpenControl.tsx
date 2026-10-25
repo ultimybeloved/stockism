@@ -40,7 +40,7 @@ export default function LateOpenControl({ mutedClass }: { mutedClass: string }) 
           aria-label="Minutes late"
           type="number"
           min={5}
-          max={175}
+          max={160}
           step={5}
           value={minutes}
           onChange={(e) => setMinutes(e.target.value)}

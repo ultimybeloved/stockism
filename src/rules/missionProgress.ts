@@ -52,6 +52,8 @@ export interface DailyProgress {
   shorts?: Record<string, { shares?: number; value?: number }>;
   /** Value covered today, at a profit, out of shorts opened a day or more ago. */
   coverProfitValue?: number;
+  /** Covered (at any price) a short opened before today, so Covered stays on today's list. */
+  oldShortCovered?: boolean;
   checkedIn?: boolean;
   claimed?: Record<string, boolean>;
 }
@@ -172,12 +174,13 @@ const stampToMs = (v: unknown): number =>
 
 /**
  * Whether Covered can be in today's daily missions: a short opened before
- * today (UTC), or one already covered at a profit today. Stays true after the
- * cover, so the mission doesn't vanish before it is claimed.
+ * today (UTC), or one covered today. Stays true after the cover, at a profit or
+ * not, because the answer picks the whole list: flipping it reshuffled all
+ * three of the day's missions.
  */
 export const holdsShortForMissions = (player: MissionPlayer, dp: DailyProgress | null | undefined, now: number) => {
   const dayStart = new Date(now).setUTCHours(0, 0, 0, 0);
-  if ((dp?.coverProfitValue || 0) > 0) return true;
+  if ((dp?.coverProfitValue || 0) > 0 || dp?.oldShortCovered) return true;
   return Object.values(player.shorts || {}).some((s) => {
     const opened = stampToMs(s?.openedAt);
     return (s?.shares || 0) > 0 && opened > 0 && opened < dayStart;

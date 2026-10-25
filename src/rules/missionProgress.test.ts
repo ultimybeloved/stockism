@@ -182,6 +182,8 @@ describe('daily missions', () => {
     expect(holdsShortForMissions({ shorts: { A: { shares: 5, openedAt: thisMorning } } }, {}, now)).toBe(false);
     expect(holdsShortForMissions({ shorts: { A: { shares: 0, openedAt: yesterday } } }, {}, now)).toBe(false);
     expect(holdsShortForMissions({}, { coverProfitValue: 200 }, now)).toBe(true);
+    // Covered at a loss today: the list must not reshuffle.
+    expect(holdsShortForMissions({}, { oldShortCovered: true }, now)).toBe(true);
     expect(holdsShortForMissions({}, {}, now)).toBe(false);
   });
 });

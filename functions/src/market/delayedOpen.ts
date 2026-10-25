@@ -33,9 +33,11 @@ import { runMarketOpenProcessing } from '../orders/marketOrders';
 const db = admin.firestore();
 const marketRef = () => db.collection('market').doc('current');
 const MIN = 60 * 1000;
-// Opens past midnight would cross into Friday, where every "today's halt" read
-// breaks. 23:55 UTC is the latest.
-const MAX_DELAY_MIN = 175;
+// Every step, up to the weekly leaderboard 15 minutes after the open, has to
+// run before midnight: delayedOpenTick only runs on Thursdays and a delay stops
+// counting on Friday, so a later step would never run and its usual job had
+// already stood down. A 23:40 open puts the last step at 23:55.
+const MAX_DELAY_MIN = 160;
 
 export const DELAY_REASON = 'The chapter is late, so the market opens late today.';
 
