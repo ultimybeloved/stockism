@@ -36,6 +36,7 @@ const ADDED_2026_09_28 = Date.UTC(2026, 8, 29);
 const ADDED_2026_10_11 = Date.UTC(2026, 9, 12);
 const ADDED_2026_10_14 = Date.UTC(2026, 9, 15);
 const ADDED_2026_10_22 = Date.UTC(2026, 9, 23);
+const ADDED_2026_10_25 = Date.UTC(2026, 9, 26);
 export const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
@@ -93,4 +94,10 @@ export const WATCHED_SCHEDULED_JOBS = [
   },
   { job: 'weeklyCallsLock', maxAgeHours: 8 * 24, label: 'Halt price lock', watchedSince: ADDED_2026_10_22 },
   { job: 'weeklyCallsResolve', maxAgeHours: 8 * 24, label: 'Chapter marker', watchedSince: ADDED_2026_10_22 },
+  {
+    job: 'weeklySuspicionReport',
+    maxAgeHours: 8 * 24,
+    label: 'Weekly suspicious-account report',
+    watchedSince: ADDED_2026_10_25,
+  },
 ];
