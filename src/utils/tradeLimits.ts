@@ -7,10 +7,20 @@ import {
   SHORT_MARGIN_REQUIREMENT,
   SHORT_CONCENTRATION_CAP,
   MAX_TRADES_PER_TICKER_24H,
+  MAX_DAILY_IMPACT_PER_USER,
+  MAX_SHORTS_BEFORE_COOLDOWN,
 } from '../constants';
+import {
+  washRuleRemainingMs,
+  shortAfterDumpRemainingMs,
+  shortCooldownRemainingMs,
+  blockTimeLeft,
+  type BlockState,
+} from '../rules/tradeBlocks';
 import {
   calculatePortfolioValue,
   calculateTraderImpactDollars,
+  calculatePriceImpactDollars,
   liquidityFor,
   maxTradeSharesFor,
   getBidAskPrices,
@@ -221,6 +231,97 @@ const maxSharesForAction = ({
     return shortPosition?.shares || 0;
   }
   return 1;
+};
+
+// ── Blocks the server would throw, shown before the button is pressed ───────
+
+const IMPACT_DIRECTION: Record<TradeAction, 'up' | 'down'> = { buy: 'up', cover: 'up', sell: 'down', short: 'down' };
+
+/**
+ * What's left of today's 10% move limit on this stock, in this action's
+ * direction, as a fraction. Own trades only: the server also counts other
+ * accounts on the same network, so it can be lower there, never higher.
+ */
+export const dailyImpactLeft = (
+  userData: UserData | null | undefined,
+  ticker: Ticker,
+  act: TradeAction,
+  now = Date.now(),
+) => {
+  const dir = IMPACT_DIRECTION[act];
+  const history = userData?.tickerTradeHistory?.[ticker] || {};
+  const used = (Object.keys(IMPACT_DIRECTION) as TradeAction[])
+    .filter((a) => IMPACT_DIRECTION[a] === dir)
+    .reduce((sum, a) => sum + pruneAndSumTradeHistory(history[a], now).totalImpact, 0);
+  return Math.max(0, MAX_DAILY_IMPACT_PER_USER - used);
+};
+
+/** How far this one order moves the price, as a fraction: what the daily limit counts. */
+const orderImpactPct = (
+  userData: UserData | null | undefined,
+  ticker: Ticker,
+  price: number,
+  amt: number,
+  act: TradeAction,
+) =>
+  price > 0
+    ? (calculatePriceImpactDollars(price, amt, liquidityFor(ticker), getCumulativeVolume(userData, ticker, act)) *
+        getAccountAgeImpactFactor(userData)) /
+      price
+    : 0;
+
+/**
+ * The biggest buy or short (to the cent) that still fits in today's move limit.
+ * Sells and covers are exits and are never limited.
+ */
+export const maxSharesInDailyLimit = (
+  userData: UserData | null | undefined,
+  ticker: Ticker,
+  price: number,
+  act: TradeAction,
+  now = Date.now(),
+) => {
+  if (act !== 'buy' && act !== 'short') return Infinity;
+  const left = dailyImpactLeft(userData, ticker, act, now) * 0.999; // stay clear of rounding at the edge
+  let lo = 0;
+  let hi = Math.round(maxTradeSharesFor(ticker) * 100);
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (orderImpactPct(userData, ticker, price, mid / 100, act) <= left) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo / 100;
+};
+
+/**
+ * Why the server would refuse a market buy or short right now, in its words,
+ * or null. A limit buy inside the wash rule just waits, so `limit` says so.
+ */
+export const tradeBlockMessage = (
+  userData: UserData | null | undefined,
+  ticker: Ticker,
+  act: TradeAction,
+  price: number,
+  { limit = false, now = Date.now() } = {},
+): string | null => {
+  const u = userData as BlockState | null | undefined;
+  if (act === 'buy') {
+    const ms = washRuleRemainingMs(u, ticker, now);
+    if (ms > 0)
+      return `Wash rule: you pushed $${ticker} down recently, so you can't buy it back for ${blockTimeLeft(ms)}.${
+        limit ? ' A limit order will wait until then.' : ''
+      }`;
+  }
+  if (act === 'short') {
+    const dump = shortAfterDumpRemainingMs(u, ticker, now);
+    if (dump > 0) return `You sold a lot of $${ticker} recently, so you can't short it for ${blockTimeLeft(dump)}.`;
+    const wait = shortCooldownRemainingMs(u, ticker, now);
+    if (wait > 0)
+      return `You've opened ${MAX_SHORTS_BEFORE_COOLDOWN} shorts on $${ticker} in 8 hours. You can short it again in ${blockTimeLeft(wait)}.`;
+  }
+  if (!limit && (act === 'buy' || act === 'short') && maxSharesInDailyLimit(userData, ticker, price, act, now) < 0.01)
+    return `You've used today's limit on how far you can move $${ticker} ${act === 'buy' ? 'up' : 'down'}. It frees up as your trades pass 24 hours old.`;
+  return null;
 };
 
 // Snap a sell/cover size to the exit grid. Entries stay on whole cents; exits go

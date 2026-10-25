@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
-import { SHORT_MARGIN_REQUIREMENT, MAX_TRADES_PER_TICKER_24H } from '../../../constants';
+import { SHORT_MARGIN_REQUIREMENT } from '../../../constants';
 import { formatCurrency } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import { calculateMarginStatus } from '../../../utils/calculations';
-import { getDynamicPrices, getMaxShares, getTradeCount } from '../../../utils/tradeLimits';
+import {
+  getDynamicPrices,
+  getMaxShares,
+  getTradeCount,
+  maxSharesInDailyLimit,
+  tradeBlockMessage,
+} from '../../../utils/tradeLimits';
 import { submitLimitOrder } from '../utils/submitLimitOrder';
 import MarginImpactPreview from './MarginImpactPreview';
 import TradeAmountInput from './TradeAmountInput';
 import LimitOrderControls from './LimitOrderControls';
+import TradeLimitNotice from './TradeLimitNotice';
 import { getMarketClosedState } from '../../../utils/marketHours';
 import { useSession, useMarket } from '../../../context/AppContext';
 
@@ -85,7 +92,7 @@ const TradeActionModal = ({
   const marginStatus = calculateMarginStatus(userData, prices, priceHistory);
   const marginAvailable = action === 'buy' && marginStatus.enabled ? Math.max(0, marginStatus.availableMargin) : 0;
 
-  const maxSharesFractional = getMaxShares({
+  const formMax = getMaxShares({
     action,
     character,
     price,
@@ -97,6 +104,13 @@ const TradeActionModal = ({
     priceHistory,
     includeMargin: useMarginMax,
   });
+  // A market order fills now, so it has to fit today's move limit; a limit
+  // order fills later, when the limit may have freed up.
+  const isMarketOrder = !isLimitOrder && !isStopLoss;
+  const dailyCap = isMarketOrder ? maxSharesInDailyLimit(userData, character.ticker, price, action) : Infinity;
+  const maxSharesFractional = Math.min(formMax, dailyCap);
+  const block = tradeBlockMessage(userData, character.ticker, action, price, { limit: !isMarketOrder });
+  const blocksSubmit = !!block && isMarketOrder;
 
   const handleToggleMarginMax = (checked: boolean) => {
     setUseMarginMax(checked);
@@ -243,7 +257,7 @@ const TradeActionModal = ({
 
   const handleSubmit = async () => {
     const minAmount = partialShares || action === 'sell' || action === 'cover' ? 0.01 : 1;
-    if (config.disabled || amountNum < minAmount || amountNum > maxShares || submitting) return;
+    if (blocksSubmit || config.disabled || amountNum < minAmount || amountNum > maxShares || submitting) return;
 
     if (isHalted) {
       showNotification('error', `$${character.ticker} trading is halted (circuit breaker). Please wait.`);
@@ -365,17 +379,14 @@ const TradeActionModal = ({
           <MarginImpactPreview cost={config.total} userCash={userCash} />
         )}
 
-        {/* Trade count warnings (rolling 24h per-ticker cap) */}
-        {tradeCount >= MAX_TRADES_PER_TICKER_24H ? (
-          <div className="mb-3 p-2 rounded-sm bg-red-900/40 border border-red-500/50 text-red-300 text-xs font-semibold text-center">
-            Daily trading limit reached for ${character.ticker} ({tradeCount}/{MAX_TRADES_PER_TICKER_24H} {action}s
-            used)
-          </div>
-        ) : tradeCount >= 7 ? (
-          <div className="mb-3 p-2 rounded-sm bg-yellow-900/30 border border-yellow-500/40 text-yellow-400 text-xs text-center">
-            {tradeCount}/{MAX_TRADES_PER_TICKER_24H} {action}s used on ${character.ticker} (rolling 24h)
-          </div>
-        ) : null}
+        <TradeLimitNotice
+          ticker={character.ticker}
+          action={action}
+          tradeCount={tradeCount}
+          block={block}
+          blocksSubmit={blocksSubmit}
+          dailyCapShares={dailyCap < formMax && dailyCap >= 0.01 ? dailyCap : undefined}
+        />
 
         {/* Action buttons. On phones they stay pinned to the bottom of the sheet. */}
         <div className="flex gap-2 max-md:sticky max-md:bottom-0 max-md:-mx-4 max-md:-mb-4 max-md:px-4 max-md:py-3 max-md:border-t bg-inherit light:border-amber-200 dark:border-zinc-800">
@@ -383,6 +394,7 @@ const TradeActionModal = ({
             onClick={handleSubmit}
             disabled={
               marketClosed ||
+              blocksSubmit ||
               config.disabled ||
               amountNum < (partialShares || action === 'sell' || action === 'cover' ? 0.01 : 1) ||
               amountNum > maxShares ||

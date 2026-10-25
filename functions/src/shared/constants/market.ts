@@ -54,11 +54,9 @@ export const EXIT_SHARE_DECIMALS = 6; // decimal places exits are held to (match
 // not cause. Shorts count too: pushing a price down to buy the dip is the same
 // trade whichever way you did the pushing.
 export const WASH_RULE_IMPACT_TRIGGER = 0.04; // 4% of down-impact in 24h arms it
-export const WASH_RULE_COOLDOWN_MS = 48 * 60 * 60 * 1000; // no buying it back for 48h
-// The other half of the raid: sell hard, then short the crash you just caused.
-// Armed only by a heavy SELL (lastHeavyExit), not a short, so someone running a
-// short is never stopped adding to it by this. Same 48h.
-export const SHORT_AFTER_DUMP_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+// The 48h cooldowns live in the shared rule module, so the trade window can
+// count them down.
+export { WASH_RULE_COOLDOWN_MS, SHORT_AFTER_DUMP_COOLDOWN_MS } from '../rules/tradeBlocks';
 
 // ── Circuit breaker ──────────────────────────────────────────────────────────
 // A stock that moves this far this fast pauses for a few minutes. The caps are

@@ -2,8 +2,6 @@
 
 import {
   TWENTY_FOUR_HOURS_MS,
-  WASH_RULE_COOLDOWN_MS,
-  SHORT_AFTER_DUMP_COOLDOWN_MS,
   CIRCUIT_BREAKER_MOVE,
   CIRCUIT_BREAKER_WINDOW_MS,
   CIRCUIT_BREAKER_PAUSE_MS,
@@ -55,40 +53,9 @@ export const stampMs = (stamp: Timestamp | number | null | undefined): number =>
 // trade preview on the site prices an order exactly as this server fills it.
 export { rawMarginalImpact, calculateMarginalImpact, traderMarginalImpact, liquidityFor, maxTradeSharesFor };
 
-/**
- * Has this player's own downward pressure on this ticker armed the wash rule?
- *
- * `lastHeavySell[ticker]` is stamped by the sell or short that took their 24h
- * down-impact past WASH_RULE_IMPACT_TRIGGER (see tradeState). While it is armed
- * they cannot BUY that ticker back — covering is an exit and is never blocked.
- *
- * One definition because there are three lanes that have to agree on it:
- * executeTrade, the limit-order sweep, and the pre-market auction.
- *
- * @returns ms remaining on the cooldown, or 0 when not armed
- */
-export const washRuleRemainingMs = (userData: UserData | null | undefined, ticker: string, now = Date.now()) => {
-  const armedMs = stampMs(userData?.lastHeavySell?.[ticker]);
-  if (!armedMs) return 0;
-  return Math.max(0, WASH_RULE_COOLDOWN_MS - (now - armedMs));
-};
-
-/**
- * Has this player just dumped this ticker, so they can't short it yet?
- *
- * `lastHeavyExit[ticker]` is stamped only by a SELL that took their 24h
- * down-impact past WASH_RULE_IMPACT_TRIGGER (see tradeState), or by the
- * coordination scan for everyone in a tight downward cluster. Selling hard and
- * then shorting the crash you caused was the second half of the $SHNG raid.
- * Covering is never blocked.
- *
- * @returns ms remaining, or 0 when not armed
- */
-export const shortAfterDumpRemainingMs = (userData: UserData | null | undefined, ticker: string, now = Date.now()) => {
-  const armedMs = stampMs(userData?.lastHeavyExit?.[ticker]);
-  if (!armedMs) return 0;
-  return Math.max(0, SHORT_AFTER_DUMP_COOLDOWN_MS - (now - armedMs));
-};
+// The wash rule and the short-after-dump block are the shared rule module
+// (src/rules/tradeBlocks.ts), so the trade window shows the same countdown.
+export { washRuleRemainingMs, shortAfterDumpRemainingMs } from './rules/tradeBlocks';
 
 /**
  * Is this ticker paused by a circuit breaker right now?

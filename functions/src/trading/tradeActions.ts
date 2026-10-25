@@ -12,12 +12,11 @@ import {
   SHORT_MARGIN_RATIO,
   SHORT_CONCENTRATION_CAP,
   MARGIN_SELL_LOCKUP_MS,
-  MAX_SHORTS_BEFORE_COOLDOWN,
-  SHORT_COOLDOWN_WINDOW_MS,
   TRADE_HOLD_PERIOD_MS,
 } from '../shared/constants';
 import { calculateMarginalImpact, traderMarginalImpact, liquidityFor, stampMs } from '../shared/impact';
 import { lockedShares, remainingShares } from '../shared/cohorts';
+import { shortCooldownRemainingMs, blockTimeLeft, type BlockState } from '../shared/rules/tradeBlocks';
 import { shortsEquity } from '../shared/equity';
 import { exitLoyaltyDiscount } from '../shared/characters';
 import type { Lockup, ShortPosition, UserData } from '../shared/types';
@@ -332,19 +331,13 @@ export function computeShort({
     );
   }
 
-  // Check short cooldown (8-hour cooldown after 3rd short per ticker)
-  const shortHistory = (userData.shortHistory as Record<string, number[]> | undefined)?.[ticker] || [];
-  const recentShorts = shortHistory.filter((ts) => now - ts < SHORT_COOLDOWN_WINDOW_MS);
-
-  if (recentShorts.length >= MAX_SHORTS_BEFORE_COOLDOWN) {
-    const oldestRecent = Math.min(...recentShorts);
-    const unlocksAt = oldestRecent + SHORT_COOLDOWN_WINDOW_MS;
-    const remainingMs = unlocksAt - now;
-    const hours = Math.floor(remainingMs / 3600000);
-    const minutes = Math.ceil((remainingMs % 3600000) / 60000);
+  // Short cooldown (8 hours after the 3rd short per ticker), the same clock the
+  // trade window shows.
+  const shortWaitMs = shortCooldownRemainingMs(userData as BlockState, ticker, now);
+  if (shortWaitMs > 0) {
     throw new functions.https.HttpsError(
       'failed-precondition',
-      `Short limit reached. You can short ${ticker} again in ${hours}h ${minutes}m.`,
+      `Short limit reached. You can short ${ticker} again in ${blockTimeLeft(shortWaitMs)}.`,
     );
   }
 

@@ -22,9 +22,7 @@ export const TRADE_HOLD_PERIOD_MS = 45 * 1000; // min hold before a position can
 export const MAX_TRADES_PER_TICKER_HOUR = 15; // buy/short velocity cap per ticker per hour
 export const TRADE_BURST_LIMIT = 3; // max buys or shorts per ticker per burst window
 export const TRADE_BURST_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-// After this many shorts on one ticker inside the rolling window, further
-// shorts must wait for the oldest one to age out.
-export const SHORT_COOLDOWN_WINDOW_MS = 8 * 60 * 60 * 1000; // 8 hours
+export { SHORT_COOLDOWN_WINDOW_MS } from '../rules/tradeBlocks';
 
 // How many times executeTrade's transaction may re-run when it loses a race
 // with another trade.

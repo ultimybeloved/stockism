@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { getDynamicPrices, getMaxShares, getCumulativeVolume } from './tradeLimits';
+import {
+  getDynamicPrices,
+  getMaxShares,
+  getCumulativeVolume,
+  tradeBlockMessage,
+  dailyImpactLeft,
+  maxSharesInDailyLimit,
+} from './tradeLimits';
 import { estimateTradeTotal } from './calculations';
 import { MAX_TRADE_SHARES, SHORT_MARGIN_REQUIREMENT, BID_ASK_SPREAD } from '../constants/economy';
 import type { TradeAction } from '../types';
@@ -191,5 +198,50 @@ describe('getMaxShares respects MAX_TRADE_SHARES', () => {
       userData: { ipoLockup: { TEST: { shares: 30, until } } },
     });
     expect(max).toBe(70);
+  });
+});
+
+// The server refuses these with a timed message. The trade window has to show
+// the same block, with the same time left, before the button is pressed.
+describe('trade blocks shown before the order is sent', () => {
+  const now = Date.UTC(2026, 9, 25, 12, 0);
+  const HOUR = 3600 * 1000;
+
+  it('wash rule: a market buy is blocked, a limit buy is told it will wait', () => {
+    const u = { lastHeavySell: { TEST: now - 2 * HOUR } } as never;
+    expect(tradeBlockMessage(u, 'TEST', 'buy', PRICE, { now })).toBe(
+      "Wash rule: you pushed $TEST down recently, so you can't buy it back for 46h 0m.",
+    );
+    expect(tradeBlockMessage(u, 'TEST', 'buy', PRICE, { now, limit: true })).toMatch(/will wait/);
+    expect(tradeBlockMessage(u, 'TEST', 'sell', PRICE, { now })).toBeNull();
+    expect(tradeBlockMessage(u, 'TEST', 'buy', PRICE, { now: now + 47 * HOUR })).toBeNull();
+  });
+
+  it('no shorting after a dump, and 3 shorts per 8 hours', () => {
+    const dumped = { lastHeavyExit: { TEST: { toMillis: () => now - HOUR } } } as never;
+    expect(tradeBlockMessage(dumped, 'TEST', 'short', PRICE, { now })).toMatch(/can't short it for 47h 0m/);
+    const shorts = { shortHistory: { TEST: [now - 7 * HOUR, now - HOUR, now - 30 * 60000] } } as never;
+    expect(tradeBlockMessage(shorts, 'TEST', 'short', PRICE, { now })).toMatch(/short it again in 1h 0m/);
+    expect(tradeBlockMessage(shorts, 'TEST', 'short', PRICE, { now: now + HOUR + 1 })).toBeNull();
+  });
+
+  it("today's move limit caps a buy, and blocks it once used up", () => {
+    const some = { tickerTradeHistory: { TEST: { buy: [{ ts: now - HOUR, shares: 1, impact: 0.08 }] } } };
+    expect(dailyImpactLeft(some, 'TEST', 'buy', now)).toBeCloseTo(0.02);
+    expect(dailyImpactLeft(some, 'TEST', 'sell', now)).toBeCloseTo(0.1); // down has its own 10%
+    const cap = maxSharesInDailyLimit(some, 'TEST', PRICE, 'buy', now);
+    expect(cap).toBeGreaterThan(0);
+    expect(cap).toBeLessThan(maxSharesInDailyLimit({}, 'TEST', PRICE, 'buy', now));
+    expect(maxSharesInDailyLimit(some, 'TEST', PRICE, 'sell', now)).toBe(Infinity);
+    const used = {
+      tickerTradeHistory: {
+        TEST: {
+          buy: [{ ts: now - HOUR, shares: 1, impact: 0.06 }],
+          cover: [{ ts: now - HOUR, shares: 1, impact: 0.04 }],
+        },
+      },
+    };
+    expect(tradeBlockMessage(used, 'TEST', 'buy', PRICE, { now })).toMatch(/used today's limit/);
+    expect(tradeBlockMessage(used, 'TEST', 'buy', PRICE, { now, limit: true })).toBeNull();
   });
 });
