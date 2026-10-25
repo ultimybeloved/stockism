@@ -12,6 +12,8 @@ export const SHOP_CATEGORIES: [ShopCategory, string][] = [
   ['rowGlow', 'Effects'],
   ['rowBackdrop', 'Backdrops'],
   ['rowFrame', 'Frames'],
+  ['holdingMark', 'Holdings'],
+  ['profileBg', 'Backgrounds'],
   ['pin', 'Pins'],
   ['perk', 'Perks'],
 ];
@@ -21,6 +23,8 @@ export const KIND_LABEL: Record<CosmeticType | 'pin', string> = {
   rowGlow: 'Effect',
   rowBackdrop: 'Backdrop',
   rowFrame: 'Frame',
+  holdingMark: 'Holding mark',
+  profileBg: 'Background',
   pin: 'Pin',
 };
 

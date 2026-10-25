@@ -1,0 +1,232 @@
+/* Holding marks: the stocks a player owns or shorts, on their own screen.
+   The card carries `mk mk-<name>` plus --mk (the mark's color); the scene
+   draws in a .mk-layer inside it (HoldingMarkLayer). Rarity frames own the top
+   edge and the corners, so every mark lives on the bottom edge, in a glow
+   from below, or in the position label (.mk-label). Standard is the plain
+   Tailwind ring (ring-1 + --tw-ring-color) and needs nothing here. */
+
+.mk-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.mk-inline {
+  padding: 0 !important;
+}
+.mk .mk-label {
+  color: var(--mk);
+  font-weight: 600;
+}
+
+/* Rail */
+.mk-rail .mk-layer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--mk);
+}
+
+/* Underglow */
+.mk-glow .mk-layer {
+  background: radial-gradient(85% 55% at 50% 100%, color-mix(in srgb, var(--mk) 26%, transparent), transparent 72%);
+}
+.mk-glow .mk-layer::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--mk), transparent);
+}
+
+/* Stamp: the label becomes an inked stamp, tilted the other way on a short */
+.mk-stamp .mk-label {
+  --ink: #f87171;
+  color: var(--ink);
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  padding: 0 5px;
+  transform: rotate(-5deg);
+  letter-spacing: 0.06em;
+  font-size: 10px;
+  text-transform: uppercase;
+  display: inline-block;
+  opacity: 0.9;
+}
+.mk-stamp.mk-short .mk-label {
+  --ink: #fb923c;
+  transform: rotate(4deg);
+}
+
+/* Receipt: a torn-off strip under the card */
+.mk-receipt {
+  padding-bottom: 40px !important;
+}
+.mk-receipt .mk-layer::after {
+  content: attr(data-receipt);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 26px;
+  background: #e7e5e4;
+  color: #292524;
+  font:
+    600 11px/26px ui-monospace,
+    Consolas,
+    monospace;
+  text-align: center;
+  white-space: pre;
+  -webkit-mask: radial-gradient(circle 3px at 6px 0, transparent 98%, #000) -6px 0 / 12px 100% repeat-x;
+  mask: radial-gradient(circle 3px at 6px 0, transparent 98%, #000) -6px 0 / 12px 100% repeat-x;
+}
+.mk-receipt.mk-short .mk-layer::after {
+  background: #fed7aa;
+}
+.mk-receipt .mk-label {
+  color: #a8a29e;
+}
+
+/* Profit Aura: --mk-aura is set from the position's gain */
+.mk-aura .mk-layer {
+  background: radial-gradient(95% 70% at 50% 100%, var(--mk-aura), transparent 70%);
+}
+
+/* Ember: --mk-deep and --mk-hot are worked out from the player's color */
+.mk-ember .mk-layer {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--mk) 30%, transparent), transparent 34%);
+}
+.mk-ember .mk-layer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--mk-deep), var(--mk), var(--mk-hot), var(--mk), var(--mk-deep));
+}
+.mk-ember .mk-label {
+  color: var(--mk-hot);
+}
+.mk-spark {
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--mk-hot);
+  box-shadow: 0 0 4px var(--mk);
+  opacity: 0;
+  animation: mkRise 7s infinite;
+}
+@keyframes mkRise {
+  0%,
+  80% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(4px, -46px);
+    opacity: 0;
+  }
+}
+
+/* Diamond Hands: triangles standing on a cyan rail, lit by how long it's held */
+.mk-facets {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 13px;
+  padding-bottom: 3px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 10px;
+}
+.mk-facets::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgb(8 51 68 / 0.9), #67e8f9, #ecfeff, #67e8f9, rgb(8 51 68 / 0.9));
+  box-shadow:
+    0 -1px 0 rgb(0 0 0 / 0.7),
+    0 0 8px rgb(103 232 249 / 0.35);
+}
+.mk-facet {
+  width: 12px;
+  height: 9px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: rgb(165 243 252 / 0.22);
+}
+.mk-facet.on {
+  background: linear-gradient(160deg, #ecfeff, #67e8f9 55%, #0891b2);
+}
+.mk-facets:has(.on) {
+  filter: drop-shadow(0 0 3px rgb(103 232 249 / 0.7));
+}
+.mk-diamond .mk-label {
+  color: #a5f3fc;
+}
+
+/* Bullion: always-bright gold, a shine passing over it every 8 seconds */
+.mk-bullion .mk-layer::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background:
+    linear-gradient(90deg, transparent 44%, #fff 50%, transparent 56%) 100% 0 / 300% 100% no-repeat,
+    linear-gradient(90deg, #ca8a04, #fde047, #fef08a, #fde047, #ca8a04);
+  box-shadow:
+    0 -1px 0 rgb(0 0 0 / 0.75),
+    0 0 10px rgb(253 224 71 / 0.35);
+  animation: mkShine 8s infinite;
+}
+@keyframes mkShine {
+  0%,
+  86% {
+    background-position:
+      100% 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      0 0,
+      0 0;
+  }
+}
+.mk-bullion .mk-label {
+  color: #fde047;
+}
+.mk-bar {
+  display: inline-block;
+  width: 14px;
+  height: 9px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  background: linear-gradient(160deg, #fef08a, #ca8a04 60%, #854d0e);
+  clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-spark,
+  .mk-bullion .mk-layer::after {
+    animation: none;
+  }
+}

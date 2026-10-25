@@ -734,6 +734,8 @@ export interface PublicProfile {
   rank: number | null;
   crewRank: number | null;
   holdingTickers: string[];
+  /** What the equipped profile background draws (Your Chart, Ticker Wall). */
+  profileBgData?: import('../shared/components/cosmetics/ProfileBackground').ProfileBgData | null;
   topHoldings: string[];
   shortTickers: string[];
   portfolioHistory: { timestamp: number; value: number }[];

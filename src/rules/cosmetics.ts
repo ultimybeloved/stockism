@@ -51,13 +51,23 @@ export const COSMETIC_STYLE_OPTIONS = {
 export type FlapStyle = (typeof COSMETIC_STYLE_OPTIONS.flap)[number];
 export type BullBearStyle = (typeof COSMETIC_STYLE_OPTIONS.bullbear)[number];
 export type TintStyle = (typeof COSMETIC_STYLE_OPTIONS.tint)[number];
-export type CosmeticStyleKey = keyof typeof COSMETIC_STYLE_OPTIONS;
+// Free-form color choices, checked by shape instead of a list:
+// - markColor: the color of a color holding mark ('#rrggbb')
+// - tickerColors: the Ticker Wall background's gradient, top then bottom ('#rrggbb,#rrggbb')
+export const COSMETIC_COLOR_STYLES = {
+  markColor: /^#[0-9a-f]{6}$/i,
+  tickerColors: /^#[0-9a-f]{6},#[0-9a-f]{6}$/i,
+} as const;
 
 export interface CosmeticStyle {
   flap?: FlapStyle;
   bullbear?: BullBearStyle;
   tint?: TintStyle;
+  markColor?: string;
+  tickerColors?: string;
 }
+
+export type CosmeticStyleKey = keyof CosmeticStyle;
 
 /** Keeps only known keys with known values; anything else is dropped. */
 export const cleanCosmeticStyle = (raw: unknown): CosmeticStyle => {
@@ -67,5 +77,24 @@ export const cleanCosmeticStyle = (raw: unknown): CosmeticStyle => {
     const value = (raw as Record<string, unknown>)[key];
     if (typeof value === 'string' && (options as readonly string[]).includes(value)) out[key] = value;
   }
+  for (const [key, shape] of Object.entries(COSMETIC_COLOR_STYLES)) {
+    const value = (raw as Record<string, unknown>)[key];
+    if (typeof value === 'string' && shape.test(value)) out[key] = value.toLowerCase();
+  }
   return out as CosmeticStyle;
+};
+
+// The Your Chart profile background draws the line's shape only: values
+// scaled to 0 (the month's low) to 1 (its high), at most 60 points, so the
+// background never says how much anyone has. A flat or empty month is a level line.
+export const CHART_SHAPE_POINTS = 60;
+export const chartShape = (values: readonly number[]): number[] => {
+  const clean = values.filter((v) => Number.isFinite(v));
+  if (clean.length < 2) return [0.5, 0.5];
+  const step = Math.max(1, Math.ceil(clean.length / CHART_SHAPE_POINTS));
+  const picked = clean.filter((_, i) => i % step === 0 || i === clean.length - 1);
+  const low = Math.min(...picked);
+  const high = Math.max(...picked);
+  if (high - low < 1e-9) return picked.map(() => 0.5);
+  return picked.map((v) => Math.round(((v - low) / (high - low)) * 1000) / 1000);
 };

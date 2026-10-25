@@ -20,6 +20,8 @@ export const sanitizeDisplayFields = (userData: DocumentData) => {
   if (active && typeof active === 'object' && !Array.isArray(active)) {
     activeCosmetics = {};
     for (const [slot, id] of Object.entries(active)) {
+      // A holding mark is only ever seen by its wearer, so it is never published.
+      if (slot === 'holdingMark') continue;
       // null = explicitly unequipped (kept); anything else must be owned.
       if (id == null || (typeof id === 'string' && ownedCosmetics.includes(id))) {
         activeCosmetics[slot] = id;
@@ -37,11 +39,14 @@ export const sanitizeDisplayFields = (userData: DocumentData) => {
       ? { id: activeTitle, text: titleMeta[activeTitle] || activeTitle }
       : null;
 
+  // The holding mark's color is the wearer's alone too.
+  const { markColor: _markColor, ...cosmeticStyle } = cleanCosmeticStyle(userData.cosmeticStyle);
+
   return {
     displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
     displayedShopPins: asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)),
     activeCosmetics,
-    cosmeticStyle: cleanCosmeticStyle(userData.cosmeticStyle),
+    cosmeticStyle,
     title,
     // Only wearers of the Bull / Bear frame get a direction, so the board
     // doesn't publish everyone's day.

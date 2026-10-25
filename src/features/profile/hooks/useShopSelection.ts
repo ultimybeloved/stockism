@@ -7,17 +7,27 @@ import { glowTwin, isPulsingGlow, type ShopEntry } from '../utils/shopCatalog';
 import type { Cosmetic, CosmeticType } from '../../../constants/cosmetics';
 import type { ShopPin } from '../../../crews';
 
-const DEFAULT_STYLE: Required<CosmeticStyle> = { flap: 'random', bullbear: 'daily', tint: 'fade' };
+const DEFAULT_STYLE: Required<CosmeticStyle> = {
+  flap: 'random',
+  bullbear: 'daily',
+  tint: 'fade',
+  markColor: '#3b82f6',
+  tickerColors: '#f97316,#ec4899',
+};
 
 /** Which style choice an item comes with, if any. */
 export const styleKeyOf = (c: Cosmetic): CosmeticStyleKey | null =>
-  c.id === SPLIT_FLAP_ID
-    ? 'flap'
-    : c.id === BULLBEAR_FRAME_ID
-      ? 'bullbear'
-      : c.type === 'rowBackdrop' && !c.effectClass
-        ? 'tint'
-        : null;
+  c.pickColor
+    ? 'markColor'
+    : c.id === 'bg_tickers'
+      ? 'tickerColors'
+      : c.id === SPLIT_FLAP_ID
+        ? 'flap'
+        : c.id === BULLBEAR_FRAME_ID
+          ? 'bullbear'
+          : c.type === 'rowBackdrop' && !c.effectClass
+            ? 'tint'
+            : null;
 
 interface ShopSelectionDeps {
   featuredId: string | null;

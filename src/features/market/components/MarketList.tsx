@@ -11,6 +11,8 @@ import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { formatShares } from '../../../utils/tradeLimits';
 import { priceAt } from '../../../utils/marketStats';
 import { getMarketClosedState } from '../../../utils/marketHours';
+import { InlineHoldingLabel, useHoldingMark } from '../../../shared/components/cosmetics/HoldingMark';
+import { positionOf } from '../../../utils/holdingMarks';
 import { useLongPress } from '../hooks/useLongPress';
 import type { Character } from '../../../characters';
 import type { PricePoint, TradeAction } from '../../../types';
@@ -79,7 +81,8 @@ const PhoneRow = ({ character, onOpen, onHold }: { character: Character; onOpen:
   const press = useLongPress(onOpen, onHold);
   const price = priceHistory[character.ticker]?.at(-1)?.price ?? (prices[character.ticker] || character.basePrice);
   const { change24, line } = rowStats(priceHistory[character.ticker], price);
-  const held = userData?.holdings?.[character.ticker] || 0;
+  const mark = useHoldingMark();
+  const pos = positionOf(userData, character.ticker, price);
   return (
     <li data-tour="card">
       <button
@@ -91,7 +94,7 @@ const PhoneRow = ({ character, onOpen, onHold }: { character: Character; onOpen:
           <div className="text-orange-500 font-mono text-sm font-semibold">${character.ticker}</div>
           <div className={`text-xs truncate ${mutedClass}`}>
             {character.name}
-            {held > 0.001 && <span className="ml-1.5 text-blue-500 font-semibold">{formatShares(held)} owned</span>}
+            {pos?.kind === 'long' && <InlineHoldingLabel mark={mark} pos={pos} className="ml-1.5" />}
           </div>
         </div>
         <div className="w-16 shrink-0">
@@ -117,6 +120,7 @@ const MarketList = ({
 }: MarketListProps) => {
   const navigate = useNavigate();
   const { user, userData, getColorBlindColors } = useSession();
+  const mark = useHoldingMark();
   const { prices, priceHistory, marketData } = useMarket();
   const { cardClass, textClass, mutedClass } = themeClasses;
   const [trade, setTrade] = useState<{ character: Character; action: TradeAction } | null>(null);
@@ -159,6 +163,7 @@ const MarketList = ({
               const short = userData?.shorts?.[c.ticker]?.shares || 0;
               const cost = userData?.costBasis?.[c.ticker] || 0;
               const pl = held > 0 && cost > 0 ? (price - cost) * held : null;
+              const heldPos = positionOf(userData, c.ticker, price);
               const halted = Date.now() < (marketData?.haltedTickers?.[c.ticker]?.resumeAt ?? 0);
               const canTrade = !closed && !halted;
               return (
@@ -185,7 +190,11 @@ const MarketList = ({
                   </td>
                   {user && (
                     <td className="px-3 py-2 text-right text-xs whitespace-nowrap">
-                      {held > 0.001 && <div className="text-blue-500 font-semibold">{formatShares(held)} long</div>}
+                      {held > 0.001 && heldPos && (
+                        <div>
+                          <InlineHoldingLabel mark={mark} pos={heldPos} />
+                        </div>
+                      )}
                       {pl !== null && (
                         <div className={getColorBlindColors(pl >= 0).text}>
                           {pl >= 0 ? '+' : ''}

@@ -10,6 +10,7 @@ import { cleanTrophyCase, headReign, parseTrophy } from '../shared/rules/trophie
 import { touchLastActive } from '../shared/activity';
 import { ADMIN_UID, THIRTY_DAYS_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS } from '../shared/constants';
 import { asArray, sanitizeDisplayFields } from './displayFields';
+import { chartShape } from '../shared/rules/cosmetics';
 
 const db = admin.firestore();
 
@@ -135,6 +136,37 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
     })
     .reverse();
 
+  // What the equipped profile background draws. Your Chart gets the line's
+  // shape only (scaled 0 to 1, no dollar values) and Ticker Wall the three
+  // biggest holdings; both show even on a private profile, as the shop says.
+  const display = sanitizeDisplayFields(userData);
+  const bg = display.activeCosmetics?.profileBg;
+  let profileBgData: { chart?: number[]; tickers?: string[] } | null = null;
+  if (bg === 'bg_chart') {
+    const values = showMarket
+      ? portfolioHistory.map((p) => p.value)
+      : (
+          await db
+            .collection('users')
+            .doc(uid)
+            .collection('portfolioHistory')
+            .where('timestamp', '>=', Date.now() - THIRTY_DAYS_MS)
+            .orderBy('timestamp', 'desc')
+            .limit(PUBLIC_PROFILE_SPARKLINE_MAX_POINTS)
+            .get()
+        ).docs
+          .map((d) => snapshotNetWorth(d.data(), userData.marginUsed || 0))
+          .reverse();
+    profileBgData = { chart: chartShape(values) };
+  } else if (bg === 'bg_tickers') {
+    const all = userData.holdings || {};
+    const tickers = Object.keys(all)
+      .filter((t) => (all[t] || 0) > 0)
+      .sort((a, b) => (all[b] || 0) - (all[a] || 0))
+      .slice(0, 3);
+    profileBgData = { tickers };
+  }
+
   // Admin-only: weekly gain + full financial data
   let adminData = null;
   if (isCallerAdmin) {
@@ -163,7 +195,8 @@ export const getPublicProfile = cf().https.onCall(async (data, context) => {
     crew: userData.crew || null,
     isCrewHead: userData.isCrewHead || false,
     crewHeadColor: userData.crewHeadColor || null,
-    ...sanitizeDisplayFields(userData),
+    ...display,
+    profileBgData,
     displayCrewPin: userData.displayCrewPin ?? null,
     portfolioValue: netWorth,
     holdingsCount: holdingTickers.length,

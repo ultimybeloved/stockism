@@ -1,4 +1,6 @@
-export type CosmeticType = 'nameColor' | 'rowGlow' | 'rowBackdrop' | 'rowFrame';
+import { PROFILE_COSMETICS } from './cosmeticsProfile';
+
+export type CosmeticType = 'nameColor' | 'rowGlow' | 'rowBackdrop' | 'rowFrame' | 'holdingMark' | 'profileBg';
 
 export interface Cosmetic {
   id: string;
@@ -15,6 +17,14 @@ export interface Cosmetic {
    * money ledger books when one is handed out.
    */
   earned?: true;
+  /** Everyone has it: never sold, gifted or in the server catalog. */
+  free?: true;
+  /** The player picks its color (cosmeticStyle.markColor). */
+  pickColor?: true;
+  /** Colors of one item share a shop card, keyed by this. */
+  variantOf?: string;
+  /** The stops a multi-color item draws with. */
+  colors?: string[];
 }
 
 export const COSMETICS: Cosmetic[] = [
@@ -923,11 +933,12 @@ export const COSMETICS: Cosmetic[] = [
     effectClass: 'cos-bd-ring',
     description: 'Ring ropes under the lights.',
   },
+  ...PROFILE_COSMETICS,
 ];
 
 // Bump when a new batch of cosmetics lands: everyone gets the NEW! badge on
 // Customization and the Shop tab again until they open them.
-export const SHOP_DROP_ID = '2026-10';
+export const SHOP_DROP_ID = '2026-10-marks';
 
 export const COSMETIC_MAP: Record<string, Cosmetic> = Object.fromEntries(COSMETICS.map((c) => [c.id, c]));
 
@@ -936,6 +947,8 @@ export const COSMETIC_TYPE_LABELS: Record<CosmeticType, string> = {
   rowGlow: 'Effect',
   rowBackdrop: 'Row Backdrop',
   rowFrame: 'Row Frame',
+  holdingMark: 'Holding Mark',
+  profileBg: 'Profile Background',
 };
 
 export const COSMETIC_TYPES: CosmeticType[] = ['nameColor', 'rowGlow', 'rowFrame', 'rowBackdrop'];

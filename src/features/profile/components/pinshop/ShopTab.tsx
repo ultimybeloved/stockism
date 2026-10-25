@@ -9,6 +9,7 @@ import { styleKeyOf, useShopSelection } from '../../hooks/useShopSelection';
 import { useFeaturedId } from './ShopDeals';
 import ShopCategoryTabs from './ShopCategoryTabs';
 import ShopShelves from './ShopShelves';
+import ProfileShopShelf from './ProfileShopShelf';
 import ShopPinGrid from './ShopPinGrid';
 import ShopSearchResults from './ShopSearchResults';
 import ShopPerks from './ShopPerks';
@@ -36,6 +37,8 @@ const COUNTS: Partial<Record<ShopCategory, number>> = {
   rowGlow: COSMETICS.filter((c) => !c.earned && c.type === 'rowGlow').length,
   rowBackdrop: COSMETICS.filter((c) => !c.earned && c.type === 'rowBackdrop').length,
   rowFrame: COSMETICS.filter((c) => !c.earned && c.type === 'rowFrame').length,
+  holdingMark: COSMETICS.filter((c) => c.type === 'holdingMark').length,
+  profileBg: COSMETICS.filter((c) => c.type === 'profileBg' && !c.variantOf).length + 1,
   pin: shopPins().length,
 };
 
@@ -61,7 +64,11 @@ const ShopTab = ({
   const [query, setQuery] = useState('');
   const results = useMemo(() => searchShop(query), [query]);
 
-  const ownedCosmetics = useMemo(() => new Set(userData?.ownedCosmetics || []), [userData?.ownedCosmetics]);
+  // Free items (the plain holding marks) belong to everyone.
+  const ownedCosmetics = useMemo(
+    () => new Set([...(userData?.ownedCosmetics || []), ...COSMETICS.filter((c) => c.free).map((c) => c.id)]),
+    [userData?.ownedCosmetics],
+  );
   const ownedPins = useMemo(() => new Set(userData?.ownedShopPins || []), [userData?.ownedShopPins]);
   const allOwned = useMemo(() => new Set([...ownedCosmetics, ...ownedPins]), [ownedCosmetics, ownedPins]);
   const featured = featuredId ? COSMETICS.find((c) => c.id === featuredId) : null;
@@ -93,7 +100,7 @@ const ShopTab = ({
       price,
       listPrice: price !== c.price ? c.price : undefined,
       action,
-      gift: () => onRequestGift(c, price),
+      gift: c.free ? undefined : () => onRequestGift(c, price),
       run: () => {
         if (action === 'buy') onRequestPurchase({ type: 'cosmetic', item: c, price, style: styleNow });
         else if (action === 'equip') {
@@ -174,6 +181,8 @@ const ShopTab = ({
           <div className="pt-4">
             <ShopPinGrid pins={shopPins()} selectedId={sel.pin?.id || null} owned={ownedPins} onPick={sel.pickPin} />
           </div>
+        ) : category === 'holdingMark' || category === 'profileBg' ? (
+          <ProfileShopShelf type={category} {...shelfProps} />
         ) : shopItems(category).length ? (
           <ShopShelves type={category} {...shelfProps} />
         ) : null}
@@ -186,7 +195,7 @@ const ShopTab = ({
           action={bar.action}
           canAfford={cash >= bar.price}
           onAction={bar.run}
-          onGift={'gift' in bar ? bar.gift : undefined}
+          onGift={'gift' in bar && bar.gift ? bar.gift : undefined}
         />
       )}
     </div>

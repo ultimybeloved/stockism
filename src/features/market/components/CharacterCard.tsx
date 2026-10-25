@@ -19,6 +19,8 @@ import { pressable } from '../../../utils/a11y';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { usePhone } from '../../../shared/hooks/useMediaQuery';
 import { useLongPress } from '../hooks/useLongPress';
+import { HoldingLabel, HoldingMarkLayer, useHoldingMark } from '../../../shared/components/cosmetics/HoldingMark';
+import { markCardProps, positionOf } from '../../../utils/holdingMarks';
 
 interface CharacterCardProps {
   character: Character;
@@ -96,6 +98,7 @@ const CharacterCard = ({
 
   const [haltCountdown, setHaltCountdown] = useState('');
 
+  const mark = useHoldingMark();
   const owned = holdings > 0.001;
   const shorted = !!shortPosition && shortPosition.shares > 0;
   const isETF = character.isETF;
@@ -127,7 +130,10 @@ const CharacterCard = ({
   }, [isHalted, resumeAt]);
 
   const { cardClass: themeCardClass, textClass, mutedClass, raisedClass } = themeClasses;
-  const cardClass = `${themeCardClass} ${owned ? 'ring-1 ring-blue-500' : ''} ${shorted ? 'ring-1 ring-orange-500' : ''}`;
+  // Stocks the player holds wear their holding mark (only they see it).
+  const pos = owned || shorted ? positionOf(userData, character.ticker, price, shortPosition) : null;
+  const markProps = pos ? markCardProps(mark, pos) : null;
+  const cardClass = `${themeCardClass} ${markProps?.className || ''}`;
 
   const getSentimentColor = () => {
     const positiveColor = colorBlindMode ? 'text-teal-500' : 'text-green-500';
@@ -214,7 +220,7 @@ const CharacterCard = ({
     <>
       <div
         data-tour="card"
-        style={rarityStyle}
+        style={{ ...rarityStyle, ...markProps?.style }}
         className={`${cardClass} border rounded-sm p-4 transition-all relative flex flex-col ${frameClass} ${
           highlight === 'open' ? 'ring-2 ring-orange-500' : highlight === 'compare' ? 'ring-2 ring-blue-500' : ''
         } ${
@@ -227,6 +233,7 @@ const CharacterCard = ({
             : ''
         }`}
       >
+        {pos && <HoldingMarkLayer mark={mark} pos={pos} />}
         {isHalted && (
           <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
             <div className="bg-red-600/90 text-white px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-wider shadow-lg">
@@ -234,7 +241,7 @@ const CharacterCard = ({
             </div>
           </div>
         )}
-        <div className="cursor-pointer select-none" {...pressable(openChart)} {...press}>
+        <div className="relative z-[1] cursor-pointer select-none" {...pressable(openChart)} {...press}>
           {reviewChange && <ReviewChangeBadge change={reviewChange} currentPrice={price} />}
           <div className="flex justify-between items-baseline gap-2">
             <div className="flex items-center gap-1 min-w-0">
@@ -270,10 +277,12 @@ const CharacterCard = ({
           </div>
         </div>
 
-        <div className="mt-auto">
+        <div className="relative z-[1] mt-auto">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-2">
             <span className={`text-[10px] ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
-            {owned && <span className="text-[11px] text-blue-500 font-semibold">{holdings} long</span>}
+            {pos && (pos.kind === 'long' || mark.cosmetic.effectClass !== 'mk-standard') && (
+              <HoldingLabel mark={mark} pos={pos} className="text-[11px]" />
+            )}
             <ShortRiskTag
               shortPosition={shortPosition}
               ticker={character.ticker}

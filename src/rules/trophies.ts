@@ -52,6 +52,10 @@ export function headReign(src: TrophySource): CrewHeadBest | null {
 }
 
 /** Whether the player owns what this trophy shows. */
+// Holding marks are private and backgrounds already fill the profile, so
+// neither goes in the trophy case.
+const showableCosmetic = (id: string) => !/^(mark|bg)_/.test(id);
+
 export function ownsTrophy(src: TrophySource, id: unknown): boolean {
   const t = parseTrophy(id);
   if (!t) return false;
@@ -61,7 +65,7 @@ export function ownsTrophy(src: TrophySource, id: unknown): boolean {
     case 'title':
       return list(src.ownedTitles).includes(t.ref);
     case 'cos':
-      return list(src.ownedCosmetics).includes(t.ref);
+      return showableCosmetic(t.ref) && list(src.ownedCosmetics).includes(t.ref);
     case 'pin':
       return list(src.ownedShopPins).includes(t.ref);
     case 'head':
@@ -84,7 +88,9 @@ export function ownedTrophies(src: TrophySource): Record<TrophyKind, string[]> {
   return {
     head: headReign(src) ? ['head'] : [],
     title: list(src.ownedTitles).map((r) => `title:${r}`),
-    cos: list(src.ownedCosmetics).map((r) => `cos:${r}`),
+    cos: list(src.ownedCosmetics)
+      .filter(showableCosmetic)
+      .map((r) => `cos:${r}`),
     pin: list(src.ownedShopPins).map((r) => `pin:${r}`),
     ach: list(src.achievements).map((r) => `ach:${r}`),
   };

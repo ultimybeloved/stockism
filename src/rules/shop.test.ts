@@ -28,7 +28,10 @@ describe('cosmetic catalogs', () => {
       ].map((m) => [m[1], { type: m[2], price: Number(m[3]), name: m[4]!.replace(/\\'/g, "'"), earned: !!m[5] }]),
     );
     const shop = Object.fromEntries(
-      COSMETICS.map((c) => [c.id, { type: c.type, price: c.price, name: c.name, earned: !!c.earned }]),
+      COSMETICS.filter((c) => !c.free).map((c) => [
+        c.id,
+        { type: c.type, price: c.price, name: c.name, earned: !!c.earned },
+      ]),
     );
     expect(server).toEqual(shop);
   });

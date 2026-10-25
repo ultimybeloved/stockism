@@ -5,6 +5,7 @@ import { themeClasses } from '../../../../utils/theme';
 import { pressable } from '../../../../utils/a11y';
 import { shortPrice } from '../../utils/shopCatalog';
 import ShopMiniRow from './ShopMiniRow';
+import { BgPreview, MarkPreview } from './ProfileShopShelf';
 import StyleSwitch from '../../../../shared/components/SegmentedSwitch';
 import type { Cosmetic } from '../../../../constants/cosmetics';
 
@@ -104,12 +105,20 @@ const ShopItemCard = ({
       } light:bg-white dark:bg-zinc-900/40`}
     >
       <div className="pt-1">
-        <ShopMiniRow
-          cosmetic={cosmetic}
-          compact={!big}
-          style={style}
-          trend={isBullBear ? side || 'split' : undefined}
-        />
+        {cosmetic.type === 'holdingMark' ? (
+          <MarkPreview
+            mark={{ cosmetic, color: cosmetic.pickColor ? style.markColor || cosmetic.color : cosmetic.color }}
+          />
+        ) : cosmetic.type === 'profileBg' ? (
+          <BgPreview item={cosmetic} style={style} tickers={['GWON', 'HANT', 'TCHI']} />
+        ) : (
+          <ShopMiniRow
+            cosmetic={cosmetic}
+            compact={!big}
+            style={style}
+            trend={isBullBear ? side || 'split' : undefined}
+          />
+        )}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
         <b className={`whitespace-nowrap ${textClass}`}>

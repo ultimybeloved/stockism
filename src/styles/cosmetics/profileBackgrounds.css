@@ -1,0 +1,402 @@
+/* Profile backgrounds: the page behind a public profile, on a desktop.
+   ProfileBackground draws a fixed .pbg layer under the profile column. The art
+   sits in the gutters either side of the column (max-w-3xl = 48rem), using
+   --gut (one gutter's width); container units (cqh, cqw) size it to the window.
+   Ambient motion holds still, then moves, and stops for reduced motion. */
+
+.pbg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  container-type: size;
+}
+.pbg > * {
+  position: absolute;
+}
+.pbg-in {
+  --gut: max(0px, calc((100cqw - 48rem) / 2));
+  inset: 0;
+}
+.pbg-in > * {
+  position: absolute;
+}
+/* The middle of the left and right gutters. */
+.pbg .gl {
+  left: calc(var(--gut) / 2);
+  transform: translate(-50%, -50%);
+}
+.pbg .gr {
+  left: calc(100cqw - var(--gut) / 2);
+  transform: translate(-50%, -50%);
+}
+
+/* Color Wash */
+.pbg-wash {
+  background: linear-gradient(135deg, var(--w1), var(--w2));
+}
+
+/* Your Chart: a light runs along the line, then rests */
+.pbg-chart {
+  background: radial-gradient(ellipse at 80% 20%, #0f2a1c, #0b0d12 60%);
+}
+.pbg-chart svg {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.pbg-runner {
+  stroke-dasharray: 70 1000;
+  stroke-dashoffset: 70;
+  animation: pbgRun 7s ease-in-out infinite;
+}
+@keyframes pbgRun {
+  0%,
+  45% {
+    stroke-dashoffset: 70;
+    opacity: 0;
+  }
+  47% {
+    opacity: 1;
+  }
+  93% {
+    stroke-dashoffset: -1000;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -1000;
+    opacity: 0;
+  }
+}
+
+/* Ticker Wall: rows drift slowly, alternating direction */
+.pbg-tickers {
+  background: #0c0c10;
+}
+.pbg-trow {
+  left: 0;
+  white-space: nowrap;
+  font:
+    900 15cqh/1 'Arial Black',
+    Impact,
+    sans-serif;
+  letter-spacing: 0.02em;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--ink);
+  animation: pbgDrift var(--sp) linear infinite;
+}
+.pbg-trow.rev {
+  animation-direction: reverse;
+}
+@keyframes pbgDrift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Night Skyline: stars twinkle, windows switch on and off */
+.pbg-skyline {
+  background: linear-gradient(#070a1f, #141b45 55%, #2e2a6b);
+}
+.pbg-moon {
+  top: 10%;
+  left: calc(100cqw - var(--gut) / 2);
+  width: 7cqh;
+  height: 7cqh;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fefce8, #e5e7eb 60%, #a8a29e);
+  box-shadow: 0 0 3cqh rgb(254 252 232 / 0.35);
+}
+.pbg-star {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #fff;
+  opacity: var(--o);
+  animation: pbgTwinkle var(--t) infinite var(--d);
+}
+@keyframes pbgTwinkle {
+  0%,
+  88%,
+  100% {
+    opacity: var(--o);
+  }
+  92% {
+    opacity: 0.05;
+  }
+  95% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
+}
+.pbg-bld {
+  bottom: 0;
+  background: #0a0c1d;
+  border-top: 1px solid #1c2350;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 1.2cqh 0.8cqh;
+  padding: 1.6cqh 1cqh;
+  align-content: start;
+}
+.pbg-lit {
+  height: 1.3cqh;
+  background: #1a1f3d;
+}
+.pbg-lit.on {
+  background: #fde68a;
+  box-shadow: 0 0 1cqh rgb(253 230 138 / 0.5);
+}
+.pbg-lit.blink {
+  animation: pbgLamp var(--t) infinite var(--d);
+}
+@keyframes pbgLamp {
+  0%,
+  48% {
+    background: #fde68a;
+    box-shadow: 0 0 1cqh rgb(253 230 138 / 0.5);
+  }
+  50%,
+  100% {
+    background: #1a1f3d;
+    box-shadow: none;
+  }
+}
+
+/* Banknote: the Banknote backdrop's art (art.css), spread over both gutters */
+.pbg-note {
+  background: radial-gradient(ellipse at 50% 50%, #134e3a, #0b2a1f 75%);
+}
+.pbg-note .waves {
+  inset: 0;
+  background: var(--cos-art-bn-waves) 0 0 / 180px 96px repeat;
+  opacity: 0.8;
+}
+.pbg-note .frame {
+  top: 7%;
+  bottom: 7%;
+  width: calc(var(--gut) * 0.82);
+  border: 1px solid rgb(110 231 183 / 0.25);
+  outline: 1px solid rgb(110 231 183 / 0.12);
+  outline-offset: 0.8cqh;
+  border-radius: 1cqh;
+  transform: translateX(-50%);
+}
+.pbg-note .ros {
+  top: 50%;
+  width: min(30cqh, calc(var(--gut) * 0.6));
+  aspect-ratio: 1;
+  background: var(--cos-art-rosette) center / contain no-repeat;
+  opacity: 0.9;
+}
+.pbg-note .seal {
+  top: 50%;
+  width: min(15cqh, calc(var(--gut) * 0.3));
+  aspect-ratio: 1;
+  background: var(--cos-art-seal) center / contain no-repeat;
+  opacity: 0.55;
+}
+.pbg-note .denom {
+  font:
+    700 9cqh/1 Georgia,
+    'Times New Roman',
+    serif;
+  color: rgb(110 231 183 / 0.55);
+}
+.pbg-note .serial {
+  font:
+    700 2.4cqh/1 ui-monospace,
+    Consolas,
+    monospace;
+  letter-spacing: 0.15em;
+  color: #6ee7b7;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+.pbg-note .holo {
+  top: 0;
+  bottom: 0;
+  left: calc(100cqw - var(--gut) * 0.04 - 3.2cqh);
+  width: 3.2cqh;
+  opacity: 0.65;
+  background: linear-gradient(180deg, #67e8f9, #c084fc, #fde047, #4ade80, #67e8f9, #c084fc, #fde047, #4ade80, #67e8f9);
+  background-size: 100% 200%;
+  box-shadow: 0 0 2cqh rgb(192 132 252 / 0.25);
+  animation: pbgFoil 8s ease-in-out infinite;
+}
+.pbg-note .holo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgb(255 255 255 / 0.7) 50%, transparent 60%) 0 0 / 100% 300%;
+  mix-blend-mode: overlay;
+  animation: pbgGlide 8s ease-in-out infinite;
+}
+@keyframes pbgFoil {
+  0%,
+  40% {
+    background-position: 0 0;
+  }
+  50%,
+  90% {
+    background-position: 0 100%;
+  }
+  100% {
+    background-position: 0 200%;
+  }
+}
+@keyframes pbgGlide {
+  0%,
+  40% {
+    background-position: 0 100%;
+  }
+  55%,
+  100% {
+    background-position: 0 -100%;
+  }
+}
+.pbg-note .thread {
+  top: 0;
+  bottom: 0;
+  left: calc(var(--gut) * 0.85);
+  width: 0.5cqh;
+  background: repeating-linear-gradient(180deg, rgb(110 231 183 / 0.5) 0 2cqh, transparent 2cqh 3cqh);
+}
+.pbg-note .micro {
+  font:
+    600 1.4cqh/1 system-ui,
+    sans-serif;
+  letter-spacing: 0.12em;
+  color: #34d399;
+  opacity: 0.45;
+  white-space: nowrap;
+  overflow: hidden;
+  width: calc(var(--gut) * 0.82);
+}
+
+/* Fight Night: swinging spotlights, ropes that shake, a camera flash now and then */
+.pbg-fight {
+  background: radial-gradient(ellipse at 50% 130%, #3b0a0a, #0a0a0a 70%);
+}
+.pbg-fight .haze {
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgb(255 255 255 / 0.06), transparent 70%);
+}
+.pbg-fight .beam {
+  top: -10%;
+  width: 30cqh;
+  height: 120%;
+  transform-origin: 50% 0;
+  background: linear-gradient(rgb(254 243 199 / 0.2), rgb(254 243 199 / 0.03) 85%, transparent);
+  clip-path: polygon(45% 0, 55% 0, 100% 100%, 0 100%);
+  animation: pbgSwing var(--t) ease-in-out infinite alternate;
+}
+.pbg-fight .b1 {
+  left: calc(var(--gut) / 2 - 15cqh);
+  --a: -14deg;
+  --b: 10deg;
+  --t: 7s;
+}
+.pbg-fight .b2 {
+  left: calc(100cqw - var(--gut) / 2 - 15cqh);
+  --a: 14deg;
+  --b: -10deg;
+  --t: 8.5s;
+}
+@keyframes pbgSwing {
+  from {
+    transform: rotate(var(--a));
+  }
+  to {
+    transform: rotate(var(--b));
+  }
+}
+.pbg-fight .rope {
+  left: 0;
+  right: 0;
+  height: 0.8cqh;
+  border-radius: 1cqh;
+  opacity: 0.6;
+  animation: pbgShake 8s infinite;
+}
+.pbg-fight .r1 {
+  top: 60%;
+  background: linear-gradient(#fca5a5, #b91c1c);
+}
+.pbg-fight .r2 {
+  top: 70%;
+  background: linear-gradient(#fff, #a1a1aa);
+  opacity: 0.3;
+  animation-delay: 0.08s;
+}
+.pbg-fight .r3 {
+  top: 80%;
+  background: linear-gradient(#93c5fd, #1d4ed8);
+  animation-delay: 0.16s;
+}
+.pbg-fight .post {
+  top: 54%;
+  bottom: 0;
+  width: 1.6cqh;
+  background: linear-gradient(90deg, #52525b, #a1a1aa, #3f3f46);
+}
+@keyframes pbgShake {
+  0%,
+  84%,
+  100% {
+    transform: translateY(0);
+  }
+  86% {
+    transform: translateY(-1cqh);
+  }
+  88% {
+    transform: translateY(0.8cqh);
+  }
+  90% {
+    transform: translateY(-0.5cqh);
+  }
+  92% {
+    transform: translateY(0.3cqh);
+  }
+  94% {
+    transform: translateY(0);
+  }
+}
+.pbg-fight .flash {
+  width: 1cqh;
+  height: 1cqh;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 3cqh 1.5cqh rgb(255 255 255 / 0.7);
+  opacity: 0;
+  animation: pbgPop var(--t) infinite var(--d);
+}
+@keyframes pbgPop {
+  0%,
+  95%,
+  100% {
+    opacity: 0;
+  }
+  96% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pbg *,
+  .pbg *::after {
+    animation: none !important;
+  }
+}
+
+/* The shop's preview: inside its card, with gutters a quarter of its width. */
+.pbg.pbg-preview {
+  position: absolute;
+}
+.pbg-preview .pbg-in {
+  --gut: 27cqw;
+}

@@ -103,6 +103,24 @@ export const COSMETIC_CATALOG: Record<string, CatalogEntry> = {
   backdrop_stars: { type: 'rowBackdrop', price: 30000, name: 'Shooting Stars' },
   backdrop_rooftop: { type: 'rowBackdrop', price: 30000, name: 'Rooftop Sunset' },
   backdrop_fightnight: { type: 'rowBackdrop', price: 30000, name: 'Fight Night' },
+  // Holding marks (the free Standard, Rail and Underglow are not sold, so not here).
+  mark_stamp: { type: 'holdingMark', price: 10000, name: 'Stamp' },
+  mark_aura: { type: 'holdingMark', price: 10000, name: 'Profit Aura' },
+  mark_ember: { type: 'holdingMark', price: 25000, name: 'Ember' },
+  mark_receipt: { type: 'holdingMark', price: 35000, name: 'Receipt' },
+  mark_diamond: { type: 'holdingMark', price: 75000, name: 'Diamond Hands' },
+  mark_bullion: { type: 'holdingMark', price: 100000, name: 'Bullion' },
+  // Profile backgrounds.
+  bg_wash_dusk: { type: 'profileBg', price: 5000, name: 'Dusk Wash' },
+  bg_wash_lagoon: { type: 'profileBg', price: 5000, name: 'Lagoon Wash' },
+  bg_wash_rose: { type: 'profileBg', price: 5000, name: 'Rose Wash' },
+  bg_wash_gold: { type: 'profileBg', price: 5000, name: 'Gold Wash' },
+  bg_wash_mint: { type: 'profileBg', price: 5000, name: 'Mint Wash' },
+  bg_tickers: { type: 'profileBg', price: 15000, name: 'Ticker Wall' },
+  bg_skyline: { type: 'profileBg', price: 25000, name: 'Night Skyline' },
+  bg_fight: { type: 'profileBg', price: 30000, name: 'Fight Night' },
+  bg_chart: { type: 'profileBg', price: 50000, name: 'Your Chart' },
+  bg_banknote: { type: 'profileBg', price: 100000, name: 'Banknote' },
 };
 
 // The catalog as a list, for the weekly featured pick (rules/shop).

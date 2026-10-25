@@ -101,6 +101,9 @@ export interface ActiveCosmetics {
   rowGlow?: string | null;
   rowBackdrop?: string | null;
   rowFrame?: string | null;
+  /** Only the wearer ever sees it (null or missing = Standard). */
+  holdingMark?: string | null;
+  profileBg?: string | null;
 }
 
 export interface SeasonTitle {
