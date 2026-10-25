@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { COSMETIC_MAP } from '../../../constants/cosmetics';
+import { DEFAULT_TICKER_COLORS } from '../../../constants/cosmeticsProfile';
 import { COSMETIC_COLOR_STYLES, seedHash, type CosmeticStyle } from '../../../rules/cosmetics';
 
 // The page behind a public profile, on a desktop (styles/cosmetics/profileBackgrounds.css).
@@ -22,7 +23,6 @@ interface Props {
   preview?: boolean;
 }
 
-const DEFAULT_TICKER_COLORS = '#f97316,#ec4899';
 const SAMPLE_CHART = [0.2, 0.25, 0.18, 0.3, 0.42, 0.38, 0.5, 0.47, 0.6, 0.55, 0.68, 0.72, 0.66, 0.8, 0.86, 0.82, 1];
 
 /** A small seeded random source, so a player's skyline and crowd look the same on every visit. */

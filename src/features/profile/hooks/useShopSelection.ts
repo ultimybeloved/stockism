@@ -5,14 +5,15 @@ import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '..
 import { featuredPrice } from '../../../rules/shop';
 import { glowTwin, isPulsingGlow, type ShopEntry } from '../utils/shopCatalog';
 import type { Cosmetic, CosmeticType } from '../../../constants/cosmetics';
+import { DEFAULT_TICKER_COLORS } from '../../../constants/cosmeticsProfile';
 import type { ShopPin } from '../../../crews';
 
-const DEFAULT_STYLE: Required<CosmeticStyle> = {
+// No markColor: an unpicked color mark wears its own color (Ember orange, the rest blue).
+const DEFAULT_STYLE: CosmeticStyle = {
   flap: 'random',
   bullbear: 'daily',
   tint: 'fade',
-  markColor: '#3b82f6',
-  tickerColors: '#f97316,#ec4899',
+  tickerColors: DEFAULT_TICKER_COLORS,
 };
 
 /** Which style choice an item comes with, if any. */

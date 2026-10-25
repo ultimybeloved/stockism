@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { playSound } from '../../../utils/sounds';
-import { doc, updateDoc } from 'firebase/firestore';
+import { deleteField, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import {
   purchasePinFunction,
@@ -169,14 +169,17 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
   );
 
   // How the player wears a cosmetic with a choice (Split Flap motion, Bull / Bear
-  // style, backdrop tint). The server only publishes values it knows.
+  // style, backdrop tint, colors). The server only publishes values it knows.
+  // null clears the choice, back to the item's own default.
   const handleSetCosmeticStyle = useCallback(
-    async <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => {
+    async <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]> | null) => {
       if (!user) return;
-      await updateDoc(doc(db, 'users', user.uid), { [`cosmeticStyle.${key}`]: value });
-      setUserData((prev) =>
-        prev ? { ...prev, cosmeticStyle: { ...(prev.cosmeticStyle || {}), [key]: value } } : prev,
-      );
+      await updateDoc(doc(db, 'users', user.uid), { [`cosmeticStyle.${key}`]: value ?? deleteField() });
+      setUserData((prev) => {
+        if (!prev) return prev;
+        const { [key]: _, ...rest } = prev.cosmeticStyle || {};
+        return { ...prev, cosmeticStyle: value == null ? rest : { ...rest, [key]: value } };
+      });
     },
     [user, setUserData],
   );

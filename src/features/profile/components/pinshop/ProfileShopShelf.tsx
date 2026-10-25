@@ -7,6 +7,7 @@ import { markCardProps, type HoldingMark, type Position } from '../../../../util
 import { HoldingLabel, HoldingMarkLayer } from '../../../../shared/components/cosmetics/HoldingMark';
 import ProfileBackground from '../../../../shared/components/cosmetics/ProfileBackground';
 import type { Cosmetic } from '../../../../constants/cosmetics';
+import { DEFAULT_TICKER_COLORS } from '../../../../constants/cosmeticsProfile';
 import type { CosmeticStyle } from '../../../../rules/cosmetics';
 
 // The Holdings and Backgrounds tabs of the shop: one card per item with a
@@ -90,6 +91,31 @@ export const ColorPick = ({
   </label>
 );
 
+/** Puts a picked color back to the item's own default. */
+export const ResetColor = ({ onReset }: { onReset: () => void }) => (
+  <button
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      onReset();
+    }}
+    className="text-[11.5px] text-orange-500 hover:underline"
+  >
+    Reset to default
+  </button>
+);
+
+/** Backgrounds are hidden below the lg breakpoint; say so plainly before anyone buys one. */
+export const PhoneWarning = ({ className = '' }: { className?: string }) => (
+  <p
+    role="note"
+    className={`rounded-sm border px-3 py-2 text-xs font-medium light:border-amber-300 light:bg-amber-50 light:text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200 ${className}`}
+  >
+    <b>Desktop only.</b> Backgrounds do not show on phones. Anyone viewing your profile on a phone, you included, sees
+    it without the background.
+  </p>
+);
+
 /** The card title for a group of colors (the Color Wash pairs). */
 const groupName = (c: Cosmetic) => (c.variantOf === 'bg_wash' ? 'Color Wash' : c.name);
 
@@ -109,16 +135,11 @@ const ProfileShopShelf = (p: Props) => {
     return top.length ? top : ['GWON', 'HANT', 'TCHI'];
   }, [userData?.holdings]);
 
-  const markColor = p.style.markColor || '#3b82f6';
-  const tickerColors = (p.style.tickerColors || '#f97316,#ec4899').split(',') as [string, string];
+  const tickerColors = (p.style.tickerColors || DEFAULT_TICKER_COLORS).split(',') as [string, string];
 
   return (
     <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 pt-4">
-      {p.type === 'profileBg' && (
-        <p className={`sm:col-span-2 text-xs ${mutedClass}`}>
-          Shows behind your public profile on a desktop. Phones show the profile without it.
-        </p>
-      )}
+      {p.type === 'profileBg' && <PhoneWarning className="sm:col-span-2" />}
       {p.type === 'holdingMark' && (
         <p className={`sm:col-span-2 text-xs ${mutedClass}`}>
           How the stocks you own or short look in the market. Only you see it.
@@ -132,6 +153,8 @@ const ProfileShopShelf = (p: Props) => {
           card;
         const owned = p.owned.has(c.id);
         const sale = p.salePriceOf(c);
+        // Unpicked, a color mark wears its own color (Ember orange, the rest blue).
+        const markColor = (p.style.markColor || c.color).toLowerCase();
         const mark: HoldingMark = { cosmetic: c, color: c.pickColor ? markColor : c.color };
         return (
           <div
@@ -163,17 +186,27 @@ const ProfileShopShelf = (p: Props) => {
               </span>
               <span className={`basis-full text-[11.5px] leading-snug ${mutedClass}`}>{c.description}</span>
               {c.pickColor && (
-                <ColorPick
-                  label="Color"
-                  value={markColor}
-                  onChange={(markColor) => {
-                    p.onStyle({ markColor });
-                    if (!p.selectedIds.has(c.id)) p.onPick(c);
-                  }}
-                />
+                <span className="flex items-center gap-3">
+                  <ColorPick
+                    label="Color"
+                    value={markColor}
+                    onChange={(markColor) => {
+                      p.onStyle({ markColor });
+                      if (!p.selectedIds.has(c.id)) p.onPick(c);
+                    }}
+                  />
+                  {p.style.markColor && (
+                    <ResetColor
+                      onReset={() => {
+                        p.onStyle({ markColor: undefined });
+                        if (!p.selectedIds.has(c.id)) p.onPick(c);
+                      }}
+                    />
+                  )}
+                </span>
               )}
               {c.id === 'bg_tickers' && (
-                <span className="flex gap-3">
+                <span className="flex items-center gap-3">
                   {(['Top', 'Bottom'] as const).map((label, k) => (
                     <ColorPick
                       key={label}
@@ -187,6 +220,14 @@ const ProfileShopShelf = (p: Props) => {
                       }}
                     />
                   ))}
+                  {p.style.tickerColors !== DEFAULT_TICKER_COLORS && (
+                    <ResetColor
+                      onReset={() => {
+                        p.onStyle({ tickerColors: DEFAULT_TICKER_COLORS });
+                        if (!p.selectedIds.has(c.id)) p.onPick(c);
+                      }}
+                    />
+                  )}
                 </span>
               )}
               {group.length > 1 && (

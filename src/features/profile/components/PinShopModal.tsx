@@ -43,7 +43,10 @@ interface PinShopModalProps {
   onPurchaseBundle: (bundleId: string) => Promise<void>;
   onGiftCosmetic: (target: GiftTarget, recipient: string) => Promise<string | null>;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => Promise<void>;
-  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => Promise<void>;
+  onSetCosmeticStyle: <K extends CosmeticStyleKey>(
+    key: K,
+    value: NonNullable<CosmeticStyle[K]> | null,
+  ) => Promise<void>;
   portfolioValue: number;
 }
 
@@ -94,7 +97,7 @@ const PinShopModal = ({
         // Keep the style they picked while shopping (Split Flap, Bull / Bear, tint).
         if (ok) {
           for (const [key, value] of Object.entries(confirmPurchase.style || {})) {
-            await onSetCosmeticStyle(key as CosmeticStyleKey, value as never);
+            await onSetCosmeticStyle(key as CosmeticStyleKey, (value ?? null) as never);
           }
         }
       } else if (confirmPurchase.type === 'bundle') {

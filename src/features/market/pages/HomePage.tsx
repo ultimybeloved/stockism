@@ -36,7 +36,6 @@ type HomePageProps = Pick<
     /** In-flight action flags, keyed by action ('checkin', ...). */
     actionLoading: Record<string, boolean | undefined>;
     onCheckin: () => void;
-    onShowMissions: () => void;
     onShowPinShop: () => void;
     onShowMargin: () => void;
     onShowAbout: () => void;
@@ -56,7 +55,6 @@ const HomePage = ({
   onToggleWatchlist,
   tradeAnimation,
   onSetAlert,
-  onShowMissions,
   onShowPinShop,
   onShowMargin,
   onShowAbout,
@@ -96,12 +94,8 @@ const HomePage = ({
     <div className={`min-h-screen ${bgClass} p-4`}>
       <div className="max-w-6xl lg:max-w-[96rem] mx-auto">
         {/* Sub-header buttons */}
-        {/* Phones: one row, icon over label. Missions is in the bottom bar there. */}
+        {/* Phones: one row, icon over label. Missions lives in the top nav and the phone bar. */}
         <div className="grid grid-cols-3 gap-2 mb-4 max-sm:pt-2 sm:flex sm:flex-wrap sm:justify-center">
-          <button onClick={onShowMissions} className={`${subHeaderBtnClass} max-md:!hidden`}>
-            <PixelIcon name="missions" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />
-            Missions
-          </button>
           {/* Everyone sees the same buttons; guests get the sign-in prompt. */}
           <button onClick={isGuest ? onShowLogin : onShowPinShop} className={subHeaderBtnClass}>
             <PixelIcon name="palette" className="w-4 h-4 sm:mr-1.5 align-[-3px] max-sm:w-5 max-sm:h-5" />

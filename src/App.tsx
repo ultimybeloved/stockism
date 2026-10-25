@@ -220,7 +220,6 @@ export default function App() {
                 onToggleWatchlist: toggleWatchlist,
                 tradeAnimation,
                 onSetAlert: (ticker) => setShowPriceAlertModal(ticker),
-                onShowMissions: () => navigate('/missions'),
                 onShowPinShop: () => setShowPinShop(true),
                 onShowMargin: () => setShowLending(true),
                 onShowAbout: () => setShowAbout(true),

@@ -22,7 +22,7 @@ import type { PendingPurchase } from '../PinShopModal';
 interface ShopTabProps {
   cash: number;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => unknown;
-  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => unknown;
+  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]> | null) => unknown;
   onRequestPurchase: (purchase: PendingPurchase) => void;
   /** Opens the gift dialog for a shop item at the price the giver would pay. */
   onRequestGift: (cosmetic: Cosmetic, price: number) => void;
@@ -93,7 +93,7 @@ const ShopTab = ({
     const equipped = userData?.activeCosmetics?.[c.type as CosmeticType] === c.id;
     const restyle = !!key && sel.previewStyleFor(key) !== sel.savedStyle(key);
     const styleNow = key ? ({ [key]: sel.previewStyleFor(key) } as CosmeticStyle) : undefined;
-    const saveStyle = () => key && onSetCosmeticStyle(key, sel.previewStyleFor(key));
+    const saveStyle = () => key && onSetCosmeticStyle(key, sel.previewStyleFor(key) ?? null);
     const action: BuyBarAction = !owned ? 'buy' : !equipped ? 'equip' : restyle ? 'restyle' : 'unequip';
     return {
       name: c.name,

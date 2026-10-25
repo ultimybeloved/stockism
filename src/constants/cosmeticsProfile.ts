@@ -18,6 +18,9 @@ const WASHES: [string, string, [string, string]][] = [
   ['mint', 'Mint', ['#022C22', '#3F6212']],
 ];
 
+/** Ticker Wall's gradient, top then bottom, until the player picks their own. */
+export const DEFAULT_TICKER_COLORS = '#f97316,#ec4899';
+
 /** The default mark: the ring every held stock has always had. Wearing nothing means wearing this. */
 export const STANDARD_MARK_ID = 'mark_standard';
 

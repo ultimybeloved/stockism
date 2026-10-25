@@ -15,13 +15,13 @@ import { SPLIT_FLAP_ID } from '../../../../constants/cosmeticLayers';
 import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '../../../../rules/cosmetics';
 import StyleSwitch from '../../../../shared/components/SegmentedSwitch';
 import CosmeticSwatch from './CosmeticSwatch';
-import { ColorPick } from './ProfileShopShelf';
-import { STANDARD_MARK_ID } from '../../../../constants/cosmeticsProfile';
+import { ColorPick, PhoneWarning, ResetColor } from './ProfileShopShelf';
+import { DEFAULT_TICKER_COLORS, STANDARD_MARK_ID } from '../../../../constants/cosmeticsProfile';
 
 interface MyLookTabProps {
   onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => void;
-  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]>) => unknown;
+  onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]> | null) => unknown;
   onClose: () => void;
 }
 
@@ -85,7 +85,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
   const equippedOf = (type: CosmeticType) =>
     activeCosmetics[type] || (type === 'holdingMark' ? STANDARD_MARK_ID : undefined);
   const wornMark = COSMETIC_MAP[equippedOf('holdingMark') || ''];
-  const tickerColors = (style.tickerColors || '#f97316,#ec4899').split(',');
+  const tickerColors = (style.tickerColors || DEFAULT_TICKER_COLORS).split(',');
 
   const chipClass = (active: boolean) =>
     `px-3 py-2 rounded-sm border ${active ? 'border-orange-500 bg-orange-500/10' : borderClass}`;
@@ -138,6 +138,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
                       );
                     })}
                   </div>
+                  {type === 'profileBg' && <PhoneWarning className="mt-2" />}
                 </div>
               );
             })}
@@ -146,25 +147,34 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
             {(wornMark?.pickColor || ownedCosmetics.includes('bg_tickers')) && (
               <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1">
                 {wornMark?.pickColor && (
-                  <ColorPick
-                    label={`${wornMark.name} color`}
-                    value={style.markColor || '#3b82f6'}
-                    onChange={(hex) => onSetCosmeticStyle('markColor', hex)}
-                  />
-                )}
-                {ownedCosmetics.includes('bg_tickers') &&
-                  (['Top', 'Bottom'] as const).map((label, k) => (
+                  <span className="flex items-center gap-3">
                     <ColorPick
-                      key={label}
-                      label={`Ticker Wall ${label.toLowerCase()}`}
-                      value={tickerColors[k] || '#f97316'}
-                      onChange={(hex) => {
-                        const next = [...tickerColors];
-                        next[k] = hex;
-                        onSetCosmeticStyle('tickerColors', next.join(','));
-                      }}
+                      label={`${wornMark.name} color`}
+                      value={(style.markColor || wornMark.color).toLowerCase()}
+                      onChange={(hex) => onSetCosmeticStyle('markColor', hex)}
                     />
-                  ))}
+                    {style.markColor && <ResetColor onReset={() => onSetCosmeticStyle('markColor', null)} />}
+                  </span>
+                )}
+                {ownedCosmetics.includes('bg_tickers') && (
+                  <span className="flex items-center gap-3">
+                    {(['Top', 'Bottom'] as const).map((label, k) => (
+                      <ColorPick
+                        key={label}
+                        label={`Ticker Wall ${label.toLowerCase()}`}
+                        value={tickerColors[k] || '#f97316'}
+                        onChange={(hex) => {
+                          const next = [...tickerColors];
+                          next[k] = hex;
+                          onSetCosmeticStyle('tickerColors', next.join(','));
+                        }}
+                      />
+                    ))}
+                    {style.tickerColors && style.tickerColors !== DEFAULT_TICKER_COLORS && (
+                      <ResetColor onReset={() => onSetCosmeticStyle('tickerColors', null)} />
+                    )}
+                  </span>
+                )}
               </div>
             )}
             {(ownedCosmetics.includes(SPLIT_FLAP_ID) ||
