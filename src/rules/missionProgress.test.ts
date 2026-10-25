@@ -416,6 +416,9 @@ describe('new weekly missions', () => {
     const ctx = ctxOf(player, prices, undefined, open);
     expect(weeklyMissionProgress(m, dips, ctx).complete).toBe(true);
     const shallow = { buys: { ...dips.buys, [S3]: { low: 23 } } };
-    expect(weeklyMissionProgress(m, shallow, ctx)).toMatchObject({ complete: false, progress: 2 });
+    const p = weeklyMissionProgress(m, shallow, ctx);
+    expect(p).toMatchObject({ complete: false, progress: 2 });
+    expect(p.note).toContain(`${S1} 12.0% under`);
+    expect(p.note).toContain(`${S3} 8.0% under`);
   });
 });

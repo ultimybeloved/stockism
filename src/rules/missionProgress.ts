@@ -333,10 +333,14 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
     case 'WEEKLY_BUY_DIPS': {
       const open = weekMovePrices(ctx);
       const drop = 1 - DIP_COLLECTOR_DROP_PCT / 100;
-      const dips = weekBuysStillHeld(ctx).filter(
-        (t) => (open[t] || 0) > 0 && (wp.buys?.[t]?.low ?? Infinity) <= open[t]! * drop,
-      );
-      return count(dips.length, target);
+      // The note shows the mission's own numbers, since the site's 7d column
+      // measures from a different price.
+      const held = weekBuysStillHeld(ctx).filter((t) => (open[t] || 0) > 0 && wp.buys?.[t]?.low != null);
+      const off = (t: string) => (1 - wp.buys![t]!.low! / open[t]!) * 100;
+      const dips = held.filter((t) => wp.buys![t]!.low! <= open[t]! * drop);
+      const list = held.map((t) => `${t} ${off(t) > 0 ? `${off(t).toFixed(1)}% under` : 'not under'}`).join(', ');
+      const note = `Measured from Thursday's 13:00 UTC price, not the 7d column.${list ? ` Your buys: ${list}.` : ''}`;
+      return { ...count(dips.length, target), note };
     }
     default:
       return flag(false);
