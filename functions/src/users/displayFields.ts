@@ -40,7 +40,8 @@ export const sanitizeDisplayFields = (userData: DocumentData) => {
       : null;
 
   // The holding mark's color is the wearer's alone too.
-  const { markColor: _markColor, ...cosmeticStyle } = cleanCosmeticStyle(userData.cosmeticStyle);
+  const cosmeticStyle = cleanCosmeticStyle(userData.cosmeticStyle);
+  delete cosmeticStyle.markColor;
 
   return {
     displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
