@@ -79,7 +79,7 @@ export default function MissionCard({
         <div className="mt-2">
           <p className={`text-xs ${mutedClass}`}>
             {mission.picks.length
-              ? `Counts if you buy now${minTrade ? ` (${formatCurrency(minTrade)}+, and keep it)` : ''}, vs ${mission.picksFrom}:`
+              ? `Counts if you buy now${minTrade ? ` ($${Math.round(minTrade).toLocaleString('en-US')}+, and keep it)` : ''}, vs ${mission.picksFrom}:`
               : `No stock qualifies right now, vs ${mission.picksFrom}. Check back later.`}
           </p>
           {mission.picks.length > 0 && (
