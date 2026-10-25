@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { formatCurrency } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import type { BoardMission } from '../hooks/useMissionBoard';
@@ -25,6 +26,9 @@ const ACCENTS = {
 // Missions whose bar counts dollars rather than things.
 const MONEY_CHECKS = new Set(['SELL_HELD', 'SELL_LOSS', 'COVER_PROFIT']);
 
+// How many qualifying stocks to list before "+N more".
+const MAX_PICKS = 8;
+
 const short = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : String(n));
 
 export default function MissionCard({
@@ -32,11 +36,14 @@ export default function MissionCard({
   accent,
   onClaim,
   claiming,
+  minTrade,
 }: {
   mission: BoardMission;
   accent: keyof typeof ACCENTS;
   onClaim: (missionId: string, reward: number) => unknown;
   claiming?: boolean;
+  /** Smallest buy that counts, shown with the qualifying stocks. */
+  minTrade?: number;
 }) {
   const { textClass, mutedClass, borderClass } = themeClasses;
   const a = ACCENTS[accent];
@@ -68,6 +75,35 @@ export default function MissionCard({
         </span>
       </div>
       {mission.note && !mission.claimed && <p className={`text-xs ${mutedClass} mt-1 italic`}>{mission.note}</p>}
+      {mission.picks && !mission.complete && (
+        <div className="mt-2">
+          <p className={`text-xs ${mutedClass}`}>
+            {mission.picks.length
+              ? `Counts if you buy now${minTrade ? ` (${formatCurrency(minTrade)}+, and keep it)` : ''}, vs ${mission.picksFrom}:`
+              : `No stock qualifies right now, vs ${mission.picksFrom}. Check back later.`}
+          </p>
+          {mission.picks.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {mission.picks.slice(0, MAX_PICKS).map((p) => (
+                <Link
+                  key={p.ticker}
+                  to={`/stock/${p.ticker}`}
+                  className={`text-xs px-1.5 py-0.5 rounded-sm border ${borderClass} ${textClass} hover:border-orange-500`}
+                >
+                  ${p.ticker}{' '}
+                  <span className={p.change < 0 ? 'text-red-500' : 'text-green-500'}>
+                    {p.change > 0 ? '+' : ''}
+                    {p.change.toFixed(1)}%
+                  </span>
+                </Link>
+              ))}
+              {mission.picks.length > MAX_PICKS && (
+                <span className={`text-xs px-1 py-0.5 ${mutedClass}`}>+{mission.picks.length - MAX_PICKS} more</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {mission.complete && !mission.claimed && (
         <button

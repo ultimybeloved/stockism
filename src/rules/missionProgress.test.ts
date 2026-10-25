@@ -418,7 +418,9 @@ describe('new weekly missions', () => {
     const shallow = { buys: { ...dips.buys, [S3]: { low: 23 } } };
     const p = weeklyMissionProgress(m, shallow, ctx);
     expect(p).toMatchObject({ complete: false, progress: 2 });
-    expect(p.note).toContain(`${S1} 12.0% under`);
-    expect(p.note).toContain(`${S3} 8.0% under`);
+    expect(p.note).toBe(`Counted so far: ${S1}, ${S2}.`);
+    // All three trade 20% under the open now; the two already counted aren't listed again.
+    expect(p.picks?.map((x) => x.ticker)).toEqual([S3]);
+    expect(p.picks?.[0]?.change).toBeCloseTo(-20);
   });
 });

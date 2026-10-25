@@ -128,7 +128,32 @@ export interface MissionProgress {
   target: number;
   /** Why a full bar can't be claimed yet. */
   note?: string;
+  /** Stocks that would count if bought right now, biggest move first. */
+  picks?: { ticker: string; change: number }[];
+  /** What the picks' change is measured from. */
+  picksFrom?: string;
 }
+
+const HALT_LOCK_LABEL = "Thursday's 13:00 UTC price";
+
+/** Stocks whose price right now passes `pass(price, base)`, biggest move first. */
+const picksNow = (
+  base: Record<string, number>,
+  ctx: MissionContext,
+  pass: (price: number, base: number) => boolean,
+  skip: string[] = [],
+) =>
+  CHARACTERS.filter((c) => {
+    const b = base[c.ticker] || 0;
+    const p = ctx.prices[c.ticker] || 0;
+    return !c.ipoRequired && b > 0 && p > 0 && !skip.includes(c.ticker) && pass(p, b);
+  })
+    .map((c) => ({ ticker: c.ticker, change: (ctx.prices[c.ticker]! / base[c.ticker]! - 1) * 100 }))
+    .sort((x, y) => Math.abs(y.change) - Math.abs(x.change));
+
+/** A flag mission, plus the stocks that would finish it if it isn't done yet. */
+const flagWithPicks = (done: boolean, picks: () => MissionProgress['picks'], picksFrom: string): MissionProgress =>
+  done ? flag(true) : { ...flag(false), picks: picks(), picksFrom };
 
 const CREW_ROSTERS: Record<string, string[]> = Object.fromEntries(Object.values(CREWS).map((c) => [c.id, c.members]));
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_ROSTERS).flat());
@@ -204,8 +229,11 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
       return flag(kept().some((b) => b.low < UNDERDOG_PRICE_THRESHOLD));
     case 'BUY_BARGAIN': {
       const open = weekMovePrices(ctx);
-      return flag(
-        kept().some((b) => (open[b.ticker] || 0) > 0 && b.low <= open[b.ticker]! * (1 - BARGAIN_DROP_PCT / 100)),
+      const drop = 1 - BARGAIN_DROP_PCT / 100;
+      return flagWithPicks(
+        kept().some((b) => (open[b.ticker] || 0) > 0 && b.low <= open[b.ticker]! * drop),
+        () => picksNow(open, ctx, (p, b) => p <= b * drop),
+        HALT_LOCK_LABEL,
       );
     }
     case 'BUY_SPREAD':
@@ -237,12 +265,20 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
       return flag(kept().some((b) => !!CHARACTER_MAP[b.ticker]?.isETF));
     case 'BUY_DIP': {
       const close = ctx.dayClosePrices || {};
-      return flag(kept().some((b) => (close[b.ticker] || 0) > 0 && b.low < close[b.ticker]!));
+      return flagWithPicks(
+        kept().some((b) => (close[b.ticker] || 0) > 0 && b.low < close[b.ticker]!),
+        () => picksNow(close, ctx, (p, b) => p < b),
+        "yesterday's 21:00 UTC close",
+      );
     }
     case 'BUY_MOMENTUM': {
       const open = weekMovePrices(ctx);
       const rise = 1 + (mission.requirement ?? 5) / 100;
-      return flag(kept().some((b) => (open[b.ticker] || 0) > 0 && b.high >= open[b.ticker]! * rise));
+      return flagWithPicks(
+        kept().some((b) => (open[b.ticker] || 0) > 0 && b.high >= open[b.ticker]! * rise),
+        () => picksNow(open, ctx, (p, b) => p >= b * rise),
+        HALT_LOCK_LABEL,
+      );
     }
     case 'BUY_BLUE_CHIP': {
       const tiers = computeRarityTiers(CHARACTERS, ctx.prices);
@@ -334,14 +370,17 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
     case 'WEEKLY_BUY_DIPS': {
       const open = weekMovePrices(ctx);
       const drop = 1 - DIP_COLLECTOR_DROP_PCT / 100;
-      // The note shows the mission's own numbers, since the site's 7d column
-      // measures from a different price.
-      const held = weekBuysStillHeld(ctx).filter((t) => (open[t] || 0) > 0 && wp.buys?.[t]?.low != null);
-      const off = (t: string) => (1 - wp.buys![t]!.low! / open[t]!) * 100;
-      const dips = held.filter((t) => wp.buys![t]!.low! <= open[t]! * drop);
-      const list = held.map((t) => `${t} ${off(t) > 0 ? `${off(t).toFixed(1)}% under` : 'not under'}`).join(', ');
-      const note = `Measured from Thursday's 13:00 UTC price, not the 7d column.${list ? ` Your buys: ${list}.` : ''}`;
-      return { ...count(dips.length, target), note };
+      const dips = weekBuysStillHeld(ctx).filter(
+        (t) => (open[t] || 0) > 0 && (wp.buys?.[t]?.low ?? Infinity) <= open[t]! * drop,
+      );
+      const done = count(dips.length, target);
+      if (done.complete) return done;
+      return {
+        ...done,
+        note: dips.length ? `Counted so far: ${dips.join(', ')}.` : undefined,
+        picks: picksNow(open, ctx, (p, b) => p <= b * drop, dips),
+        picksFrom: HALT_LOCK_LABEL,
+      };
     }
     default:
       return flag(false);

@@ -102,6 +102,7 @@ export default function MissionsPage({
                   accent="purple"
                   onClaim={onClaimWeeklyReward}
                   claiming={claimWeeklyLoading}
+                  minTrade={board.minTrade}
                 />
               ))}
             </div>
@@ -124,7 +125,14 @@ export default function MissionsPage({
             </p>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               {board.dailyMissions.map((m) => (
-                <MissionCard key={m.id} mission={m} accent="orange" onClaim={onClaimReward} claiming={claimLoading} />
+                <MissionCard
+                  key={m.id}
+                  mission={m}
+                  accent="orange"
+                  onClaim={onClaimReward}
+                  claiming={claimLoading}
+                  minTrade={board.minTrade}
+                />
               ))}
             </div>
           </Section>
