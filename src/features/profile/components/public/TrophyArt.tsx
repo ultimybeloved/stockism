@@ -3,7 +3,7 @@
 // A name shows in its effect; an effect, backdrop or frame is worn by the
 // whole stand (`wear`), the way a row wears it on the leaderboard. The picker's
 // small list shows those three as a little row instead (`compact`).
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ACHIEVEMENT_MAP } from '../../../../constants/achievements';
 import { COSMETIC_MAP, COSMETIC_TYPE_LABELS } from '../../../../constants/cosmetics';
 import { CREW_MAP, SHOP_PINS } from '../../../../crews';
@@ -22,8 +22,8 @@ export interface TrophyView {
   art: ReactNode;
   /** A cosmetic the whole stand wears (effects, backdrops, frames). */
   wear?: string;
-  /** Pins on display get spotlights from the stand's bottom corners. */
-  spotlight?: boolean;
+  /** Pins on display get spotlights from the stand's bottom corners; the Crew Head's are holographic. */
+  spotlight?: boolean | 'holo';
 }
 
 interface Context {
@@ -111,7 +111,12 @@ export function trophyView(id: string, ctx: Context): TrophyView | null {
       return {
         name: 'Crew Head',
         caption: crew ? `${crew.name} · ${weeks}` : weeks,
-        art: <img src={CREW_HEAD_PIN} alt="" className="w-12 h-12" style={PIXELATED} />,
+        art: (
+          <span className="trophy-holo-pin" style={{ '--pin': `url(${CREW_HEAD_PIN})` } as CSSProperties}>
+            <img src={CREW_HEAD_PIN} alt="" className="block w-12 h-12" style={PIXELATED} />
+          </span>
+        ),
+        spotlight: 'holo',
       };
     }
   }

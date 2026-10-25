@@ -15,6 +15,7 @@ import './styles/cosmetics/backdrops.css';
 import './styles/cosmetics/swatches.css';
 import './styles/cosmetics/marks.css';
 import './styles/cosmetics/profileBackgrounds.css';
+import './styles/trophies.css';
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,

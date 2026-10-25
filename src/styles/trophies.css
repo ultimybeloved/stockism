@@ -1,0 +1,176 @@
+/* Trophy case stands (features/profile/components/public/TrophyCase.tsx).
+
+   Pins on display get two spotlights from the stand's bottom corners crossing
+   on the pin, with a soft pool of light behind it. The Crew Head trophy gets
+   the holographic set: iridescent beams that slowly shift color, a foil sheen
+   that sweeps across the pin now and then, and a few glints. The lights clip
+   to the stand on their own, so a worn effect can still rise past its edge. */
+
+.trophy-spots {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.trophy-spots .pool,
+.trophy-spots .beams,
+.trophy-spots .beam {
+  position: absolute;
+  inset: 0;
+}
+.trophy-spots .pool {
+  background: radial-gradient(ellipse 30% 22% at 50% 34%, rgb(255 236 179 / 0.2), transparent);
+}
+/* Blurred as a group: a blur on a clipped beam itself would keep hard edges. */
+.trophy-spots .beams {
+  filter: blur(3px);
+}
+.trophy-spots .l {
+  background: linear-gradient(to top right, rgb(255 236 179 / 0.2), rgb(255 236 179 / 0.03) 80%);
+  clip-path: polygon(0 100%, 6% 100%, 60% 28%, 46% 14%);
+}
+.trophy-spots .r {
+  background: linear-gradient(to top left, rgb(255 236 179 / 0.2), rgb(255 236 179 / 0.03) 80%);
+  clip-path: polygon(100% 100%, 94% 100%, 40% 28%, 54% 14%);
+}
+
+/* ---------- Holographic (Crew Head) ---------- */
+.trophy-spots.holo .pool {
+  background: radial-gradient(
+    ellipse 34% 26% at 50% 34%,
+    rgb(192 132 252 / 0.24),
+    rgb(103 232 249 / 0.1) 55%,
+    transparent
+  );
+}
+.trophy-spots.holo .beams {
+  animation: trophyHue 10s ease-in-out infinite;
+}
+.trophy-spots.holo .l {
+  background: linear-gradient(
+    to top right,
+    rgb(103 232 249 / 0.26),
+    rgb(192 132 252 / 0.16) 40%,
+    rgb(253 224 71 / 0.08) 65%,
+    transparent 85%
+  );
+}
+.trophy-spots.holo .r {
+  background: linear-gradient(
+    to top left,
+    rgb(240 171 252 / 0.26),
+    rgb(103 232 249 / 0.16) 40%,
+    rgb(253 224 71 / 0.08) 65%,
+    transparent 85%
+  );
+}
+/* Hold a color, then drift to the next. */
+@keyframes trophyHue {
+  0%,
+  40% {
+    filter: blur(3px) hue-rotate(0deg);
+  }
+  50%,
+  90% {
+    filter: blur(3px) hue-rotate(70deg);
+  }
+  100% {
+    filter: blur(3px) hue-rotate(0deg);
+  }
+}
+.trophy-spots .glint {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: #fff;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  opacity: 0;
+  animation: trophyGlint 5s ease-in-out infinite;
+}
+.trophy-spots .g1 {
+  left: 36%;
+  top: 14%;
+}
+.trophy-spots .g2 {
+  left: 61%;
+  top: 30%;
+  animation-delay: 1.8s;
+}
+.trophy-spots .g3 {
+  left: 40%;
+  top: 42%;
+  width: 5px;
+  height: 5px;
+  animation-delay: 3.4s;
+}
+@keyframes trophyGlint {
+  0%,
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  80% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+/* The pin itself: a faint rainbow foil all the time, and a bright band that
+   sweeps across it every few seconds. Both are masked to the pin's shape
+   (--pin is the pin's image). */
+.trophy-holo-pin {
+  position: relative;
+  display: inline-block;
+}
+.trophy-holo-pin::before,
+.trophy-holo-pin::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  -webkit-mask: var(--pin) center / contain no-repeat;
+  mask: var(--pin) center / contain no-repeat;
+  pointer-events: none;
+}
+.trophy-holo-pin::before {
+  background: linear-gradient(135deg, #67e8f9, #c084fc, #fde047, #4ade80, #67e8f9);
+  mix-blend-mode: overlay;
+  opacity: 0.45;
+}
+.trophy-holo-pin::after {
+  background: linear-gradient(
+      115deg,
+      transparent 35%,
+      rgb(103 232 249 / 0.8) 44%,
+      rgb(255 255 255 / 0.9) 50%,
+      rgb(240 171 252 / 0.8) 56%,
+      transparent 65%
+    )
+    0 0 / 300% 100%;
+  mix-blend-mode: screen;
+  animation: trophySheen 6s ease-in-out infinite;
+}
+@keyframes trophySheen {
+  0%,
+  65% {
+    background-position: 100% 0;
+  }
+  90%,
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* The Banknote backdrop on a stand: the foil thread runs down the right
+   third, clear of the name in the middle. */
+.trophy-stand.cos-bd-note .holo {
+  right: 22%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trophy-spots *,
+  .trophy-holo-pin::after {
+    animation: none !important;
+  }
+}

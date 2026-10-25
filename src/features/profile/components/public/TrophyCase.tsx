@@ -10,27 +10,21 @@ import type { PublicProfile } from '../../../../api/types';
 
 const { cardClass, textClass, mutedClass, borderClass } = themeClasses;
 
-// Two beams from the bottom corners crossing on the pin, and a soft pool of
-// light behind it. Clipped to the stand on their own, so a worn effect can
-// still rise past the stand's edge.
-const BEAM = (dir: string) => `linear-gradient(${dir}, rgb(255 236 179 / 0.2), rgb(255 236 179 / 0.03) 80%)`;
-const Spotlights = () => (
-  <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-sm" aria-hidden="true">
-    <span
-      className="absolute inset-0"
-      style={{ background: 'radial-gradient(ellipse 30% 22% at 50% 34%, rgb(255 236 179 / 0.2), transparent)' }}
-    />
-    {/* Blurred as a group: a blur on the clipped beam itself would keep hard edges. */}
-    <div className="absolute inset-0" style={{ filter: 'blur(3px)' }}>
-      <span
-        className="absolute inset-0"
-        style={{ background: BEAM('to top right'), clipPath: 'polygon(0 100%, 6% 100%, 60% 28%, 46% 14%)' }}
-      />
-      <span
-        className="absolute inset-0"
-        style={{ background: BEAM('to top left'), clipPath: 'polygon(100% 100%, 94% 100%, 40% 28%, 54% 14%)' }}
-      />
+// Spotlights on a pin on display (styles/trophies.css); the Crew Head gets the holographic set.
+const Spotlights = ({ holo }: { holo: boolean }) => (
+  <div className={`trophy-spots ${holo ? 'holo' : ''}`} aria-hidden="true">
+    <i className="pool" />
+    <div className="beams">
+      <i className="beam l" />
+      <i className="beam r" />
     </div>
+    {holo && (
+      <>
+        <i className="glint g1" />
+        <i className="glint g2" />
+        <i className="glint g3" />
+      </>
+    )}
   </div>
 );
 
@@ -41,7 +35,7 @@ export const TrophyStand = ({ view, seedKey }: { view: TrophyView; seedKey: stri
   const s = c ? getCosmeticStyles({ [c.type]: c.id }, null, { seedKey }) : null;
   return (
     <div
-      className={`relative flex flex-col items-center justify-end text-center gap-2 px-2 pt-4 pb-3 min-h-[132px] rounded-sm border ${
+      className={`trophy-stand relative flex flex-col items-center justify-end text-center gap-2 px-2 pt-4 pb-3 min-h-[132px] rounded-sm border ${
         s
           ? `${cardClass} ${s.rowClass}`
           : `${borderClass} light:bg-gradient-to-b light:from-amber-50 light:to-white dark:bg-gradient-to-b dark:from-zinc-800 dark:to-zinc-900`
@@ -50,7 +44,7 @@ export const TrophyStand = ({ view, seedKey }: { view: TrophyView; seedKey: stri
       style={s ? { ...s.rowStyle, ...(s.glowColor ? { boxShadow: `0 0 20px ${s.glowColor}55` } : {}) } : undefined}
     >
       {s && <CosmeticLayers {...s.layers} seedKey={seedKey} />}
-      {view.spotlight && <Spotlights />}
+      {view.spotlight && <Spotlights holo={view.spotlight === 'holo'} />}
       {view.art && <div className="relative h-14 w-full flex items-center justify-center">{view.art}</div>}
       {view.art && <div className="relative w-10 h-1 rounded-full light:bg-amber-200 dark:bg-zinc-700" />}
       <div className={`relative min-w-0 w-full ${view.art ? '' : 'my-auto'}`}>

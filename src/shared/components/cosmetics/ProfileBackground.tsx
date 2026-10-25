@@ -195,18 +195,18 @@ const Banknote = ({ seedKey }: { seedKey: string }) => {
       <i className="frame" style={{ left: 'calc(100cqw - var(--gut) / 2)' }} />
       <i className="thread" />
       <i className="ros gl" />
-      <i className="seal gr" style={{ left: 'calc(100cqw - var(--gut) * 0.62)' }} />
+      <i className="seal gr" />
       <i className="holo" />
       <span className="denom" style={{ left: 'calc(var(--gut) * 0.16)', top: '10%' }}>
         100
       </span>
-      <span className="denom" style={{ right: 'calc(var(--gut) * 0.38)', bottom: '10%' }}>
+      <span className="denom" style={{ right: 'calc(var(--gut) * 0.2)', bottom: '10%' }}>
         100
       </span>
       <span className="serial" style={{ left: 'calc(var(--gut) * 0.18)', bottom: '11%' }}>
         {serial}
       </span>
-      <span className="serial up" style={{ right: 'calc(var(--gut) * 0.36)', top: '11%' }}>
+      <span className="serial" style={{ right: 'calc(var(--gut) * 0.2)', top: '11%' }}>
         {serial}
       </span>
       <span className="micro" style={{ left: 'calc(var(--gut) * 0.09)', top: '2.5%' }}>
