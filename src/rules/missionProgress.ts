@@ -127,9 +127,9 @@ export interface MissionProgress {
   target: number;
   /** Why a full bar can't be claimed yet. */
   note?: string;
-  /** Stocks that would count if bought right now, biggest move first. */
-  picks?: { ticker: string; change: number }[];
-  /** What the picks' change is measured from. */
+  /** Stocks that would count if bought right now. `change` is the move from `picksFrom`. */
+  picks?: { ticker: string; change?: number; price?: number }[];
+  /** What the picks' change is measured from. Absent when the picks show a price instead. */
   picksFrom?: string;
 }
 
@@ -150,9 +150,11 @@ const picksNow = (
     .map((c) => ({ ticker: c.ticker, change: (ctx.prices[c.ticker]! / base[c.ticker]! - 1) * 100 }))
     .sort((x, y) => Math.abs(y.change) - Math.abs(x.change));
 
-/** A flag mission, plus the stocks that would finish it if it isn't done yet. */
-const flagWithPicks = (done: boolean, picks: () => MissionProgress['picks'], picksFrom: string): MissionProgress =>
-  done ? flag(true) : { ...flag(false), picks: picks(), picksFrom };
+/** Stocks that pass `pass` at today's price, shown with that price, highest first. */
+const pricedNow = (ctx: MissionContext, pass: (c: (typeof CHARACTERS)[number], price: number) => boolean) =>
+  CHARACTERS.filter((c) => !c.ipoRequired && (ctx.prices[c.ticker] || 0) > 0 && pass(c, ctx.prices[c.ticker]!))
+    .map((c) => ({ ticker: c.ticker, price: ctx.prices[c.ticker]! }))
+    .sort((x, y) => y.price - x.price);
 
 const CREW_ROSTERS: Record<string, string[]> = Object.fromEntries(Object.values(CREWS).map((c) => [c.id, c.members]));
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_ROSTERS).flat());
@@ -166,14 +168,45 @@ export const playerMinTrade = (p: MissionPlayer) => missionMinTrade(playerNetWor
 const flag = (done: boolean): MissionProgress => ({ complete: done, progress: done ? 1 : 0, target: 1 });
 const count = (n: number, target: number): MissionProgress => ({ complete: n >= target, progress: n, target });
 
-/** Tickers bought today, big enough to count, and still held. */
-export const keptBuys = (buys: Record<string, DailyBuy> | undefined, ctx: MissionContext) => {
+type KeptBuy = { ticker: string; low: number; high: number };
+const asKept = ([t, b]: [string, DailyBuy]): KeptBuy => ({ ticker: t, low: b.low ?? Infinity, high: b.high ?? 0 });
+
+/** Why one of today's buys doesn't count, or undefined if it does. */
+const buyDropped = ([t, b]: [string, DailyBuy], ctx: MissionContext) => {
   const min = playerMinTrade(ctx.player);
-  const holdings = ctx.player.holdings || {};
-  return Object.entries(buys || {})
-    .filter(([t, b]) => (b.value || 0) >= min && (holdings[t] || 0) >= (b.shares || 0) - 1e-6)
-    .map(([t, b]) => ({ ticker: t, low: b.low ?? Infinity, high: b.high ?? 0 }));
+  if ((b.value || 0) < min) return `Your ${t} buy ($${Math.floor(b.value || 0)}) is under the $${min} minimum.`;
+  if ((ctx.player.holdings?.[t] || 0) < (b.shares || 0) - 1e-6)
+    return `You sold some of today's ${t} shares, so it no longer counts.`;
+  return undefined;
 };
+
+/** Tickers bought today, big enough to count, and still held. */
+export const keptBuys = (buys: Record<string, DailyBuy> | undefined, ctx: MissionContext) =>
+  Object.entries(buys || {})
+    .filter((e) => !buyDropped(e, ctx))
+    .map(asKept);
+
+/**
+ * A "buy X and keep it" mission. Until it's done: why a buy that fit didn't
+ * count, otherwise `more` (a standing note, or what would count if bought now).
+ */
+const buyFlag = (
+  buys: Record<string, DailyBuy> | undefined,
+  ctx: MissionContext,
+  fits: (b: KeptBuy) => boolean,
+  more: () => Pick<MissionProgress, 'note' | 'picks' | 'picksFrom'> = () => ({}),
+): MissionProgress => {
+  const fitting = Object.entries(buys || {}).filter((e) => fits(asKept(e)));
+  const why = fitting.map((e) => buyDropped(e, ctx));
+  if (why.some((w) => !w)) return flag(true);
+  const extra = more();
+  return { ...flag(false), ...extra, note: why[0] ?? extra.note };
+};
+
+/** A counting mission's note: what has counted, then why a buy didn't. */
+const countedNote = (counted: string[], dropped?: string) =>
+  [counted.length ? `Counted so far: ${counted.join(', ')}.` : '', dropped ?? ''].filter(Boolean).join(' ') ||
+  undefined;
 
 /** Stocks bought this week, still held, and worth at least the minimum trade now. */
 const weekBuysStillHeld = (ctx: MissionContext) => {
@@ -221,22 +254,47 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
   const kept = () => keptBuys(dp.buys, ctx);
   switch (mission.checkType) {
     case 'BUY_CREW':
-      return flag(!!crew && kept().some((b) => roster.includes(b.ticker)));
+      return crew ? buyFlag(dp.buys, ctx, (b) => roster.includes(b.ticker)) : flag(false);
     case 'BUY_RIVAL':
-      return flag(!!crew && kept().some((b) => ALL_CREW_TICKERS.has(b.ticker) && !roster.includes(b.ticker)));
+      return crew
+        ? buyFlag(
+            dp.buys,
+            ctx,
+            (b) => ALL_CREW_TICKERS.has(b.ticker) && !roster.includes(b.ticker),
+            () => ({ note: "Any stock in another crew counts. Stocks with no crew don't." }),
+          )
+        : flag(false);
     case 'BUY_UNDERDOG':
-      return flag(kept().some((b) => b.low < UNDERDOG_PRICE_THRESHOLD));
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => b.low < UNDERDOG_PRICE_THRESHOLD,
+        () => ({ picks: pricedNow(ctx, (_, p) => p < UNDERDOG_PRICE_THRESHOLD) }),
+      );
     case 'BUY_BARGAIN': {
       const open = weekMovePrices(ctx);
       const drop = 1 - BARGAIN_DROP_PCT / 100;
-      return flagWithPicks(
-        kept().some((b) => (open[b.ticker] || 0) > 0 && b.low <= open[b.ticker]! * drop),
-        () => picksNow(open, ctx, (p, b) => p <= b * drop),
-        HALT_LOCK_LABEL,
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => (open[b.ticker] || 0) > 0 && b.low <= open[b.ticker]! * drop,
+        () => ({ picks: picksNow(open, ctx, (p, b) => p <= b * drop), picksFrom: HALT_LOCK_LABEL }),
       );
     }
-    case 'BUY_SPREAD':
-      return count(kept().length, mission.requirement ?? 3);
+    case 'BUY_SPREAD': {
+      const done = count(kept().length, mission.requirement ?? 3);
+      if (done.complete) return done;
+      const dropped = Object.entries(dp.buys || {})
+        .map((e) => buyDropped(e, ctx))
+        .find(Boolean);
+      return {
+        ...done,
+        note: countedNote(
+          kept().map((b) => b.ticker),
+          dropped,
+        ),
+      };
+    }
     case 'SELL_HELD':
       return { complete: (dp.heldSoldValue || 0) >= min, progress: Math.floor(dp.heldSoldValue || 0), target: min };
     case 'SELL_LOSS':
@@ -261,27 +319,40 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
         target: min,
       };
     case 'BUY_ETF':
-      return flag(kept().some((b) => !!CHARACTER_MAP[b.ticker]?.isETF));
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => !!CHARACTER_MAP[b.ticker]?.isETF,
+        () => ({ picks: pricedNow(ctx, (c) => !!c.isETF) }),
+      );
     case 'BUY_DIP': {
       const close = ctx.dayClosePrices || {};
-      return flagWithPicks(
-        kept().some((b) => (close[b.ticker] || 0) > 0 && b.low < close[b.ticker]!),
-        () => picksNow(close, ctx, (p, b) => p < b),
-        "yesterday's 21:00 UTC close",
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => (close[b.ticker] || 0) > 0 && b.low < close[b.ticker]!,
+        () => ({ picks: picksNow(close, ctx, (p, b) => p < b), picksFrom: "yesterday's 21:00 UTC close" }),
       );
     }
     case 'BUY_MOMENTUM': {
       const open = weekMovePrices(ctx);
       const rise = 1 + (mission.requirement ?? 5) / 100;
-      return flagWithPicks(
-        kept().some((b) => (open[b.ticker] || 0) > 0 && b.high >= open[b.ticker]! * rise),
-        () => picksNow(open, ctx, (p, b) => p >= b * rise),
-        HALT_LOCK_LABEL,
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => (open[b.ticker] || 0) > 0 && b.high >= open[b.ticker]! * rise,
+        () => ({ picks: picksNow(open, ctx, (p, b) => p >= b * rise), picksFrom: HALT_LOCK_LABEL }),
       );
     }
     case 'BUY_BLUE_CHIP': {
       const tiers = computeRarityTiers(CHARACTERS, ctx.prices);
-      return flag(kept().some((b) => BLUE_CHIP_TIERS.has(tiers[b.ticker] || '')));
+      const blue = (t: string) => BLUE_CHIP_TIERS.has(tiers[t] || '');
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => blue(b.ticker),
+        () => ({ picks: pricedNow(ctx, (c) => blue(c.ticker)) }),
+      );
     }
     default:
       return flag(false);
@@ -321,11 +392,15 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
             min,
       );
       const open = ctx.now >= buyHoldClaimOpensMs(ctx.now);
+      const buyWindowOpen = ctx.now < start + BUY_HOLD_WINDOW_MS;
+      const waiting = buyWindowOpen
+        ? `Buy $${min}+ of any stock by Saturday 23:59 UTC and keep it until Wednesday`
+        : "The buy window closed at the end of Saturday. Next week's opens Thursday.";
       return {
         complete: held && open,
         progress: held ? 1 : 0,
         target: 1,
-        note: held && !open ? 'Claim opens Wednesday' : undefined,
+        note: held ? (open ? undefined : 'Claim opens Wednesday 00:00 UTC') : waiting,
       };
     }
     case 'WEEKLY_DIVERSIFIED': {
@@ -335,7 +410,11 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
         complete: positions >= target && !tooBig,
         progress: Math.min(positions, target),
         target,
-        note: tooBig ? `Your biggest stock is ${Math.round(biggestPct)}% of your stock value` : undefined,
+        note: tooBig
+          ? `Your biggest stock is ${Math.round(biggestPct)}% of your stock value`
+          : positions < target
+            ? `Only stocks you hold $${playerMinTrade(ctx.player)}+ of count`
+            : undefined,
       };
     }
     case 'WEEKLY_CREW_PERCENT': {
@@ -345,7 +424,12 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
     }
     case 'WEEKLY_PORTFOLIO_GROWTH': {
       const g = earnedGrowthPct(wp, ctx.player);
-      return { complete: g >= target, progress: Number.isFinite(g) ? Math.max(0, Math.floor(g)) : 0, target };
+      return {
+        complete: g >= target,
+        progress: Number.isFinite(g) ? Math.max(0, Math.floor(g)) : 0,
+        target,
+        note: g >= target ? undefined : "Free money (check-ins, rewards, drops) and borrowing don't count as growth",
+      };
     }
     case 'WEEKLY_BEAT_MARKET': {
       // Losing less than the market isn't a win: the portfolio has to be up too.
@@ -355,8 +439,11 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       const done = g > 0 && g > m;
       return { ...flag(done), note: done ? undefined : `You're ${pct(g)} and the market is ${pct(m)}` };
     }
-    case 'WEEKLY_BUY_SPREAD':
-      return count(weekBuysStillHeld(ctx).length, target);
+    case 'WEEKLY_BUY_SPREAD': {
+      const counted = weekBuysStillHeld(ctx);
+      const done = count(counted.length, target);
+      return done.complete ? done : { ...done, note: countedNote(counted) };
+    }
     case 'WEEKLY_DAILY_CLAIMS':
       return count(wp.dailyClaims || 0, target);
     case 'WEEKLY_PREDICTION': {
@@ -376,7 +463,7 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       if (done.complete) return done;
       return {
         ...done,
-        note: dips.length ? `Counted so far: ${dips.join(', ')}.` : undefined,
+        note: countedNote(dips),
         picks: picksNow(open, ctx, (p, b) => p <= b * drop, dips),
         picksFrom: HALT_LOCK_LABEL,
       };

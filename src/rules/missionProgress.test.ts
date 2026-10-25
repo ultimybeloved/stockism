@@ -112,6 +112,35 @@ describe('daily missions', () => {
     expect(dailyMissionProgress(m, dp, ctxOf({ holdings: { A: 10, B: 10 } }, {})).progress).toBe(2);
   });
 
+  it('says why a buy that fit did not count', () => {
+    const small = { buys: { [MINE]: { shares: 0.1, value: 5, low: 50 } } };
+    const player = { crew: crew.id, holdings: { [MINE]: 1 } };
+    expect(dailyMissionProgress(crewSupport, small, ctxOf(player, prices)).note).toBe(
+      `Your ${MINE} buy ($5) is under the $100 minimum.`,
+    );
+    const sold = { buys: { [MINE]: { shares: 4, value: 200, low: 50 } } };
+    expect(dailyMissionProgress(crewSupport, sold, ctxOf({ ...player, holdings: { [MINE]: 3 } }, prices)).note).toBe(
+      `You sold some of today's ${MINE} shares, so it no longer counts.`,
+    );
+    const spread = dailyMissionProgress(
+      DAILY_MISSIONS.SPREAD_OUT!,
+      { buys: { A: { shares: 10, value: 150 }, B: { shares: 1, value: 20 } } },
+      ctxOf({ holdings: { A: 10, B: 1 } }, {}),
+    );
+    expect(spread.note).toBe('Counted so far: A. Your B buy ($20) is under the $100 minimum.');
+  });
+
+  it('lists stocks that would count now for Underdog, Basket Buyer and Blue Chip', () => {
+    const cheap = CHARACTERS.find((c) => !c.ipoRequired && !c.isETF)!.ticker;
+    const etf = CHARACTERS.find((c) => !c.ipoRequired && c.isETF)!.ticker;
+    const ctx = ctxOf({ holdings: {} }, { [cheap]: 12, [etf]: 40 });
+    const under = dailyMissionProgress(DAILY_MISSIONS.UNDERDOG_INVESTOR!, {}, ctx);
+    expect(under.picks).toEqual([{ ticker: cheap, price: 12 }]);
+    expect(under.picksFrom).toBeUndefined();
+    expect(dailyMissionProgress(DAILY_MISSIONS.BASKET_BUYER!, {}, ctx).picks?.map((p) => p.ticker)).toEqual([etf]);
+    expect(dailyMissionProgress(DAILY_MISSIONS.BLUE_CHIP!, {}, ctx).picks).toBeDefined();
+  });
+
   it('sells count on value sold out of day-old shares', () => {
     const ctx = ctxOf({ holdings: {} }, {});
     expect(dailyMissionProgress(DAILY_MISSIONS.PROFIT_TAKER!, { heldSoldValue: 150 }, ctx).complete).toBe(true);
@@ -208,6 +237,8 @@ describe('weekly missions', () => {
     const boughtMon = { shares: 10, availableAt: REOPEN + 4 * DAY + DIVIDEND_HOLD_MS };
     const late = { holdings: { A: 10 }, holdingCohorts: { A: { eligible: 0, pending: [boughtMon] } } };
     expect(weeklyMissionProgress(m, {}, ctxOf(late, { A: 20 }, wed)).complete).toBe(false);
+    expect(weeklyMissionProgress(m, {}, ctxOf({ holdings: {} }, {}, REOPEN + DAY)).note).toMatch(/by Saturday/);
+    expect(weeklyMissionProgress(m, {}, ctxOf(late, { A: 20 }, wed)).note).toMatch(/window closed/);
   });
 
   it('Buy and Hold: a daily drop is not a buy', () => {
@@ -234,7 +265,9 @@ describe('weekly missions', () => {
     const p = { A: 20, B: 20, C: 20, D: 20, E: 20 };
     expect(weeklyMissionProgress(m, {}, ctxOf({ holdings: even }, p)).complete).toBe(true);
     expect(weeklyMissionProgress(m, {}, ctxOf({ holdings: { ...even, A: 100 } }, p)).complete).toBe(false);
-    expect(weeklyMissionProgress(m, {}, ctxOf({ holdings: { ...even, E: 0.1 } }, p)).complete).toBe(false);
+    const small = weeklyMissionProgress(m, {}, ctxOf({ holdings: { ...even, E: 0.1 } }, p));
+    expect(small.complete).toBe(false);
+    expect(small.note).toBe('Only stocks you hold $100+ of count');
   });
 
   it('growth takes free money and margin out', () => {

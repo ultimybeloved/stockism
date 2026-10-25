@@ -79,8 +79,8 @@ export default function MissionCard({
         <div className="mt-2">
           <p className={`text-xs ${mutedClass}`}>
             {mission.picks.length
-              ? `Counts if you buy now${minTrade ? ` ($${Math.round(minTrade).toLocaleString('en-US')}+, and keep it)` : ''}, vs ${mission.picksFrom}:`
-              : `No stock qualifies right now, vs ${mission.picksFrom}. Check back later.`}
+              ? `Counts if you buy now${minTrade ? ` ($${Math.round(minTrade).toLocaleString('en-US')}+, and keep it)` : ''}${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}:`
+              : `No stock qualifies right now${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}. Check back later.`}
           </p>
           {mission.picks.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
@@ -91,10 +91,14 @@ export default function MissionCard({
                   className={`text-xs px-1.5 py-0.5 rounded-sm border ${borderClass} ${textClass} hover:border-orange-500`}
                 >
                   ${p.ticker}{' '}
-                  <span className={p.change < 0 ? 'text-red-500' : 'text-green-500'}>
-                    {p.change > 0 ? '+' : ''}
-                    {p.change.toFixed(1)}%
-                  </span>
+                  {p.change !== undefined ? (
+                    <span className={p.change < 0 ? 'text-red-500' : 'text-green-500'}>
+                      {p.change > 0 ? '+' : ''}
+                      {p.change.toFixed(1)}%
+                    </span>
+                  ) : (
+                    p.price !== undefined && <span className={mutedClass}>{formatCurrency(p.price)}</span>
+                  )}
                 </Link>
               ))}
               {mission.picks.length > MAX_PICKS && (
