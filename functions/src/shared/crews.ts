@@ -117,7 +117,7 @@ export const CREWS: Record<string, Crew> = {
   },
   KITAE_UNION: {
     id: 'KITAE_UNION',
-    name: 'Kitae Kim Union',
+    name: "Kitae Kim's Union",
     color: '#7a1b2e',
     emblem: '🪓',
     icon: '/crews/kitae union.png',

@@ -51,7 +51,7 @@ Stocks can also be **split** (for example 3-for-1): the price divides, every hol
 
 ### Crews
 
-There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel, White Tiger Job Center, Workers, Kitae Kim Union, and Yamazaki Syndicate.
+There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel, White Tiger Job Center, Workers, Kitae Kim's Union, and Yamazaki Syndicate.
 
 - Joining is free. Switching costs 5% of your portfolio and locks you out of the crew you left for 30 days.
 - **Underdog bonus.** Crews with fewer active players earn a reward multiplier of up to 2x on all mission and rivalry payouts, recalculated every Thursday reopen from last week's activity.

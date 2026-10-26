@@ -256,7 +256,7 @@ const CharacterCard = ({
             <p className={`text-lg font-semibold tabular-nums ${textClass}`}>{formatCurrency(price)}</p>
           </div>
           <div className="flex justify-between items-baseline gap-2">
-            <p className={`text-xs truncate ${mutedClass}`}>{character.name}</p>
+            <p className={`text-xs min-w-0 ${isETF ? '' : 'truncate'} ${mutedClass}`}>{character.name}</p>
             <p className={`shrink-0 text-xs font-mono ${changeColor}`}>
               {isUp ? '▲' : '▼'} {formatChange(chartChange)}
             </p>

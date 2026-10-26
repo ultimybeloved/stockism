@@ -627,12 +627,12 @@ export const CHARACTERS: Character[] = [
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
-    name: 'Allied Fund',
+    name: 'Allied',
     ticker: 'ALLY',
+    altNames: ['Allied ETF', 'Allied Fund'],
     basePrice: 78,
     dateAdded: '2026-02-20T00:00:00',
     isETF: true,
-    description: 'Allied ETF',
     constituents: ['BDNL', 'LDNL', 'VSCO', 'ZACK', 'JAY', 'VIN', 'AHN'],
     trailingFactors: [
       { ticker: 'BDNL', coefficient: 0.114 },
@@ -645,12 +645,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'Big Deal Fund',
+    name: 'Big Deal',
     ticker: 'DEAL',
+    altNames: ['Big Deal ETF', 'Big Deal Fund'],
     basePrice: 46,
     dateAdded: '2026-02-20T00:01:00',
     isETF: true,
-    description: 'Big Deal ETF',
     constituents: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
     trailingFactors: [
       { ticker: 'JAKE', coefficient: 0.114 },
@@ -663,12 +663,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'Fist Gang Fund',
+    name: "Gapryong Kim's Fist Gang",
     ticker: 'FIST',
+    altNames: ['Fist Gang ETF', "Gapryong Kim's Fist Gang ETF", 'Fist Gang Fund'],
     basePrice: 100.5,
     dateAdded: '2026-02-20T00:02:00',
     isETF: true,
-    description: 'Fist Gang ETF',
     constituents: [
       'GAP',
       'ELIT',
@@ -713,12 +713,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'Secret Friends Fund',
+    name: "Goo's Secret Friends",
     ticker: 'SCRT',
+    altNames: ["Goo Kim's Secret Friends", "Goo's Secret Friends ETF", 'Secret Friends ETF', 'Secret Friends Fund'],
     basePrice: 50,
     dateAdded: '2026-02-20T00:03:00',
     isETF: true,
-    description: 'Secret Friends ETF',
     constituents: ['GOO', 'LOGN', 'SAM', 'ALEX', 'SHMN'],
     trailingFactors: [
       { ticker: 'GOO', coefficient: 0.16 },
@@ -729,12 +729,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'Hostel Fund',
+    name: 'Hostel',
     ticker: 'HSTL',
+    altNames: ['Hostel ETF', 'Hostel Fund'],
     basePrice: 34.2,
     dateAdded: '2026-02-20T00:04:00',
     isETF: true,
-    description: 'Hostel ETF',
     constituents: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
     trailingFactors: [
       { ticker: 'ELI', coefficient: 0.114 },
@@ -747,12 +747,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'WTJC Fund',
+    name: 'White Tiger Job Center',
     ticker: 'WTJC',
+    altNames: ['White Tiger Job Center ETF', 'WTJC ETF', 'Baekho HRM', 'Baekho Human Resource Management', 'WTJC Fund'],
     basePrice: 47.5,
     dateAdded: '2026-02-20T00:05:00',
     isETF: true,
-    description: 'WTJC ETF',
     constituents: ['TOM', 'SRMK', 'SGUI', 'YCHL', 'SERA', 'MMA', 'LIAR', 'NOH'],
     trailingFactors: [
       { ticker: 'TOM', coefficient: 0.1 },
@@ -766,12 +766,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'Workers Fund',
+    name: 'Workers',
     ticker: 'VVIP',
+    altNames: ['Workers ETF', 'Workers Fund'],
     basePrice: 94.1,
     dateAdded: '2026-02-20T00:06:00',
     isETF: true,
-    description: 'Workers ETF',
     constituents: [
       'WRKR',
       'BANG',
@@ -814,12 +814,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'Yamazaki Fund',
+    name: 'Yamazaki Syndicate',
     ticker: 'YAMA',
+    altNames: ['Yamazaki Syndicate ETF', 'Yamazaki ETF', 'Yamazaki Fund'],
     basePrice: 84,
     dateAdded: '2026-02-20T00:07:00',
     isETF: true,
-    description: 'Yamazaki ETF',
     constituents: [
       'GUN',
       'SHNG',
@@ -866,12 +866,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'J High School ETF',
+    name: 'J High School',
     ticker: 'JWON',
+    altNames: ['J High School ETF', 'J High ETF'],
     basePrice: 117.2,
     dateAdded: '2026-02-20T00:08:00',
     isETF: true,
-    description: 'J High School ETF',
     constituents: [
       'BDNL',
       'LDNL',
@@ -914,12 +914,12 @@ export const CHARACTERS: Character[] = [
     ],
   },
   {
-    name: 'Kitae Kim Union',
+    name: "Kitae Kim's Union",
     ticker: 'SHDW',
+    altNames: ["Kitae Kim's Union ETF", 'Kitae Kim Union'],
     basePrice: 155,
     dateAdded: '2026-02-20T00:09:00',
     isETF: true,
-    description: 'Kitae Kim Union ETF',
     constituents: [
       'KTAE',
       'DG',
@@ -967,12 +967,12 @@ export const CHARACTERS: Character[] = [
   },
   { name: 'James Gong', ticker: 'JGNG', basePrice: 12.5, dateAdded: '2026-05-25T00:00:00', generation: '2nd' },
   {
-    name: 'Jake Kim Alliance ETF',
+    name: "Jake Kim's Union",
     ticker: 'JKAL',
+    altNames: ["Jake Kim's Union ETF", 'Jake Kim Alliance'],
     basePrice: 137.4,
     dateAdded: '2026-02-20T00:10:00',
     isETF: true,
-    description: 'Jake Kim Alliance ETF',
     constituents: [
       'JAKE',
       'LINE',
