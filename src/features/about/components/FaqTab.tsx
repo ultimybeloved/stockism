@@ -171,7 +171,7 @@ const FaqTab = () => {
       <div>
         <h3 className="font-semibold text-orange-500 mb-1">What can I buy in the shop?</h3>
         <p className={`text-sm ${mutedClass}`}>
-          Open Customization to style your name on the leaderboard: name colors, effects, backdrops, frames and pins,
+          Open Customization to style your name on the leaderboard: name colors, effects, backdrops, frames, and pins,
           from $5,000 up. They&apos;re paid with your game cash, so they lower your net worth. One item is 25% off each
           week, bundles are cheaper than buying the pieces, and you can buy any item as a gift for another player.
         </p>

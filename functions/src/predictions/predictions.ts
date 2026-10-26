@@ -105,7 +105,7 @@ export const placeBet = cf().https.onCall(async (data, context) => {
     if (amount > betLimit) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Bet exceeds limit. Max: $${Math.max(0, betLimit).toFixed(2)}. Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks.`,
+        `Bet exceeds limit. Max: $${Math.max(0, betLimit).toFixed(2)}. Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks.`,
       );
     }
 

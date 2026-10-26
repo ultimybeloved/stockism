@@ -85,7 +85,7 @@ function assertOk<T>(res: DiscordResponse, what: string): T {
   if (res.status === 403) {
     throw new functions.https.HttpsError(
       'permission-denied',
-      `Discord refused: ${detail}. The bot is usually missing View Channel, Send Messages or Embed Links in that channel.`,
+      `Discord refused: ${detail}. The bot is usually missing View Channel, Send Messages, or Embed Links in that channel.`,
     );
   }
   if (res.status === 404) {

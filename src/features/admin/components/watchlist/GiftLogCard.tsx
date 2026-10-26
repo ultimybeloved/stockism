@@ -53,7 +53,7 @@ const GiftLogCard = ({ textClass, mutedClass, inputClass }: GiftLogCardProps) =>
             Gift Log
           </h3>
           <p className={`text-xs ${mutedClass}`}>
-            Who gifted what to whom. A flag means the two accounts share a connection (signup, trades or gifts), were
+            Who gifted what to whom. A flag means the two accounts share a connection (signup, trades, or gifts), were
             paired by the alt scan, are linked on the watchlist, or the receiver is under a week old.
           </p>
         </div>

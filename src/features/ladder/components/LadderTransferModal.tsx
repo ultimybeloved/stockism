@@ -177,10 +177,10 @@ const LadderTransferModal = ({
                 ? 'Invest in stocks first. The ladder game is capped at what you have invested.'
                 : ladderFull
                   ? capIsInvested
-                    ? `You are at your limit. The ladder, weekly bets and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
+                    ? `You are at your limit. The ladder, weekly bets, and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
                     : `Your deposits are maxed out at the $${rampedMax.toLocaleString()} cap.`
                   : capIsInvested
-                    ? `You can add up to $${fmt(maxDeposit)} more. The ladder, weekly bets and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
+                    ? `You can add up to $${fmt(maxDeposit)} more. The ladder, weekly bets, and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
                     : `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at $${rampedMax.toLocaleString()}.`}
             </p>
             {isRamping && !noInvestment && (

@@ -33,7 +33,7 @@ const RecoverySplitStock = ({
       </h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         N-for-1: the price is divided by N and every holder gets N times the shares, so nobody&apos;s money changes.
-        Shorts, open orders, alerts, dividend lots, chart history and the index all move with it.
+        Shorts, open orders, alerts, dividend lots, chart history, and the index all move with it.
       </p>
 
       <div className="p-2.5 rounded-sm mb-3 text-xs light:bg-amber-50 light:border light:border-amber-300 light:text-amber-900 dark:bg-amber-900/30 dark:border dark:border-amber-700 dark:text-amber-200">

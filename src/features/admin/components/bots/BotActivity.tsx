@@ -173,7 +173,7 @@ const BotActivity = () => {
         <Panel title="How it works">
           <div className={`text-xs ${t.muted} space-y-2 whitespace-normal`}>
             <p>Every 15 minutes the bots nudge a handful of stocks. Busier markets get more nudges.</p>
-            <p>Each stock follows a storyline for a few days: quiet, climbing, sliding, choppy or a big day.</p>
+            <p>Each stock follows a storyline for a few days: quiet, climbing, sliding, choppy, or a big day.</p>
             <p>Stocks nobody has traded for 14 days slide slowly toward their floor, with flat days and bounces.</p>
             <p>A stock you set the price of stays busy within 1.5% of your price for 7 days.</p>
             <p>

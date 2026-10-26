@@ -148,7 +148,7 @@ const RecoveryRenameTicker = ({
       </h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
         Rewrites the ticker everywhere the game computes on it: prices, history, holdings, loyalty lots, open orders,
-        alerts and the index. Records that are only history keep the old name and resolve through an alias. Always dry
+        alerts, and the index. Records that are only history keep the old name and resolve through an alias. Always dry
         run first.
       </p>
 

@@ -156,7 +156,7 @@ const SeasonCard = () => {
           {topTierExcluded && (
             <p className="text-xs text-red-400 mt-1">
               You can&apos;t place Platinum or Diamond this season because your trades were repeatedly flagged as
-              coordinated with other players. Bronze, Silver and Gold still count.
+              coordinated with other players. Bronze, Silver, and Gold still count.
             </p>
           )}
 

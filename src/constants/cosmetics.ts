@@ -397,7 +397,7 @@ export const COSMETICS: Cosmetic[] = [
     price: 100000,
     rarity: 'legendary',
     effectClass: 'cos-frame cos-frame-glitch',
-    description: 'An unstable border that flickers, splits and cracks apart.',
+    description: 'An unstable border that flickers, splits, and cracks apart.',
   },
   {
     id: 'frame_comet',
@@ -671,7 +671,7 @@ export const COSMETICS: Cosmetic[] = [
     price: 50000,
     rarity: 'rare',
     effectClass: 'cos-name-sunset',
-    description: 'Pink, orange and violet, like the evening sky.',
+    description: 'Pink, orange, and violet, like the evening sky.',
   },
   {
     id: 'name_ocean',
@@ -831,7 +831,7 @@ export const COSMETICS: Cosmetic[] = [
     price: 100000,
     rarity: 'legendary',
     effectClass: 'cos-bd-note',
-    description: 'Engraved money linework, a foil strip and your own serial number.',
+    description: 'Engraved money linework, a foil strip, and your own serial number.',
   },
   {
     id: 'backdrop_terminal',
@@ -901,7 +901,7 @@ export const COSMETICS: Cosmetic[] = [
     price: 30000,
     rarity: 'rare',
     effectClass: 'cos-bd-graf',
-    description: 'Spray paint, tags and drips on brick.',
+    description: 'Spray paint, tags, and drips on brick.',
   },
   {
     id: 'backdrop_stars',

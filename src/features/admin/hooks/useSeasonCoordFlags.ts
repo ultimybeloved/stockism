@@ -33,7 +33,7 @@ export function useSeasonCoordFlags(active: boolean) {
     if (
       !confirm(
         excluded
-          ? `Keep ${player.name} out of Platinum and Diamond this season?\n\nThey still score and can still earn Bronze, Silver and Gold. Their place goes to the next player in their division.`
+          ? `Keep ${player.name} out of Platinum and Diamond this season?\n\nThey still score and can still earn Bronze, Silver, and Gold. Their place goes to the next player in their division.`
           : `Let ${player.name} compete for Platinum and Diamond again this season?`,
       )
     )

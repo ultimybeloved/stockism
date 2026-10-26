@@ -69,7 +69,7 @@ export const WATCHED_SCHEDULED_JOBS = [
   {
     job: 'weeklyCrewRankings',
     maxAgeHours: 8 * 24,
-    label: 'Crew rankings, multipliers and crew heads',
+    label: 'Crew rankings, multipliers, and crew heads',
     watchedSince: ADDED_2026_09_28,
   },
   { job: 'weeklyLeaderboard', maxAgeHours: 8 * 24, label: 'Weekly leaderboard post', watchedSince: ADDED_2026_09_28 },

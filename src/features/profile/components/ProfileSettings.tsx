@@ -55,7 +55,7 @@ const ProfileSettings = ({ userData, user }: { userData: UserData; user: User })
         <div className="flex items-center justify-between">
           <div>
             <p className={`text-sm font-semibold ${textClass}`}>Sound Effects</p>
-            <p className={`text-xs ${mutedClass}`}>Sounds for trades, rewards and alerts on this device</p>
+            <p className={`text-xs ${mutedClass}`}>Sounds for trades, rewards, and alerts on this device</p>
           </div>
           <button
             role="switch"

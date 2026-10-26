@@ -119,7 +119,7 @@ const walkMarked =
 export const PHASES: { name: string; label: string; run: (args: PhaseArgs) => Promise<WalkResult> }[] = [
   {
     name: 'market',
-    label: 'Price, records and chart history',
+    label: 'Price, records, and chart history',
     run: async ({ ticker: t, n, splitId }) => {
       const m = db.collection('market');
       let done = 0;
@@ -196,7 +196,7 @@ export const PHASES: { name: string; label: string; run: (args: PhaseArgs) => Pr
   },
   {
     name: 'users',
-    label: 'Player holdings, shorts and lots',
+    label: 'Player holdings, shorts, and lots',
     run: ({ ticker, n, splitId, cursor, budget }) =>
       walkQuery(
         () => db.collection('users'),

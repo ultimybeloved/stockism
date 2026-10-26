@@ -26,8 +26,8 @@ const SeasonCoordFlags = ({
       </div>
       <p className={`text-xs ${mutedClass} mb-2`}>
         Everyone named in a coordinated-pressure alert since the season started. {SEASON_REPEAT_COORD_FLAGS}+ flags is
-        marked as a repeat. Excluded players keep Bronze, Silver and Gold but can&apos;t place Platinum or Diamond. Only
-        they see it, on their own season card.
+        marked as a repeat. Excluded players keep Bronze, Silver, and Gold but can&apos;t place Platinum or Diamond.
+        Only they see it, on their own season card.
       </p>
 
       {error && (

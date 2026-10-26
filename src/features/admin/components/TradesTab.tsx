@@ -51,7 +51,7 @@ const TradesTab = ({
         <p className={`text-sm ${mutedClass}`}>
           <AdminIcon name="trade" />
           Every trade across all users: manual trades, limit and stop-loss fills, pre-market auction fills, IPO buys,
-          forced margin closes and bot trades. Filter by time period, trade type, or ticker.
+          forced margin closes, and bot trades. Filter by time period, trade type, or ticker.
         </p>
       </div>
 

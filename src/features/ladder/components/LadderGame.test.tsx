@@ -180,7 +180,7 @@ describe('LadderGame', () => {
     // invested = 10 shares * $50 basis = $500; cap = min(10000, 500) - 100 balance = 400
     expect(
       screen.getByText(
-        /You can add up to \$400\.00 more\. The ladder, weekly bets and long-term markets share one limit: your \$500\.00 invested\./,
+        /You can add up to \$400\.00 more\. The ladder, weekly bets, and long-term markets share one limit: your \$500\.00 invested\./,
       ),
     ).toBeInTheDocument();
 

@@ -93,7 +93,7 @@ export const PROFILE_COSMETICS: Cosmetic[] = [
     color: '#E7E5E4',
     price: 35000,
     effectClass: 'mk-receipt',
-    description: 'A receipt strip with your shares, average cost and gain. On a short, your entry price.',
+    description: 'A receipt strip with your shares, average cost, and gain. On a short, your entry price.',
   },
   {
     id: 'mark_diamond',
@@ -164,6 +164,6 @@ export const PROFILE_COSMETICS: Cosmetic[] = [
     type: 'profileBg',
     color: '#134E3A',
     price: 100000,
-    description: 'Engraving, a rosette, a foil strip and your own serial number.',
+    description: 'Engraving, a rosette, a foil strip, and your own serial number.',
   },
 ];

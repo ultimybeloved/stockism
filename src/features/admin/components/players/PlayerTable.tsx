@@ -101,7 +101,7 @@ const PlayerTable = ({ allUsers, loadedAt, loading, handleLoadAllUsers, showMess
         <input
           aria-label="Search players"
           className={`${t.input} w-80`}
-          placeholder="Search name, ID or Discord"
+          placeholder="Search name, ID, or Discord"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

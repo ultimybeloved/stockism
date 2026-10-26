@@ -120,7 +120,7 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
     if (cost > room) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`,
+        `Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`,
       );
     }
 

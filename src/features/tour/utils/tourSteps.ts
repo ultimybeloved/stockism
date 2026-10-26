@@ -72,7 +72,7 @@ export const TOUR_STEPS: TourStep[] = [
     icon: 'book',
     title: 'Find a stock',
     body: () =>
-      'Switch between characters, ETFs and your watchlist. An ETF holds a whole crew in one stock. Filters and sorting help you find what you want.',
+      'Switch between characters, ETFs, and your watchlist. An ETF holds a whole crew in one stock. Filters and sorting help you find what you want.',
   },
   {
     id: 'chart',
@@ -152,7 +152,7 @@ export const TOUR_STEPS: TourStep[] = [
     target: 'account',
     icon: 'profile',
     title: 'Your account',
-    body: () => 'Your profile, achievements and crew are in this menu. You can replay this tour from here any time.',
+    body: () => 'Your profile, achievements, and crew are in this menu. You can replay this tour from here any time.',
   },
   {
     id: 'done',

@@ -15,7 +15,7 @@ const label = `text-[11px] uppercase tracking-wider ${mutedClass}`;
 export const PrivateNote = () => (
   <section className={`${cardClass} border rounded-sm p-4 flex items-center gap-3`}>
     <PixelIcon name="lock" className="w-6 h-6 shrink-0" />
-    <p className={`text-sm ${mutedClass}`}>Holdings, the chart and trading stats are private.</p>
+    <p className={`text-sm ${mutedClass}`}>Holdings, the chart, and trading stats are private.</p>
   </section>
 );
 

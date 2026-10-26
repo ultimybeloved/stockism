@@ -130,8 +130,8 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError(
           'failed-precondition',
           room <= 0
-            ? `You're at your limit. Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). Invest more to deposit more.`
-            : `You can only deposit $${room.toFixed(2)} more. Bets, long-term markets and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`,
+            ? `You're at your limit. Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). Invest more to deposit more.`
+            : `You can only deposit $${room.toFixed(2)} more. Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`,
         );
       }
 

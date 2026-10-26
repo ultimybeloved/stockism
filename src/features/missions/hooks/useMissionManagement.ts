@@ -11,6 +11,20 @@ import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';
 import type { ActionHookDeps } from '../../../shared/hooks/types';
 
+/**
+ * What a failed claim tells the player. The server's reason is shown as is
+ * (a Discord link needed, every mission already claimed), except two:
+ * "Mission not assigned" means this page is showing an out-of-date list,
+ * usually an old copy of the site that a refresh fixes.
+ */
+const claimErrorText = (err: unknown) => {
+  const msg = errorMessage(err);
+  if (callableErrorCode(err) !== 'failed-precondition') return msg || 'Failed to claim reward';
+  if (msg.includes('not assigned')) return 'Your mission list is out of date. Refresh the page and try again.';
+  if (msg.includes('not completed')) return 'Mission not completed yet. Progress can take a moment to update.';
+  return msg || 'Failed to claim reward';
+};
+
 export function useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handleClaimMissionReward = useCallback(
     async (missionId: string, reward: number) => {
@@ -49,14 +63,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         }
       } catch (err) {
         reportUnexpected(err, { where: 'handleClaimMissionReward', missionId, reward });
-        // Codes arrive prefixed ('functions/failed-precondition'), so comparing
-        // against the bare name here silently never matched and players got the
-        // raw backend message instead of this one.
-        if (callableErrorCode(err) === 'failed-precondition') {
-          showNotification('error', 'Mission not completed yet - progress may need to update');
-        } else {
-          showNotification('error', errorMessage(err) || 'Failed to claim reward');
-        }
+        showNotification('error', claimErrorText(err));
       } finally {
         setLoadingKey('claimMission', false);
       }
@@ -129,11 +136,7 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         }
       } catch (err) {
         reportUnexpected(err, { where: 'handleClaimWeeklyMissionReward', missionId, reward });
-        if (callableErrorCode(err) === 'failed-precondition') {
-          showNotification('error', 'Mission not completed yet - progress may need to update');
-        } else {
-          showNotification('error', errorMessage(err) || 'Failed to claim reward');
-        }
+        showNotification('error', claimErrorText(err));
       } finally {
         setLoadingKey('claimWeeklyMission', false);
       }

@@ -149,7 +149,7 @@ const AdminHistoryCard = ({ textClass, mutedClass, inputClass }: AdminHistoryCar
               aria-label="Search history"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search player, action or ticker"
+              placeholder="Search player, action, or ticker"
               className={`flex-1 min-w-[10rem] px-2 py-1.5 text-sm rounded-sm border ${inputClass}`}
             />
             <span className={`text-xs ${mutedClass}`}>
