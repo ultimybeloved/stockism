@@ -55,8 +55,8 @@ export default function StockHeader({
             <span className="text-orange-500 font-mono text-lg md:text-xl font-bold">${ticker}</span>
             {character.isETF && <span className="text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded">ETF</span>}
             {badge && (
-              <span className="text-sm" title={STATUS_MAP[statusOf(character)]?.hint}>
-                <PixelIcon name={badge} className="w-4 h-4" />
+              <span className="flex shrink-0" title={STATUS_MAP[statusOf(character)]?.hint}>
+                <PixelIcon name={badge} className="w-5 h-5" />
               </span>
             )}
             {crews.map((crew) => (

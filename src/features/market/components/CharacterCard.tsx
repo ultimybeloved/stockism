@@ -248,8 +248,8 @@ const CharacterCard = ({
               <p className="text-orange-500 font-mono text-[15px] font-semibold">${character.ticker}</p>
               {isETF && <span className="text-[10px] bg-purple-600 text-white px-1 rounded">ETF</span>}
               {!isETF && statusBadge(character) && (
-                <span title={STATUS_MAP[statusOf(character)]?.hint}>
-                  <PixelIcon name={statusBadge(character)} className="w-3.5 h-3.5" />
+                <span className="flex shrink-0" title={STATUS_MAP[statusOf(character)]?.hint}>
+                  <PixelIcon name={statusBadge(character)} className="w-4 h-4" />
                 </span>
               )}
             </div>
