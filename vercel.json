@@ -11,7 +11,7 @@
       "destination": "https://us-central1-stockism-abb28.cloudfunctions.net/publicSnapshot/:path*"
     },
     {
-      "source": "/((?!snapshot|sitemap\\.xml|robots\\.txt|privacy\\.html|terms\\.html).*)",
+      "source": "/((?!snapshot|sitemap\\.xml|robots\\.txt|privacy\\.html|terms\\.html|version\\.json).*)",
       "destination": "/index.html"
     }
   ],

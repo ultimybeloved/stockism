@@ -24,10 +24,23 @@ const commitSha = (() => {
   }
 })();
 
+const appVersion = `${pkg.version}+${commitSha}`;
+
+// Writes dist/version.json, which open tabs poll to notice a newer deploy
+// (src/app/UpdateBanner.tsx). A tab left open on an old copy of the site can
+// disagree with the server, e.g. show missions the player wasn't given.
+const versionFile = () => ({
+  name: 'version-file',
+  apply: 'build',
+  generateBundle() {
+    this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ version: appVersion }) });
+  },
+});
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), versionFile()],
   define: {
-    __APP_VERSION__: JSON.stringify(`${pkg.version}+${commitSha}`),
+    __APP_VERSION__: JSON.stringify(appVersion),
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
   resolve: {

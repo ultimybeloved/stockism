@@ -6,6 +6,7 @@ import BackgroundTasks from './app/BackgroundTasks';
 import DiscordWallModal from './features/account/components/DiscordWallModal';
 import Layout from './shared/components/layout/Layout';
 import InAppBrowserBanner from './app/InAppBrowserBanner';
+import UpdateBanner from './app/UpdateBanner';
 import { LoadingScreen, MarketUnavailableScreen } from './app/StatusScreens';
 import { useModalManager } from './shared/hooks/useModalManager';
 import { useAuthUser } from './features/account/hooks/useAuthUser';
@@ -207,6 +208,7 @@ export default function App() {
             onToggleNotifications={() => setShowNotificationPanel((prev) => !prev)}
             onShowCrews={() => setShowCrewSelection(true)}
           >
+            <UpdateBanner />
             <InAppBrowserBanner />
             <AppRoutes
               home={{
