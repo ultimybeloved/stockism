@@ -3,7 +3,9 @@
 // `crests` is the site's crew-head mark (public/pins/crests); `discord` icons
 // were drawn for the bot (public/pins/discord,
 // scripts/pixel-discord.cjs). Crew emojis are NOT here: crews keep their
-// full-quality art.
+// full-quality art. `flair:` entries are the flair crew crests
+// (public/pins/crests/flair), used in announcements rather than swapped for
+// a standard emoji.
 module.exports = {
   '🎁': ['discord', 'gift'],
   '📈': ['ui', 'trade'],
@@ -50,4 +52,17 @@ module.exports = {
   '⭐': ['discord', 'star'],
   '⚡': ['discord', 'bolt'],
   '⚔️': ['discord', 'swords'],
+  'flair:burn_knuckles': ['crests/flair', 'burn_knuckles'],
+  'flair:ansan_public': ['crests/flair', 'ansan_public'],
+  'flair:cheonliang': ['crests/flair', 'cheonliang'],
+  'flair:j_high': ['crests/flair', 'j_high'],
+  'flair:back_door': ['crests/flair', 'back_door'],
+  'flair:gangseo_union': ['crests/flair', 'gangseo_union'],
+  'flair:cheonliang_sf': ['crests/flair', 'cheonliang_sf'],
+  'flair:hostel_a': ['crests/flair', 'hostel_a'],
+  'flair:runaway_fam': ['crests/flair', 'runaway_fam'],
+  'flair:liberation_training_corps': ['crests/flair', 'liberation_training_corps'],
+  'flair:the_beggars': ['crests/flair', 'the_beggars'],
+  'flair:black_workers': ['crests/flair', 'black_workers'],
+  'flair:the_cartel': ['crests/flair', 'the_cartel'],
 };
