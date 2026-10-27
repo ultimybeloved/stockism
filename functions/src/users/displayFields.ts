@@ -3,6 +3,7 @@
 // INTERNAL MODULE, used by the leaderboard and the public profile.
 import type { DocumentData } from 'firebase-admin/firestore';
 import { BULLBEAR_FRAME_ID, cleanCosmeticStyle, frameTrend } from '../shared/rules/cosmetics';
+import { flairOf } from '../shared/rules/flairCrews';
 
 // Players write displayedShopPins / displayedAchievementPins / activeCosmetics
 // directly from the client (they're on the user-doc rules allowlist), so
@@ -49,6 +50,8 @@ export const sanitizeDisplayFields = (userData: DocumentData) => {
     activeCosmetics,
     cosmeticStyle,
     title,
+    // Client-written too; only a flair crew from the player's current crew survives.
+    flairCrew: flairOf(userData)?.id ?? null,
     // Only wearers of the Bull / Bear frame get a direction, so the board
     // doesn't publish everyone's day.
     frameTrend:

@@ -729,6 +729,8 @@ export interface PublicProfile {
   title: import('../types').SeasonTitle | null;
   /** Bull / Bear frame direction; null unless that frame is worn. */
   frameTrend?: 'up' | 'down' | null;
+  /** Flair crew id, checked against `crew` by the server. */
+  flairCrew?: string | null;
   portfolioValue: number;
   holdingsCount: number;
   rank: number | null;

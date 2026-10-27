@@ -5,11 +5,18 @@ import type { UserData } from '../../types';
 import AchievementIcon from './AchievementIcon';
 import CrewPin from './CrewPin';
 import { crewPinSrc, CREW_HEAD_PIN, PIXELATED, pixelatedIfSvg } from '../../constants/crests';
+import { flairOf } from '../../rules/flairCrews';
 
 /** The fields pins are drawn from. A full user doc or a public profile both fit. */
 type PinSource = Pick<
   UserData,
-  'crew' | 'isCrewHead' | 'achievements' | 'displayedAchievementPins' | 'displayedShopPins' | 'ownedShopPins'
+  | 'crew'
+  | 'flairCrew'
+  | 'isCrewHead'
+  | 'achievements'
+  | 'displayedAchievementPins'
+  | 'displayedShopPins'
+  | 'ownedShopPins'
 > & { displayCrewPin?: boolean | null };
 
 const PinDisplay = ({
@@ -40,9 +47,15 @@ const PinDisplay = ({
       }
       const shouldShowCrewPin = userData.isCrewHead || userData.displayCrewPin !== false;
       if (shouldShowCrewPin) {
+        const flair = flairOf(userData);
+        const label = flair ? `${flair.name} (${crew.name})` : crew.name;
         pins.push(
-          <span key="crew" title={crew.name} className={`inline-flex items-center ${sizeClass}`}>
-            {crewPinSrc(crew) ? <CrewPin crew={crew} alt={crew.name} className={imgSize} /> : crew.emblem}
+          <span key="crew" title={label} className={`inline-flex items-center ${sizeClass}`}>
+            {flair || crewPinSrc(crew) ? (
+              <CrewPin crew={crew} flair={flair} alt={label} className={imgSize} />
+            ) : (
+              crew.emblem
+            )}
           </span>,
         );
       }

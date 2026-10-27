@@ -25,12 +25,12 @@ export interface GiftTarget {
 }
 
 export type PinAction =
-  'buyPin' | 'setShopPins' | 'setAchievementPins' | 'toggleCrewPin' | 'buySlot' | 'buyStreakSaver';
+  'buyPin' | 'setShopPins' | 'setAchievementPins' | 'toggleCrewPin' | 'setFlairCrew' | 'buySlot' | 'buyStreakSaver';
 
 export function usePinShop({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handlePinAction = useCallback(
-    // payload is a pin id (buyPin), a pin list (set*Pins), a flag (toggleCrewPin), a slot type (buySlot)
-    // or a streak saver plan (buyStreakSaver).
+    // payload is a pin id (buyPin), a pin list (set*Pins), a flag (toggleCrewPin), a flair crew id
+    // or null (setFlairCrew), a slot type (buySlot) or a streak saver plan (buyStreakSaver).
     async (action: PinAction, payload: unknown, cost?: number) => {
       if (!user || !userData) return;
       if (action === 'buyPin' || action === 'buySlot' || action === 'buyStreakSaver') setLoadingKey('pinAction', true);
@@ -61,6 +61,8 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
           if (!userData.isCrewHead) {
             await updateDoc(userRef, { displayCrewPin: payload });
           }
+        } else if (action === 'setFlairCrew') {
+          await updateDoc(userRef, { flairCrew: payload ?? null });
         } else if (action === 'buySlot') {
           await purchasePinFunction({ action: 'buySlot', slotType: payload as string });
           // Mirror the backend's field: it sets the extraShopSlot /

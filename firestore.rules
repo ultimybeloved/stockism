@@ -76,7 +76,17 @@ service cloud.firestore {
     // own doc. If you add a new preference the client writes directly, add its
     // top-level key here too.
     function validateSafeUserUpdate() {
-      return safeUserKeysOnly() && titleIsOwned() && watchlistsBounded();
+      return safeUserKeysOnly() && titleIsOwned() && watchlistsBounded() && flairCrewShaped();
+    }
+
+    // Flair crew: cleared, or a short id. Readers (rules/flairCrews flairOf)
+    // only honor one from the player's current crew, so the rules just keep
+    // junk out.
+    function flairCrewShaped() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['flairCrew'])
+        || request.resource.data.flairCrew == null
+        || (request.resource.data.flairCrew is string
+            && request.resource.data.flairCrew.matches('^[A-Z_]{1,40}$'));
     }
 
     // Named watchlists: a list of at most 10, so the user doc can't be stuffed.
@@ -112,6 +122,7 @@ service cloud.firestore {
         'displayedShopPins',         // pin display order (usePinShop)
         'displayedAchievementPins',  // pin display order (usePinShop)
         'displayCrewPin',            // crew pin display toggle (usePinShop)
+        'flairCrew',                 // flair crew pick (usePinShop); shape-checked below
         'activeCosmetics',           // equipped cosmetics (usePinShop)
         'cosmeticStyle',             // Split Flap / Bull / Bear / backdrop tint choices (usePinShop);
                                      // the server only publishes known values

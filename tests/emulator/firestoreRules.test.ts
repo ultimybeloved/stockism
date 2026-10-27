@@ -135,6 +135,8 @@ async function main() {
   await check('equip a title never earned', 'blocked', { activeTitle: 'season_9_diamond' });
   await check('equip a junk title string', 'blocked', { activeTitle: 'Actual Site Admin' });
   await check('grant self a title', 'blocked', { ownedTitles: ['season_9_diamond'] });
+  await check('stuff a junk flair crew', 'blocked', { flairCrew: 'x'.repeat(500) });
+  await check('flair crew that is not a string', 'blocked', { flairCrew: { id: 'BURN_KNUCKLES' } });
   await check('write own title label', 'blocked', { 'titleMeta.season_1_gold': 'Site Owner' });
 
   await check('stuff the user doc with watchlists', 'blocked', {
@@ -163,6 +165,8 @@ async function main() {
   await check('set shop pin order', 'allowed', { displayedShopPins: ['a', 'b'] });
   await check('set achievement pin order', 'allowed', { displayedAchievementPins: ['x'] });
   await check('toggle crew pin', 'allowed', { displayCrewPin: true });
+  await check('pick a flair crew', 'allowed', { flairCrew: 'BURN_KNUCKLES' });
+  await check('clear the flair crew', 'allowed', { flairCrew: null });
   await check('equip a cosmetic', 'allowed', { 'activeCosmetics.banner': 'gold' });
   await check('set a cosmetic style choice', 'allowed', { 'cosmeticStyle.flap': 'scramble' });
   await check('equip a title actually earned', 'allowed', { activeTitle: 'season_1_gold' });

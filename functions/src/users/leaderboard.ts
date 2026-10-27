@@ -43,6 +43,7 @@ const LEADERBOARD_FIELDS = [
   'crewHeadColor',
   'holdings',
   'displayCrewPin',
+  'flairCrew',
   'displayedAchievementPins',
   'achievements',
   'displayedShopPins',

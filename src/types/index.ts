@@ -202,6 +202,8 @@ export interface UserData {
   displayedAchievementPins?: unknown;
   displayedShopPins?: unknown;
   displayCrewPin?: boolean;
+  /** Flair crew id (rules/flairCrews); only counts while it belongs to `crew`. */
+  flairCrew?: string | null;
   predictionWins?: number;
   portfolioValue?: number;
   /** Reference points for the 24h / 7d / 30d change. */
@@ -351,6 +353,8 @@ export interface LeaderRow {
   title?: SeasonTitle;
   /** Bull / Bear frame direction, set by the server only when that frame is worn. */
   frameTrend?: 'up' | 'down' | null;
+  /** Flair crew id, checked against `crew` by the server. */
+  flairCrew?: string | null;
   /** Net-worth boards: places moved up since about a day ago (negative = down),
    * null if new to the board, absent until the server has a day of history. */
   rankChange?: number | null;

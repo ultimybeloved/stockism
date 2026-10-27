@@ -1,20 +1,20 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { COSMETICS, COSMETIC_TYPE_LABELS, COSMETIC_TYPES, type CosmeticType } from '../../../../constants/cosmetics';
-import { SHOP_PINS, CREW_MAP } from '../../../../crews';
+import { SHOP_PINS } from '../../../../crews';
 import { ACHIEVEMENT_MAP } from '../../../../constants/achievements';
 import { getMaxAchievementSlots, getMaxShopSlots, toggleDisplayedPin } from '../../../../utils/pinSlots';
 import { themeClasses } from '../../../../utils/theme';
 import { useSession } from '../../../../context/AppContext';
 import type { PinAction } from '../../hooks/usePinShop';
 import AchievementIcon from '../../../../shared/components/AchievementIcon';
-import CrewPin from '../../../../shared/components/CrewPin';
-import { crewPinSrc, pixelatedIfSvg } from '../../../../constants/crests';
+import { pixelatedIfSvg } from '../../../../constants/crests';
 import { COSMETIC_MAP } from '../../../../constants/cosmetics';
 import { SPLIT_FLAP_ID } from '../../../../constants/cosmeticLayers';
 import { BULLBEAR_FRAME_ID, type CosmeticStyle, type CosmeticStyleKey } from '../../../../rules/cosmetics';
 import StyleSwitch from '../../../../shared/components/SegmentedSwitch';
 import CosmeticSwatch from './CosmeticSwatch';
+import CrewPinSection from './CrewPinSection';
 import { ColorPick, PhoneWarning, ResetColor } from './ProfileShopShelf';
 import { DEFAULT_TICKER_COLORS, STANDARD_MARK_ID } from '../../../../constants/cosmeticsProfile';
 
@@ -301,36 +301,7 @@ const MyLookTab = ({ onPinAction, onEquipCosmetic, onSetCosmeticStyle, onClose }
         </div>
       )}
 
-      {/* Crew pin */}
-      {userData?.crew &&
-        (() => {
-          const crew = CREW_MAP[userData.crew];
-          // displayCrewPin defaults to undefined (= shown), so toggle off the
-          // EFFECTIVE displayed state, not the raw value. Crew heads always
-          // display their pin — the backend ignores their toggles, so show the
-          // pin as locked instead of a button that silently does nothing.
-          const crewPinDisplayed = userData.displayCrewPin !== false;
-          const isCrewHead = !!userData.isCrewHead;
-          return (
-            <div>
-              <h3 className={`font-semibold ${textClass} mb-2`}>Crew Pin</h3>
-              <button
-                onClick={() => !isCrewHead && onPinAction('toggleCrewPin', !crewPinDisplayed, 0)}
-                disabled={isCrewHead}
-                className={`${chipClass(crewPinDisplayed)} ${isCrewHead ? 'cursor-default' : ''} inline-flex items-center`}
-              >
-                {crew && crewPinSrc(crew) ? (
-                  <CrewPin crew={crew} className="w-5 h-5 mr-1" />
-                ) : (
-                  <span className="mr-1">{crew?.emblem}</span>
-                )}
-                <span className={`text-sm ${textClass}`}>{crew?.name}</span>
-                {crewPinDisplayed && <span className="text-xs text-orange-500 ml-2">✓</span>}
-              </button>
-              {isCrewHead && <p className={`text-xs ${mutedClass} mt-1`}>Crew heads always show their crew pin.</p>}
-            </div>
-          );
-        })()}
+      <CrewPinSection onPinAction={onPinAction} chipClass={chipClass} />
     </div>
   );
 };
