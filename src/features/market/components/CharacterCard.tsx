@@ -4,7 +4,7 @@ import { formatCurrency, formatChange } from '../../../utils/formatters';
 import CharacterMeta from './CharacterMeta';
 import ReviewChangeBadge from './ReviewChangeBadge';
 import { themeClasses, getRarityStagger } from '../../../utils/theme';
-import { rarityClassFor } from '../../../utils/rarity';
+import { rarityClassFor, RARITY_TAG } from '../../../utils/rarity';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import ShortRiskTag from '../../trading/components/ShortRiskTag';
@@ -280,6 +280,11 @@ const CharacterCard = ({
         <div className="relative z-[1] mt-auto">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-2">
             <span className={`text-[10px] ${getSentimentColor()} font-semibold uppercase`}>{sentiment}</span>
+            {rarityTier && RARITY_TAG[rarityTier] && (
+              <span className={`text-[10px] font-semibold uppercase ${RARITY_TAG[rarityTier].className}`}>
+                {RARITY_TAG[rarityTier].label}
+              </span>
+            )}
             {pos && (pos.kind === 'long' || mark.cosmetic.effectClass !== 'mk-standard') && (
               <HoldingLabel mark={mark} pos={pos} className="text-[11px]" />
             )}

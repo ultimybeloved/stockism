@@ -3,14 +3,7 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { ANIMAL_TICKERS, TRADE_RECORD_ACTIONS } from './constants';
-import {
-  missionWeekId,
-  missionMinTrade,
-  sharesHeldAtLeast,
-  auctionWeekId,
-  inOpeningDay,
-  MISSION_HELD_SELL_MS,
-} from './rules/missions';
+import { missionWeekId, missionTradeCounts, auctionWeekId, inOpeningDay } from './rules/missions';
 import type { DailyProgress, WeeklyProgress } from './rules/missionProgress';
 import { stampMs } from './impact';
 import { round2 } from './money';
@@ -32,9 +25,9 @@ export const getWeekId = (now: Date | number = Date.now()) => missionWeekId(now)
 // `marketPrice` is the pre-impact market price, `executionPrice` what the user
 // actually paid/received per share. `userData` is the doc BEFORE this fill.
 //
-// Only raw facts are written here (what was bought, for how much, what was sold
-// out of shares held a day or more). Whether they still count is judged at claim
-// time by rules/missionProgress, which needs the shares to still be held.
+// Only raw facts are written here (what was bought or sold, how many shares,
+// for how much). Whether they count is judged at claim time by
+// rules/missionProgress.
 export const buildTradeCreditUpdates = ({
   userData,
   ticker,
@@ -64,12 +57,15 @@ export const buildTradeCreditUpdates = ({
   const auctionWeek = `weeklyMissions.${auctionWeekId(now)}`;
   // Opening Bell: the auction, or any fill in the first day after the reopen.
   const openingBell = viaAuction || inOpeningDay(now);
-  const minTrade = missionMinTrade((userData.portfolioValue || 0) - (userData.marginUsed || 0));
   const updates: Record<string, unknown> = {
     totalTrades: FieldValue.increment(1),
     [`${week}.tradeCount`]: FieldValue.increment(1),
   };
   let animalProfitTotal: number | null = null;
+  // Trading Streak: a day counts once any trade counts (1 share or $50).
+  const markTradingDay = (tradeShares: number, value: number) => {
+    if (missionTradeCounts(tradeShares, value)) updates[`${week}.tradingDays.${todayDate}`] = true;
+  };
 
   if (action === 'buy') {
     const prev = (userData.dailyMissions as Record<string, DailyProgress> | undefined)?.[todayDate]?.buys?.[ticker];
@@ -81,11 +77,13 @@ export const buildTradeCreditUpdates = ({
     updates[`${day}.buys.${ticker}.low`] = round2(Math.min(prev?.low ?? marketPrice, marketPrice));
     updates[`${day}.buys.${ticker}.high`] = round2(Math.max(prev?.high ?? marketPrice, marketPrice));
     updates[`${week}.buys.${ticker}.low`] = round2(Math.min(prevWeekLow ?? marketPrice, marketPrice));
+    updates[`${week}.buys.${ticker}.shares`] = FieldValue.increment(shares);
+    updates[`${week}.buys.${ticker}.value`] = FieldValue.increment(totalValue);
     if (openingBell) {
       updates[`${auctionWeek}.auctionBuys.${ticker}.shares`] = FieldValue.increment(shares);
       updates[`${auctionWeek}.auctionBuys.${ticker}.value`] = FieldValue.increment(totalValue);
     }
-    if (totalValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
+    markTradingDay(shares, totalValue);
 
     // Lowest price while holding (for Diamond Hands achievement)
     const currentHoldings = userData.holdings?.[ticker] || 0;
@@ -96,18 +94,20 @@ export const buildTradeCreditUpdates = ({
   }
 
   if (action === 'sell') {
-    // Shares leave oldest first, so the old part of this sale is whatever the
-    // position held a day or more, up to the sale size.
-    const oldShares = sharesHeldAtLeast(userData.holdingCohorts?.[ticker], userData.holdings?.[ticker] || 0, now);
-    const oldValue = round2(Math.min(shares, oldShares) * executionPrice);
-    if (oldValue > 0) {
-      updates[`${day}.heldSoldValue`] = FieldValue.increment(oldValue);
-      if (executionPrice < (userData.costBasis?.[ticker] || 0)) {
-        updates[`${day}.heldLossValue`] = FieldValue.increment(oldValue);
-      }
-      if (openingBell) updates[`${auctionWeek}.auctionSoldValue`] = FieldValue.increment(oldValue);
+    // Profit Taker / Cut Your Losses: above or below the average cost.
+    const value = round2(shares * executionPrice);
+    const cost = userData.costBasis?.[ticker] || 0;
+    const side =
+      cost > 0 && executionPrice > cost ? 'profitSold' : cost > 0 && executionPrice < cost ? 'lossSold' : null;
+    if (side) {
+      updates[`${day}.${side}.shares`] = FieldValue.increment(shares);
+      updates[`${day}.${side}.value`] = FieldValue.increment(value);
     }
-    if (oldValue >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
+    if (openingBell) {
+      updates[`${auctionWeek}.auctionSold.shares`] = FieldValue.increment(shares);
+      updates[`${auctionWeek}.auctionSold.value`] = FieldValue.increment(value);
+    }
+    markTradingDay(shares, value);
 
     // Animal Instinct: track cumulative profit from animal characters
     if (ANIMAL_TICKERS.has(ticker)) {
@@ -127,18 +127,17 @@ export const buildTradeCreditUpdates = ({
     const value = round2(shares * executionPrice);
     updates[`${day}.shorts.${ticker}.shares`] = FieldValue.increment(shares);
     updates[`${day}.shorts.${ticker}.value`] = FieldValue.increment(value);
-    if (value >= minTrade) updates[`${week}.tradingDays.${todayDate}`] = true;
+    markTradingDay(shares, value);
   }
 
-  // Covered: a profitable close of a short opened a day or more ago. Adding to
-  // a short keeps its open time, so the profit is judged on the average entry.
+  // Covered: any close of a short.
   if (action === 'cover') {
     const pos = userData.shorts?.[ticker];
-    const entry = pos?.costBasis || pos?.entryPrice || 0;
     const openedMs = stampMs(pos?.openedAt as Parameters<typeof stampMs>[0]);
-    if (openedMs > 0 && now - openedMs >= MISSION_HELD_SELL_MS && executionPrice < entry) {
-      updates[`${day}.coverProfitValue`] = FieldValue.increment(round2(shares * executionPrice));
-    }
+    const value = round2(shares * executionPrice);
+    updates[`${day}.covered.shares`] = FieldValue.increment(shares);
+    updates[`${day}.covered.value`] = FieldValue.increment(value);
+    markTradingDay(shares, value);
     // Keeps today's mission list as it was (rules/missionProgress holdsShortForMissions).
     if (openedMs > 0 && openedMs < Date.parse(todayDate)) updates[`${day}.oldShortCovered`] = true;
   }

@@ -42,12 +42,16 @@ const AccountMenu = ({ value, onShowCrews }: { value: number; onShowCrews: () =>
   };
 
   const crew = userData?.crew && CREW_MAP[userData.crew] ? userData.crew : null;
-  const items: ({ label: string; icon: string; set?: 'admin' } & ({ path: string } | { run: () => void }))[] = [
+  // phoneOnly: shown only below the md breakpoint, where the bottom bar has no room for it.
+  const items: ({ label: string; icon: string; set?: 'admin'; phoneOnly?: boolean } & (
+    { path: string } | { run: () => void }
+  ))[] = [
     ...(userData?.displayName
       ? [{ path: `/u/${userData.displayName.toLowerCase()}`, label: 'My profile', icon: 'profile' }]
       : []),
     { path: '/profile', label: 'Stats and settings', icon: 'gear', set: 'admin' },
     { path: '/achievements', label: 'Achievements', icon: 'medal' },
+    { path: '/ladder', label: 'Ladder', icon: 'ladder', phoneOnly: true },
     crew
       ? { path: `/crew/${crew}`, label: 'My Crew', icon: 'crews' }
       : { run: onShowCrews, label: 'Join a crew', icon: 'crews' },
@@ -97,7 +101,7 @@ const AccountMenu = ({ value, onShowCrews }: { value: number; onShowCrews: () =>
                   if ('path' in it) navigate(it.path);
                   else it.run();
                 }}
-                className={`${item} ${here ? 'font-semibold text-orange-500' : ''}`}
+                className={`${item} ${here ? 'font-semibold text-orange-500' : ''} ${it.phoneOnly ? 'md:hidden' : ''}`}
               >
                 <PixelIcon name={it.icon} set={it.set} className="w-5 h-5 shrink-0" />
                 <span className="flex-1">{it.label}</span>

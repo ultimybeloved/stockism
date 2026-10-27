@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CREW_SWITCH_PENALTY } from '../../../crews';
+import { CREW_SWITCH_PENALTY, hasFreeSwitch } from '../../../crews';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { Crew } from '../../../crews';
 import type { UserData } from '../../../types';
@@ -68,7 +68,11 @@ const CrewSection = ({ userCrew, crewData, userData, onOpenCrewSelection }: Crew
             onClick={onOpenCrewSelection}
             className="w-full py-2 text-sm font-semibold rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
           >
-            Switch Crew ({Math.round(CREW_SWITCH_PENALTY * 100)}% penalty)
+            Switch Crew (
+            {hasFreeSwitch(userData)
+              ? 'free into a crew with flair crews this week'
+              : `${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty`}
+            )
           </button>
         </div>
       )}

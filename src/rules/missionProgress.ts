@@ -4,14 +4,20 @@
 // functions, so the two can't disagree.
 //
 // What the trades write (functions/src/shared/tradeRecords.ts) is raw: what was
-// bought today, for how much, at what low price. Whether that still counts
-// (big enough for your net worth, shares still held) is judged here, at claim
-// time.
+// bought today, for how much, at what low price. Whether it counts (1 share or
+// $50, rules/missions missionTradeCounts) is judged here, at claim time.
+//
+// Until 2026-10-27 a trade had to be 1% of net worth and buys had to be kept.
+// Records from before then only hold the old fields (heldSoldValue,
+// coverProfitValue, auctionSoldValue), so the sell and cover checks still
+// accept those too.
 
 import { CHARACTERS, CHARACTER_MAP, computeRarityTiers, type HoldingCohort } from '../characters';
 import { CREWS, RIVALRY, type Mission } from '../crews';
+import { flairOf } from './flairCrews';
 import {
   missionMinTrade,
+  missionTradeCounts,
   sharesBoughtBetweenStillHeld,
   crewValuePercent,
   diversification,
@@ -38,8 +44,19 @@ export interface DailyBuy {
   high?: number;
 }
 
+/** Shares and value, for a trade total that counts by missionTradeCounts. */
+export interface TradeTotal {
+  shares?: number;
+  value?: number;
+}
+
 /** users/{uid}.dailyMissions[date]. */
 export interface DailyProgress {
+  /** Sold today above / below the average cost (since 2026-10-27). */
+  profitSold?: TradeTotal;
+  lossSold?: TradeTotal;
+  /** Shorts closed today, at any price (since 2026-10-27). */
+  covered?: TradeTotal;
   buys?: Record<string, DailyBuy>;
   limitBuys?: Record<string, DailyBuy>;
   /** Value sold today out of shares held a day or more. */
@@ -64,11 +81,14 @@ export interface WeeklyProgress extends GrowthWeek {
   /** UTC dates with a trade big enough to count. */
   tradingDays?: Record<string, boolean>;
   checkinDays?: Record<string, boolean>;
-  /** Lowest market price paid this week, by stock (Dip Collector). */
-  buys?: Record<string, { low?: number }>;
+  /** Bought this week, by stock: lowest market price paid (Dip Collector), and shares and value since 2026-10-27. */
+  buys?: Record<string, { low?: number; shares?: number; value?: number }>;
   /** Opening-auction fills credited to this week (rules/missions auctionWeekId). */
   auctionBuys?: Record<string, DailyBuy>;
+  /** Value sold out of day-old shares in the opening window (before 2026-10-27). */
   auctionSoldValue?: number;
+  /** Everything sold in the opening window (since 2026-10-27). */
+  auctionSold?: TradeTotal;
   /** Daily missions claimed this week. */
   dailyClaims?: number;
   /** Prediction bets placed this week, in dollars. */
@@ -86,6 +106,7 @@ export interface WeeklyProgress extends GrowthWeek {
 /** The parts of the user doc mission progress reads. */
 export interface MissionPlayer {
   crew?: string | null;
+  flairCrew?: unknown;
   holdings?: Record<string, number>;
   holdingCohorts?: Record<string, HoldingCohort>;
   portfolioValue?: number;
@@ -172,15 +193,12 @@ type KeptBuy = { ticker: string; low: number; high: number };
 const asKept = ([t, b]: [string, DailyBuy]): KeptBuy => ({ ticker: t, low: b.low ?? Infinity, high: b.high ?? 0 });
 
 /** Why one of today's buys doesn't count, or undefined if it does. */
-const buyDropped = ([t, b]: [string, DailyBuy], ctx: MissionContext) => {
-  const min = playerMinTrade(ctx.player);
-  if ((b.value || 0) < min) return `Your ${t} buy ($${Math.floor(b.value || 0)}) is under the $${min} minimum.`;
-  if ((ctx.player.holdings?.[t] || 0) < (b.shares || 0) - 1e-6)
-    return `You sold some of today's ${t} shares, so it no longer counts.`;
-  return undefined;
-};
+const buyDropped = ([t, b]: [string, DailyBuy], _ctx: MissionContext) =>
+  missionTradeCounts(b.shares, b.value)
+    ? undefined
+    : `Your ${t} buy is under 1 share and under $50, so it doesn't count.`;
 
-/** Tickers bought today, big enough to count, and still held. */
+/** Tickers bought today that count (1 share or $50). */
 export const keptBuys = (buys: Record<string, DailyBuy> | undefined, ctx: MissionContext) =>
   Object.entries(buys || {})
     .filter((e) => !buyDropped(e, ctx))
@@ -208,7 +226,7 @@ const countedNote = (counted: string[], dropped?: string) =>
   [counted.length ? `Counted so far: ${counted.join(', ')}.` : '', dropped ?? ''].filter(Boolean).join(' ') ||
   undefined;
 
-/** Stocks bought this week, still held, and worth at least the minimum trade now. */
+/** Stocks bought this week, still held, and worth at least the old minimum trade now (before 2026-10-27). */
 const weekBuysStillHeld = (ctx: MissionContext) => {
   const start = missionWeekStartMs(ctx.now);
   const min = playerMinTrade(ctx.player);
@@ -221,11 +239,20 @@ const weekBuysStillHeld = (ctx: MissionContext) => {
     .map(([t]) => t);
 };
 
-/** A Futures position still open, or one that has paid out. */
-const holdsFutures = (p: MissionPlayer, marketId: string) => {
-  const pos = p.eventPositions?.[marketId];
-  return !!pos && (!!pos.settled || Object.values(pos.shares || {}).some((s) => s > 0));
+/** Stocks bought this week that count (1 share or $50), plus older records' kept buys. */
+const weekBuys = (wp: WeeklyProgress, ctx: MissionContext) => {
+  const counted = Object.entries(wp.buys || {})
+    .filter(([, b]) => missionTradeCounts(b.shares, b.value))
+    .map(([t]) => t);
+  return [...new Set([...counted, ...weekBuysStillHeld(ctx)])];
 };
+
+/** A sell or cover total that counts, or an old record's value that met the old minimum. */
+const totalCounts = (total: TradeTotal | undefined, legacyValue: number, ctx: MissionContext) =>
+  missionTradeCounts(total?.shares, total?.value) || legacyValue >= playerMinTrade(ctx.player);
+
+const NO_FLAIR_NOTE = 'Pick a flair crew in Customize → My Look to finish this.';
+const EMPTY_FLAIR_NOTE = 'Your flair crew has no characters on the site yet. Pick another one in Customize.';
 
 const stampToMs = (v: unknown): number =>
   typeof v === 'number' ? v : ((v as { toMillis?: () => number } | null)?.toMillis?.() ?? 0);
@@ -252,6 +279,7 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
   const roster = CREW_ROSTERS[crew] || [];
   const min = playerMinTrade(ctx.player);
   const kept = () => keptBuys(dp.buys, ctx);
+  const flair = flairOf(ctx.player);
   switch (mission.checkType) {
     case 'BUY_CREW':
       return crew ? buyFlag(dp.buys, ctx, (b) => roster.includes(b.ticker)) : flag(false);
@@ -296,9 +324,9 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
       };
     }
     case 'SELL_HELD':
-      return { complete: (dp.heldSoldValue || 0) >= min, progress: Math.floor(dp.heldSoldValue || 0), target: min };
+      return flag(totalCounts(dp.profitSold, (dp.heldSoldValue || 0) - (dp.heldLossValue || 0), ctx));
     case 'SELL_LOSS':
-      return { complete: (dp.heldLossValue || 0) >= min, progress: Math.floor(dp.heldLossValue || 0), target: min };
+      return flag(totalCounts(dp.lossSold, dp.heldLossValue || 0, ctx));
     case 'LIMIT_FILL':
       return flag(keptBuys(dp.limitBuys, ctx).length > 0 || (dp.limitSoldValue || 0) >= min);
     case 'CREW_MAJORITY': {
@@ -307,17 +335,9 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
       return { complete: share >= target, progress: Math.floor(share), target };
     }
     case 'SHORT_OPEN':
-      return flag(
-        Object.entries(dp.shorts || {}).some(
-          ([t, s]) => (s.value || 0) >= min && (ctx.player.shorts?.[t]?.shares || 0) >= (s.shares || 0) - 1e-6,
-        ),
-      );
+      return flag(Object.values(dp.shorts || {}).some((s) => missionTradeCounts(s.shares, s.value)));
     case 'COVER_PROFIT':
-      return {
-        complete: (dp.coverProfitValue || 0) >= min,
-        progress: Math.floor(dp.coverProfitValue || 0),
-        target: min,
-      };
+      return flag(totalCounts(dp.covered, dp.coverProfitValue || 0, ctx));
     case 'BUY_ETF':
       return buyFlag(
         dp.buys,
@@ -335,13 +355,38 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
       );
     }
     case 'BUY_MOMENTUM': {
+      // Up today: above the last daily close. Until 2026-10-27 it was up 5%+
+      // this week, which still counts.
+      const close = ctx.dayClosePrices || {};
       const open = weekMovePrices(ctx);
       const rise = 1 + (mission.requirement ?? 5) / 100;
       return buyFlag(
         dp.buys,
         ctx,
-        (b) => (open[b.ticker] || 0) > 0 && b.high >= open[b.ticker]! * rise,
-        () => ({ picks: picksNow(open, ctx, (p, b) => p >= b * rise), picksFrom: HALT_LOCK_LABEL }),
+        (b) =>
+          ((close[b.ticker] || 0) > 0 && b.high > close[b.ticker]!) ||
+          ((open[b.ticker] || 0) > 0 && b.high >= open[b.ticker]! * rise),
+        () => ({ picks: picksNow(close, ctx, (p, b) => p > b), picksFrom: "yesterday's 21:00 UTC close" }),
+      );
+    }
+    case 'BUY_FLAIR': {
+      if (!flair) return { ...flag(false), note: NO_FLAIR_NOTE };
+      if (!flair.members.length) return { ...flag(false), note: EMPTY_FLAIR_NOTE };
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => flair.members.includes(b.ticker),
+        () => ({ picks: pricedNow(ctx, (c) => flair.members.includes(c.ticker)) }),
+      );
+    }
+    case 'BUY_CREW_ETF': {
+      const etf = CREWS[crew]?.etf;
+      if (!etf) return flag(false);
+      return buyFlag(
+        dp.buys,
+        ctx,
+        (b) => b.ticker === etf,
+        () => ({ picks: pricedNow(ctx, (c) => c.ticker === etf) }),
       );
     }
     case 'BUY_BLUE_CHIP': {
@@ -366,8 +411,8 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
   }
   switch (mission.checkType) {
     case 'WEEKLY_AUCTION': {
-      const min = playerMinTrade(ctx.player);
-      const done = keptBuys(wp.auctionBuys, ctx).length > 0 || (wp.auctionSoldValue || 0) >= min;
+      const done =
+        keptBuys(wp.auctionBuys, ctx).length > 0 || totalCounts(wp.auctionSold, wp.auctionSoldValue || 0, ctx);
       return {
         ...flag(done),
         note: done
@@ -440,23 +485,43 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       return { ...flag(done), note: done ? undefined : `You're ${pct(g)} and the market is ${pct(m)}` };
     }
     case 'WEEKLY_BUY_SPREAD': {
-      const counted = weekBuysStillHeld(ctx);
+      const counted = weekBuys(wp, ctx);
       const done = count(counted.length, target);
       return done.complete ? done : { ...done, note: countedNote(counted) };
     }
+    case 'WEEKLY_CREW_TOUR': {
+      const bought = weekBuys(wp, ctx);
+      const crews = Object.keys(CREW_ROSTERS).filter((id) => bought.some((t) => CREW_ROSTERS[id]!.includes(t)));
+      const done = count(crews.length, target);
+      return done.complete
+        ? done
+        : {
+            ...done,
+            note: countedNote(crews.map((id) => CREWS[id]?.name || id)) ?? "Stocks with no crew don't count.",
+          };
+    }
+    case 'WEEKLY_FLAIR_TOUR': {
+      const flair = flairOf(ctx.player);
+      if (!flair) return { ...count(0, target), note: NO_FLAIR_NOTE };
+      if (!flair.members.length) return { ...count(0, target), note: EMPTY_FLAIR_NOTE };
+      const need = Math.min(target, flair.members.length);
+      const counted = weekBuys(wp, ctx).filter((t) => flair.members.includes(t));
+      const done = count(counted.length, need);
+      if (done.complete) return done;
+      return {
+        ...done,
+        note: countedNote(counted),
+        picks: pricedNow(ctx, (c) => flair.members.includes(c.ticker) && !counted.includes(c.ticker)),
+      };
+    }
     case 'WEEKLY_DAILY_CLAIMS':
       return count(wp.dailyClaims || 0, target);
-    case 'WEEKLY_PREDICTION': {
-      const min = playerMinTrade(ctx.player);
-      return flag(
-        (wp.betValue || 0) >= min ||
-          Object.entries(wp.futuresBuys || {}).some(([m, v]) => v >= min && holdsFutures(ctx.player, m)),
-      );
-    }
+    case 'WEEKLY_PREDICTION':
+      return flag((wp.betValue || 0) > 0 || Object.values(wp.futuresBuys || {}).some((v) => v > 0));
     case 'WEEKLY_BUY_DIPS': {
       const open = weekMovePrices(ctx);
       const drop = 1 - DIP_COLLECTOR_DROP_PCT / 100;
-      const dips = weekBuysStillHeld(ctx).filter(
+      const dips = weekBuys(wp, ctx).filter(
         (t) => (open[t] || 0) > 0 && (wp.buys?.[t]?.low ?? Infinity) <= open[t]! * drop,
       );
       const done = count(dips.length, target);

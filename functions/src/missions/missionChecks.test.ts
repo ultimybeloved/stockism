@@ -15,7 +15,7 @@ describe('mission claim checks', () => {
   it('reads the shared rules', () => {
     const kept = { buys: { A: { shares: 4, value: 120, low: 10 } } };
     expect(isDailyMissionDone('UNDERDOG_INVESTOR', kept, ctx)).toBe(true);
-    expect(isDailyMissionDone('UNDERDOG_INVESTOR', { buys: { A: { shares: 4, value: 20, low: 10 } } }, ctx)).toBe(
+    expect(isDailyMissionDone('UNDERDOG_INVESTOR', { buys: { A: { shares: 0.5, value: 5, low: 10 } } }, ctx)).toBe(
       false,
     );
   });

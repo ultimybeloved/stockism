@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { formatCurrency } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import type { BoardMission } from '../hooks/useMissionBoard';
+import { useMarket } from '../../../context/AppContext';
+import { RARITY_TAG } from '../../../utils/rarity';
 
 // Tailwind needs whole class names, so each accent is spelled out.
 const ACCENTS = {
@@ -23,9 +25,6 @@ const ACCENTS = {
   },
 } as const;
 
-// Missions whose bar counts dollars rather than things.
-const MONEY_CHECKS = new Set(['SELL_HELD', 'SELL_LOSS', 'COVER_PROFIT']);
-
 // How many qualifying stocks to list before "+N more".
 const MAX_PICKS = 8;
 
@@ -36,19 +35,16 @@ export default function MissionCard({
   accent,
   onClaim,
   claiming,
-  minTrade,
 }: {
   mission: BoardMission;
   accent: keyof typeof ACCENTS;
   onClaim: (missionId: string, reward: number) => unknown;
   claiming?: boolean;
-  /** Smallest buy that counts, shown with the qualifying stocks. */
-  minTrade?: number;
 }) {
   const { textClass, mutedClass, borderClass } = themeClasses;
+  const { rarityTiers } = useMarket();
   const a = ACCENTS[accent];
-  const money = MONEY_CHECKS.has(mission.checkType);
-  const label = (n: number) => (money ? `$${short(n)}` : short(n));
+  const label = short;
   const pct = Math.min(100, mission.target > 0 ? (mission.progress / mission.target) * 100 : 0);
 
   return (
@@ -79,7 +75,7 @@ export default function MissionCard({
         <div className="mt-2">
           <p className={`text-xs ${mutedClass}`}>
             {mission.picks.length
-              ? `Counts if you buy now${minTrade ? ` ($${Math.round(minTrade).toLocaleString('en-US')}+, and keep it)` : ''}${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}:`
+              ? `Counts if you buy 1 share or $50 now${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}:`
               : `No stock qualifies right now${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}. Check back later.`}
           </p>
           {mission.picks.length > 0 && (
@@ -91,6 +87,11 @@ export default function MissionCard({
                   className={`text-xs px-1.5 py-0.5 rounded-sm border ${borderClass} ${textClass} hover:border-orange-500`}
                 >
                   ${p.ticker}{' '}
+                  {rarityTiers?.[p.ticker] && RARITY_TAG[rarityTiers[p.ticker]!] && (
+                    <span className={RARITY_TAG[rarityTiers[p.ticker]!]!.className}>
+                      {RARITY_TAG[rarityTiers[p.ticker]!]!.label}{' '}
+                    </span>
+                  )}
                   {p.change !== undefined ? (
                     <span className={p.change < 0 ? 'text-red-500' : 'text-green-500'}>
                       {p.change > 0 ? '+' : ''}

@@ -467,10 +467,10 @@ async function testSell() {
     JSON.stringify(u.holdingCohorts[T]),
   );
   const daily = u.dailyMissions?.[todayDate()];
-  // All 4 came out of shares held for weeks, below the $80 cost basis.
+  // All 4 sold below the $80 cost basis.
   check(
-    'sell: day-old shares sold below cost are booked for the sell missions',
-    near(daily?.heldSoldValue, round2(4 * r.executionPrice)) && near(daily?.heldLossValue, daily?.heldSoldValue),
+    'sell: shares sold below cost are booked for Cut Your Losses',
+    daily?.lossSold?.shares === 4 && near(daily?.lossSold?.value, round2(4 * r.executionPrice)) && !daily?.profitSold,
     JSON.stringify(daily),
   );
 
@@ -712,21 +712,10 @@ async function testCover() {
   );
   const today = new Date().toISOString().slice(0, 10);
   check(
-    'cover: a short opened a minute ago does not count toward Covered',
-    !u.dailyMissions?.[today]?.coverProfitValue,
+    'cover: any close counts toward Covered',
+    u.dailyMissions?.[today]?.covered?.shares === 5 &&
+      Math.abs((u.dailyMissions?.[today]?.covered?.value || 0) / (r.executionPrice * 5) - 1) < 0.01,
     JSON.stringify(u.dailyMissions?.[today]),
-  );
-  await seedMarket({ [T]: 80 });
-  await setUser('cov_old', {
-    cash: 100,
-    shorts: { [T]: { shares: 5, costBasis: 90, margin: 400, openedAt: now - 2 * DAY, system: 'v2' } },
-  });
-  const rOld = await ok({ ticker: T, action: 'cover', amount: 5 }, 'cov_old');
-  const uOld = await getUser('cov_old');
-  check(
-    'cover: a profitable cover of a day-old short counts toward Covered',
-    Math.abs((uOld.dailyMissions?.[today]?.coverProfitValue || 0) / (rOld.executionPrice * 5) - 1) < 0.01,
-    JSON.stringify(uOld.dailyMissions?.[today]),
   );
 
   // Partial cover: proportional margin return

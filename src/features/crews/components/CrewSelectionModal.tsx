@@ -17,6 +17,8 @@ import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import CrewPin from '../../../shared/components/CrewPin';
 import PixelIcon from '../../../shared/components/PixelIcon';
+import { flairCrestSrc, flairCrewsOf } from '../../../rules/flairCrews';
+import { pixelatedIfSvg } from '../../../constants/crests';
 
 interface CrewSelectionModalProps {
   onClose: () => void;
@@ -298,6 +300,21 @@ const CrewSelectionModal = ({
                         {crew.name}
                       </span>
                     </div>
+                    {flairCrewsOf(crew.id).length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 mt-2">
+                        {flairCrewsOf(crew.id).map((f) => (
+                          <span key={f.id} className={`inline-flex items-center text-xs ${mutedClass}`}>
+                            <img
+                              src={flairCrestSrc(f)}
+                              alt=""
+                              className="w-4 h-4 mr-1"
+                              style={pixelatedIfSvg(flairCrestSrc(f))}
+                            />
+                            {f.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {isFreeTarget(crew.id) && crew.id !== currentCrew && (
                       <div className="mt-2">
                         <span className="text-xs font-bold text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 rounded-sm px-2 py-0.5">

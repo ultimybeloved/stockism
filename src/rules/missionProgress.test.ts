@@ -1,6 +1,7 @@
-// Missions 2.0: the week clock, the real-trade rules, and every mission check.
+// Missions: the week clock, what counts as a trade, and every mission check.
 import { describe, it, expect } from 'vitest';
 import { CREWS, DAILY_MISSIONS, WEEKLY_MISSIONS, getDailyMissions, getWeeklyMissions, OPENING_BELL } from '../crews';
+import { FLAIR_CREWS } from './flairCrews';
 import { CHARACTERS, DIVIDEND_HOLD_MS, computeRarityTiers } from '../characters';
 import {
   missionWeekId,
@@ -9,6 +10,7 @@ import {
   auctionWeekId,
   indexMovePct,
   missionMinTrade,
+  missionTradeCounts,
   sharesHeldAtLeast,
 } from './missions';
 import {
@@ -55,8 +57,15 @@ describe('the mission week', () => {
   });
 });
 
-describe('real trades', () => {
-  it('a trade must be 1% of net worth, $50 to $500', () => {
+describe('what counts as a trade', () => {
+  it('1 whole share, or $50 worth', () => {
+    expect(missionTradeCounts(1, 5)).toBe(true);
+    expect(missionTradeCounts(0.5, 60)).toBe(true);
+    expect(missionTradeCounts(0.5, 20)).toBe(false);
+    expect(missionTradeCounts(undefined, undefined)).toBe(false);
+  });
+
+  it('the old minimum (still read by old sell records) was 1% of net worth, $50 to $500', () => {
     expect(missionMinTrade(1000)).toBe(50);
     expect(missionMinTrade(10000)).toBe(100);
     expect(missionMinTrade(1e7)).toBe(500);
@@ -75,13 +84,12 @@ describe('daily missions', () => {
   const prices = { [MINE]: 50, [THEIRS]: 10 };
   const crewSupport = DAILY_MISSIONS.BUY_CREW_MEMBER!;
 
-  it('a buy counts while the shares are kept', () => {
+  it('a buy counts even if it was sold again', () => {
     const dp = { buys: { [MINE]: { shares: 4, value: 200, low: 50 } } };
     expect(
       dailyMissionProgress(crewSupport, dp, ctxOf({ crew: crew.id, holdings: { [MINE]: 4 } }, prices)).complete,
     ).toBe(true);
-    // Bought and sold back.
-    expect(dailyMissionProgress(crewSupport, dp, ctxOf({ crew: crew.id, holdings: {} }, prices)).complete).toBe(false);
+    expect(dailyMissionProgress(crewSupport, dp, ctxOf({ crew: crew.id, holdings: {} }, prices)).complete).toBe(true);
   });
 
   it('a throwaway buy does not count', () => {
@@ -104,30 +112,25 @@ describe('daily missions', () => {
     ).toBe(false);
   });
 
-  it('Spread Out needs 3 different kept buys', () => {
+  it('Spread Out needs 3 different buys', () => {
     const buy = { shares: 10, value: 150, low: 15 };
-    const dp = { buys: { A: buy, B: buy, C: buy } };
     const m = DAILY_MISSIONS.SPREAD_OUT!;
-    expect(dailyMissionProgress(m, dp, ctxOf({ holdings: { A: 10, B: 10, C: 10 } }, {})).complete).toBe(true);
-    expect(dailyMissionProgress(m, dp, ctxOf({ holdings: { A: 10, B: 10 } }, {})).progress).toBe(2);
+    expect(dailyMissionProgress(m, { buys: { A: buy, B: buy, C: buy } }, ctxOf({}, {})).complete).toBe(true);
+    expect(dailyMissionProgress(m, { buys: { A: buy, B: buy } }, ctxOf({}, {})).progress).toBe(2);
   });
 
   it('says why a buy that fit did not count', () => {
     const small = { buys: { [MINE]: { shares: 0.1, value: 5, low: 50 } } };
     const player = { crew: crew.id, holdings: { [MINE]: 1 } };
     expect(dailyMissionProgress(crewSupport, small, ctxOf(player, prices)).note).toBe(
-      `Your ${MINE} buy ($5) is under the $100 minimum.`,
-    );
-    const sold = { buys: { [MINE]: { shares: 4, value: 200, low: 50 } } };
-    expect(dailyMissionProgress(crewSupport, sold, ctxOf({ ...player, holdings: { [MINE]: 3 } }, prices)).note).toBe(
-      `You sold some of today's ${MINE} shares, so it no longer counts.`,
+      `Your ${MINE} buy is under 1 share and under $50, so it doesn't count.`,
     );
     const spread = dailyMissionProgress(
       DAILY_MISSIONS.SPREAD_OUT!,
-      { buys: { A: { shares: 10, value: 150 }, B: { shares: 1, value: 20 } } },
-      ctxOf({ holdings: { A: 10, B: 1 } }, {}),
+      { buys: { A: { shares: 10, value: 150 }, B: { shares: 0.5, value: 20 } } },
+      ctxOf({}, {}),
     );
-    expect(spread.note).toBe('Counted so far: A. Your B buy ($20) is under the $100 minimum.');
+    expect(spread.note).toBe("Counted so far: A. Your B buy is under 1 share and under $50, so it doesn't count.");
   });
 
   it('lists stocks that would count now for Underdog, Basket Buyer and Blue Chip', () => {
@@ -141,19 +144,23 @@ describe('daily missions', () => {
     expect(dailyMissionProgress(DAILY_MISSIONS.BLUE_CHIP!, {}, ctx).picks).toBeDefined();
   });
 
-  it('sells count on value sold out of day-old shares', () => {
+  it('sells count above or below what you paid', () => {
     const ctx = ctxOf({ holdings: {} }, {});
-    expect(dailyMissionProgress(DAILY_MISSIONS.PROFIT_TAKER!, { heldSoldValue: 150 }, ctx).complete).toBe(true);
-    expect(dailyMissionProgress(DAILY_MISSIONS.PROFIT_TAKER!, { heldSoldValue: 40 }, ctx).complete).toBe(false);
-    expect(dailyMissionProgress(DAILY_MISSIONS.CUT_LOSSES!, { heldSoldValue: 150 }, ctx).complete).toBe(false);
-    expect(dailyMissionProgress(DAILY_MISSIONS.CUT_LOSSES!, { heldLossValue: 150 }, ctx).complete).toBe(true);
+    const profit = DAILY_MISSIONS.PROFIT_TAKER!;
+    const loss = DAILY_MISSIONS.CUT_LOSSES!;
+    expect(dailyMissionProgress(profit, { profitSold: { shares: 1, value: 5 } }, ctx).complete).toBe(true);
+    expect(dailyMissionProgress(profit, { profitSold: { shares: 0.2, value: 5 } }, ctx).complete).toBe(false);
+    expect(dailyMissionProgress(profit, { lossSold: { shares: 3, value: 30 } }, ctx).complete).toBe(false);
+    expect(dailyMissionProgress(loss, { lossSold: { shares: 3, value: 30 } }, ctx).complete).toBe(true);
+    // Records from before 2026-10-27.
+    expect(dailyMissionProgress(profit, { heldSoldValue: 150 }, ctx).complete).toBe(true);
+    expect(dailyMissionProgress(loss, { heldLossValue: 150 }, ctx).complete).toBe(true);
   });
 
-  it('Order Filled takes a kept limit buy or a limit sell of old shares', () => {
+  it('Order Filled takes a limit buy or a limit sell of old shares', () => {
     const m = DAILY_MISSIONS.ORDER_FILLED!;
     const kept = { limitBuys: { A: { shares: 5, value: 200 } } };
     expect(dailyMissionProgress(m, kept, ctxOf({ holdings: { A: 5 } }, {})).complete).toBe(true);
-    expect(dailyMissionProgress(m, kept, ctxOf({ holdings: {} }, {})).complete).toBe(false);
     expect(dailyMissionProgress(m, { limitSoldValue: 200 }, ctxOf({}, {})).complete).toBe(true);
   });
 
@@ -173,19 +180,19 @@ describe('daily missions', () => {
     }
   });
 
-  it('from the pool change, Crew Majority is gone and Covered goes only to short holders', () => {
-    const ids = (holdsShort: boolean) => {
+  it('from the pool change, Crew Majority is gone and Covered goes only to short holders until 2026-10-29', () => {
+    const ids = (days: string[], holdsShort: boolean) => {
       const seen = new Set<string>();
-      for (let d = 1; d <= 28; d++)
-        for (let seed = 0; seed < 20; seed++)
-          getDailyMissions(`2026-11-${String(d).padStart(2, '0')}`, crew.id, seed, holdsShort).forEach((m) =>
-            seen.add(m.id),
-          );
+      for (const day of days)
+        for (let seed = 0; seed < 200; seed++)
+          getDailyMissions(day, crew.id, seed, holdsShort).forEach((m) => seen.add(m.id));
       return seen;
     };
-    expect(ids(true).has('CREW_MAJORITY')).toBe(false);
-    expect(ids(true).has('COVERED')).toBe(true);
-    expect(ids(false).has('COVERED')).toBe(false);
+    const oldDays = ['2026-10-26', '2026-10-27', '2026-10-28'];
+    expect(ids(oldDays, true).has('CREW_MAJORITY')).toBe(false);
+    expect(ids(oldDays, true).has('COVERED')).toBe(true);
+    expect(ids(oldDays, false).has('COVERED')).toBe(false);
+    expect(ids(['2026-11-02'], false).has('COVERED')).toBe(true);
     // Days before the change keep the old pool.
     const before = new Set<string>();
     for (let seed = 0; seed < 200; seed++)
@@ -287,6 +294,10 @@ describe('weekly missions', () => {
       true,
     );
     expect(weeklyMissionProgress(WEEKLY_MISSIONS.DAILY_GRINDER!, { checkinDays: days }, ctxOf({}, {})).complete).toBe(
+      true,
+    );
+    const four = Object.fromEntries(['a', 'b', 'c', 'd'].map((d) => [d, true]));
+    expect(weeklyMissionProgress(WEEKLY_MISSIONS.DAILY_GRINDER!, { checkinDays: four }, ctxOf({}, {})).complete).toBe(
       false,
     );
   });
@@ -308,19 +319,55 @@ const buy = (value: number, extra = {}) => ({ shares: 10, value, ...extra });
 const held = (t: string) => ({ holdings: { [t]: 10 } });
 
 describe('new daily missions', () => {
-  it('Short Seller: a real short, still open', () => {
+  it('Short Seller: any short of 1 share or $50, closed or not', () => {
     const m = DAILY_MISSIONS.SHORT_SELLER!;
-    const dp = { shorts: { [S1]: { shares: 5, value: 200 } } };
-    expect(dailyMissionProgress(m, dp, ctxOf({ shorts: { [S1]: { shares: 5 } } }, {})).complete).toBe(true);
-    expect(dailyMissionProgress(m, dp, ctxOf({ shorts: {} }, {})).complete).toBe(false);
-    const tiny = { shorts: { [S1]: { shares: 5, value: 20 } } };
-    expect(dailyMissionProgress(m, tiny, ctxOf({ shorts: { [S1]: { shares: 5 } } }, {})).complete).toBe(false);
+    expect(dailyMissionProgress(m, { shorts: { [S1]: { shares: 5, value: 20 } } }, ctxOf({}, {})).complete).toBe(true);
+    expect(dailyMissionProgress(m, { shorts: { [S1]: { shares: 0.5, value: 20 } } }, ctxOf({}, {})).complete).toBe(
+      false,
+    );
   });
 
-  it('Covered: profitable cover value of at least the minimum trade', () => {
+  it('Covered: any close, or an old profitable cover record', () => {
     const m = DAILY_MISSIONS.COVERED!;
+    expect(dailyMissionProgress(m, { covered: { shares: 2, value: 10 } }, ctxOf({}, {})).complete).toBe(true);
+    expect(dailyMissionProgress(m, { covered: { shares: 0.1, value: 10 } }, ctxOf({}, {})).complete).toBe(false);
     expect(dailyMissionProgress(m, { coverProfitValue: 100 }, ctxOf({}, {})).complete).toBe(true);
-    expect(dailyMissionProgress(m, { coverProfitValue: 99 }, ctxOf({}, {})).complete).toBe(false);
+  });
+
+  it('Flair Support: a stock from the flair crew you picked', () => {
+    const m = DAILY_MISSIONS.FLAIR_SUPPORT!;
+    const flair = FLAIR_CREWS.CHEONLIANG!;
+    const outsider = flair.members.find((t) => !CREWS[flair.crew]!.members.includes(t))!;
+    const dp = { buys: { [outsider]: buy(200) } };
+    const player = { crew: flair.crew, flairCrew: flair.id };
+    expect(dailyMissionProgress(m, dp, ctxOf(player, {})).complete).toBe(true);
+    const none = dailyMissionProgress(m, dp, ctxOf({ crew: flair.crew }, {}));
+    expect(none.complete).toBe(false);
+    expect(none.note).toMatch(/Pick a flair crew/);
+    // A flair from another crew doesn't count.
+    expect(dailyMissionProgress(m, dp, ctxOf({ crew: 'HOSTEL', flairCrew: flair.id }, {})).complete).toBe(false);
+  });
+
+  it('Crew Fund: your own crew ETF', () => {
+    const m = DAILY_MISSIONS.CREW_FUND!;
+    const etf = crew.etf!;
+    expect(dailyMissionProgress(m, { buys: { [etf]: buy(200) } }, ctxOf({ crew: crew.id }, {})).complete).toBe(true);
+    expect(dailyMissionProgress(m, { buys: { [rival.etf!]: buy(200) } }, ctxOf({ crew: crew.id }, {})).complete).toBe(
+      false,
+    );
+  });
+
+  it('flair missions go to crews with flair crews, from 2026-10-29', () => {
+    const ids = (crewId: string, day: string) => {
+      const seen = new Set<string>();
+      for (let seed = 0; seed < 300; seed++) getDailyMissions(day, crewId, seed).forEach((m) => seen.add(m.id));
+      return seen;
+    };
+    expect(ids('ALLIED', '2026-11-02').has('FLAIR_SUPPORT')).toBe(true);
+    expect(ids('GOD_DOG', '2026-11-02').has('FLAIR_SUPPORT')).toBe(false);
+    expect(ids('ALLIED', '2026-10-28').has('FLAIR_SUPPORT')).toBe(false);
+    expect(ids('ALLIED', '2026-10-28').has('BARGAIN_HUNTER')).toBe(true);
+    expect(ids('ALLIED', '2026-11-02').has('BARGAIN_HUNTER')).toBe(false);
   });
 
   it('Basket Buyer: an ETF, kept', () => {
@@ -339,13 +386,13 @@ describe('new daily missions', () => {
     expect(at().complete).toBe(false);
   });
 
-  it('Ride the Wave: paid 5%+ over the week open', () => {
+  it('Ride the Wave: paid over the last daily close', () => {
     const m = DAILY_MISSIONS.RIDE_THE_WAVE!;
-    const open = { weekOpenPrices: { [S1]: 100 } };
-    const up = { buys: { [S1]: buy(200, { low: 104, high: 105 }) } };
-    const flat = { buys: { [S1]: buy(200, { low: 101, high: 104 }) } };
-    expect(dailyMissionProgress(m, up, ctxOf(held(S1), {}, undefined, open)).complete).toBe(true);
-    expect(dailyMissionProgress(m, flat, ctxOf(held(S1), {}, undefined, open)).complete).toBe(false);
+    const close = { dayClosePrices: { [S1]: 100 } };
+    const up = { buys: { [S1]: buy(200, { low: 100, high: 101 }) } };
+    const flat = { buys: { [S1]: buy(200, { low: 99, high: 100 }) } };
+    expect(dailyMissionProgress(m, up, ctxOf({}, {}, undefined, close)).complete).toBe(true);
+    expect(dailyMissionProgress(m, flat, ctxOf({}, {}, undefined, close)).complete).toBe(false);
   });
 
   it('Blue Chip: a Legendary or Epic stock at current prices', () => {
@@ -371,13 +418,15 @@ describe('new weekly missions', () => {
     holdingCohorts: Object.fromEntries(tickers.map((t) => [t, thisWeek(10)])),
   });
 
-  it('Opening Bell: a kept auction buy or a held-shares auction sell', () => {
-    const wpBuy = { auctionBuys: { [S1]: buy(200) } };
-    expect(weeklyMissionProgress(OPENING_BELL, wpBuy, ctxOf(held(S1), {})).complete).toBe(true);
-    const sold = weeklyMissionProgress(OPENING_BELL, wpBuy, ctxOf({ holdings: {} }, {}));
-    expect(sold.complete).toBe(false);
-    expect(sold.note).toBeTruthy();
+  it('Opening Bell: a buy or a sell in the opening window', () => {
+    expect(weeklyMissionProgress(OPENING_BELL, { auctionBuys: { [S1]: buy(200) } }, ctxOf({}, {})).complete).toBe(true);
+    expect(weeklyMissionProgress(OPENING_BELL, { auctionSold: { shares: 2, value: 10 } }, ctxOf({}, {})).complete).toBe(
+      true,
+    );
     expect(weeklyMissionProgress(OPENING_BELL, { auctionSoldValue: 150 }, ctxOf({}, {})).complete).toBe(true);
+    const none = weeklyMissionProgress(OPENING_BELL, {}, ctxOf({}, {}));
+    expect(none.complete).toBe(false);
+    expect(none.note).toBeTruthy();
   });
 
   it('Opening Bell: the first 24 hours after the reopen count too', () => {
@@ -415,12 +464,43 @@ describe('new weekly missions', () => {
     expect(at(9800, down5).complete).toBe(false);
   });
 
-  it('Shopping Spree: 5 stocks bought this week and still held', () => {
+  it('Shopping Spree: 5 stocks bought this week', () => {
     const m = WEEKLY_MISSIONS.SHOPPING_SPREE!;
+    const bought = (ts: string[]) => ({
+      buys: Object.fromEntries(ts.map((t) => [t, { low: 10, shares: 1, value: 10 }])),
+    });
+    expect(weeklyMissionProgress(m, bought([S1, S2, S3, S4, S5]), ctxOf({}, {})).complete).toBe(true);
+    expect(weeklyMissionProgress(m, bought([S1, S2, S3, S4]), ctxOf({}, {}))).toMatchObject({
+      complete: false,
+      progress: 4,
+    });
+    // Before 2026-10-27 the week's buys only show in the lot ledger.
     const { prices, ...player } = many([S1, S2, S3, S4, S5], 20);
     expect(weeklyMissionProgress(m, {}, ctxOf(player, prices)).complete).toBe(true);
-    const old = { ...player, holdingCohorts: { ...player.holdingCohorts, [S5]: lot(10, REOPEN + DAY, 3 * DAY) } };
-    expect(weeklyMissionProgress(m, {}, ctxOf(old, prices))).toMatchObject({ complete: false, progress: 4 });
+  });
+
+  it('Crew Tour: stocks from 3 different crews', () => {
+    const m = WEEKLY_MISSIONS.CREW_TOUR!;
+    const [a, b, c] = Object.values(CREWS).map((x) => x.members[0]!);
+    const wp = (ts: string[]) => ({ buys: Object.fromEntries(ts.map((t) => [t, { shares: 1, value: 10 }])) });
+    expect(weeklyMissionProgress(m, wp([a!, b!, c!]), ctxOf({}, {})).complete).toBe(true);
+    expect(weeklyMissionProgress(m, wp([a!, b!]), ctxOf({}, {})).progress).toBe(2);
+  });
+
+  it('Flair Tour: 3 from the flair crew, or all of a smaller one', () => {
+    const m = WEEKLY_MISSIONS.FLAIR_TOUR!;
+    const wp = (ts: string[]) => ({ buys: Object.fromEntries(ts.map((t) => [t, { shares: 1, value: 10 }])) });
+    const big = FLAIR_CREWS.J_HIGH!;
+    const player = { crew: big.crew, flairCrew: big.id };
+    expect(weeklyMissionProgress(m, wp(big.members.slice(0, 3)), ctxOf(player, {})).complete).toBe(true);
+    expect(weeklyMissionProgress(m, wp(big.members.slice(0, 2)), ctxOf(player, {})).complete).toBe(false);
+    const small = FLAIR_CREWS.BLACK_WORKERS!;
+    const solo = { crew: small.crew, flairCrew: small.id };
+    expect(weeklyMissionProgress(m, wp(small.members), ctxOf(solo, {})).complete).toBe(true);
+    const empty = FLAIR_CREWS.RUNAWAY_FAM!;
+    const none = weeklyMissionProgress(m, {}, ctxOf({ crew: empty.crew, flairCrew: empty.id }, {}));
+    expect(none.complete).toBe(false);
+    expect(none.note).toMatch(/no characters/);
   });
 
   it('Mission Machine counts daily claims', () => {
@@ -429,15 +509,11 @@ describe('new weekly missions', () => {
     expect(weeklyMissionProgress(m, { dailyClaims: 9 }, ctxOf({}, {})).complete).toBe(false);
   });
 
-  it('Fortune Teller: a real bet, or Futures still held', () => {
+  it('Fortune Teller: any bet, or any Futures buy', () => {
     const m = WEEKLY_MISSIONS.FORTUNE_TELLER!;
-    expect(weeklyMissionProgress(m, { betValue: 100 }, ctxOf({}, {})).complete).toBe(true);
-    expect(weeklyMissionProgress(m, { betValue: 20 }, ctxOf({}, {})).complete).toBe(false);
-    const wp = { futuresBuys: { mk: 150 } };
-    const holding = { eventPositions: { mk: { shares: { yes: 3 } } } };
-    expect(weeklyMissionProgress(m, wp, ctxOf(holding, {})).complete).toBe(true);
-    const sold = { eventPositions: { mk: { shares: { yes: 0 } } } };
-    expect(weeklyMissionProgress(m, wp, ctxOf(sold, {})).complete).toBe(false);
+    expect(weeklyMissionProgress(m, { betValue: 20 }, ctxOf({}, {})).complete).toBe(true);
+    expect(weeklyMissionProgress(m, { futuresBuys: { mk: 15 } }, ctxOf({}, {})).complete).toBe(true);
+    expect(weeklyMissionProgress(m, {}, ctxOf({}, {})).complete).toBe(false);
   });
 
   it('Dip Collector: 3 stocks bought 10%+ under the week open, still held', () => {

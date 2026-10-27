@@ -9,3 +9,12 @@ export { RARITY_ORDER, computeRarityTiers } from '../characters';
 
 /** Class name for a tier (or '' when the ticker has none, e.g. ETFs). */
 export const rarityClassFor = (tier: string | null | undefined): string => (tier ? `rarity-${tier}` : '');
+
+/** A tier's name and text color, for the written tag on cards and mission picks. */
+export const RARITY_TAG: Record<string, { label: string; className: string }> = {
+  legendary: { label: 'Legendary', className: 'text-amber-500' },
+  epic: { label: 'Epic', className: 'text-purple-500' },
+  rare: { label: 'Rare', className: 'text-sky-500' },
+  uncommon: { label: 'Uncommon', className: 'text-emerald-500' },
+  common: { label: 'Common', className: 'light:text-slate-500 dark:text-zinc-400' },
+};

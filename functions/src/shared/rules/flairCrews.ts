@@ -2,18 +2,18 @@
 // ============================================
 // FLAIR CREWS
 // ============================================
-// Smaller crews inside a main crew that a player can rep. Cosmetic only: the
-// small crew pin next to the player's name swaps to the flair crest. Rankings,
-// the underdog multiplier, crew head, the ETF, and missions all stay on the
-// main crew.
+// Smaller crews inside a main crew that a player can rep. The small crew pin
+// next to the player's name swaps to the flair crest, and the flair missions
+// (Flair Support, Flair Tour) ask for its members. Rankings, the underdog
+// multiplier, crew head, the ETF, and the other missions stay on the main crew.
 //
 // Free to pick or change any time. The player writes `flairCrew` straight to
 // their user doc (it's on the rules allowlist), so a flair only counts while
 // it belongs to the player's current crew: switching crews hides it without
 // anything having to clear it. Everything reading it goes through flairOf.
 //
-// `members` lists the characters on the site who belong to the flair crew,
-// for flair missions later. A character can sit in more than one, and two
+// `members` lists the characters on the site who belong to the flair crew, for
+// the flair missions. A character can sit in more than one, and two
 // main crews can each have their own version of the same flair crew (each is
 // its own entry, with its own crest).
 

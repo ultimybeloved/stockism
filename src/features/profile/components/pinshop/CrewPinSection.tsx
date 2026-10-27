@@ -50,8 +50,9 @@ const CrewPinSection = ({ onPinAction, chipClass }: CrewPinSectionProps) => {
         <div className="mt-4">
           <h4 className={`text-sm font-semibold ${textClass} mb-1`}>Flair Crew</h4>
           <p className={`text-xs ${mutedClass} mb-2`}>
-            Rep a smaller crew inside {crew.name}. Its crest takes the place of your crew pin. Rankings, missions, and
-            everything else stay with {crew.name}. Free to change any time.
+            Rep a smaller crew inside {crew.name}. Its crest takes the place of your crew pin, and flair missions ask
+            for its characters, even ones outside {crew.name}. Rankings and crew missions stay with {crew.name}. Free to
+            change any time.
           </p>
           <div className="flex flex-wrap gap-2">
             <button

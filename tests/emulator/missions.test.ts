@@ -83,19 +83,20 @@ const isoDay = (d: Date) => d.toISOString().split('T')[0]!;
 const today = () => isoDay(new Date());
 const weekId = () => missionWeekId();
 
-// Kept buys of three stocks and an ETF, bought both well down and well up on
-// the week, big sells of old shares, a kept short and a profitable cover, so
-// every daily mission is done at once.
+// Buys of three stocks and an ETF, bought both well down and well up on the
+// week, sells above and below cost, a short and a cover, so every daily mission
+// is done at once.
 const ETF = Object.entries(CHARACTER_MAP).find(([, c]) => c.isETF)![0];
 const BUY = { shares: 10, value: 1e6, low: 5, high: 1e6 };
 const FULL_DAILY = {
   buys: { [MINE]: BUY, [THEIRS]: BUY, [SPARE]: BUY, [ETF]: BUY },
   limitBuys: { [MINE]: BUY },
-  heldSoldValue: 1e6,
-  heldLossValue: 1e6,
+  profitSold: { shares: 10, value: 1e6 },
+  lossSold: { shares: 10, value: 1e6 },
   limitSoldValue: 1e6,
   shorts: { [SPARE]: { shares: 1, value: 1e6 } },
-  coverProfitValue: 1e6,
+  covered: { shares: 10, value: 1e6 },
+  oldShortCovered: true,
 };
 /** Weekly progress that satisfies the activity weeklies. */
 const days7 = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [`2000-01-0${d}`, true]));
@@ -106,7 +107,7 @@ const PRICES = { [MINE]: 1000, [THEIRS]: 1, [SPARE]: 1 };
 const WEEK_OPEN = { [MINE]: 100, [THEIRS]: 100, [SPARE]: 100 };
 const DAY_CLOSE = WEEK_OPEN;
 
-// Seeded players count as short sellers (FULL_DAILY has coverProfitValue), so
+// Seeded players count as short sellers (FULL_DAILY has oldShortCovered), so
 // the server hands them the short-seller daily set.
 const dailyFor = (crew: string | null, seed: number) => getDailyMissions(today(), crew, seed, true);
 
@@ -439,30 +440,25 @@ async function main() {
     )) === true,
   );
 
-  // Throwaway trades: a buy too small for the account, or one sold back.
+  // A throwaway buy (under 1 share and under $50) doesn't count; one sold back does.
   const crewSupportSeed = seedAssigning('daily', 'BUY_CREW_MEMBER');
   await seedMissionUser('m_tiny', {
     seed: crewSupportSeed,
     extra: {
       portfolioValue: 20000,
-      dailyMissions: { [today()]: { buys: { [MINE]: { shares: 1, value: 60, low: 60 } } } },
+      dailyMissions: { [today()]: { buys: { [MINE]: { shares: 0.5, value: 20, low: 40 } } } },
     },
   });
   check(
-    'a buy under 1% of net worth does not count',
+    'a buy under 1 share and under $50 does not count',
     (await rejects(
       () => claimMissionReward.run({ missionId: 'BUY_CREW_MEMBER', type: 'daily' }, ctx('m_tiny')),
       /not completed/i,
     )) === true,
   );
   await seedMissionUser('m_flip', { seed: crewSupportSeed, extra: { holdings: { [THEIRS]: 10 } } });
-  check(
-    'a buy that was sold back does not count',
-    (await rejects(
-      () => claimMissionReward.run({ missionId: 'BUY_CREW_MEMBER', type: 'daily' }, ctx('m_flip')),
-      /not completed/i,
-    )) === true,
-  );
+  const flip = await claimMissionReward.run({ missionId: 'BUY_CREW_MEMBER', type: 'daily' }, ctx('m_flip'));
+  check('a buy that was sold back still counts', flip.success === true, flip);
 
   check(
     'a bad mission type is refused',
@@ -479,7 +475,7 @@ async function main() {
   const seeded = await claimMissionReward.run({ missionId: target, type: 'daily' }, ctx('m_seeded'));
   check('after a reroll, the newly assigned mission can be claimed', seeded.success === true, seeded);
 
-  const untouched = ['m_unassigned', 'm_unfinished', 'm_tiny', 'm_flip', 'm_switched'];
+  const untouched = ['m_unassigned', 'm_unfinished', 'm_tiny', 'm_switched'];
   for (const uid of untouched) {
     const u = await getUser(uid);
     check(`refused claim left ${uid} unpaid`, u.cash === 1000 && !u.grantedValue, `cash=${u.cash}`);
@@ -651,27 +647,23 @@ async function openingBellSection() {
     (await getUser('m_seeded')).weeklyMissions?.[wk],
   );
 
-  // An auction buy credited to this week, still held: Opening Bell pays.
+  // An auction buy credited to this week, even one sold again: Opening Bell pays.
   await seedUser('o_bell', {
     portfolioValue: 10000,
-    holdings: { [MINE]: 10 },
     weeklyMissions: { [wk]: { auctionBuys: { [MINE]: { shares: 10, value: 200 } } } },
   });
   const bell = await claimMissionReward.run({ missionId: OPENING_BELL.id, type: 'weekly' }, ctx('o_bell'));
   const bellUser = await getUser('o_bell');
   check(
-    'Opening Bell pays for a kept auction buy, booked as granted value',
+    'Opening Bell pays for an auction buy, booked as granted value',
     bell.reward === OPENING_BELL.reward && near(bellUser.grantedValue, OPENING_BELL.reward),
     bell,
   );
-  await seedUser('o_sold', {
-    portfolioValue: 10000,
-    weeklyMissions: { [wk]: { auctionBuys: { [MINE]: { shares: 10, value: 200 } } } },
-  });
+  await seedUser('o_none', { portfolioValue: 10000, weeklyMissions: { [wk]: {} } });
   check(
-    'and refuses one that was sold again',
+    'and refuses a player who made no trade in the window',
     (await rejects(
-      () => claimMissionReward.run({ missionId: OPENING_BELL.id, type: 'weekly' }, ctx('o_sold')),
+      () => claimMissionReward.run({ missionId: OPENING_BELL.id, type: 'weekly' }, ctx('o_none')),
       /not completed/i,
     )) === true,
   );

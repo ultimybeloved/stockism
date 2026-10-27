@@ -120,7 +120,7 @@ const Header = ({
       badge: newPredictions,
     },
     { path: '/missions', label: 'Missions', icon: <PixelIcon name="missions" className="w-5 h-5" /> },
-    // Portfolio is reached from the home page; Achievements from the home button row.
+    { path: '/portfolio', label: 'Portfolio', icon: <PixelIcon name="briefcase" set="discord" className="w-5 h-5" /> },
     { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5" /> },
   ];
 

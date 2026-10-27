@@ -8,7 +8,6 @@ import {
   dailyMissionProgress,
   weeklyMissionProgress,
   holdsShortForMissions,
-  playerMinTrade,
   type DailyProgress,
   type WeeklyProgress,
   type MissionContext,
@@ -83,7 +82,6 @@ export function useMissionBoard() {
     crew,
     weekId,
     multiplier,
-    minTrade: playerMinTrade(ctx.player),
     dailyMissions,
     weeklyMissions,
     dailyTotals: {

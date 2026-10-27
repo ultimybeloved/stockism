@@ -63,10 +63,23 @@ export const inOpeningDay = (now: When = Date.now()) => ms(now) - missionWeekSta
 export const BUY_HOLD_CLAIM_OFFSET_MS = 5 * DAY_MS + 3 * 60 * 60 * 1000;
 export const buyHoldClaimOpensMs = (now: When = Date.now()) => missionWeekStartMs(now) + BUY_HOLD_CLAIM_OFFSET_MS;
 
-// ── Real trades only ─────────────────────────────────────────────────────────
-// A trade counts toward a mission only if it is worth at least 1% of the
-// player's net worth, never less than $50 and never more than $500. Throwaway
-// $3 trades used to complete most missions.
+// ── What counts as a trade ───────────────────────────────────────────────────
+// Since 2026-10-27 a trade counts toward a mission if it is at least one whole
+// share, or $50 worth for a pricier stock bought in a fraction. Shares can be
+// bought down to 0.01, so without a floor a 5-cent buy finished a mission.
+// Players found the old rules (1% of net worth, keep the shares until you
+// claim, sells only on day-old shares) too fiddly, so those went.
+export const MISSION_MIN_SHARES = 1;
+export const MISSION_MIN_VALUE = 50;
+export const missionTradeCounts = (shares: number | undefined, value: number | undefined) =>
+  (shares || 0) >= MISSION_MIN_SHARES - 1e-9 || (value || 0) >= MISSION_MIN_VALUE;
+
+// The mission lineup that goes with the simpler rules: dailies from this UTC
+// date, weeklies from the week that starts on it (rules on the Mission type).
+export const MISSIONS_3_FROM = '2026-10-29';
+
+// The 1%-of-net-worth minimum, before 2026-10-27. Still read by the old sell
+// records (heldSoldValue) that today's progress may hold.
 export const MISSION_MIN_TRADE_PCT = 0.01;
 export const MISSION_MIN_TRADE_FLOOR = 50;
 export const MISSION_MIN_TRADE_CAP = 500;

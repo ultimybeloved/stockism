@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
-import { MISSION_MIN_TRADE_FLOOR, MISSION_MIN_TRADE_CAP } from '../../../rules/missions';
 import { CREW_MAP } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import { type WeeklyProgress } from '../../../utils/missionProgress';
 import { useSession } from '../../../context/AppContext';
 import CrewPin from '../../../shared/components/CrewPin';
+import { flairOf } from '../../../rules/flairCrews';
 import MissionCard from '../components/MissionCard';
 import RivalryTab from '../components/RivalryTab';
 import RerollButton from '../components/RerollButton';
@@ -77,6 +77,7 @@ export default function MissionsPage({
 
   const weekly = (userData?.weeklyMissions?.[board.weekId] || {}) as WeeklyProgress;
   const crew = board.crew ? CREW_MAP[board.crew] : null;
+  const flair = flairOf(userData);
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
@@ -102,7 +103,6 @@ export default function MissionsPage({
                   accent="purple"
                   onClaim={onClaimWeeklyReward}
                   claiming={claimWeeklyLoading}
-                  minTrade={board.minTrade}
                 />
               ))}
             </div>
@@ -125,14 +125,7 @@ export default function MissionsPage({
             </p>
             <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               {board.dailyMissions.map((m) => (
-                <MissionCard
-                  key={m.id}
-                  mission={m}
-                  accent="orange"
-                  onClaim={onClaimReward}
-                  claiming={claimLoading}
-                  minTrade={board.minTrade}
-                />
+                <MissionCard key={m.id} mission={m} accent="orange" onClaim={onClaimReward} claiming={claimLoading} />
               ))}
             </div>
           </Section>
@@ -141,14 +134,19 @@ export default function MissionsPage({
 
           <div className={`p-3 rounded-sm border ${themeClasses.borderClass} space-y-1`}>
             <p className={`text-xs ${mutedClass}`}>
-              Trades count when they're worth {formatCurrency(board.minTrade)} or more (1% of your net worth, between $
-              {MISSION_MIN_TRADE_FLOOR} and ${MISSION_MIN_TRADE_CAP}). For missions that say "keep", own the shares
-              until you claim the reward. After that you can sell. Sells count on shares you've held a day.
+              A trade counts if it's at least 1 share, or $50 worth if you buy part of a share. You don't have to keep
+              what you buy.
             </p>
             {crew && (
               <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
                 <CrewPin crew={crew} className="w-4 h-4 inline" />
                 {crew.name} members: {crew.members.join(', ')}
+              </p>
+            )}
+            {crew && flair && (
+              <p className={`text-xs ${mutedClass} flex items-center flex-wrap gap-1`}>
+                <CrewPin crew={crew} flair={flair} className="w-4 h-4 inline" />
+                {flair.name} members: {flair.members.length ? flair.members.join(', ') : 'none on the site yet'}
               </p>
             )}
           </div>

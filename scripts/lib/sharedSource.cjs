@@ -47,12 +47,23 @@ const generate = (name) =>
   `// GENERATED from src/${name}.ts by \`npm run sync:chars\`. Do not edit.\n` +
   fs.readFileSync(sourcePath(name), 'utf8');
 
+const loaded = new Map();
 const load = (name) => {
+  if (loaded.has(name)) return loaded.get(name).exports;
   const m = new Module(sourcePath(name));
   m.filename = sourcePath(name);
   m.paths = Module._nodeModulePaths(path.dirname(sourcePath(name)));
-  // crews.ts imports nothing local and characters.ts nothing at all; if that
-  // changes, relative requires resolve from src/ through m.paths/filename.
+  loaded.set(name, m);
+  // A relative import of another shared module (crews.ts -> ./rules/flairCrews)
+  // is a .ts file Node can't require, so it goes through load() too.
+  const baseRequire = m.require.bind(m);
+  m.require = (spec) => {
+    if (!spec.startsWith('.')) return baseRequire(spec);
+    const target = path
+      .relative(path.join(ROOT, 'src'), path.resolve(path.dirname(sourcePath(name)), spec))
+      .replace(/\\/g, '/');
+    return SHARED.includes(target) ? load(target) : baseRequire(spec);
+  };
   m._compile(transpile(name, ts.ModuleKind.CommonJS), sourcePath(name));
   return m.exports;
 };

@@ -2,6 +2,8 @@
 // CREWS SYSTEM
 // ============================================
 
+import { flairCrewsOf } from './rules/flairCrews';
+
 export interface Crew {
   id: string;
   name: string;
@@ -22,9 +24,13 @@ export interface Mission {
   requirement?: number;
   /** Only offered to players in a crew. */
   crewOnly?: boolean;
+  /** Only offered to players whose crew has flair crews. */
+  flairOnly?: boolean;
+  /** In the rotation from this UTC date (dailies) or week id (weeklies) on. */
+  addedFrom?: string;
   /** Daily only: offered only to players holding a short (holdsShortForMissions). */
   shortHoldersOnly?: boolean;
-  /** Daily only: out of the rotation from this UTC date on. */
+  /** Out of the rotation from this UTC date (dailies) or week id (weeklies) on. */
   retiredFrom?: string;
 }
 
@@ -65,7 +71,7 @@ export const CREWS: Record<string, Crew> = {
     emblem: '🤝',
     icon: '/crews/big deal.png',
     etf: 'DEAL',
-    members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH'],
+    members: ['JAKE', 'SWRD', 'JSN', 'BRAD', 'LINE', 'SINU', 'LUAH', 'RYAN'],
   },
   FIST_GANG: {
     id: 'FIST_GANG',
@@ -112,7 +118,7 @@ export const CREWS: Record<string, Crew> = {
     emblem: '🏠',
     icon: '/crews/hostel.png',
     etf: 'HSTL',
-    members: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI', 'RYAN'],
+    members: ['ELI', 'SLLY', 'CHAE', 'MAX', 'DJO', 'ZAMI'],
   },
   KITAE_UNION: {
     id: 'KITAE_UNION',
@@ -336,18 +342,16 @@ export const getActiveShopPins = () => {
 // DAILY MISSIONS
 // ============================================
 
-// Missions 2.0 (2026-10-22). Every mission rewards a real trade or a portfolio
-// balance you keep, and throwaway trades can't finish them:
-// - a trade counts only if it is worth 1% of your net worth ($50 to $500,
-//   rules/missions missionMinTrade)
-// - a buy counts only while you still hold the shares when you claim
-// - a sell counts only on shares you've held a day or more
+// Missions 3 (2026-10-27): a trade counts if it is at least 1 share or $50
+// worth (rules/missions missionTradeCounts). Nothing has to be kept or held a
+// day. Missions still never pay for just owning something: each one is a trade
+// you made, or a percentage of your portfolio you keep.
 // Players without a crew get the missions not marked crewOnly.
 export const DAILY_MISSIONS: Record<string, Mission> = {
   BUY_CREW_MEMBER: {
     id: 'BUY_CREW_MEMBER',
     name: 'Crew Support',
-    description: 'Buy a member of your crew and keep the shares',
+    description: 'Buy any stock from your crew',
     reward: 100,
     checkType: 'BUY_CREW',
     crewOnly: true,
@@ -355,7 +359,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
   RIVAL_TRADER: {
     id: 'RIVAL_TRADER',
     name: 'Rival Trader',
-    description: "Buy a rival crew's member and keep the shares",
+    description: 'Buy a stock from another crew',
     reward: 75,
     checkType: 'BUY_RIVAL',
     crewOnly: true,
@@ -363,7 +367,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
   UNDERDOG_INVESTOR: {
     id: 'UNDERDOG_INVESTOR',
     name: 'Underdog Investor',
-    description: 'Buy a stock priced under $20 and keep the shares',
+    description: 'Buy a stock priced under $20',
     reward: 75,
     checkType: 'BUY_UNDERDOG',
   },
@@ -374,11 +378,12 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
     reward: 100,
     checkType: 'BUY_BARGAIN',
     requirement: 5,
+    retiredFrom: '2026-10-29', // merged into Buy the Dip
   },
   SPREAD_OUT: {
     id: 'SPREAD_OUT',
     name: 'Spread Out',
-    description: 'Buy 3 different stocks today and keep them',
+    description: 'Buy 3 different stocks',
     reward: 125,
     checkType: 'BUY_SPREAD',
     requirement: 3,
@@ -386,14 +391,14 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
   PROFIT_TAKER: {
     id: 'PROFIT_TAKER',
     name: 'Profit Taker',
-    description: "Sell shares you've held at least a day",
+    description: 'Sell a stock for more than you paid',
     reward: 75,
     checkType: 'SELL_HELD',
   },
   CUT_LOSSES: {
     id: 'CUT_LOSSES',
     name: 'Cut Your Losses',
-    description: "Sell shares you've held at least a day for less than you paid",
+    description: 'Sell a stock for less than you paid',
     reward: 75,
     checkType: 'SELL_LOSS',
   },
@@ -418,14 +423,14 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
   SHORT_SELLER: {
     id: 'SHORT_SELLER',
     name: 'Short Seller',
-    description: 'Open a short and keep it open',
+    description: 'Open a short',
     reward: 100,
     checkType: 'SHORT_OPEN',
   },
   COVERED: {
     id: 'COVERED',
     name: 'Covered',
-    description: "Close a short you've held at least a day for a profit",
+    description: 'Close a short',
     reward: 100,
     checkType: 'COVER_PROFIT',
     shortHoldersOnly: true,
@@ -433,31 +438,50 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
   BASKET_BUYER: {
     id: 'BASKET_BUYER',
     name: 'Basket Buyer',
-    description: 'Buy an index fund (ETF) and keep the shares',
+    description: 'Buy any ETF',
     reward: 75,
     checkType: 'BUY_ETF',
   },
   BUY_THE_DIP: {
     id: 'BUY_THE_DIP',
     name: 'Buy the Dip',
-    description: 'Buy a stock that is below its last daily close and keep the shares',
+    description: 'Buy a stock that is down today',
     reward: 75,
     checkType: 'BUY_DIP',
   },
   RIDE_THE_WAVE: {
     id: 'RIDE_THE_WAVE',
     name: 'Ride the Wave',
-    description: 'Buy a stock that is up 5%+ this week and keep the shares',
-    reward: 100,
+    description: 'Buy a stock that is up today',
+    reward: 75,
     checkType: 'BUY_MOMENTUM',
     requirement: 5,
   },
   BLUE_CHIP: {
     id: 'BLUE_CHIP',
     name: 'Blue Chip',
-    description: 'Buy a Legendary or Epic stock and keep the shares',
+    description: 'Buy a Legendary or Epic stock',
     reward: 100,
     checkType: 'BUY_BLUE_CHIP',
+  },
+  FLAIR_SUPPORT: {
+    id: 'FLAIR_SUPPORT',
+    name: 'Flair Support',
+    description: 'Buy any stock from your flair crew',
+    reward: 100,
+    checkType: 'BUY_FLAIR',
+    crewOnly: true,
+    flairOnly: true,
+    addedFrom: '2026-10-29',
+  },
+  CREW_FUND: {
+    id: 'CREW_FUND',
+    name: 'Crew Fund',
+    description: "Buy your crew's ETF",
+    reward: 100,
+    checkType: 'BUY_CREW_ETF',
+    crewOnly: true,
+    addedFrom: '2026-10-29',
   },
 };
 
@@ -474,7 +498,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
 export const OPENING_BELL: Mission = {
   id: 'OPENING_BELL',
   name: 'Opening Bell',
-  description: "Trade in Thursday's opening auction or in the first 24 hours after the reopen",
+  description: 'Make a trade in the first 24 hours of the week',
   reward: 500,
   checkType: 'WEEKLY_AUCTION',
 };
@@ -491,10 +515,10 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
   DAILY_GRINDER: {
     id: 'DAILY_GRINDER',
     name: 'Daily Grinder',
-    description: 'Check in on 7 days this week',
+    description: 'Check in on 5 days this week',
     reward: 500,
     checkType: 'WEEKLY_CHECKIN_STREAK',
-    requirement: 7,
+    requirement: 5,
   },
   BUY_AND_HOLD: {
     id: 'BUY_AND_HOLD',
@@ -502,6 +526,7 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
     description: 'Buy a stock Thursday to Saturday and still own it on Wednesday',
     reward: 500,
     checkType: 'WEEKLY_BUY_HOLD',
+    retiredFrom: '2026-10-29',
   },
   DIVERSIFIED: {
     id: 'DIVERSIFIED',
@@ -510,6 +535,7 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
     reward: 500,
     checkType: 'WEEKLY_DIVERSIFIED',
     requirement: 5,
+    retiredFrom: '2026-10-29',
   },
   CREW_MAXIMALIST: {
     id: 'CREW_MAXIMALIST',
@@ -538,7 +564,7 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
   SHOPPING_SPREE: {
     id: 'SHOPPING_SPREE',
     name: 'Shopping Spree',
-    description: 'Buy 5 different stocks this week and keep them',
+    description: 'Buy 5 different stocks this week',
     reward: 500,
     checkType: 'WEEKLY_BUY_SPREAD',
     requirement: 5,
@@ -554,17 +580,46 @@ export const WEEKLY_MISSIONS: Record<string, Mission> = {
   FORTUNE_TELLER: {
     id: 'FORTUNE_TELLER',
     name: 'Fortune Teller',
-    description: 'Bet on a prediction or buy Futures shares this week',
+    description: 'Place a prediction bet or buy Futures this week',
     reward: 500,
     checkType: 'WEEKLY_PREDICTION',
   },
   DIP_COLLECTOR: {
     id: 'DIP_COLLECTOR',
     name: 'Dip Collector',
-    description: 'Buy 3 different stocks that are down 10%+ this week and keep them',
+    description: 'Buy 3 different stocks that are down 10%+ this week',
     reward: 600,
     checkType: 'WEEKLY_BUY_DIPS',
     requirement: 3,
+  },
+  STEADY_CLIMBER: {
+    id: 'STEADY_CLIMBER',
+    name: 'Steady Climber',
+    description: 'Grow your portfolio value by 5%+ this week',
+    reward: 400,
+    checkType: 'WEEKLY_PORTFOLIO_GROWTH',
+    requirement: 5,
+    addedFrom: '2026-10-29',
+  },
+  CREW_TOUR: {
+    id: 'CREW_TOUR',
+    name: 'Crew Tour',
+    description: 'Buy stocks from 3 different crews this week',
+    reward: 500,
+    checkType: 'WEEKLY_CREW_TOUR',
+    requirement: 3,
+    addedFrom: '2026-10-29',
+  },
+  FLAIR_TOUR: {
+    id: 'FLAIR_TOUR',
+    name: 'Flair Tour',
+    description: 'Buy 3 different stocks from your flair crew this week (or all of them, if it has fewer)',
+    reward: 600,
+    checkType: 'WEEKLY_FLAIR_TOUR',
+    requirement: 3,
+    crewOnly: true,
+    flairOnly: true,
+    addedFrom: '2026-10-29',
   },
 };
 
@@ -599,21 +654,32 @@ const seededShuffle = <T>(items: T[], seed: number): T[] => {
   return out;
 };
 
-const missionPool = (missions: Record<string, Mission>, crewId: string | null | undefined) =>
-  Object.values(missions).filter((m) => !m.crewOnly || !!crewId);
+// The missions on offer on `when` (a UTC date, or a week id for weeklies).
+// Flair missions go to every crew with flair crews, whatever flair the player
+// picked, so changing flair never reshuffles the list.
+const missionPool = (missions: Record<string, Mission>, crewId: string | null | undefined, when: string) =>
+  Object.values(missions).filter(
+    (m) =>
+      (!m.crewOnly || !!crewId) &&
+      (!m.flairOnly || flairCrewsOf(crewId).length > 0) &&
+      (!m.addedFrom || when >= m.addedFrom) &&
+      (!m.retiredFrom || when < m.retiredFrom),
+  );
 
 const textSeed = (text: string) => text.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
 
 // The week's missions: Opening Bell, then one weekly picked by crew and week.
 export const getWeeklyMissions = (crewId: string | null | undefined, weekId: string, rerollSeed = 0): Mission[] => {
-  const pool = missionPool(WEEKLY_MISSIONS, crewId);
+  const pool = missionPool(WEEKLY_MISSIONS, crewId, weekId);
   const seed = textSeed(`${crewId || 'solo'}-${weekId}`) * 31 + rerollSeed;
   return [OPENING_BELL, pool[Math.abs(seed) % pool.length]!];
 };
 
-// From this UTC date Covered goes only to short holders. Retired missions leave
-// on their own date. Earlier days keep the old pool so no list reshuffles mid-day.
+// From this UTC date Covered goes only to short holders, until 2026-10-29, when
+// any close counts and everyone can be offered it. Earlier days keep the old
+// pool so no list reshuffles mid-day.
 export const DAILY_POOL_CHANGE = '2026-10-24';
+const SHORTS_ONLY_UNTIL = '2026-10-29';
 
 // Today's 3 daily missions, picked by date and crew. holdsShort comes from
 // rules/missionProgress holdsShortForMissions.
@@ -625,9 +691,9 @@ export const getDailyMissions = (
 ): Mission[] => {
   const dateSeed = today.split('-').reduce((acc, num) => acc + parseInt(num), 0);
   const seed = dateSeed + (crewId ? textSeed(crewId) : 0) + rerollSeed;
-  const retired = (m: Mission) => !!m.retiredFrom && today >= m.retiredFrom;
-  const shortsOnly = (m: Mission) => today >= DAILY_POOL_CHANGE && !!m.shortHoldersOnly && !holdsShort;
-  const pool = missionPool(DAILY_MISSIONS, crewId).filter((m) => !retired(m) && !shortsOnly(m));
+  const shortsOnly = (m: Mission) =>
+    today >= DAILY_POOL_CHANGE && today < SHORTS_ONLY_UNTIL && !!m.shortHoldersOnly && !holdsShort;
+  const pool = missionPool(DAILY_MISSIONS, crewId, today).filter((m) => !shortsOnly(m));
   return seededShuffle(pool, seed).slice(0, 3);
 };
 

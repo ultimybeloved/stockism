@@ -28,10 +28,13 @@ const MobileBottomNav = () => {
       label: 'Predict',
       badge: newPredictions,
     },
-    // Same order as the desktop header. Portfolio opens from the summary bar
-    // on the home page.
+    // Ladder lives in the account menu on phones, to make room for Portfolio.
     { path: '/missions', icon: <PixelIcon name="missions" className="w-7 h-7" />, label: 'Missions' },
-    { path: '/ladder', icon: <PixelIcon name="ladder" className="w-7 h-7" />, label: 'Ladder' },
+    {
+      path: '/portfolio',
+      icon: <PixelIcon name="briefcase" set="discord" className="w-7 h-7" />,
+      label: 'Portfolio',
+    },
   ];
 
   return (
