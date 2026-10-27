@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { CHARACTERS } from '../characters';
-import { CREW_MAP } from '../crews';
+import { CREW_MAP, CREW_SWITCH_EVENT } from '../crews';
 import { FLAIR_CREWS, flairCrestSrc, flairCrewsOf, flairOf } from './flairCrews';
 
 describe('flair crews', () => {
@@ -30,5 +30,11 @@ describe('flair crews', () => {
     expect(flairCrewsOf('SECRET_FRIENDS').map((f) => f.id)).toEqual(['GANGSEO_UNION', 'CHEONLIANG_SF']);
     expect(flairCrewsOf('GOD_DOG')).toEqual([]);
     expect(flairCrewsOf(null)).toEqual([]);
+  });
+
+  it('the free-switch event covers exactly the crews with flair crews', () => {
+    if (CREW_SWITCH_EVENT?.id !== 'flair_2026_10') return;
+    const withFlair = [...new Set(flairs.map((f) => f.crew))].sort();
+    expect([...CREW_SWITCH_EVENT.crewIds].sort()).toEqual(withFlair);
   });
 });

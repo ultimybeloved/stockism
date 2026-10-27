@@ -4,8 +4,8 @@
 //
 // This path moves real portfolio value, so the two directions both matter: a
 // normal switch must take exactly CREW_SWITCH_PENALTY of cash AND shares and
-// stamp the 30-day lockout, while a free-switch-event move must take nothing
-// and leave no lockout behind. Getting either wrong either robs players or
+// stamp the 30-day lockout, while a free-switch-event move must take nothing,
+// leave no lockout behind, and only work once per player. Getting either wrong either robs players or
 // hands everyone free switches.
 
 import { it } from 'vitest';
@@ -27,8 +27,8 @@ const { CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_MS } =
 const { CREW_SWITCH_EVENT, isFreeSwitchTarget } =
   require('../../functions/src/shared/crews') as typeof import('../../functions/src/shared/crews');
 
-const EVENT_CREW = CREW_SWITCH_EVENT?.crewId;
-const PAID_CREW = 'YAMAZAKI'; // no event running on this one
+const EVENT_CREW = CREW_SWITCH_EVENT?.crewIds[0];
+const PAID_CREW = 'YAMAZAKI'; // not an event crew
 const FROM_CREW = 'WORKERS';
 const TICKER = 'GUN';
 
@@ -60,7 +60,7 @@ const readUser = async (uid: string) => (await db.collection('users').doc(uid).g
 
 async function main() {
   if (!EVENT_CREW) throw new Error('No CREW_SWITCH_EVENT configured — nothing to test');
-  if (!isFreeSwitchTarget(EVENT_CREW)) {
+  if (!isFreeSwitchTarget(EVENT_CREW, {})) {
     console.log(`\n⚠️  The free-switch window for ${EVENT_CREW} has expired. Free-switch checks skipped.`);
   }
 
@@ -70,7 +70,7 @@ async function main() {
     .set({ prices: { [TICKER]: 85 } }, { merge: true });
 
   // ── 1. Free switch into the event crew ─────────────────────────────────
-  if (isFreeSwitchTarget(EVENT_CREW)) {
+  if (isFreeSwitchTarget(EVENT_CREW, {})) {
     console.log(`\n1 — free switch into ${EVENT_CREW}`);
     await seedUser('cs_free');
     const res = await call({ crewId: EVENT_CREW }, 'cs_free');
@@ -87,6 +87,25 @@ async function main() {
       JSON.stringify(u.crewLockouts || {}),
     );
     check('cooldown still recorded', typeof u.lastCrewChange === 'number', String(u.lastCrewChange));
+    check('free switch marked used', u.freeCrewSwitchUsed === CREW_SWITCH_EVENT!.id, String(u.freeCrewSwitchUsed));
+
+    // ── 1b. Only once: a player who used it pays the normal penalty ───────
+    console.log(`
+1b — second switch into ${EVENT_CREW} after using the free one`);
+    await seedUser('cs_used', { freeCrewSwitchUsed: CREW_SWITCH_EVENT!.id });
+    const usedRes = await call({ crewId: EVENT_CREW }, 'cs_used');
+    const used = await readUser('cs_used');
+    check('not reported as free', usedRes.freeSwitch === false && usedRes.totalTaken > 0, JSON.stringify(usedRes));
+    check('penalty taken', used.cash === Math.floor(1000 * (1 - CREW_SWITCH_PENALTY)), `cash=${used.cash}`);
+
+    // ── 1c. Joining from no crew is free and keeps the free switch ────────
+    console.log(`
+1c — joining ${EVENT_CREW} from no crew`);
+    await seedUser('cs_fresh', { crew: null });
+    const freshRes = await call({ crewId: EVENT_CREW }, 'cs_fresh');
+    const fresh = await readUser('cs_fresh');
+    check('nothing taken', freshRes.totalTaken === 0 && fresh.cash === 1000, JSON.stringify(freshRes));
+    check('free switch not used up', fresh.freeCrewSwitchUsed === undefined, String(fresh.freeCrewSwitchUsed));
   }
 
   // ── 2. Normal switch still charges the penalty ──────────────────────────
@@ -123,10 +142,15 @@ async function main() {
 
   // ── 4. The window is what gates it, not the crew alone ──────────────────
   console.log('\n4 — window boundary');
-  check('free before endsAt', isFreeSwitchTarget(EVENT_CREW, CREW_SWITCH_EVENT.endsAt - 1) === true);
-  check('not free at endsAt', isFreeSwitchTarget(EVENT_CREW, CREW_SWITCH_EVENT.endsAt) === false);
-  check('not free after endsAt', isFreeSwitchTarget(EVENT_CREW, CREW_SWITCH_EVENT.endsAt + 1) === false);
-  check('never free for another crew', isFreeSwitchTarget(PAID_CREW, Date.now()) === false);
+  const end = CREW_SWITCH_EVENT!.endsAt;
+  check('free before endsAt', isFreeSwitchTarget(EVENT_CREW, {}, end - 1) === true);
+  check('not free at endsAt', isFreeSwitchTarget(EVENT_CREW, {}, end) === false);
+  check('not free after endsAt', isFreeSwitchTarget(EVENT_CREW, {}, end + 1) === false);
+  check('never free for another crew', isFreeSwitchTarget(PAID_CREW, {}, end - 1) === false);
+  check(
+    'never free once used',
+    isFreeSwitchTarget(EVENT_CREW, { freeCrewSwitchUsed: CREW_SWITCH_EVENT!.id }, end - 1) === false,
+  );
 }
 
 it('switchCrew', main);

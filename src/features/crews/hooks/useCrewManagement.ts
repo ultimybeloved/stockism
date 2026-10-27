@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { switchCrewFunction, leaveCrewFunction } from '../../../api/callables';
-import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_PENALTY } from '../../../crews';
+import { CREW_MAP, CREW_REJOIN_LOCKOUT_DAYS, CREW_SWITCH_EVENT, CREW_SWITCH_PENALTY } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
 import { reportUnexpected } from '../../../monitoring';
 import { errorMessage } from '../../../utils/errors';
@@ -28,6 +28,7 @@ export function useCrewManagement({ user, userData, showNotification, setUserDat
                   crew: crewId,
                   cash: (prev.cash || 0) - totalTaken,
                   crewSwitchCooldown: Date.now(),
+                  ...(freeSwitch && CREW_SWITCH_EVENT ? { freeCrewSwitchUsed: CREW_SWITCH_EVENT.id } : {}),
                   crewLockouts: freeSwitch
                     ? prev.crewLockouts || {}
                     : {

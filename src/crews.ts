@@ -683,21 +683,45 @@ export const CREW_REJOIN_LOCKOUT_DAYS = 30;
 // ============================================
 // FREE SWITCH EVENT
 // ============================================
-// A launch window where moving INTO one crew is free: no portfolio penalty, no
-// 30-day lockout on the crew being left, and a pre-existing lockout on the
-// event crew does not block entry. Everything else still applies — the 24h
-// change cooldown, the debt check, and leaving the event crew later costs the
-// normal penalty.
+// A window where each player gets ONE free switch into any of the event's
+// crews: no portfolio penalty, no 30-day lockout on the crew being left, and a
+// pre-existing lockout on the destination does not block entry. Everything
+// else still applies: the 24h change cooldown, the debt check, and leaving
+// later costs the normal penalty. Joining from no crew is always free and
+// doesn't use it up.
+//
+// The switch that uses it stamps `freeCrewSwitchUsed: <event id>` on the user
+// doc, so a new event with a new id hands everyone a fresh one.
 //
 // Self-expiring: once endsAt passes, switching behaves normally again with no
 // deploy needed to turn it off. Set to null when no event is running.
 //
-// The server derives all of this from the destination crew itself. The client
-// can never claim a free switch.
-export const CREW_SWITCH_EVENT = {
-  crewId: 'KITAE_UNION',
-  endsAt: Date.UTC(2026, 7, 14, 21, 0), // 2026-08-14 21:00 UTC
+// The server derives all of this from the destination crew and the user doc.
+// The client can never claim a free switch.
+export interface CrewSwitchEvent {
+  id: string;
+  crewIds: string[];
+  endsAt: number;
+}
+
+// Flair crews launch: one free move into any crew that has flair crews, for
+// players who want to rep one. Keep crewIds in step with src/rules/flairCrews.ts.
+export const CREW_SWITCH_EVENT: CrewSwitchEvent | null = {
+  id: 'flair_2026_10',
+  crewIds: ['ALLIED', 'BIG_DEAL', 'SECRET_FRIENDS', 'HOSTEL', 'FIST_GANG', 'WORKERS', 'KITAE_UNION'],
+  endsAt: Date.UTC(2026, 10, 3, 21, 0), // 2026-11-03 21:00 UTC
 };
 
-export const isFreeSwitchTarget = (crewId: string, now: number = Date.now()): boolean =>
-  !!CREW_SWITCH_EVENT && crewId === CREW_SWITCH_EVENT.crewId && now < CREW_SWITCH_EVENT.endsAt;
+/** True while the event runs and this player hasn't used their free switch yet. */
+export const hasFreeSwitch = (
+  player: { freeCrewSwitchUsed?: unknown } | null | undefined,
+  now: number = Date.now(),
+): boolean =>
+  !!CREW_SWITCH_EVENT && now < CREW_SWITCH_EVENT.endsAt && player?.freeCrewSwitchUsed !== CREW_SWITCH_EVENT.id;
+
+/** True when this player switching into crewId right now would be free. */
+export const isFreeSwitchTarget = (
+  crewId: string,
+  player: { freeCrewSwitchUsed?: unknown } | null | undefined,
+  now: number = Date.now(),
+): boolean => hasFreeSwitch(player, now) && CREW_SWITCH_EVENT!.crewIds.includes(crewId);

@@ -231,6 +231,8 @@ export interface UserData {
   /** Best check-in streak ever reached. */
   maxCheckinStreak?: number;
   crewLockouts?: Record<string, number>;
+  /** Id of the free-switch event this player already used their free switch in. */
+  freeCrewSwitchUsed?: string;
   darkMode?: boolean;
   isBankrupt?: boolean;
   colorBlindMode?: boolean;

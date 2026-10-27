@@ -6,6 +6,7 @@ import {
   CREW_REJOIN_LOCKOUT_DAYS,
   CREW_SWITCH_PENALTY,
   CREW_SWITCH_EVENT,
+  hasFreeSwitch,
   isFreeSwitchTarget,
 } from '../../../crews';
 import { formatCurrency } from '../../../utils/formatters';
@@ -56,14 +57,13 @@ const CrewSelectionModal = ({
   const penaltyAmount = Math.floor(portfolioValue * CREW_SWITCH_PENALTY);
   const penaltyPct = Math.round(CREW_SWITCH_PENALTY * 100);
 
-  // Free-switch event, if one is running. The server enforces this; the UI just
-  // has to describe the same rules.
-  const eventCrew =
-    CREW_SWITCH_EVENT && isFreeSwitchTarget(CREW_SWITCH_EVENT.crewId) ? CREW_MAP[CREW_SWITCH_EVENT.crewId] : null;
-  const isFreeTarget = (crewId: string) => !!eventCrew && isFreeSwitchTarget(crewId);
+  // Free-switch event, if one is running and this player still has their free
+  // switch. Only a switch uses it (joining from no crew is free anyway). The
+  // server enforces this; the UI just has to describe the same rules.
+  const freeSwitchOpen = !!currentCrew && hasFreeSwitch(userData);
+  const isFreeTarget = (crewId: string) => freeSwitchOpen && isFreeSwitchTarget(crewId, userData);
 
-  // 30-day rejoin lockout on crews you recently left. The event crew ignores it
-  // while the window is open.
+  // 30-day rejoin lockout on crews you recently left. A free switch ignores it.
   const lockDaysLeft = (crewId: string) => {
     if (isFreeTarget(crewId)) return 0;
     const lockedUntil = userData?.crewLockouts?.[crewId] || 0;
@@ -129,14 +129,14 @@ const CrewSelectionModal = ({
         </div>
 
         {/* Free-switch event banner */}
-        {eventCrew && !confirming && !leavingCrew && (
+        {freeSwitchOpen && CREW_SWITCH_EVENT && !confirming && !leavingCrew && (
           <div className="p-3 light:bg-emerald-100 dark:bg-emerald-900/30 border-b border-emerald-500/30">
             <p className="text-emerald-400 text-sm text-center">
-              <strong>Free to join {eventCrew.name}</strong>
+              <strong>You have one free switch</strong>
               <br />
               <span className={`text-xs ${mutedClass}`}>
-                No {penaltyPct}% penalty and no lockout on the crew you leave. Ends{' '}
-                {formatDateTime(CREW_SWITCH_EVENT.endsAt)}.
+                Move to any crew marked free with no {penaltyPct}% penalty and no lockout on the crew you leave. One
+                switch only. Ends {formatDateTime(CREW_SWITCH_EVENT.endsAt)}.
               </span>
             </p>
           </div>
@@ -209,8 +209,8 @@ const CrewSelectionModal = ({
               <div className="p-4 rounded-sm light:bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-500/30 mb-4">
                 <p className="text-emerald-400 font-semibold mb-2">This switch is free</p>
                 <p className={`text-xs ${mutedClass}`}>
-                  Nothing is taken from your cash or shares, and {current?.name} stays open to you if you want to go
-                  back. Leaving {chosen?.name} later costs the usual {penaltyPct}%.
+                  This uses your one free switch. Nothing is taken from your cash or shares, and {current?.name} stays
+                  open to you if you want to go back. Leaving {chosen?.name} later costs the usual {penaltyPct}%.
                 </p>
               </div>
             ) : currentCrew ? (
