@@ -27,7 +27,7 @@ export interface FlairCrew {
 const FLAIR_LIST: FlairCrew[] = [
   { id: 'BURN_KNUCKLES', name: 'Burn Knuckles', crew: 'ALLIED', members: ['VSCO', 'JACE'] },
   { id: 'ANSAN_PUBLIC', name: 'Ansan Public', crew: 'ALLIED', members: ['AHN', 'TM'] },
-  { id: 'CHEONLIANG', name: 'Cheonliang', crew: 'ALLIED', members: ['VIN', '2SEC', '6KNG'] },
+  { id: 'CHEONLIANG', name: 'Cheonliang', crew: 'ALLIED', members: ['VIN', '2SEC', '6KNG', 'SUJN'] },
   {
     id: 'J_HIGH',
     name: 'J High',
