@@ -91,3 +91,26 @@ export async function notifyCosmeticGrant(
     // The grant stands either way; closed DMs are normal.
   }
 }
+
+/**
+ * Notify a player that an admin gave them shop credit (a giveaway prize).
+ * Generic text, like notifyCashGrant: the memo never crosses over. Fail-soft.
+ */
+export async function notifyShopCreditGrant(
+  uid: string,
+  discordId: string | null | undefined,
+  amount: number,
+): Promise<void> {
+  const text = `You received ${money(amount).replace(/\.00$/, '')} of shop credit. Spend it on anything in the shop, under Customize.`;
+  try {
+    await writeNotification(uid, {
+      type: 'system',
+      title: '🎁 Shop credit added',
+      message: text,
+      data: { amount },
+    });
+    if (discordId) await sendDiscordDM(discordId, `${pxe('shop')} ${text}`);
+  } catch {
+    // The credit stands either way; closed DMs are normal.
+  }
+}

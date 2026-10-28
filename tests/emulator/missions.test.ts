@@ -374,6 +374,20 @@ async function main() {
     ach.achievements,
   );
 
+  // Shop credit milestone: the 25th mission also pays shop credit, never cash.
+  await seedMissionUser('m_credit', { extra: { totalMissionsCompleted: 24, shopCredit: 1000 } });
+  const creditClaim = await claimMissionReward.run({ missionId: daily!.id, type: 'daily' }, ctx('m_credit'));
+  const creditUser = await getUser('m_credit');
+  check('the 25th mission pays $25,000 of shop credit', creditClaim.credit === 25000, creditClaim);
+  check('on top of what they had', creditUser.shopCredit === 26000, `shopCredit=${creditUser.shopCredit}`);
+  check(
+    'and only the mission cash is granted value',
+    creditUser.cash === 1000 + daily!.reward && near(creditUser.grantedValue, daily!.reward),
+    `cash=${creditUser.cash} granted=${creditUser.grantedValue}`,
+  );
+  const plainClaim = await getUser('m_claim');
+  check('other missions pay no credit', claim.credit === 0 && !plainClaim.shopCredit, claim);
+
   // ── E. Mission gating ─────────────────────────────────────────────────────
   console.log('\nE. Mission gating');
 

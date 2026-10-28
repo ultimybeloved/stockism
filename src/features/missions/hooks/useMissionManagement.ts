@@ -25,6 +25,10 @@ const claimErrorText = (err: unknown) => {
   return msg || 'Failed to claim reward';
 };
 
+// Mission milestones pay shop credit (rules/shop missionCreditFor).
+const creditToast = (total: number, credit: number) =>
+  `${total} missions done! ${formatCurrency(credit)} of shop credit added. Spend it under Customize.`;
+
 export function useMissionManagement({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handleClaimMissionReward = useCallback(
     async (missionId: string, reward: number) => {
@@ -57,6 +61,9 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
         if (earnedAchievement) {
           showNotification('achievement', ...achievementToast(earnedAchievement));
+        } else if (result.data.credit) {
+          playSound('coin');
+          showNotification('success', creditToast(newTotal, result.data.credit));
         } else {
           playSound('coin');
           showNotification('success', `Claimed ${formatCurrency(reward)} mission reward!`);
@@ -130,6 +137,9 @@ export function useMissionManagement({ user, userData, showNotification, setUser
         else if (newTotal >= 10 && !achievements.includes('MISSION_10')) earnedAchievement = ACHIEVEMENTS.MISSION_10;
         if (earnedAchievement) {
           showNotification('achievement', ...achievementToast(earnedAchievement));
+        } else if (result.data.credit) {
+          playSound('coin');
+          showNotification('success', creditToast(newTotal, result.data.credit));
         } else {
           playSound('coin');
           showNotification('success', `Claimed ${formatCurrency(reward)} weekly mission reward!`);

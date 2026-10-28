@@ -13,6 +13,8 @@
 // entries record shop items handed out or taken without payment (admin grants
 // and revokes), valued at the shop price; a bought item shows up instead as a
 // 'cosmetic_purchase' cash entry, so paid and free items can always be told apart.
+// 'credit' entries track shop credit (rules/shop): admin grants, mission
+// milestones, and the part of a shop purchase it paid for.
 // `amount` is the signed change to that account. `cashAfter` is that account's balance after the
 // change when the writer knows it (null for FieldValue.increment writes made
 // without reading the balance first). `ref` points at what the money was for:
@@ -24,7 +26,7 @@ import { round2 } from './money';
 export interface LedgerInput {
   uid: string;
   type: string;
-  account?: 'cash' | 'ladder' | 'shares' | 'cosmetics';
+  account?: 'cash' | 'ladder' | 'shares' | 'cosmetics' | 'credit';
   amount: number;
   cashAfter?: number | null;
   ref?: string | null;

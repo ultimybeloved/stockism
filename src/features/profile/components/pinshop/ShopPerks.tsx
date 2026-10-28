@@ -28,10 +28,10 @@ const PLANS: { plan: StreakSaverPlan; name: string; blurb: string }[] = [
 // (rules/economy); the pin slots let you show one more pin. Bought through the
 // shared confirm dialog in PinShopModal.
 const ShopPerks = ({
-  cash,
+  budget,
   onRequestPurchase,
 }: {
-  cash: number;
+  budget: number;
   onRequestPurchase: (purchase: PendingPurchase) => void;
 }) => {
   const { userData } = useSession();
@@ -97,7 +97,7 @@ const ShopPerks = ({
       )}
       {PLANS.map(({ plan, name, blurb }) => {
         const price = STREAK_SAVER_PLANS[plan].price;
-        return row(plan, name, blurb, price, permanent ? 'Owned' : null, eligible && cash >= price, () =>
+        return row(plan, name, blurb, price, permanent ? 'Owned' : null, eligible && budget >= price, () =>
           onRequestPurchase({ type: 'perk', item: plan, name, price }),
         );
       })}
@@ -107,7 +107,7 @@ const ShopPerks = ({
         'Display one more pin earned from achievements.',
         PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT,
         userData?.extraAchievementSlot ? 'Owned' : null,
-        cash >= PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT,
+        budget >= PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT,
         () => onRequestPurchase({ type: 'slot', item: 'achievement', price: PIN_SLOT_COSTS.EXTRA_ACHIEVEMENT_SLOT }),
       )}
       {row(
@@ -116,7 +116,7 @@ const ShopPerks = ({
         'Display one more pin bought from the shop.',
         PIN_SLOT_COSTS.EXTRA_SHOP_SLOT,
         userData?.extraShopSlot ? 'Owned' : null,
-        cash >= PIN_SLOT_COSTS.EXTRA_SHOP_SLOT,
+        budget >= PIN_SLOT_COSTS.EXTRA_SHOP_SLOT,
         () => onRequestPurchase({ type: 'slot', item: 'shop', price: PIN_SLOT_COSTS.EXTRA_SHOP_SLOT }),
       )}
     </div>

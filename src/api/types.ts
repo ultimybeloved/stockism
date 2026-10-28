@@ -87,6 +87,8 @@ export interface ClaimMissionRewardRequest {
 
 export interface ClaimMissionRewardResponse {
   newTotal: number;
+  /** Shop credit this claim paid (a mission milestone), else 0. */
+  credit?: number;
 }
 
 export interface RerollMissionsResponse {

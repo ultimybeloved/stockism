@@ -14,6 +14,7 @@ import { errorMessage } from '../../../utils/errors';
 import { formatCurrency } from '../../../utils/formatters';
 import type { ActionHookDeps } from '../../../shared/hooks/types';
 import type { CosmeticStyle, CosmeticStyleKey } from '../../../rules/cosmetics';
+import { afterShopPayment } from '../../../rules/shop';
 
 /** What a gift is: one shop item or a whole bundle. */
 export interface GiftTarget {
@@ -46,7 +47,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
               ? {
                   ...prev,
                   ownedShopPins: [...(prev.ownedShopPins || []), pinId],
-                  cash: (prev.cash || 0) - (cost || 0),
+                  ...afterShopPayment(prev, cost || 0),
                 }
               : prev,
           );
@@ -68,7 +69,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
           // Mirror the backend's field: it sets the extraShopSlot /
           // extraAchievementSlot boolean, which is what the slot math reads.
           const slotKey = payload === 'shop' ? 'extraShopSlot' : 'extraAchievementSlot';
-          setUserData((prev) => (prev ? { ...prev, [slotKey]: true, cash: (prev.cash || 0) - (cost || 0) } : prev));
+          setUserData((prev) => (prev ? { ...prev, [slotKey]: true, ...afterShopPayment(prev, cost || 0) } : prev));
           playSound('purchase');
           showNotification('success', `Unlocked extra ${payload} pin slot!`);
         } else if (action === 'buyStreakSaver') {
@@ -79,7 +80,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
               ? {
                   ...prev,
                   ...(until ? { streakSaverUntil: until } : { streakSaverPermanent: true }),
-                  cash: (prev.cash || 0) - (cost || 0),
+                  ...afterShopPayment(prev, cost || 0),
                 }
               : prev,
           );

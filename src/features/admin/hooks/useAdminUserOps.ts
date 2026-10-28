@@ -1,4 +1,8 @@
-import { adminSetCashFunction, adminTransferToLadderFunction } from '../../../api/callables';
+import {
+  adminGrantShopCreditFunction,
+  adminSetCashFunction,
+  adminTransferToLadderFunction,
+} from '../../../api/callables';
 import { parseCashInput, describeCashChange } from '../../../utils/adminCash';
 import { useAdminBankruptcy } from './useAdminBankruptcy';
 import { useAdminUserIdentity } from './useAdminUserIdentity';
@@ -103,12 +107,44 @@ export function useAdminUserOps({
     setLoading(false);
   };
 
+  // Shop credit (giveaway prizes): a whole-dollar amount, negative to take some back.
+  const handleShopCredit = async (userId: string, displayName: string, currentCredit = 0) => {
+    const input = prompt(
+      `Shop credit for ${displayName} (has $${currentCredit.toLocaleString()}).\n` +
+        'Enter an amount to give, or a negative amount to take back:',
+    );
+    if (input === null) return;
+    const amount = Math.round(Number(input.replace(/[$,\s]/g, '')));
+    if (!Number.isFinite(amount) || amount === 0) {
+      showMessage('error', 'Enter a whole number, not 0');
+      return;
+    }
+    const memo = prompt('Why? Private, only admins see it. e.g. "giveaway winner 10-29"');
+    if (memo === null) return;
+    if (!memo.trim()) {
+      showMessage('error', 'A memo is required');
+      return;
+    }
+    const verb = amount > 0 ? `Give ${displayName}` : `Take back from ${displayName}`;
+    if (!confirm(`${verb} $${Math.abs(amount).toLocaleString()} of shop credit?\n\nMemo: ${memo.trim()}`)) return;
+    setLoading(true);
+    try {
+      const { data } = await adminGrantShopCreditFunction({ userId, amount, memo: memo.trim() });
+      showMessage('success', `Shop credit $${data.before.toLocaleString()} -> $${data.after.toLocaleString()}`);
+      setSelectedUser((prev) => (prev ? { ...prev, shopCredit: data.after } : prev));
+    } catch (err) {
+      showMessage('error', `Failed: ${errorMessage(err)}`);
+    }
+    setLoading(false);
+  };
+
   return {
     ...bankruptcy,
     ...identity,
     ...discordRecovery,
     ...fieldEdits,
     handleSetCash,
+    handleShopCredit,
     handleTransferToLadder,
   };
 }

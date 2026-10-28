@@ -11,6 +11,13 @@ import {
   featuredPrice,
   shopWeek,
   shopWeekEndsAt,
+  MISSION_CREDIT_AMOUNT,
+  MISSION_CREDIT_EVERY,
+  afterShopPayment,
+  missionCreditFor,
+  missionsToNextCredit,
+  shopBudget,
+  splitShopPayment,
 } from './shop';
 import { SEASON_REWARDS, seasonRewardIds } from './seasons';
 
@@ -114,5 +121,30 @@ describe('featured item', () => {
 
   it('takes 25% off', () => {
     expect(featuredPrice(80000)).toBe(60000);
+  });
+});
+
+describe('shop credit', () => {
+  it('pays credit first and cash for the rest', () => {
+    expect(splitShopPayment(50000, 20000)).toEqual({ fromCredit: 20000, fromCash: 30000 });
+    expect(splitShopPayment(50000, 80000)).toEqual({ fromCredit: 50000, fromCash: 0 });
+    expect(splitShopPayment(50000, undefined)).toEqual({ fromCredit: 0, fromCash: 50000 });
+    expect(splitShopPayment(50000, -5)).toEqual({ fromCredit: 0, fromCash: 50000 });
+  });
+
+  it('spends cash plus credit, and the instant update matches the split', () => {
+    expect(shopBudget({ cash: 1000, shopCredit: 25000 })).toBe(26000);
+    expect(shopBudget(null)).toBe(0);
+    expect(afterShopPayment({ cash: 1000, shopCredit: 25000 }, 25500)).toEqual({ cash: 500, shopCredit: 0 });
+  });
+
+  it('pays mission credit on every 25th mission only', () => {
+    expect(missionCreditFor(MISSION_CREDIT_EVERY)).toBe(MISSION_CREDIT_AMOUNT);
+    expect(missionCreditFor(MISSION_CREDIT_EVERY * 4)).toBe(MISSION_CREDIT_AMOUNT);
+    expect(missionCreditFor(MISSION_CREDIT_EVERY + 1)).toBe(0);
+    expect(missionCreditFor(0)).toBe(0);
+    expect(missionsToNextCredit(0)).toBe(MISSION_CREDIT_EVERY);
+    expect(missionsToNextCredit(MISSION_CREDIT_EVERY - 1)).toBe(1);
+    expect(missionsToNextCredit(MISSION_CREDIT_EVERY)).toBe(MISSION_CREDIT_EVERY);
   });
 });

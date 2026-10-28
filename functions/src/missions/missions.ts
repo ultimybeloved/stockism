@@ -23,9 +23,11 @@ import { getLadderChips } from '../shared/ladderMath';
 // /missions command reads the exact same logic instead of a second copy.
 import { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchievementFor } from './missionChecks';
 import { recordLedger } from '../shared/ledger';
+import { chargeShop } from '../shared/shopPayment';
 import { getWeekId } from '../shared/tradeRecords';
 import { holdsShortForMissions, nextRivalry, rivalryQualified } from '../shared/rules/missionProgress';
 import { weeklyMissionsOpen } from '../shared/rules/missions';
+import { missionCreditFor } from '../shared/rules/shop';
 import { noteRivalryActivity } from '../shared/rivalries';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
@@ -143,6 +145,11 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
     const earned = missionAchievementFor(newTotal, userData.achievements);
     if (earned) updates.achievements = FieldValue.arrayUnion(earned);
 
+    // Every so many missions pays shop credit (rules/shop). Not cash, so it is
+    // not granted value: it can only be spent in the shop.
+    const credit = missionCreditFor(newTotal);
+    if (credit) updates.shopCredit = (userData.shopCredit || 0) + credit;
+
     transaction.update(userRef, updates);
     recordLedger(transaction, {
       uid,
@@ -152,11 +159,21 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
       ref: missionId,
       detail: { missionType: type },
     });
+    recordLedger(transaction, {
+      uid,
+      type: 'mission_credit',
+      account: 'credit',
+      amount: credit,
+      cashAfter: (userData.shopCredit || 0) + credit,
+      ref: missionId,
+      detail: { missions: newTotal },
+    });
 
     return {
       success: true,
       reward,
       newTotal,
+      credit,
       rivalry: crew && rivalry ? { weekId, crew, qualified: rivalryQualified({ rivalry }, crew) } : null,
     };
   });
@@ -296,9 +313,6 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid pin.');
       }
       const validCost = pinInfo.price;
-      if ((userData.cash || 0) < validCost) {
-        throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
-      }
       const bestStreak = Math.max(userData.maxCheckinStreak || 0, userData.checkinStreak || 0);
       if (pinInfo.requiredCheckinStreak && bestStreak < pinInfo.requiredCheckinStreak) {
         throw new functions.https.HttpsError(
@@ -310,42 +324,24 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
       if (owned.includes(pinId)) {
         throw new functions.https.HttpsError('already-exists', 'Already owned.');
       }
-      transaction.update(userRef, {
-        ownedShopPins: FieldValue.arrayUnion(pinId),
-        cash: (userData.cash || 0) - validCost,
-      });
-      recordLedger(transaction, {
-        uid,
-        type: 'pin_purchase',
-        amount: -validCost,
-        cashAfter: (userData.cash || 0) - validCost,
-        ref: pinId,
-      });
-      return { success: true, cost: validCost };
+      const { updates, paid } = chargeShop(transaction, uid, userData, validCost, { type: 'pin_purchase', ref: pinId });
+      transaction.update(userRef, { ownedShopPins: FieldValue.arrayUnion(pinId), ...updates });
+      return { success: true, cost: validCost, paid };
     } else if (action === 'buySlot') {
       // Slot costs: achievement = $5000, shop = $7500
       const slotCosts: Record<string, number> = { achievement: 5000, shop: 7500 };
       const validCost = slotCosts[slotType];
       if (!validCost) throw new functions.https.HttpsError('invalid-argument', 'Invalid slot type.');
-      if ((userData.cash || 0) < validCost) {
-        throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
-      }
       const field = slotType === 'achievement' ? 'extraAchievementSlot' : 'extraShopSlot';
       if (userData[field]) {
         throw new functions.https.HttpsError('already-exists', 'Slot already purchased.');
       }
-      transaction.update(userRef, {
-        [field]: true,
-        cash: (userData.cash || 0) - validCost,
-      });
-      recordLedger(transaction, {
-        uid,
+      const { updates, paid } = chargeShop(transaction, uid, userData, validCost, {
         type: 'pin_slot_purchase',
-        amount: -validCost,
-        cashAfter: (userData.cash || 0) - validCost,
         ref: slotType,
       });
-      return { success: true, cost: validCost };
+      transaction.update(userRef, { [field]: true, ...updates });
+      return { success: true, cost: validCost, paid };
     } else if (action === 'buyStreakSaver') {
       // Shop perk: check-ins pay the top reward while it lasts (rules/economy).
       // Buying the month plan again stacks another 30 days on what's left.
@@ -368,24 +364,18 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
           `You need a ${STREAK_SAVER_MIN_STREAK}-day check-in streak to buy a streak saver.`,
         );
       }
-      if ((userData.cash || 0) < plan.price) {
-        throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
-      }
       const until =
         plan.days === null ? null : Math.max(now, userData.streakSaverUntil || 0) + plan.days * 24 * 60 * 60 * 1000;
-      transaction.update(userRef, {
-        ...(until === null ? { streakSaverPermanent: true } : { streakSaverUntil: until }),
-        cash: (userData.cash || 0) - plan.price,
-      });
-      recordLedger(transaction, {
-        uid,
+      const { updates, paid } = chargeShop(transaction, uid, userData, plan.price, {
         type: 'streak_saver_purchase',
-        amount: -plan.price,
-        cashAfter: (userData.cash || 0) - plan.price,
         ref: data.plan,
         detail: until === null ? { permanent: true } : { until },
       });
-      return { success: true, cost: plan.price, until };
+      transaction.update(userRef, {
+        ...(until === null ? { streakSaverPermanent: true } : { streakSaverUntil: until }),
+        ...updates,
+      });
+      return { success: true, cost: plan.price, until, paid };
     } else {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid action.');
     }

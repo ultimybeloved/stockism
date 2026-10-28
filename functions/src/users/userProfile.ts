@@ -14,6 +14,7 @@ import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import type { UserData } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
+import { chargeShop } from '../shared/shopPayment';
 import { COSMETIC_PRICE_LIST } from '../shared/constants/cosmetics';
 import { BUNDLE_MAP, bundleQuote, featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
 
@@ -353,22 +354,14 @@ export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: st
       throw new functions.https.HttpsError('permission-denied', 'Action not allowed.');
     if ((userData.ownedCosmetics || []).includes(cosmeticId as string))
       throw new functions.https.HttpsError('already-exists', 'You already own this cosmetic.');
-    if ((userData.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
-
-    transaction.update(userRef, {
-      ownedCosmetics: FieldValue.arrayUnion(cosmeticId),
-      cash: FieldValue.increment(-price),
-    });
-    recordLedger(transaction, {
-      uid,
+    const { updates, paid } = chargeShop(transaction, uid, userData, price, {
       type: 'cosmetic_purchase',
-      amount: -price,
-      cashAfter: (userData.cash || 0) - price,
       ref: cosmeticId as string,
       detail: featured ? { featured: true, listPrice: cosmetic.price } : null,
     });
+    transaction.update(userRef, { ownedCosmetics: FieldValue.arrayUnion(cosmeticId), ...updates });
 
-    return { success: true, price };
+    return { success: true, price, paid };
   });
 });
 
@@ -400,21 +393,13 @@ export const purchaseBundle = cf().https.onCall(async (data: { bundleId?: string
 
     const { missing, price } = bundleQuote(bundle, userData.ownedCosmetics, (id) => COSMETIC_CATALOG[id]?.price);
     if (!missing.length) throw new functions.https.HttpsError('already-exists', 'You already own this whole set.');
-    if ((userData.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
-
-    transaction.update(userRef, {
-      ownedCosmetics: FieldValue.arrayUnion(...missing),
-      cash: FieldValue.increment(-price),
-    });
-    recordLedger(transaction, {
-      uid,
+    const { updates, paid } = chargeShop(transaction, uid, userData, price, {
       type: 'bundle_purchase',
-      amount: -price,
-      cashAfter: (userData.cash || 0) - price,
       ref: bundle.id,
       detail: { items: missing },
     });
+    transaction.update(userRef, { ownedCosmetics: FieldValue.arrayUnion(...missing), ...updates });
 
-    return { success: true, price, items: missing };
+    return { success: true, price, items: missing, paid };
   });
 });

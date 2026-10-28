@@ -114,3 +114,37 @@ export const featuredCosmeticId = (
 };
 
 export const featuredPrice = (price: number): number => Math.round(price * (1 - FEATURED_DISCOUNT));
+
+// Shop credit: money that only the shop takes. Admins hand it out as prizes and
+// players earn it from missions. It pays first, cash covers the rest, it never
+// expires, and it never turns into cash, so it adds nothing to the economy.
+// Every 25 missions claimed pays $25k of it.
+export const MISSION_CREDIT_EVERY = 25;
+export const MISSION_CREDIT_AMOUNT = 25000;
+
+/** Credit a mission claim pays, given the player's new lifetime mission total. */
+export const missionCreditFor = (newTotal: number): number =>
+  newTotal > 0 && newTotal % MISSION_CREDIT_EVERY === 0 ? MISSION_CREDIT_AMOUNT : 0;
+
+/** Missions left until the next credit payout (1 to MISSION_CREDIT_EVERY). */
+export const missionsToNextCredit = (total: number): number =>
+  MISSION_CREDIT_EVERY - (Math.max(0, Math.floor(total)) % MISSION_CREDIT_EVERY);
+
+/** How a shop price is paid: credit first, cash for the rest. */
+export const splitShopPayment = (
+  price: number,
+  credit: number | null | undefined,
+): { fromCredit: number; fromCash: number } => {
+  const fromCredit = Math.min(price, Math.max(0, credit || 0));
+  return { fromCredit, fromCash: price - fromCredit };
+};
+
+/** What a player can spend in the shop: cash plus shop credit. */
+export const shopBudget = (user: { cash?: number; shopCredit?: number } | null | undefined): number =>
+  (user?.cash || 0) + Math.max(0, user?.shopCredit || 0);
+
+/** A player's cash and shop credit after paying `price` (the site's instant update). */
+export const afterShopPayment = (user: { cash?: number; shopCredit?: number }, price: number) => {
+  const { fromCredit, fromCash } = splitShopPayment(price, user.shopCredit);
+  return { cash: (user.cash || 0) - fromCash, shopCredit: Math.max(0, user.shopCredit || 0) - fromCredit };
+};

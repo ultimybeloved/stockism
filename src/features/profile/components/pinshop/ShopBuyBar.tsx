@@ -54,7 +54,7 @@ const ShopBuyBar = ({ name, price, listPrice, action, canAfford, onAction, onGif
           type="button"
           onClick={() => enabled && onAction()}
           disabled={!enabled}
-          title={enabled ? undefined : 'Not enough cash'}
+          title={enabled ? undefined : 'Not enough cash or shop credit'}
           className={`shrink-0 px-3.5 py-1.5 text-xs font-semibold rounded-sm ${
             !enabled
               ? 'light:bg-slate-100 light:text-slate-400 dark:bg-zinc-800 dark:text-zinc-500 cursor-not-allowed'

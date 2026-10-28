@@ -34,6 +34,12 @@ const { playLadderGame } =
   require('../../functions/src/ladder/ladderGame') as typeof import('../../functions/src/ladder/ladderGame');
 const { adminSetCash, adminGrantCosmetic } =
   require('../../functions/src/admin/adminOps') as typeof import('../../functions/src/admin/adminOps');
+const { adminGrantShopCredit } =
+  require('../../functions/src/admin/adminShopCredit') as typeof import('../../functions/src/admin/adminShopCredit');
+const { purchaseCosmetic } =
+  require('../../functions/src/users/userProfile') as typeof import('../../functions/src/users/userProfile');
+const { purchasePin } =
+  require('../../functions/src/missions/missions') as typeof import('../../functions/src/missions/missions');
 const { giftCosmetic } =
   require('../../functions/src/users/cosmeticGifts') as typeof import('../../functions/src/users/cosmeticGifts');
 const { ADMIN_UID, isWeeklyTradingHalt } =
@@ -171,13 +177,47 @@ async function main() {
     JSON.stringify(pinEntries),
   );
 
+  // Shop credit: an admin grant, then purchases that spend it first and cash for the rest.
+  await run(adminGrantShopCredit, { userId: UID, amount: 20000, memo: 'credit giveaway test' }, ADMIN_UID);
+  const beforeBuy = (await db.collection('users').doc(UID).get()).data();
+  check('admin credit grant lands', beforeBuy.shopCredit === 20000, JSON.stringify(beforeBuy.shopCredit));
+  const bought = await run(purchaseCosmetic, { cosmeticId: 'name_aurora' });
+  const afterBuy = (await db.collection('users').doc(UID).get()).data();
+  check(
+    'a purchase spends credit first, cash for the rest',
+    afterBuy.shopCredit === Math.max(0, 20000 - bought.price) &&
+      Math.abs(afterBuy.cash - (beforeBuy.cash - Math.max(0, bought.price - 20000))) < 0.01 &&
+      bought.paid.credit === Math.min(20000, bought.price),
+    JSON.stringify({ bought, credit: afterBuy.shopCredit, cash: [beforeBuy.cash, afterBuy.cash] }),
+  );
+  await run(adminGrantShopCredit, { userId: UID, amount: 3000, memo: 'pin test' }, ADMIN_UID);
+  const pinBuy = await run(purchasePin, { action: 'buySlot', slotType: 'achievement' });
+  check('pin slots take credit too', pinBuy.paid.credit === 3000 && pinBuy.paid.cash === 2000, JSON.stringify(pinBuy));
+  let overdrawn = false;
+  try {
+    await run(adminGrantShopCredit, { userId: UID, amount: -1, memo: 'too much' }, ADMIN_UID);
+  } catch {
+    overdrawn = true;
+  }
+  check('taking back more credit than they have is refused', overdrawn);
+  expected.add('admin_shop_credit');
+
   const user = (await db.collection('users').doc(UID).get()).data();
   const ladder = (await db.collection('ladderGameUsers').doc(UID).get()).data();
   const entries = (await db.collection('ledger').where('uid', '==', UID).get()).docs.map((d: Loose) => d.data());
   const cash = entries.filter((e: Loose) => e.account === 'cash');
   const lad = entries.filter((e: Loose) => e.account === 'ladder');
 
-  const types = new Set(cash.map((e: Loose) => e.type));
+  const creditEntries = entries.filter((e: Loose) => e.account === 'credit');
+  check(
+    `credit entries add up to the shop credit balance ($${user.shopCredit || 0})`,
+    Math.abs(sum(creditEntries.map((e: Loose) => e.amount)) - (user.shopCredit || 0)) < 0.01 &&
+      creditEntries.some((e: Loose) => e.type === 'cosmetic_purchase' && e.amount < 0),
+    JSON.stringify(creditEntries.map((e: Loose) => [e.type, e.amount])),
+  );
+  check('credit grants never record the private memo', !JSON.stringify(creditEntries).includes('giveaway test'));
+
+  const types = new Set([...cash, ...creditEntries].map((e: Loose) => e.type));
   const missingTypes = [...expected].filter((t) => !types.has(t));
   check('every money action left a ledger entry', missingTypes.length === 0, `missing ${missingTypes.join(', ')}`);
 

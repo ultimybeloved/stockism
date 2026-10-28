@@ -25,6 +25,8 @@ const NO_LEDGER_NEEDED: Record<string, string> = {
   'trading/tradeState.ts': 'builds the update; trading.ts books it through recordTrade',
   'admin/cutAccountMath.ts': 'builds the update; adminEnforcement.ts books it',
   'shared/ledger.ts': 'the ledger itself',
+  'shared/rules/shop.ts': 'price math only; shopPayment.ts books the charge',
+  'shared/types.ts': 'field types only',
   'shared/eventTradeRecords.ts': 'books its own ledger entry',
   'shared/accountArchive.ts': 'copies a deleted account; no balance changes',
   'shared/constants/pixelEmojis.ts': 'emoji IDs; "cash" is an icon name',
@@ -32,7 +34,7 @@ const NO_LEDGER_NEEDED: Record<string, string> = {
 
 const CASH_WRITE =
   /\bcash\??\s*:(?!\s*(number|string|boolean|unknown)\b)\s*[^,\s]|\.cash\s*=[^=]|\bcash\s*=\s*FieldValue/;
-const BOOKS_LEDGER = /\brecordLedger\(|\baddLedgerEntry\(|\brecordTrade\(|\brecordEventTrade\(/;
+const BOOKS_LEDGER = /\brecordLedger\(|\baddLedgerEntry\(|\brecordTrade\(|\brecordEventTrade\(|\bchargeShop\(/;
 
 const walk = (dir: string): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -57,6 +59,15 @@ describe('money ledger coverage', () => {
       .filter(({ src }) => GIVES_COSMETIC.test(src) && !BOOKS_LEDGER.test(src))
       .map(({ file }) => file);
     expect(missing, 'These files give out cosmetics without a ledger entry').toEqual([]);
+  });
+
+  it('every backend file that changes shop credit books a ledger entry', () => {
+    const WRITES_CREDIT = /\bshopCredit\s*[:=](?!\s*(number|string|boolean|unknown)\b)\s*[^,\s]/;
+    const missing = walk(SRC)
+      .map((p) => ({ file: relative(SRC, p).replace(/\\/g, '/'), src: readFileSync(p, 'utf8') }))
+      .filter(({ file, src }) => !NO_LEDGER_NEEDED[file] && WRITES_CREDIT.test(src) && !BOOKS_LEDGER.test(src))
+      .map(({ file }) => file);
+    expect(missing, 'These files change shop credit without a ledger entry').toEqual([]);
   });
 
   it('the exemption list has no stale entries', () => {

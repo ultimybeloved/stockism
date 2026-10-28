@@ -152,6 +152,8 @@ export interface UserData {
   discordId?: string | null;
   crew?: string | null;
   cash?: number;
+  /** Spendable only in the shop (rules/shop). Server-written only. */
+  shopCredit?: number;
   holdings?: Record<string, number>;
   shorts?: Record<string, ShortPosition | null | undefined>;
   marginUsed?: number;

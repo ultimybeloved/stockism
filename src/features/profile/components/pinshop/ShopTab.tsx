@@ -20,7 +20,8 @@ import type { ShopPin } from '../../../../crews';
 import type { PendingPurchase } from '../PinShopModal';
 
 interface ShopTabProps {
-  cash: number;
+  /** Cash plus shop credit: what the player can spend here. */
+  budget: number;
   onEquipCosmetic: (type: string, cosmeticId: string | null) => unknown;
   onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]> | null) => unknown;
   onRequestPurchase: (purchase: PendingPurchase) => void;
@@ -47,7 +48,7 @@ const COUNTS: Partial<Record<ShopCategory, number>> = {
 // on the preview row (mixed with whatever else is being tried) and puts it in
 // the buy bar under the list. Pins and perks get their own tabs.
 const ShopTab = ({
-  cash,
+  budget,
   onEquipCosmetic,
   onSetCosmeticStyle,
   onRequestPurchase,
@@ -176,7 +177,7 @@ const ShopTab = ({
             onPick={sel.pick}
           />
         ) : category === 'perk' ? (
-          <ShopPerks cash={cash} onRequestPurchase={onRequestPurchase} />
+          <ShopPerks budget={budget} onRequestPurchase={onRequestPurchase} />
         ) : category === 'pin' ? (
           <div className="pt-4">
             <ShopPinGrid pins={shopPins()} selectedId={sel.pin?.id || null} owned={ownedPins} onPick={sel.pickPin} />
@@ -193,7 +194,7 @@ const ShopTab = ({
           price={bar.price}
           listPrice={'listPrice' in bar ? bar.listPrice : undefined}
           action={bar.action}
-          canAfford={cash >= bar.price}
+          canAfford={budget >= bar.price}
           onAction={bar.run}
           onGift={'gift' in bar && bar.gift ? bar.gift : undefined}
         />

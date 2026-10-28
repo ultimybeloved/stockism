@@ -23,6 +23,7 @@ import { COSMETIC_CATALOG, COSMETIC_PRICE_LIST } from '../shared/constants/cosme
 import { BUNDLE_MAP, bundleQuote, featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
 import { networkKey, checkDiscordWall } from '../shared/accountGuards';
 import { recordLedger } from '../shared/ledger';
+import { chargeShop } from '../shared/shopPayment';
 import { touchLastActive } from '../shared/activity';
 import { writeNotification } from '../shared/notifications';
 import { sendDiscordDM, pxe } from '../shared/discordApi';
@@ -119,18 +120,8 @@ export const giftCosmetic = cf().https.onCall(
           `You can send ${GIFTS_PER_DAY} gifts a day. More tomorrow.`,
         );
       }
-      if ((giver.cash || 0) < price) throw new functions.https.HttpsError('failed-precondition', 'Not enough cash.');
-
-      tx.update(giverRef, {
-        cash: FieldValue.increment(-price),
-        giftsSent: { day: today, count: sentToday + 1 },
-      });
-      tx.update(recipientRef, { ownedCosmetics: FieldValue.arrayUnion(...items) });
-      recordLedger(tx, {
-        uid,
+      const { updates } = chargeShop(tx, uid, giver, price, {
         type: 'cosmetic_gift_sent',
-        amount: -price,
-        cashAfter: (giver.cash || 0) - price,
         ref: itemId,
         detail: {
           to: recipientUid,
@@ -138,6 +129,8 @@ export const giftCosmetic = cf().https.onCall(
           ...(featured && { featured: true, listPrice: listValue }),
         },
       });
+      tx.update(giverRef, { ...updates, giftsSent: { day: today, count: sentToday + 1 } });
+      tx.update(recipientRef, { ownedCosmetics: FieldValue.arrayUnion(...items) });
       recordLedger(tx, {
         uid: recipientUid,
         type: 'cosmetic_gift_received',

@@ -10,6 +10,7 @@ import MissionCard from '../components/MissionCard';
 import RivalryTab from '../components/RivalryTab';
 import RerollButton from '../components/RerollButton';
 import WeekStrip from '../components/WeekStrip';
+import ShopCreditProgress from '../components/ShopCreditProgress';
 import WeekRecapCard from '../components/WeekRecapCard';
 import { useWeeklyRecap } from '../hooks/useWeeklyRecap';
 import { useMissionBoard } from '../hooks/useMissionBoard';
@@ -82,6 +83,7 @@ export default function MissionsPage({
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-4">
       <WeekStrip weekly={weekly} />
+      <ShopCreditProgress total={userData?.totalMissionsCompleted || 0} credit={userData?.shopCredit || 0} />
 
       {board.multiplier > 1 && (
         <p className="px-3 py-2 rounded-sm border border-orange-500/30 bg-orange-500/10 text-orange-500 text-sm font-semibold">

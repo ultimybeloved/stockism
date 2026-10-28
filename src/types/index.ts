@@ -160,6 +160,8 @@ export interface UserData {
   /** Pre-2026 accounts only; displayName replaced it. */
   username?: string;
   cash?: number;
+  /** Spendable only in the shop (rules/shop). Server-written only. */
+  shopCredit?: number;
   holdings?: ShareMap;
   costBasis?: Record<Ticker, number>;
   shorts?: ShortMap;

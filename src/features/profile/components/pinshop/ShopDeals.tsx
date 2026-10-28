@@ -17,7 +17,7 @@ import PixelIcon from '../../../../shared/components/PixelIcon';
 export const useFeaturedId = () => useMemo(() => featuredCosmeticId(COSMETICS), []);
 
 interface ShopDealsProps {
-  cash: number;
+  budget: number;
   onRequestPurchase: (purchase: PendingPurchase) => void;
   onRequestGift?: (gift: GiftTarget) => void;
   onTryOn: (cosmetics: Cosmetic[] | null) => void;
@@ -33,7 +33,7 @@ const Swatch = ({ cosmetic }: { cosmetic: Cosmetic }) => (
 );
 
 // The Bundles tab. Tapping a bundle tries the whole set on the preview row.
-const ShopDeals = ({ cash, onRequestPurchase, onRequestGift, onTryOn }: ShopDealsProps) => {
+const ShopDeals = ({ budget, onRequestPurchase, onRequestGift, onTryOn }: ShopDealsProps) => {
   const { userData } = useSession();
   const { textClass, mutedClass, borderClass } = themeClasses;
   const owned = userData?.ownedCosmetics || [];
@@ -63,7 +63,7 @@ const ShopDeals = ({ cash, onRequestPurchase, onRequestGift, onTryOn }: ShopDeal
               // A gift always costs the whole set, whatever either player owns.
               const wholeSet = bundleQuote(bundle, [], (id) => COSMETIC_MAP[id]?.price).price;
               const selected = selectedBundle === bundle.id;
-              const canAfford = cash >= price;
+              const canAfford = budget >= price;
               return (
                 <div
                   key={bundle.id}

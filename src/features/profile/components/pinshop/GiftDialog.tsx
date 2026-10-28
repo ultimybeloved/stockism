@@ -7,7 +7,7 @@ import PixelIcon from '../../../../shared/components/PixelIcon';
 
 interface GiftDialogProps {
   gift: GiftTarget;
-  cash: number;
+  budget: number;
   /** Resolves to an error message to show, or null once the gift is sent. */
   onSend: (recipient: string) => Promise<string | null>;
   onClose: () => void;
@@ -15,7 +15,7 @@ interface GiftDialogProps {
 
 // Gift a shop item or bundle to another player by name. No message box on purpose (see
 // functions/src/users/cosmeticGifts.ts); the recipient is told who sent it.
-const GiftDialog = ({ gift, cash, onSend, onClose }: GiftDialogProps) => {
+const GiftDialog = ({ gift, budget, onSend, onClose }: GiftDialogProps) => {
   const dialogRef = useModalFocus();
   const { price } = gift;
   const isBundle = gift.kind === 'bundle';
@@ -23,7 +23,7 @@ const GiftDialog = ({ gift, cash, onSend, onClose }: GiftDialogProps) => {
   const [recipient, setRecipient] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const canSend = !!recipient.trim() && cash >= price && !sending;
+  const canSend = !!recipient.trim() && budget >= price && !sending;
 
   const send = async () => {
     if (!canSend) return;
@@ -66,7 +66,7 @@ const GiftDialog = ({ gift, cash, onSend, onClose }: GiftDialogProps) => {
             {error}
           </p>
         )}
-        {cash < price && <p className="text-xs mb-2 light:text-red-600 dark:text-red-400">Not enough cash.</p>}
+        {budget < price && <p className="text-xs mb-2 light:text-red-600 dark:text-red-400">Not enough budget.</p>}
         <div className="flex gap-3 mt-2">
           <button
             onClick={onClose}

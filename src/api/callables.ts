@@ -155,6 +155,10 @@ export const adminGrantCosmeticFunction = callable<{
   pinId?: string;
   revoke?: boolean;
 }>('adminGrantCosmetic');
+export const adminGrantShopCreditFunction = callable<
+  { userId: string; amount: number; memo: string },
+  { success: boolean; before: number; after: number }
+>('adminGrantShopCredit');
 // Admin: direct edits to one user's game state (see functions/src/admin/adminUserEdit.js)
 export const adminChangeDisplayNameFunction = callable<{ userId: string; displayName: string }>(
   'adminChangeDisplayName',

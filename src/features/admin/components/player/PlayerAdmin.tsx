@@ -89,6 +89,13 @@ const PlayerAdmin = ({
             <button
               className={t.btn}
               disabled={loading}
+              onClick={() => userOps.handleShopCredit(selectedUser.id, name, selectedUser.shopCredit)}
+            >
+              Shop credit{selectedUser.shopCredit ? ` ($${selectedUser.shopCredit.toLocaleString()})` : ''}
+            </button>
+            <button
+              className={t.btn}
+              disabled={loading}
               onClick={() => userOps.handleTransferToLadder(selectedUser.id, name)}
             >
               Move to or from ladder

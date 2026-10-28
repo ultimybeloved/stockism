@@ -21,6 +21,7 @@ import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
 import NewBadge from '../../../shared/components/NewBadge';
 import { SHOP_DROP_ID } from '../../../constants/cosmetics';
+import { shopBudget, splitShopPayment } from '../../../rules/shop';
 
 /** The purchase waiting on the confirm dialog. */
 export type PendingPurchase =
@@ -81,6 +82,10 @@ const PinShopModal = ({
 
   const { cardClass, textClass, mutedClass, overlayClass, modalShellClass, cardEdgeClass } = themeClasses;
   const cash = userData?.cash || 0;
+  const credit = Math.max(0, userData?.shopCredit || 0);
+  const budget = shopBudget(userData);
+  // How the purchase on the confirm dialog gets paid: credit first, then cash.
+  const split = confirmPurchase && credit > 0 ? splitShopPayment(confirmPurchase.price, credit) : null;
 
   const handleConfirmPurchase = async () => {
     if (!confirmPurchase || purchasing) return;
@@ -128,6 +133,12 @@ const PinShopModal = ({
           </div>
           <p className={`text-sm ${mutedClass}`}>
             Cash: <span className="text-orange-500 font-semibold">{formatCurrency(cash)}</span>
+            {credit > 0 && (
+              <>
+                {' '}
+                and shop credit: <span className="text-emerald-500 font-semibold">{formatCurrency(credit)}</span>
+              </>
+            )}
           </p>
         </div>
 
@@ -166,7 +177,7 @@ const PinShopModal = ({
 
         {activeTab === 'shop' && (
           <ShopTab
-            cash={cash}
+            budget={budget}
             onEquipCosmetic={onEquipCosmetic}
             onSetCosmeticStyle={onSetCosmeticStyle}
             onRequestPurchase={setConfirmPurchase}
@@ -190,7 +201,7 @@ const PinShopModal = ({
           {activeTab === 'bundles' && (
             <div className="space-y-6">
               <ShopDeals
-                cash={cash}
+                budget={budget}
                 onRequestPurchase={setConfirmPurchase}
                 onRequestGift={setGift}
                 onTryOn={setTryOn}
@@ -202,7 +213,7 @@ const PinShopModal = ({
         {gift && (
           <GiftDialog
             gift={gift}
-            cash={cash}
+            budget={budget}
             onSend={(recipient) => onGiftCosmetic(gift, recipient)}
             onClose={() => setGift(null)}
           />
@@ -254,6 +265,13 @@ const PinShopModal = ({
                   </>
                 )}
               </p>
+              {split && (
+                <p className={`text-sm ${mutedClass} -mt-2 mb-4`}>
+                  {split.fromCash > 0
+                    ? `Paid with ${formatCurrency(split.fromCredit)} of shop credit and ${formatCurrency(split.fromCash)} cash.`
+                    : `Paid with shop credit. ${formatCurrency(credit - split.fromCredit)} left after this.`}
+                </p>
+              )}
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmPurchase(null)}

@@ -17,6 +17,7 @@ export = [
   'adminNameUnnamed',
   'adminOps',
   'adminPlayerFile',
+  'adminShopCredit',
   'adminUserEdit',
   'archiving',
   'billing',

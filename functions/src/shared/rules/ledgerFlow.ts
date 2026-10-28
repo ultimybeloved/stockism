@@ -92,6 +92,7 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
       checkin_reward: 'Daily check-ins',
       welcome_streak: 'Welcome week',
       mission_reward: 'Missions',
+      mission_credit: 'Mission shop credit',
       crew_mission_reward: 'Crew missions',
       rivalry_reward: 'Crew rivalries',
       achievement: 'Achievements',
@@ -152,6 +153,7 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
     label: 'Admin',
     types: {
       admin_set_cash: 'Cash edits',
+      admin_shop_credit: 'Shop credit edits',
       admin_set_holding: 'Holding edits',
       admin_grant_cosmetic: 'Cosmetics granted',
       admin_revoke_cosmetic: 'Cosmetics revoked',
