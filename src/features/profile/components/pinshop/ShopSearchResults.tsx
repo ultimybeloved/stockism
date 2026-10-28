@@ -2,6 +2,7 @@ import { themeClasses } from '../../../../utils/theme';
 import { pixelatedIfSvg } from '../../../../constants/crests';
 import { KIND_LABEL, shortPrice, type ShopEntry } from '../../utils/shopCatalog';
 import ShopItemCard from './ShopItemCard';
+import { PhoneWarning } from './ProfileShopShelf';
 import type { Cosmetic } from '../../../../constants/cosmetics';
 import type { CosmeticStyle } from '../../../../rules/cosmetics';
 
@@ -17,7 +18,8 @@ interface ShopSearchResultsProps {
 }
 
 // While there's text in the search box: everything that matches, from every
-// category, in one list, most expensive first.
+// category, in one list, most expensive first. A background in the list brings
+// the same desktop-only warning its own tab shows.
 const ShopSearchResults = ({
   results,
   selectedIds,
@@ -30,8 +32,10 @@ const ShopSearchResults = ({
 }: ShopSearchResultsProps) => {
   const { textClass, mutedClass } = themeClasses;
   if (!results.length) return <p className={`py-6 text-sm ${mutedClass}`}>Nothing matches.</p>;
+  const hasBackground = results.some((e) => e.kind === 'cosmetic' && e.item.type === 'profileBg');
   return (
     <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 pt-4">
+      {hasBackground && <PhoneWarning className="sm:col-span-2" />}
       {results.map((entry) =>
         entry.kind === 'cosmetic' ? (
           <ShopItemCard
