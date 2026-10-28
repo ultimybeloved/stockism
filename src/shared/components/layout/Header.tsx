@@ -119,9 +119,9 @@ const Header = ({
       icon: <PixelIcon name="crystal" className="w-5 h-5" />,
       badge: newPredictions,
     },
+    { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5" /> },
     { path: '/missions', label: 'Missions', icon: <PixelIcon name="missions" className="w-5 h-5" /> },
     { path: '/portfolio', label: 'Portfolio', icon: <PixelIcon name="briefcase" set="discord" className="w-5 h-5" /> },
-    { path: '/ladder', label: 'Ladder', icon: <PixelIcon name="ladder" className="w-5 h-5" /> },
   ];
 
   return (
