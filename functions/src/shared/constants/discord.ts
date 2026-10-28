@@ -93,6 +93,37 @@ export const CREW_EMOJIS = {
   WORKERS: '<:stockism_workers:1466672134393954324>',
   YAMAZAKI: '<:stockism_yamazakisyndicate:1466672168921337866>',
 };
+// Pixel crew crests as server emojis (uploaded 2026-10-27), for lists of
+// players such as giveaway winners. Flair crews use their own crest in place
+// of the main crew's when the player has one picked.
+export const PIXEL_CREW_EMOJIS: Record<string, string> = {
+  ALLIED: '<:px_allied:1564781852273680429>',
+  BIG_DEAL: '<:px_bigdeal:1564781853943013418>',
+  FIST_GANG: '<:px_fistgang:1564781855276794067>',
+  GOD_DOG: '<:px_goddog:1564781856476500089>',
+  HOSTEL: '<:px_hostel:1564781858200489985>',
+  KITAE_UNION: '<:px_kitaeunion:1564781875589812356>',
+  SECRET_FRIENDS: '<:px_secretfriends:1564781876684521485>',
+  WORKERS: '<:px_workers:1564781879260094505>',
+  WTJC: '<:px_wtjc:1564781881046859868>',
+  YAMAZAKI: '<:px_yamazaki:1564781882619465911>',
+};
+export const FLAIR_CREW_EMOJIS: Record<string, string> = {
+  BURN_KNUCKLES: '<:stockism_burnknuckles:1564781652285202614>',
+  ANSAN_PUBLIC: '<:stockism_ansanpublic:1564781654071967845>',
+  CHEONLIANG: '<:stockism_cheonliang:1564781656244490320>',
+  J_HIGH: '<:stockism_jhigh:1564781658421461103>',
+  BACK_DOOR: '<:stockism_backdoor:1564781660174688377>',
+  GANGSEO_UNION: '<:stockism_gangseounion:1564781662439612466>',
+  CHEONLIANG_SF: '<:stockism_cheonliangsf:1564781676884926475>',
+  HOSTEL_A: '<:stockism_hostela:1564781678927548569>',
+  RUNAWAY_FAM: '<:stockism_runawayfam:1564781681699725442>',
+  LIBERATION_TRAINING_CORPS: '<:stockism_liberationtrainingcorps:1564781683813654689>',
+  THE_BEGGARS: '<:stockism_thebeggars:1564781685722185868>',
+  BLACK_WORKERS: '<:stockism_blackworkers:1564781687525605546>',
+  THE_CARTEL: '<:stockism_thecartel:1564781689480413254>',
+};
+
 // Matches `<:name:123...>` and `<a:name:123...>`. Anything in CREW_EMOJIS that
 // fails this is ignored in favour of the Unicode emblem — a half-pasted ID
 // would otherwise print as literal text in the middle of an embed.

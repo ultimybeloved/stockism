@@ -13,7 +13,8 @@ import { randomInt } from 'crypto';
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
-import { COSMETIC_CATALOG } from '../shared/constants';
+import { COSMETIC_CATALOG, FLAIR_CREW_EMOJIS, PIXEL_CREW_EMOJIS } from '../shared/constants';
+import { flairOf } from '../shared/rules/flairCrews';
 import { discordApi, pxButton, pxe, sendDiscordDM } from '../shared/discordApi';
 import { grantedValueUpdate } from '../shared/equity';
 import { recordLedger } from '../shared/ledger';
@@ -34,7 +35,14 @@ export interface Giveaway {
   tiers: GiveawayTier[];
   entries?: number;
   shownEntries?: number;
-  winners?: { tier: number; uid: string; discordId: string; name: string }[];
+  winners?: {
+    tier: number;
+    uid: string;
+    discordId: string;
+    name: string;
+    crew?: string | null;
+    flair?: string | null;
+  }[];
   announced?: boolean;
 }
 
@@ -44,6 +52,12 @@ export const enterButtonId = (id: string) => `giveaway:enter:${id}`;
 const cosmeticName = (id: string) => COSMETIC_CATALOG[id]?.name;
 const label = (p: GiveawayPrize) => prizeLabel(p, cosmeticName);
 const ts = (ms: number, style = 'F') => `<t:${Math.floor(ms / 1000)}:${style}>`;
+// A winner as Discord shows them: the mention, then their flair crew's crest
+// if they picked one, else their crew's pixel crest.
+const winnerTag = (w: { discordId: string; crew?: string | null; flair?: string | null }) =>
+  [`<@${w.discordId}>`, (w.flair && FLAIR_CREW_EMOJIS[w.flair]) || (w.crew && PIXEL_CREW_EMOJIS[w.crew])]
+    .filter(Boolean)
+    .join(' ');
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The post's embed and button, for the live, ended or cancelled giveaway. */
@@ -51,7 +65,7 @@ export function giveawayMessage(id: string, g: Giveaway) {
   const prizes = g.tiers.map((t) => {
     const line = `${pxe('gift')} **${label(t.prize)}** to ${plural(t.winners, 'winner')}`;
     const won = (g.winners || []).filter((w) => w.tier === g.tiers.indexOf(t));
-    return g.status === 'ended' && won.length ? `${line}\n${won.map((w) => `<@${w.discordId}>`).join(' ')}` : line;
+    return g.status === 'ended' && won.length ? `${line}\n${won.map(winnerTag).join(', ')}` : line;
   });
   const entries = g.entries || 0;
   const footer =
@@ -163,12 +177,18 @@ export async function finishGiveaway(id: string): Promise<Giveaway | null> {
   let g = (await ref.get()).data() as Giveaway;
   if (!g.winners) {
     const entries = await ref.collection('entries').get();
-    const pool: { uid: string; discordId: string; name: string }[] = [];
+    const pool: { uid: string; discordId: string; name: string; crew: string | null; flair: string | null }[] = [];
     for (const e of entries.docs) {
       const uid = e.data().uid as string;
       const u = (await db.collection('users').doc(uid).get()).data();
       if (!u || u.isBanned || u.isBot || u.discordId !== e.id) continue;
-      pool.push({ uid, discordId: e.id, name: u.displayName || uid });
+      pool.push({
+        uid,
+        discordId: e.id,
+        name: u.displayName || uid,
+        crew: u.crew || null,
+        flair: flairOf(u)?.id || null,
+      });
     }
     const winners = drawWinners(pool, g.tiers, () => randomInt(0, 1_000_000_000) / 1_000_000_000).map(
       ({ tier, entrant }) => ({ tier, ...entrant }),
@@ -209,10 +229,10 @@ export async function finishGiveaway(id: string): Promise<Giveaway | null> {
     await refreshGiveawayPost(id, g);
     const lines = g.tiers.map((t, i) => {
       const won = (g.winners || []).filter((w) => w.tier === i);
-      return won.length ? `**${label(t.prize)}:** ${won.map((w) => `<@${w.discordId}>`).join(' ')}` : null;
+      return won.length ? `**${label(t.prize)}:** ${won.map(winnerTag).join(', ')}` : null;
     });
     const content = (g.winners || []).length
-      ? `${pxe('party')} **${g.title}** winners!\n\n${lines.filter(Boolean).join('\n')}\n\nPrizes are already in your accounts. Congratulations!`
+      ? `${pxe('party')} **${g.title}** winners!\n\n${lines.filter(Boolean).join('\n')}\n\nPrizes have been deposited into your accounts. Congratulations!`
       : `${pxe('error')} **${g.title}** ended with no eligible entries, so there are no winners.`;
     const r = await discordApi('post', `/channels/${g.channelId}/messages`, {
       body: {
