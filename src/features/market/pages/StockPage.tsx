@@ -20,6 +20,7 @@ import StockHeader from '../components/StockHeader';
 import { useStockSwipe } from '../hooks/useStockSwipe';
 import { usePhone } from '../../../shared/hooks/useMediaQuery';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
+import ChapterFlagsToggle from '../components/ChapterFlagsToggle';
 
 type ChartType = 'area' | 'bar';
 
@@ -166,13 +167,16 @@ const StockPage = ({ onTrade }: StockPageProps) => {
                 value={timeRange}
                 onChange={setTimeRange}
               />
-              <SegmentedSwitch
-                label="Chart type"
-                size="md"
-                options={CHART_TYPES.map((t) => [t.key, t.label] as const)}
-                value={chartType}
-                onChange={setChartType}
-              />
+              <div className="flex gap-2">
+                <ChapterFlagsToggle />
+                <SegmentedSwitch
+                  label="Chart type"
+                  size="md"
+                  options={CHART_TYPES.map((t) => [t.key, t.label] as const)}
+                  value={chartType}
+                  onChange={setChartType}
+                />
+              </div>
             </div>
             <div data-noswipe className={`p-2 md:p-4 ${bgClass}`}>
               <PriceChart

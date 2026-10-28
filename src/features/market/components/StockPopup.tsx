@@ -19,6 +19,7 @@ import { getWatchlists } from '../utils/watchlists';
 import type { Character } from '../../../characters';
 import type { PricePoint, TradeAction } from '../../../types';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
+import ChapterFlagsToggle from './ChapterFlagsToggle';
 
 interface StockPopupProps {
   character: Character;
@@ -148,7 +149,7 @@ const StockPopup = ({
 
           <div className="grid lg:grid-cols-[1fr_17rem]">
             <div className={`min-w-0 ${bgClass}`}>
-              <div className="px-5 pt-4">
+              <div className="px-5 pt-4 flex flex-wrap gap-2 justify-between items-center">
                 <SegmentedSwitch
                   label="Time range"
                   size="md"
@@ -156,6 +157,7 @@ const StockPopup = ({
                   value={timeRange}
                   onChange={setTimeRange}
                 />
+                <ChapterFlagsToggle />
               </div>
               <div className="p-5">
                 <PriceChart

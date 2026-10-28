@@ -28,7 +28,7 @@ ETFs follow every automated move on the stocks they hold (bots and the stabilize
 6. **Neglect.** A stock no player has traded for 14 days slides toward a hidden floor through the bot storylines: slides of about 1 to 1.5% a day, flat patches and small bounces, about 0.8% a day on average. Open short interest (25+ shares) freezes the slide, so a short seller cannot farm a guaranteed decline. Before 2026-10-15 this was a flat 1% every day.
 7. **The market guard.** Players the admin has confirmed as manipulators are watched by the bot. When their trades move a stock 3% or more within 3 hours, the bot pushes it back toward where they started (at most 3% a run), but only when that costs them: a pump they still hold, or a dump they are short on. If other players opened positions that would profit from the reversal, it stands aside.
 
-Stocks can also be **split** (for example 3-for-1): the price divides, every holder's shares multiply, and nobody's money changes.
+Stocks can also be **split** (for example 3-for-1): the price divides, every holder's shares multiply, and nobody's money changes. Earlier chart prices are divided by the same ratio so the line stays comparable, and the chart marks the split day ("3-for-1 split", from `market/splitHistory`).
 
 ---
 
@@ -186,7 +186,7 @@ The Thursday timeline:
 | 20:56 | Opening auction runs, IPO price jumps apply, stop-losses sweep |
 | 21:00 | Market reopens |
 
-Every stock chart can flag each chapter review with a marker (since 2026-10-22, with past reviews filled in from price history). The flags are off by default since 2026-10-28; the "Chapter flags" button on a chart turns them on for every chart, remembered in that browser. Hovering or tapping it shows that stock's move from the halt to the 20:55 lock and the admin's chapter name and note (Admin, Weekly). Recorded at 20:55 by `market/chapterMarkers`, shape in `src/rules/chapterMarkers.ts`.
+Every stock chart can flag each chapter review with a marker (since 2026-10-22, with past reviews filled in from price history). The flags are off by default since 2026-10-28; the "Chapter flags" button in a chart's controls (beside Area and Bar) turns them on for every chart, remembered in that browser. Hovering or tapping it shows that stock's move from the halt to the 20:55 lock and the admin's chapter name and note (Admin, Weekly). Recorded at 20:55 by `market/chapterMarkers`, shape in `src/rules/chapterMarkers.ts`.
 
 Admins can also halt the market manually at any time with a custom reason.
 

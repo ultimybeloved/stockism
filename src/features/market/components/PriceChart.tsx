@@ -2,7 +2,8 @@ import { useState, useMemo, useRef, type MouseEvent, type TouchEvent } from 'rea
 import { useTheme, useSession } from '../../../context/AppContext';
 import { usePriceHistory } from '../hooks/usePriceHistory';
 import { useChapterMarkers } from '../hooks/useChapterMarkers';
-import { useStoredToggle } from '../../../shared/hooks/useStoredToggle';
+import { useChapterFlags } from './ChapterFlagsToggle';
+import SplitMarkers from './SplitMarkers';
 import { chapterMarkerTitle, type ChapterMarker } from '../../../rules/chapterMarkers';
 import { formatAxisLabels } from '../../../utils/formatters';
 import { findLastOf } from '../../../utils/arrays';
@@ -66,9 +67,8 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     showReviewDetail: isAdmin && showReviewSteps,
   });
   const [hoveredPoint, setHoveredPoint] = useState<(ChartPoint & { x: number; y: number; i: number }) | null>(null);
-  // Chapter flags crowd long charts, so they start hidden; the choice is shared
-  // by every chart and kept in the browser.
-  const [showFlags, toggleFlags] = useStoredToggle('chartChapterFlags');
+  // Off by default; ChapterFlagsToggle in the chart's controls turns them on.
+  const [showFlags] = useChapterFlags();
   const chapterMarkers = useChapterMarkers();
   const chartRef = useRef<SVGSVGElement>(null);
 
@@ -287,6 +287,15 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
           );
         })}
 
+        <SplitMarkers
+          ticker={ticker}
+          timestamps={currentData.map((p) => p.timestamp)}
+          toX={(i) => getX(i, currentData.length)}
+          top={PAD_Y}
+          bottom={PAD_Y + CHART_H}
+          right={SVG_W - PAD_X}
+        />
+
         {/* Hover dot + line */}
         {hoveredPoint && (
           <>
@@ -309,21 +318,6 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
           </>
         )}
       </svg>
-
-      {chapterMarkers.length > 0 && (
-        <button
-          onClick={toggleFlags}
-          aria-pressed={showFlags}
-          className={`absolute top-1 left-1 px-2 py-1 text-[10px] font-semibold rounded-sm border transition-colors ${
-            showFlags
-              ? 'bg-purple-600 text-white border-purple-600'
-              : 'light:bg-white/80 light:text-slate-600 light:border-slate-300 light:hover:text-slate-900 dark:bg-zinc-800/80 dark:text-zinc-300 dark:border-zinc-700 dark:hover:text-white'
-          }`}
-          title="Show a flag on each weekly chapter review"
-        >
-          {showFlags ? 'Chapter flags: on' : 'Chapter flags'}
-        </button>
-      )}
 
       {/* Admin: show the review's real steps instead of the tidied single point */}
       {isAdmin && hasReviewDetail && (

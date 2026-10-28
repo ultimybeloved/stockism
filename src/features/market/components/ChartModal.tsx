@@ -12,6 +12,7 @@ import type { Character } from '../../../characters';
 import type { PricePoint } from '../../../types';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
+import ChapterFlagsToggle from './ChapterFlagsToggle';
 
 interface ChartModalProps {
   character: Character;
@@ -101,7 +102,9 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
         </div>
 
         {/* Time Range Selector */}
-        <div className={`px-4 py-2 border-b ${cardEdgeClass} light:bg-amber-50 dark:bg-zinc-900/50`}>
+        <div
+          className={`px-4 py-2 border-b flex flex-wrap gap-2 justify-between items-center ${cardEdgeClass} light:bg-amber-50 dark:bg-zinc-900/50`}
+        >
           <SegmentedSwitch
             label="Time range"
             size="md"
@@ -109,6 +112,7 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
             value={timeRange}
             onChange={setTimeRange}
           />
+          <ChapterFlagsToggle />
         </div>
 
         {/* Chart */}
