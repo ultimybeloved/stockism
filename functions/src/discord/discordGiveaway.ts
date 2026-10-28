@@ -8,6 +8,7 @@ import type { Response } from 'express';
 import { pxe } from '../shared/discordApi';
 import { reportError } from '../shared/sentry';
 import { holdAck } from './discordAck';
+import { refreshEntryCount } from '../admin/giveawayCore';
 import { buttonRow, callerDiscordId, findUserByDiscordId, linkButton, EPHEMERAL } from './discordCommands';
 import type { Interaction } from './discordCommands';
 
@@ -64,6 +65,10 @@ export const handleGiveawayButton = async (i: ButtonInteraction, res: Response) 
       await reply(
         `${pxe('success')} You're in as **${user.data.displayName}**! Winners are drawn ${when(result.endsAt)}, and prizes go straight to your account.`,
       );
+    // Show the new count on the post right away. A failed edit (a Discord rate
+    // limit in a rush) is caught up by the runGiveaways job.
+    if (result.state === 'in')
+      await refreshEntryCount(id).catch((err) => reportError(err, { where: 'giveawayCount', id }));
   } catch (err) {
     reportError(err, { where: 'handleGiveawayButton', id });
     await reply(`${pxe('error')} Something went wrong. Try again in a minute.`).catch(() => {});

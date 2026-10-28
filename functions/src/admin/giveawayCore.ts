@@ -70,7 +70,7 @@ export function giveawayMessage(id: string, g: Giveaway) {
   const entries = g.entries || 0;
   const footer =
     g.status === 'open'
-      ? `${pxe('hourglass')} Ends ${ts(g.endsAt)} (${ts(g.endsAt, 'R')})\n${pxe('link')} Your Discord must be linked to your Stockism account to enter. One entry per person. Nobody wins twice.\n${plural(entries, 'entry', 'entries')} so far.`
+      ? `${pxe('hourglass')} Ends ${ts(g.endsAt)} (${ts(g.endsAt, 'R')})\n${pxe('gift')} Press **Enter** to join. Emoji reactions don't count.\n${pxe('link')} Your Discord must be linked to your Stockism account to enter. One entry per person. Nobody wins twice.\n${plural(entries, 'entry', 'entries')} so far.`
       : g.status === 'cancelled'
         ? `${pxe('error')} This giveaway was cancelled.`
         : `${pxe('trophy')} Ended ${ts(g.endsAt)} with ${plural(entries, 'entry', 'entries')}. Prizes are paid out automatically.`;
@@ -107,6 +107,15 @@ export async function refreshGiveawayPost(id: string, g: Giveaway) {
     body: giveawayMessage(id, g),
   });
   if (r.status >= 300) logger.warn(`giveaway ${id}: post edit failed ${r.status}`, r.data);
+}
+
+/** Re-renders the post with the latest entry count (after an entry, or the backstop job). */
+export async function refreshEntryCount(id: string) {
+  const ref = giveawayRef(id);
+  const g = (await ref.get()).data() as Giveaway | undefined;
+  if (!g || g.status !== 'open') return;
+  await refreshGiveawayPost(id, g);
+  await ref.update({ shownEntries: g.entries || 0 });
 }
 
 /** Pays one winner, once. Returns false if they were paid already. */

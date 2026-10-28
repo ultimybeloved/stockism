@@ -19,7 +19,14 @@ import {
   tierProblem,
   type GiveawayTier,
 } from '../shared/rules/giveaways';
-import { finishGiveaway, giveawayMessage, giveawayRef, refreshGiveawayPost, type Giveaway } from './giveawayCore';
+import {
+  finishGiveaway,
+  giveawayMessage,
+  giveawayRef,
+  refreshEntryCount,
+  refreshGiveawayPost,
+  type Giveaway,
+} from './giveawayCore';
 
 const db = admin.firestore();
 const SNOWFLAKE = /^\d{17,20}$/;
@@ -113,7 +120,8 @@ export const adminEndGiveaway = cf().https.onCall(async (data, context) => {
 
 /**
  * Every 5 minutes: draw and pay giveaways that are due, finish any a crash
- * left half done, and keep the entry count on open posts current.
+ * left half done, and catch up an entry count a failed edit left behind (each
+ * entry refreshes the post itself).
  */
 export const runGiveaways = cf()
   .pubsub.schedule('every 5 minutes')
@@ -127,8 +135,7 @@ export const runGiveaways = cf()
         if (g.status === 'drawing' || g.endsAt <= now) {
           await finishGiveaway(d.id);
         } else if ((g.entries || 0) !== (g.shownEntries || 0)) {
-          await refreshGiveawayPost(d.id, g);
-          await d.ref.update({ shownEntries: g.entries || 0 });
+          await refreshEntryCount(d.id);
         }
       } catch (err) {
         reportError(err, { where: 'runGiveaways', id: d.id });
