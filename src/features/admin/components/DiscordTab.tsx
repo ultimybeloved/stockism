@@ -6,6 +6,7 @@ import type { AdminCommonProps } from './types';
 import type { useAdminDiscordMessages } from '../hooks/useAdminDiscordMessages';
 import { useTheme } from '../../../context/AppContext';
 import AdminIcon from './AdminIcon';
+import GiveawayCard from './discord/GiveawayCard';
 
 type DiscordTabProps = Omit<AdminCommonProps, 'loading'> & ReturnType<typeof useAdminDiscordMessages>;
 
@@ -92,6 +93,8 @@ export default function DiscordTab({
       </div>
 
       <ImportMessageForm {...common} busy={discordBusy} onImport={importDiscordMessage} />
+
+      <GiveawayCard textClass={textClass} mutedClass={mutedClass} inputClass={inputClass} channels={discordChannels} />
 
       {/* In-app bell announcements live next to Discord ones because they are the
           same job from the admin's side: tell everybody something. */}

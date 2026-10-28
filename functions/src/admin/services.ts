@@ -10,6 +10,7 @@ export = [
   'adminDiscordOps',
   'adminEnforcement',
   'adminGiftLog',
+  'adminGiveaways',
   'adminHistory',
   'adminMarketGuard',
   'adminMigrate',

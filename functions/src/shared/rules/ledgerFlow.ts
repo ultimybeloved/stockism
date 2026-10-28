@@ -102,6 +102,7 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
       loyalty: 'Loyalty',
       daily_drop: 'Daily drop',
       season_reward: 'Season rewards',
+      giveaway_prize: 'Giveaway prizes',
       season_end: 'Season end',
       bailout: 'Bailouts',
     },

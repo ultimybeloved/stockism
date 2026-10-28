@@ -31,6 +31,7 @@ import type { PricePoint } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
 import { ladderCommand, handleLadderButton } from './discordLadder';
 import { holdAck } from './discordAck';
+import { handleGiveawayButton } from './discordGiveaway';
 
 // Edit a deferred interaction reply. Discord kills any interaction that has not
 // been acknowledged within 3 seconds — and a cold start on this project loads
@@ -189,6 +190,12 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
   // Handle button clicks
   if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
     const customId = interaction.data?.custom_id;
+
+    if (typeof customId === 'string' && customId.startsWith('giveaway:enter:')) {
+      await handleGiveawayButton(interaction, res);
+      await stamp;
+      return;
+    }
 
     if (typeof customId === 'string' && customId.startsWith('ladder:')) {
       await handleLadderButton(interaction, res);

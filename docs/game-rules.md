@@ -142,6 +142,7 @@ Platinum and Diamond are ranked within four size divisions (Rookie under $10k, T
 - **Daily drop.** A claim button posts to Discord every day at 14:00 UTC and stays claimable for 72 hours. Each claim rolls three tables: a guaranteed core pull, a guaranteed bonus of cheap shares, and a 10% shot at one legendary share. 3% of claims are jackpots.
 - **Slash commands.** A public bot installable in any server: `/leaderboard`, `/profile`, `/price`, `/portfolio`, `/missions`, `/buy` (deep-links to the site), and `/welcome`.
 - **Welcome week** (`/welcome`, src/rules/welcome.ts). Run once a day in the official server for 7 days: $1,000, $700, $800, $900, $1,000, $1,100, $1,500 ($7,000 total). With the $3,000 Discord-linked start that makes $10,000. A missed day pauses the week, never resets it. Needs a linked account and a Discord account at least 30 days old; once per Discord account and once per Stockism account, ever. Booked as free money (ledger `welcome_streak`, grantedValue). Finishing posts a shout-out in the channel.
+- **Giveaways** (since 2026-10-28; admin panel, Discord tab; functions/src/admin/adminGiveaways.ts, giveawayCore.ts, src/rules/giveaways.ts). The bot posts the giveaway with an Enter button. Entering needs a Discord linked to a Stockism account that isn't banned (one entry per Discord, and one Discord links one account forever); anyone else is shown a link button. Prizes are tiers of shop credit, cash, or a cosmetic, drawn in order (the top prize first) and nobody wins twice. A job every 5 minutes keeps the entry count on the post current and, once it ends, draws from entries still linked to an account in good standing, pays every winner (ledger type `giveaway_prize`; cash is granted value; a cosmetic the winner already owns comes as its shop price in credit), sends a bell notification and a DM, edits the post, and posts the winners. Admins can end one early or cancel it.
 - **Alerts.** Market open and close, chapter recaps, whale trades, crew milestones, IPO announcements, weekly summaries.
 - **Crew head roles.** Optional Discord roles that color the weekly crew head's name. Dormant until the role IDs are filled in.
 
@@ -307,7 +308,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 Admin accounts get a panel in the header with tabs for:
 
 - Market: manual price adjustments, halts, base price repair, backups and restores, starting and ending seasons
-- Users: search, ban and reinstate, cash adjustments, shop credit, cosmetic grants, account deletion
+- Users: search, ban and reinstate, cash adjustments, shop credit, giveaways, cosmetic grants, account deletion
 - Holders: who owns what, per-ticker
 - Trades: recent trade log and backfill tools
 - IPO: announce, open, and close IPO windows

@@ -2,6 +2,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import type * as Api from './types';
 import type * as Panel from './adminPanelTypes';
+import type { GiveawayTier } from '../rules/giveaways';
 
 // Every Cloud Function the site calls, typed as callable<Request, Response>('name').
 // The shapes live in src/api/types.ts. Errors are classified by src/utils/errors.ts
@@ -155,6 +156,15 @@ export const adminGrantCosmeticFunction = callable<{
   pinId?: string;
   revoke?: boolean;
 }>('adminGrantCosmetic');
+export const adminCreateGiveawayFunction = callable<
+  { title: string; text: string; channelId: string; roleId: string | null; endsAt: number; tiers: GiveawayTier[] },
+  { id: string; messageId: string }
+>('adminCreateGiveaway');
+export const adminListGiveawaysFunction = callable<void, { giveaways: Panel.AdminGiveaway[] }>('adminListGiveaways');
+export const adminEndGiveawayFunction = callable<
+  { id: string; cancel?: boolean },
+  { status: string; winners?: number }
+>('adminEndGiveaway');
 export const adminGrantShopCreditFunction = callable<
   { userId: string; amount: number; memo: string },
   { success: boolean; before: number; after: number }

@@ -1,6 +1,7 @@
 // Request/response shapes for the admin command panel's callables
 // (functions/src/admin/adminPlayerFile.ts, adminDashboard.ts, adminMoneyFlow.ts,
 // adminBulk.ts). Times are milliseconds.
+import type { GiveawayTier } from '../rules/giveaways';
 import type { LedgerDay } from '../rules/ledgerFlow';
 import type { UserData } from '../types';
 
@@ -233,4 +234,18 @@ export interface CoTradersResponse {
   })[];
   /** Shared a coordinated-pressure flag but never traded alongside in the window. */
   flagOnly: (CoTraderPerson & { sharedFlags: number })[];
+}
+
+/** One giveaway, as adminListGiveaways returns it (functions/src/admin/giveawayCore.ts). */
+export interface AdminGiveaway {
+  id: string;
+  title: string;
+  text?: string;
+  channelId: string;
+  endsAt: number;
+  status: 'open' | 'drawing' | 'ended' | 'cancelled';
+  tiers: GiveawayTier[];
+  entries?: number;
+  eligible?: number;
+  winners?: { tier: number; uid: string; discordId: string; name: string }[];
 }
