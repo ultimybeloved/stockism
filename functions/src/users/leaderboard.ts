@@ -18,6 +18,7 @@ import {
 import { withRankMoves } from './leaderboardMoves';
 import { CREW_MAP } from '../shared/crews';
 import { asArray, sanitizeDisplayFields } from './displayFields';
+import { ownEntry } from '../shared/lookup';
 
 import {
   LEADERBOARD_CACHE_TTL,
@@ -82,7 +83,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
   const { crew, sortBy = 'value' } = data || {};
   // Every board key becomes a document id, so only real crews and sorts.
-  if (crew != null && !(typeof crew === 'string' && CREW_MAP[crew])) {
+  if (crew != null && !ownEntry(CREW_MAP, crew)) {
     throw new functions.https.HttpsError('invalid-argument', 'Unknown crew');
   }
   if (!['value', 'weeklyGain', 'weeklyGainPercent'].includes(sortBy)) {

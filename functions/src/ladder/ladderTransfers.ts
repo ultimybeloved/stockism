@@ -39,7 +39,7 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'ladder');
   // Whole-dollar deposits only: floor decimals away. The remainder stays in the
   // user's main cash (nothing is destroyed), and the ladder balance stays integer.
-  const amount = Math.floor(Number(data.amount));
+  const amount = Math.floor(Number(data?.amount));
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Deposit must be a whole dollar amount of at least $1.');
@@ -210,7 +210,7 @@ export const withdrawFromLadderGame = cf().https.onCall(async (data, context) =>
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'ladder');
-  const { amount } = data;
+  const { amount } = data || {};
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid amount.');

@@ -22,6 +22,10 @@ export const chargeShop = (
   price: number,
   entry: { type: string; ref?: string | null; detail?: Record<string, unknown> | null },
 ): ShopCharge => {
+  // A missing price compares false against any balance and charged $0.
+  if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid item.');
+  }
   const cash = user.cash || 0;
   const credit = Math.max(0, user.shopCredit || 0);
   if (cash + credit < price) {

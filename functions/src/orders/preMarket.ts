@@ -299,7 +299,7 @@ export const cancelPreMarketOrder = cf().https.onCall(async (data: { orderId?: u
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'preMarket');
-  const { orderId } = data as { orderId: string };
+  const { orderId } = (data || {}) as { orderId: string };
 
   if (!orderId) {
     throw new functions.https.HttpsError('invalid-argument', 'Order ID required.');

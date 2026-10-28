@@ -142,6 +142,35 @@ async function main() {
   await check('stuff the user doc with watchlists', 'blocked', {
     watchlists: Array.from({ length: 11 }, (_, i) => ({ id: `l${i}`, name: 'x', tickers: [] })),
   });
+  // Shapes (2026-10-28): the allowlist only named the keys, so any value fit.
+  await check('stuff a setting with a huge string', 'blocked', { darkMode: 'x'.repeat(100000) });
+  await check('public flag that is not true/false', 'blocked', { isPublic: 'yes' });
+  await check('crew pin flag that is not true/false', 'blocked', { displayCrewPin: { a: 1 } });
+  await check('stuff the flat watchlist', 'blocked', { watchlist: Array.from({ length: 301 }, (_, i) => `T${i}`) });
+  await check('stuff DRIP toggles', 'blocked', {
+    drip: Object.fromEntries(Array.from({ length: 301 }, (_, i) => [`T${i}`, true])),
+  });
+  await check('DRIP that is not a map', 'blocked', { drip: 'x' });
+  await check('stuff displayed pins', 'blocked', { displayedShopPins: Array.from({ length: 21 }, (_, i) => `p${i}`) });
+  await check('stuff equipped cosmetics', 'blocked', {
+    activeCosmetics: Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`s${i}`, 'x'])),
+  });
+  await check('stuff one named watchlist', 'blocked', {
+    watchlists: [{ id: 'main', name: 'Watchlist', tickers: Array.from({ length: 301 }, (_, i) => `T${i}`) }],
+  });
+  await check('named watchlist with a huge name', 'blocked', {
+    watchlists: [{ id: 'main', name: 'x'.repeat(5000), tickers: [] }],
+  });
+  await check('named watchlist with extra fields', 'blocked', {
+    watchlists: [{ id: 'main', name: 'Watchlist', tickers: [], junk: 'x'.repeat(5000) }],
+  });
+  await check('tenth named watchlist stuffed', 'blocked', {
+    watchlists: Array.from({ length: 10 }, (_, i) => ({
+      id: `l${i}`,
+      name: 'x',
+      tickers: i === 9 ? ['x'.repeat(10)].concat(Array(300).fill('T')) : [],
+    })),
+  });
   await check('grant self a permanent streak saver', 'blocked', { streakSaverPermanent: true });
   await check('extend own streak saver', 'blocked', { streakSaverUntil: 9e12 });
 
@@ -169,6 +198,17 @@ async function main() {
   await check('clear the flair crew', 'allowed', { flairCrew: null });
   await check('equip a cosmetic', 'allowed', { 'activeCosmetics.banner': 'gold' });
   await check('set a cosmetic style choice', 'allowed', { 'cosmeticStyle.flap': 'scramble' });
+  await check('save ten full-size named watchlists', 'allowed', {
+    watchlists: Array.from({ length: 10 }, (_, i) => ({
+      id: `l${Date.now().toString(36)}${i}`,
+      name: 'Twenty character nam',
+      tickers: Array.from({ length: 170 }, (_, k) => `T${k}`),
+    })),
+  });
+  await check('turn DRIP on for a whole portfolio', 'allowed', {
+    drip: Object.fromEntries(Array.from({ length: 170 }, (_, i) => [`T${i}`, true])),
+  });
+  await check('clear a cosmetic style choice', 'allowed', { 'cosmeticStyle.flap': deleteField() });
   await check('equip a title actually earned', 'allowed', { activeTitle: 'season_1_gold' });
   await check('clear the equipped title', 'allowed', { activeTitle: null });
 

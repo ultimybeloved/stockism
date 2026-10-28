@@ -76,7 +76,46 @@ service cloud.firestore {
     // own doc. If you add a new preference the client writes directly, add its
     // top-level key here too.
     function validateSafeUserUpdate() {
-      return safeUserKeysOnly() && titleIsOwned() && watchlistsBounded() && flairCrewShaped();
+      return safeUserKeysOnly() && titleIsOwned() && watchlistsBounded() && flairCrewShaped()
+        && settingsShaped();
+    }
+
+    // The other allowlisted fields, held to the shape the site writes. Before
+    // 2026-10-28 only the key was checked, so a raw write could store any value
+    // (a megabyte string as darkMode) and bloat the doc every full-user scan
+    // loads. Counts sit well above what the site ever writes (3 pin slots, 170
+    // tickers), so an honest player never hits them.
+    function settingsShaped() {
+      let data = request.resource.data;
+      let changed = data.diff(resource.data).affectedKeys();
+      return (!changed.hasAny(['darkMode']) || data.darkMode is bool)
+        && (!changed.hasAny(['colorBlindMode']) || data.colorBlindMode is bool)
+        && (!changed.hasAny(['isPublic']) || data.isPublic is bool)
+        && (!changed.hasAny(['onboardingComplete']) || data.onboardingComplete is bool)
+        && (!changed.hasAny(['marginTutorialCompleted']) || data.marginTutorialCompleted is bool)
+        && (!changed.hasAny(['ladderTutorial2Completed']) || data.ladderTutorial2Completed is bool)
+        && (!changed.hasAny(['displayCrewPin']) || data.displayCrewPin is bool)
+        && (!changed.hasAny(['watchlist']) || (data.watchlist is list && data.watchlist.size() <= 300))
+        && (!changed.hasAny(['drip']) || (data.drip is map && data.drip.size() <= 300))
+        && (!changed.hasAny(['displayedShopPins'])
+            || (data.displayedShopPins is list && data.displayedShopPins.size() <= 20))
+        && (!changed.hasAny(['displayedAchievementPins'])
+            || (data.displayedAchievementPins is list && data.displayedAchievementPins.size() <= 20))
+        && (!changed.hasAny(['activeCosmetics'])
+            || (data.activeCosmetics is map && data.activeCosmetics.size() <= 20))
+        && (!changed.hasAny(['cosmeticStyle'])
+            || (data.cosmeticStyle is map && data.cosmeticStyle.size() <= 20));
+    }
+
+    // One named watchlist: an id, a name and at most 300 tickers, nothing
+    // else (three keys, and each of the three is read). Kept lean: rules stop
+    // at 1,000 evaluated expressions per write, and ten lists are checked.
+    function watchlistShaped(lists, i) {
+      return lists.size() <= i
+        || (lists[i].size() == 3
+            && lists[i].id is string && lists[i].id.size() <= 40
+            && lists[i].name is string && lists[i].name.size() <= 40
+            && lists[i].tickers.size() <= 300);
     }
 
     // Flair crew: cleared, or a short id. Readers (rules/flairCrews flairOf)
@@ -92,7 +131,15 @@ service cloud.firestore {
     // Named watchlists: a list of at most 10, so the user doc can't be stuffed.
     function watchlistsBounded() {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['watchlists'])
-        || (request.resource.data.watchlists is list && request.resource.data.watchlists.size() <= 10);
+        || watchlistListShaped(request.resource.data.watchlists);
+    }
+
+    function watchlistListShaped(lists) {
+      return lists is list && lists.size() <= 10
+        && watchlistShaped(lists, 0) && watchlistShaped(lists, 1) && watchlistShaped(lists, 2)
+        && watchlistShaped(lists, 3) && watchlistShaped(lists, 4) && watchlistShaped(lists, 5)
+        && watchlistShaped(lists, 6) && watchlistShaped(lists, 7) && watchlistShaped(lists, 8)
+        && watchlistShaped(lists, 9);
     }
 
     // activeTitle is on the allowlist so the client can equip a season title

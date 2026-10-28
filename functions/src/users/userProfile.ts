@@ -12,6 +12,7 @@ import { NAME_CHANGE_COST, NAME_CHANGE_COOLDOWN_MS, COSMETIC_CATALOG, TWENTY_FOU
 import { isBannedUsername, isTargetedHarassment, containsProfanity, validateUsernameFormat } from '../shared/usernames';
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
+import { ownEntry } from '../shared/lookup';
 import type { UserData } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
 import { chargeShop } from '../shared/shopPayment';
@@ -187,7 +188,7 @@ export const migrateUsernames = cf().https.onCall(async (data: { dryRun?: unknow
  */
 export const checkUsername = cf().https.onCall(async (data: { displayName?: unknown }, context) => {
   requireAppCheck(context);
-  const displayName = data.displayName;
+  const displayName = data?.displayName;
 
   if (!displayName || typeof displayName !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Display name is required.');
@@ -231,7 +232,7 @@ export const changeDisplayName = cf().https.onCall(async (data: { displayName?: 
 
   const uid = context.auth.uid;
   touchLastActive(uid);
-  const newDisplayName = data.displayName;
+  const newDisplayName = data?.displayName;
 
   if (!newDisplayName || typeof newDisplayName !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Display name is required.');
@@ -331,7 +332,7 @@ export const purchaseCosmetic = cf().https.onCall(async (data: { cosmeticId?: st
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
   const { cosmeticId } = data || {};
-  const cosmetic = COSMETIC_CATALOG[cosmeticId as string];
+  const cosmetic = ownEntry(COSMETIC_CATALOG, cosmeticId);
   if (!cosmetic) throw new functions.https.HttpsError('invalid-argument', 'Invalid cosmetic.');
   if (cosmetic.earned)
     throw new functions.https.HttpsError('failed-precondition', 'This one is earned in seasons, not sold.');
@@ -374,7 +375,7 @@ export const purchaseBundle = cf().https.onCall(async (data: { bundleId?: string
   requireAppCheck(context);
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
-  const bundle = BUNDLE_MAP[(data?.bundleId as string) || ''];
+  const bundle = ownEntry(BUNDLE_MAP, data?.bundleId);
   if (!bundle || bundle.items.some((id) => !COSMETIC_CATALOG[id])) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid bundle.');
   }

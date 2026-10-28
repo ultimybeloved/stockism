@@ -4,6 +4,7 @@ import { usePriceHistory } from '../hooks/usePriceHistory';
 import { useChapterMarkers } from '../hooks/useChapterMarkers';
 import { chapterMarkerTitle, type ChapterMarker } from '../../../rules/chapterMarkers';
 import { formatAxisLabels } from '../../../utils/formatters';
+import { findLastOf } from '../../../utils/arrays';
 import { ADMIN_UIDS } from '../../../constants';
 import type { PricePoint } from '../../../types';
 
@@ -74,7 +75,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     let inRange = fullHistory.filter((p) => p.timestamp >= cutoff);
     // Start the line at the price when the period opened, so it agrees with the
     // period change shown above the chart.
-    const opening = fullHistory.findLast((p) => p.timestamp < cutoff);
+    const opening = findLastOf(fullHistory, (p) => p.timestamp < cutoff);
     if (inRange.length >= 2 && range.hours !== Infinity && opening) {
       inRange = [{ ...opening, timestamp: cutoff }, ...inRange];
     }

@@ -9,6 +9,7 @@ import TradeActionModal, { type OrderFormMode } from './TradeActionModal';
 import PreMarketModal from './PreMarketModal';
 import { useSession, useMarket } from '../../../context/AppContext';
 import { isPreMarketWindow } from '../../../utils/marketHours';
+import { lastOf } from '../../../utils/arrays';
 import type { Character } from '../../../characters';
 import type { TradeAction } from '../../../types';
 
@@ -25,7 +26,7 @@ const TradeLauncher = ({ character, action, onTrade, onClose, orderMode = false 
   const { userData } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
   const ticker = character.ticker;
-  const price = priceHistory[ticker]?.at(-1)?.price ?? (prices[ticker] || character.basePrice);
+  const price = lastOf(priceHistory[ticker])?.price ?? (prices[ticker] || character.basePrice);
   const holdings = userData?.holdings?.[ticker] || 0;
   const userCash = userData?.cash || 0;
 

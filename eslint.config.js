@@ -59,6 +59,29 @@ export default tseslint.config(
       'no-empty': 'warn',
     },
   },
+  // Safari 14 / Chrome 87 are in the build target and the build adds no
+  // polyfills, so these crash there (src/utils/arrays.ts has the replacements).
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.*'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...['at', 'findLast', 'findLastIndex', 'toSorted', 'toReversed', 'toSpliced'].map((name) => ({
+          selector: `CallExpression[callee.property.name='${name}']`,
+          message: `.${name}() is missing on Safari 14 and Chrome 87, which the site supports. Use src/utils/arrays.ts.`,
+        })),
+        ...['hasOwn', 'groupBy'].map((name) => ({
+          selector: `MemberExpression[object.name='Object'][property.name='${name}']`,
+          message: `Object.${name} is missing on Safari 14, which the site supports.`,
+        })),
+        {
+          selector: "CallExpression[callee.name='structuredClone']",
+          message: 'structuredClone is missing on Safari 14, which the site supports.',
+        },
+      ],
+    },
+  },
   { files: ['src/**/*.test.{ts,tsx}'], languageOptions: { globals: globals.node } },
 
   // File-size limits (CLAUDE.md). Split the file rather than raise these.

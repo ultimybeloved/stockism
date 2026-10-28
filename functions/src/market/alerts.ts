@@ -198,7 +198,7 @@ export const achievementAlert = cf().https.onCall(async (data, context) => {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
-  const { achievementId } = data;
+  const { achievementId } = data || {};
 
   const noteworthy = NOTEWORTHY_ACHIEVEMENTS[achievementId as keyof typeof NOTEWORTHY_ACHIEVEMENTS];
   if (!noteworthy) {
@@ -254,7 +254,7 @@ export const createPriceAlert = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const { ticker, targetPrice, direction } = data;
+  const { ticker, targetPrice, direction } = data || {};
 
   if (!ticker || typeof ticker !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
@@ -306,9 +306,9 @@ export const deletePriceAlert = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const { alertId } = data;
+  const { alertId } = data || {};
 
-  if (!alertId) {
+  if (!alertId || typeof alertId !== 'string' || alertId.includes('/')) {
     throw new functions.https.HttpsError('invalid-argument', 'Alert ID required.');
   }
 

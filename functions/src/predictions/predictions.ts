@@ -27,7 +27,7 @@ export const placeBet = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'predictions');
-  const { predictionId, option, amount } = data;
+  const { predictionId, option, amount } = data || {};
 
   if (!predictionId || !option || !amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid bet data.');
@@ -167,7 +167,7 @@ export const claimPredictionPayout = cf().https.onCall(async (data, context) => 
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'predictions');
-  const { predictionId } = data;
+  const { predictionId } = data || {};
 
   if (!predictionId) {
     throw new functions.https.HttpsError('invalid-argument', 'Missing prediction ID.');
@@ -298,7 +298,7 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'ipo');
-  const { ticker, quantity } = data;
+  const { ticker, quantity } = data || {};
 
   if (
     !ticker ||

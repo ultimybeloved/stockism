@@ -39,6 +39,7 @@
     "test:dividends": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core dividends.test\"",
     "test:ladder": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core ladder.test\"",
     "test:missions": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core missions.test\"",
+    "test:fuzz": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core fuzzCallables.test\"",
     "test:giveaways": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core giveaways.test\"",
     "test:ledger": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core ledger.test\"",
     "test:predictions": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core predictions.test\"",

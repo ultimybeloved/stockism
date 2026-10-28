@@ -59,7 +59,9 @@ export const flairCrewsOf = (crewId: string | null | undefined): FlairCrew[] =>
 /** The player's flair crew, or null if they have none or it isn't from their current crew. */
 export const flairOf = (player: { crew?: string | null; flairCrew?: unknown } | null | undefined): FlairCrew | null => {
   const id = player?.flairCrew;
-  const flair = typeof id === 'string' ? FLAIR_CREWS[id] : undefined;
+  // Own entries only: "constructor" and friends aren't flair crews.
+  const flair =
+    typeof id === 'string' && Object.prototype.hasOwnProperty.call(FLAIR_CREWS, id) ? FLAIR_CREWS[id] : undefined;
   return flair && flair.crew === player?.crew ? flair : null;
 };
 

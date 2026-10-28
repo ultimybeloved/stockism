@@ -6,6 +6,7 @@ import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { CHARACTER_MAP } from '../shared/characters';
+import { ownEntry } from '../shared/lookup';
 import { washRuleRemainingMs, shortAfterDumpRemainingMs, maxTradeSharesFor, stampMs } from '../shared/impact';
 import type { UserData } from '../shared/types';
 
@@ -34,12 +35,16 @@ import {
 // not, because holdings pick up fractional remainders from dividends and partial
 // fills and the player has to be able to sell every last speck of them.
 export function validateTradeInput(data: { ticker?: unknown; action?: unknown; amount?: unknown }) {
-  const { ticker, action, amount } = data as { ticker: string; action: string; amount: number };
+  const { ticker, action, amount } = (data || {}) as { ticker: string; action: string; amount: number };
   const isExit = action === 'sell' || action === 'cover';
   const maxShares = maxTradeSharesFor(ticker);
 
+  // Unknown tickers stop here: the order-book query that runs next refuses a
+  // long string with a raw error instead of a clean 'invalid-argument'.
+  if (!ownEntry(CHARACTER_MAP, ticker)) {
+    throw new functions.https.HttpsError('invalid-argument', 'Invalid ticker.');
+  }
   if (
-    !ticker ||
     !action ||
     !Number.isFinite(amount) ||
     amount > maxShares ||

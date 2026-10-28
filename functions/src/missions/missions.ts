@@ -24,6 +24,7 @@ import { getLadderChips } from '../shared/ladderMath';
 import { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchievementFor } from './missionChecks';
 import { recordLedger } from '../shared/ledger';
 import { chargeShop } from '../shared/shopPayment';
+import { ownEntry } from '../shared/lookup';
 import { getWeekId } from '../shared/tradeRecords';
 import { holdsShortForMissions, nextRivalry, rivalryQualified } from '../shared/rules/missionProgress';
 import { weeklyMissionsOpen } from '../shared/rules/missions';
@@ -38,7 +39,7 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'missions');
-  const { missionId, type } = data;
+  const { missionId, type } = data || {};
 
   if (!missionId || !type || !['daily', 'weekly'].includes(type)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid mission data.');
@@ -293,7 +294,7 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'pins');
-  const { action, pinId, slotType } = data;
+  const { action, pinId, slotType } = data || {};
 
   const userRef = db.collection('users').doc(uid);
 
@@ -307,7 +308,7 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
 
     if (action === 'buyPin') {
       // Only pins in a collection that is on sale (src/crews.ts, synced here).
-      const shopPin = SHOP_PINS[pinId as string];
+      const shopPin = ownEntry(SHOP_PINS, pinId);
       const pinInfo = shopPin && PIN_COLLECTIONS[shopPin.collection]?.active ? shopPin : undefined;
       if (!pinInfo) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid pin.');
@@ -330,7 +331,7 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
     } else if (action === 'buySlot') {
       // Slot costs: achievement = $5000, shop = $7500
       const slotCosts: Record<string, number> = { achievement: 5000, shop: 7500 };
-      const validCost = slotCosts[slotType];
+      const validCost = ownEntry(slotCosts, slotType);
       if (!validCost) throw new functions.https.HttpsError('invalid-argument', 'Invalid slot type.');
       const field = slotType === 'achievement' ? 'extraAchievementSlot' : 'extraShopSlot';
       if (userData[field]) {
@@ -345,8 +346,8 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
     } else if (action === 'buyStreakSaver') {
       // Shop perk: check-ins pay the top reward while it lasts (rules/economy).
       // Buying the month plan again stacks another 30 days on what's left.
-      const plan = STREAK_SAVER_PLANS[data.plan as keyof typeof STREAK_SAVER_PLANS];
-      if (!plan || !Object.prototype.hasOwnProperty.call(STREAK_SAVER_PLANS, data.plan)) {
+      const plan = ownEntry(STREAK_SAVER_PLANS, data.plan);
+      if (!plan) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid plan.');
       }
       if (userData.streakSaverPermanent) {

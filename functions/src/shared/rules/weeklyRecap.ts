@@ -30,8 +30,14 @@ export interface WeeklyRecap {
 
 export interface RecapInput {
   weekId: string;
-  /** Net worth now, at live prices (netEquityAt). */
+  /** Net worth now, at live prices (netEquityAt), long-term market positions included. */
   netWorth: number;
+  /**
+   * The long-term market positions inside netWorth. The week's starting value
+   * (startPortfolioValue) never counted them, so they stay out of the trading
+   * change; counted, a player holding $20k of them read +$20k every week.
+   */
+  eventValue?: number;
   grantedValue: number;
   holdings: Record<string, number> | undefined;
   wp: WeeklyProgress | undefined;
@@ -48,7 +54,7 @@ export function computeWeeklyRecap(r: RecapInput): WeeklyRecap | null {
   const wp = r.wp;
   if (!wp || wp.startPortfolioValue === undefined) return null;
   const start = (wp.startPortfolioValue || 0) - (wp.startMarginUsed || 0);
-  const change = r.netWorth - start;
+  const change = r.netWorth - (r.eventValue || 0) - start;
   const rewards = Math.max(0, r.grantedValue - (wp.startGrantedValue ?? r.grantedValue));
   const trading = change - rewards;
 

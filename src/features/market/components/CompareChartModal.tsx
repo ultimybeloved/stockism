@@ -9,6 +9,7 @@ import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import { themeClasses } from '../../../utils/theme';
 import { formatChange } from '../../../utils/formatters';
 import { priceAt } from '../../../utils/marketStats';
+import { lastOf } from '../../../utils/arrays';
 import type { PricePoint } from '../../../types';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 
@@ -45,7 +46,7 @@ const CompareChartModal = ({ tickers, onRemove, onClose }: CompareChartModalProp
     const start = range.hours === Infinity ? earliest : now - range.hours * 3600000;
     return tickers.map((ticker, i) => {
       const hist: PricePoint[] = all[i]!;
-      const price = prices[ticker] || hist.at(-1)?.price || 0;
+      const price = prices[ticker] || lastOf(hist)?.price || 0;
       const open = priceAt(hist, start, price);
       const pts = [
         { t: start, v: 0 },
@@ -54,7 +55,7 @@ const CompareChartModal = ({ tickers, onRemove, onClose }: CompareChartModalProp
           .map((p) => ({ t: p.timestamp, v: open > 0 ? (p.price / open - 1) * 100 : 0 })),
         { t: now, v: open > 0 ? (price / open - 1) * 100 : 0 },
       ];
-      return { ticker, color: COLORS[i]!, pts, last: pts.at(-1)!.v, start };
+      return { ticker, color: COLORS[i]!, pts, last: lastOf(pts)!.v, start };
     });
   }, [tickers, h0, h1, h2, h3, prices, range.hours]);
 

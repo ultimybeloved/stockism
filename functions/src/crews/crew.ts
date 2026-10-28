@@ -14,6 +14,7 @@ import {
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
+import { ownEntry } from '../shared/lookup';
 import type { UserData } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
 import { cohortRemoveUpdate } from '../shared/cohorts';
@@ -66,13 +67,13 @@ export const switchCrew = cf().https.onCall(async (data: { crewId?: unknown }, c
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'crew');
-  const { crewId } = data;
+  const { crewId } = data || {};
 
   if (!crewId || typeof crewId !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid crew ID.');
   }
 
-  if (!CREW_MEMBERS[crewId]) {
+  if (!ownEntry(CREW_MEMBERS, crewId)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid crew.');
   }
 

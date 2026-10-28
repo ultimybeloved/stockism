@@ -42,6 +42,16 @@ describe('weekly recap', () => {
     expect(lines[3]).toBe('Allied beat Hostel, and you finished your 5.');
   });
 
+  it('leaves long-term market positions out of the trading change', () => {
+    const lines = buildWeeklyRecap({
+      ...base,
+      netWorth: 31500,
+      eventValue: 20000,
+      wp: { startPortfolioValue: 10000, startMarginUsed: 0, startGrantedValue: 1000 },
+    })!;
+    expect(lines[0]).toBe('Net worth $31,500: +$1,200 from trading (+12.0%), plus $300 in rewards.');
+  });
+
   it('says nothing without a starting value, and reports a loss plainly', () => {
     expect(buildWeeklyRecap({ ...base, wp: {} })).toBeNull();
     const lines = buildWeeklyRecap({

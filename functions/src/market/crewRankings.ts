@@ -464,13 +464,17 @@ async function sendWeeklyRecaps(
   for (const d of docs) {
     const u = d.data();
     if (u.isBot || u.isBanned) continue;
+    // Already sent: a second run of the job must not ring the bell again.
+    if (u.weeklyRecap?.weekId === weekId) continue;
     const wp: WeeklyProgress | undefined = u.weeklyMissions?.[weekId];
     const active = !!wp && ((wp.tradeCount || 0) > 0 || Object.keys(wp.claimed || {}).length > 0 || !!wp.checkinDays);
     if (!active) continue;
     const crew: string | null = u.crew || null;
+    const eventValue = Math.max(0, u.eventPositionsValue || 0);
     const recap = computeWeeklyRecap({
       weekId,
-      netWorth: netEquityAt(u, prices.now) + Math.max(0, u.eventPositionsValue || 0),
+      netWorth: netEquityAt(u, prices.now) + eventValue,
+      eventValue,
       grantedValue: u.grantedValue || 0,
       holdings: u.holdings,
       wp,

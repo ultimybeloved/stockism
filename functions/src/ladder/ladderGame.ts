@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
+import { ownEntry } from '../shared/lookup';
 import * as admin from 'firebase-admin';
 const db = admin.firestore();
 import { touchLastActive } from '../shared/activity';
@@ -32,8 +33,9 @@ type LadderBoard = keyof typeof LADDER_BOARDS;
 
 export const getLadderLeaderboard = cf().https.onCall(async (data: { board?: unknown } | null, context) => {
   requireAppCheck(context);
-  const board: LadderBoard =
-    typeof data?.board === 'string' && data.board in LADDER_BOARDS ? (data.board as LadderBoard) : 'net';
+  // `in` also matched "constructor", which then failed the query and filed
+  // an error report on every call.
+  const board: LadderBoard = ownEntry(LADDER_BOARDS, data?.board) ? (data!.board as LadderBoard) : 'net';
   try {
     // Over-fetch, then drop the entries that should not hold a slot and trim.
     // A ladder doc is keyed by uid and outlives the account: deletions only

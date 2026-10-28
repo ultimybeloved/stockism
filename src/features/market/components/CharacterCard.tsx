@@ -16,6 +16,7 @@ import type { Character } from '../../../characters';
 import type { PricePoint, ShortPosition, TradeAction } from '../../../types';
 import type { TradeAnimation } from '../../../shared/hooks/types';
 import { pressable } from '../../../utils/a11y';
+import { findLastOf } from '../../../utils/arrays';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { usePhone } from '../../../shared/hooks/useMediaQuery';
 import { useLongPress } from '../hooks/useLongPress';
@@ -53,7 +54,7 @@ const chartSince = (data: PricePoint[], since: number, basePrice: number, price:
   if (filtered.length >= 2) {
     // Open the line at the price when the period began, so the card's % includes
     // the period's first trade.
-    const opening = data.findLast((p) => p.timestamp < since);
+    const opening = findLastOf(data, (p) => p.timestamp < since);
     return opening ? [{ ...opening, timestamp: since }, ...filtered] : filtered;
   }
 

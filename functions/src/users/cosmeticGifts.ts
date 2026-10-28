@@ -21,6 +21,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import { COSMETIC_CATALOG, COSMETIC_PRICE_LIST } from '../shared/constants/cosmetics';
 import { BUNDLE_MAP, bundleQuote, featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
+import { ownEntry } from '../shared/lookup';
 import { networkKey, checkDiscordWall } from '../shared/accountGuards';
 import { recordLedger } from '../shared/ledger';
 import { chargeShop } from '../shared/shopPayment';
@@ -44,8 +45,8 @@ export const giftCosmetic = cf().https.onCall(
     if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
 
     const { cosmeticId, bundleId, recipient } = data || {};
-    const cosmetic = typeof cosmeticId === 'string' ? COSMETIC_CATALOG[cosmeticId] : undefined;
-    const bundle = typeof bundleId === 'string' ? BUNDLE_MAP[bundleId] : undefined;
+    const cosmetic = ownEntry(COSMETIC_CATALOG, cosmeticId);
+    const bundle = ownEntry(BUNDLE_MAP, bundleId);
     if (bundle ? cosmetic || bundle.items.some((id) => !COSMETIC_CATALOG[id]) : !cosmetic) {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid item.');
     }

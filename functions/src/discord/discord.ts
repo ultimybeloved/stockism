@@ -365,6 +365,13 @@ export const discordLink = cf().https.onRequest(async (req, res) => {
       return void res.redirect('https://stockism.app/profile?discord_link=error&reason=recently_deleted');
     }
 
+    // Reserve it to this account in one transaction. The checks above are
+    // plain reads, so two accounts finishing the link at the same moment both
+    // passed them and both got the Discord and the starting-cash unlock.
+    if ((await bindDiscordToUid(discordId, uid, discordUsername)) !== uid) {
+      return void res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
+    }
+
     // Link Discord to the existing account
     const linkUpdate: Record<string, unknown> = {
       discordId: discordId,

@@ -59,10 +59,10 @@ export const runLadderGame = async (
   uid: string,
   data: { startSide?: unknown; bet?: unknown; amount?: unknown },
 ): Promise<LadderPlay> => {
-  const { startSide, bet } = data as { startSide: string; bet: string };
+  const { startSide, bet } = (data || {}) as { startSide: string; bet: string };
   // Whole-dollar bets only: silently floor any decimals away. With no decimals in
   // play there is nothing to round, so the old rounding exploit can't exist.
-  const amount = Math.floor(Number(data.amount));
+  const amount = Math.floor(Number(data?.amount));
 
   // Validate inputs
   if (!['left', 'right'].includes(startSide)) {

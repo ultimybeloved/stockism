@@ -42,7 +42,7 @@ export const createLimitOrder = cf().https.onCall(
 
     const uid = context.auth.uid;
     touchLastActive(uid, 'limitOrders');
-    const { ticker, type, shares, limitPrice, allowPartialFills } = data as {
+    const { ticker, type, shares, limitPrice, allowPartialFills } = (data || {}) as {
       ticker: string;
       type: LimitOrder['type'];
       shares: number;

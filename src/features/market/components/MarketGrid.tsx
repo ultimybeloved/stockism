@@ -6,6 +6,7 @@ import type { MarketView } from '../hooks/useMarketView';
 import { useSession, useMarket } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
 import { getSentiment } from '../../../utils/marketStats';
+import { lastOf } from '../../../utils/arrays';
 import type { ComponentProps } from 'react';
 import type { Character } from '../../../characters';
 import type { UserData } from '../../../types';
@@ -87,7 +88,7 @@ const MarketGrid = ({
     <CharacterCard
       key={character.ticker}
       character={character}
-      price={priceHistory[character.ticker]?.at(-1)?.price ?? (prices[character.ticker] || character.basePrice)}
+      price={lastOf(priceHistory[character.ticker])?.price ?? (prices[character.ticker] || character.basePrice)}
       sentiment={getSentiment(character.ticker, prices, priceHistory)}
       holdings={activeUserData.holdings?.[character.ticker] || 0}
       shortPosition={activeUserData.shorts?.[character.ticker]}

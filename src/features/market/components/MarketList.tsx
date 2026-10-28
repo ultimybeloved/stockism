@@ -10,6 +10,7 @@ import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { formatShares } from '../../../utils/tradeLimits';
 import { priceAt } from '../../../utils/marketStats';
+import { lastOf } from '../../../utils/arrays';
 import { getMarketClosedState } from '../../../utils/marketHours';
 import { InlineHoldingLabel, useHoldingMark } from '../../../shared/components/cosmetics/HoldingMark';
 import { positionOf } from '../../../utils/holdingMarks';
@@ -79,7 +80,7 @@ const PhoneRow = ({ character, onOpen, onHold }: { character: Character; onOpen:
   const { prices, priceHistory } = useMarket();
   const { textClass, mutedClass } = themeClasses;
   const press = useLongPress(onOpen, onHold);
-  const price = priceHistory[character.ticker]?.at(-1)?.price ?? (prices[character.ticker] || character.basePrice);
+  const price = lastOf(priceHistory[character.ticker])?.price ?? (prices[character.ticker] || character.basePrice);
   const { change24, line } = rowStats(priceHistory[character.ticker], price);
   const mark = useHoldingMark();
   const pos = positionOf(userData, character.ticker, price);
@@ -157,7 +158,7 @@ const MarketList = ({
           </thead>
           <tbody>
             {characters.map((c) => {
-              const price = priceHistory[c.ticker]?.at(-1)?.price ?? (prices[c.ticker] || c.basePrice);
+              const price = lastOf(priceHistory[c.ticker])?.price ?? (prices[c.ticker] || c.basePrice);
               const { change24, change7, line } = rowStats(priceHistory[c.ticker], price);
               const held = userData?.holdings?.[c.ticker] || 0;
               const short = userData?.shorts?.[c.ticker]?.shares || 0;

@@ -42,7 +42,7 @@ export const repayMargin = cf().https.onCall(async (data: { amount?: unknown }, 
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'margin');
-  const { amount } = data as { amount: number };
+  const { amount } = (data || {}) as { amount: number };
 
   if (!amount || !Number.isFinite(amount) || amount <= 0) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid repay amount.');
@@ -190,7 +190,7 @@ export const toggleMargin = cf().https.onCall(async (data: { enable?: unknown },
 
   const uid = context.auth.uid;
   touchLastActive(uid, 'margin');
-  const { enable } = data;
+  const { enable } = data || {};
   const userRef = db.collection('users').doc(uid);
 
   return db.runTransaction(async (transaction) => {
@@ -202,6 +202,9 @@ export const toggleMargin = cf().https.onCall(async (data: { enable?: unknown },
     checkDiscordWall(userData);
 
     if (enable) {
+      // Already on: nothing to do. This branch used to write marginUsed: 0, so
+      // calling it again with debt open erased the debt.
+      if (userData.marginEnabled) return { success: true, marginEnabled: true };
       const isAdmin = uid === ADMIN_UID;
       if (!isAdmin) {
         if ((userData.cash || 0) < MARGIN_CASH_MINIMUM) {
@@ -226,11 +229,9 @@ export const toggleMargin = cf().https.onCall(async (data: { enable?: unknown },
           );
         }
       }
-      transaction.update(userRef, {
-        marginEnabled: true,
-        marginUsed: 0,
-        marginEnabledAt: Date.now(),
-      });
+      // marginUsed is left alone: off means it is already 0 (turning off
+      // requires that), and a reset here is how debt was erased.
+      transaction.update(userRef, { marginEnabled: true, marginEnabledAt: Date.now() });
     } else {
       // Check no outstanding margin
       if ((userData.marginUsed || 0) >= 0.01) {
