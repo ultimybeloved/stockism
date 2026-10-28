@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import * as matchers from '@testing-library/jest-dom/matchers';
 import CrewPage from './CrewPage';
@@ -40,11 +40,11 @@ vi.mock('../hooks/useCrewPlayers', () => ({
   }),
 }));
 
-const renderAt = (path: string) =>
+const renderAt = (path: string, onOpenCrewSelection = () => {}) =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/crew/:crewId" element={<CrewPage />} />
+        <Route path="/crew/:crewId" element={<CrewPage onOpenCrewSelection={onOpenCrewSelection} />} />
         <Route path="/leaderboard" element={<p>leaderboard</p>} />
       </Routes>
     </MemoryRouter>,
@@ -64,6 +64,16 @@ describe('CrewPage', () => {
     expect(screen.getByText('$ALLY')).toBeInTheDocument();
     expect(screen.getByText("This week's rivalry")).toBeInTheDocument();
     expect(screen.getByText('50%')).toBeInTheDocument();
+  });
+
+  it('offers the crew switch on your own crew only', () => {
+    const open = vi.fn();
+    renderAt('/crew/ALLIED', open);
+    fireEvent.click(screen.getByRole('button', { name: /Switch crew/ }));
+    expect(open).toHaveBeenCalled();
+    cleanup();
+    renderAt('/crew/HOSTEL', open);
+    expect(screen.queryByRole('button', { name: /Switch crew/ })).not.toBeInTheDocument();
   });
 
   it('sends an unknown crew to the leaderboard', () => {

@@ -262,6 +262,7 @@ export default function App() {
               }}
               onPinAction={isGuest ? undefined : pinShop.handlePinAction}
               onTrade={requestTrade}
+              onOpenCrewSelection={() => setShowCrewSelection(true)}
               onShowLogin={showLogin}
             />
 

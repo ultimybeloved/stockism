@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useMarket, useSession, useTheme } from '../../../context/AppContext';
-import { CREWS, CREW_MAP } from '../../../crews';
+import { CREWS, CREW_MAP, CREW_SWITCH_PENALTY, hasFreeSwitch } from '../../../crews';
 import { CREW_HEAD_PIN, PIXELATED, crewPinSrc, pixelatedIfSvg } from '../../../constants/crests';
 import { getReadableCrewColor, themeClasses } from '../../../utils/theme';
 import LeaderboardRow from '../../leaderboard/components/LeaderboardRow';
@@ -22,7 +22,8 @@ const PREVIEW_ROWS = 10;
 
 // /crew/:crewId: one crew's page. Its head, this week's rivalry, its players by
 // net worth, and its fund and characters. Any crew's page is open to anyone.
-const CrewPage = () => {
+// On the player's own crew it also offers the crew switch.
+const CrewPage = ({ onOpenCrewSelection }: { onOpenCrewSelection?: () => void }) => {
   const { crewId = '' } = useParams();
   const crew = CREW_MAP[crewId.toUpperCase()];
   const { user, userData } = useSession();
@@ -63,12 +64,26 @@ const CrewPage = () => {
             {activeCount != null && ` · ${activeCount.toLocaleString()} active last week`}
           </p>
           {mine && (
-            <span
-              className="inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded-sm border"
-              style={{ color, borderColor: color }}
-            >
-              Your crew
-            </span>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span
+                className="inline-block text-xs font-semibold px-2 py-0.5 rounded-sm border"
+                style={{ color, borderColor: color }}
+              >
+                Your crew
+              </span>
+              {onOpenCrewSelection && (
+                <button
+                  onClick={onOpenCrewSelection}
+                  className="text-xs font-semibold px-2 py-0.5 rounded-sm light:bg-slate-200 light:hover:bg-slate-300 light:text-slate-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-zinc-200"
+                >
+                  Switch crew (
+                  {hasFreeSwitch(userData)
+                    ? 'free into a crew with flair crews this week'
+                    : `${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty`}
+                  )
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -24,6 +24,7 @@ interface AppRoutesProps {
   missions: ComponentProps<typeof MissionsPage>;
   onPinAction: ComponentProps<typeof AchievementsPage>['onPinAction'];
   onTrade: ComponentProps<typeof StockPage>['onTrade'];
+  onOpenCrewSelection: () => void;
   onShowLogin: () => void;
 }
 
@@ -36,6 +37,7 @@ export default function AppRoutes({
   missions,
   onPinAction,
   onTrade,
+  onOpenCrewSelection,
   onShowLogin,
 }: AppRoutesProps) {
   // A crashed page clears itself when the player navigates somewhere else.
@@ -65,7 +67,7 @@ export default function AppRoutes({
           <Route path="/portfolio" element={<PortfolioPage {...portfolio} />} />
           <Route path="/link-discord" element={<DiscordLinkRedirect onShowLogin={onShowLogin} />} />
           <Route path="/u/:username" element={<PublicProfilePage />} />
-          <Route path="/crew/:crewId" element={<CrewPage />} />
+          <Route path="/crew/:crewId" element={<CrewPage onOpenCrewSelection={onOpenCrewSelection} />} />
           <Route path="/stock/:ticker" element={<StockPage onTrade={onTrade} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
