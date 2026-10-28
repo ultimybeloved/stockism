@@ -8,9 +8,11 @@
 //   npx tsx scripts/grant-mission-credit-backpay.cjs            (dry run, lists who gets what)
 //   npx tsx scripts/grant-mission-credit-backpay.cjs --confirm  (pays it)
 //
-// Counts `mission_reward` ledger entries from SINCE up to the moment it runs,
-// so run it right before the milestone code goes live, or claims made after
-// that would be paid twice (back pay and milestone).
+// Counts `mission_reward` ledger entries from SINCE up to --until (an ISO time;
+// the moment it runs if left out). Set --until to when the milestone code went
+// live, so a claim made after that isn't paid twice (back pay and milestone).
+//
+//   npx tsx scripts/grant-mission-credit-backpay.cjs --until=2026-10-28T07:00:00Z --confirm
 //
 // Safe to re-run: each payout writes shopCreditGrants/{RUN}_{uid} in the same
 // transaction, and a player who already has one is skipped.
@@ -32,10 +34,12 @@ const RUN = 'mission_backpay_2026_10';
 const SINCE = Date.UTC(2026, 9, 14, 0, 0); // 2026-10-14 00:00 UTC
 const PER_MISSION = 1000;
 const CONFIRM = process.argv.includes('--confirm');
+const UNTIL_ARG = process.argv.find((a) => a.startsWith('--until='))?.slice(8);
 const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
 
 const main = async () => {
-  const until = Date.now();
+  const until = UNTIL_ARG ? Date.parse(UNTIL_ARG) : Date.now();
+  if (!Number.isFinite(until)) throw new Error(`Bad --until: ${UNTIL_ARG}`);
   const snap = await db.collection('ledger').where('type', '==', 'mission_reward').get();
   const counts = new Map();
   for (const d of snap.docs) {
