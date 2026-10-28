@@ -11,11 +11,12 @@ import {
   featuredPrice,
   shopWeek,
   shopWeekEndsAt,
-  MISSION_CREDIT_AMOUNT,
   MISSION_CREDIT_EVERY,
+  MISSION_CREDIT_TIERS,
   afterShopPayment,
   missionCreditFor,
-  missionsToNextCredit,
+  missionCreditBetween,
+  nextMissionCredit,
   shopBudget,
   splitShopPayment,
 } from './shop';
@@ -138,13 +139,30 @@ describe('shop credit', () => {
     expect(afterShopPayment({ cash: 1000, shopCredit: 25000 }, 25500)).toEqual({ cash: 500, shopCredit: 0 });
   });
 
-  it('pays mission credit on every 25th mission only', () => {
-    expect(missionCreditFor(MISSION_CREDIT_EVERY)).toBe(MISSION_CREDIT_AMOUNT);
-    expect(missionCreditFor(MISSION_CREDIT_EVERY * 4)).toBe(MISSION_CREDIT_AMOUNT);
-    expect(missionCreditFor(MISSION_CREDIT_EVERY + 1)).toBe(0);
+  it('pays $25k every 25 missions and $100k on every 100th instead', () => {
+    expect(missionCreditFor(25)).toBe(25000);
+    expect(missionCreditFor(75)).toBe(25000);
+    expect(missionCreditFor(100)).toBe(100000);
+    expect(missionCreditFor(200)).toBe(100000);
+    expect(missionCreditFor(26)).toBe(0);
     expect(missionCreditFor(0)).toBe(0);
-    expect(missionsToNextCredit(0)).toBe(MISSION_CREDIT_EVERY);
-    expect(missionsToNextCredit(MISSION_CREDIT_EVERY - 1)).toBe(1);
-    expect(missionsToNextCredit(MISSION_CREDIT_EVERY)).toBe(MISSION_CREDIT_EVERY);
+  });
+
+  it('every tier lands on a milestone', () => {
+    for (const t of MISSION_CREDIT_TIERS) expect(t.every % MISSION_CREDIT_EVERY).toBe(0);
+  });
+
+  it('shows the next milestone and what it pays', () => {
+    expect(nextMissionCredit(0)).toEqual({ at: 25, left: 25, progress: 0, amount: 25000 });
+    expect(nextMissionCredit(93)).toEqual({ at: 100, left: 7, progress: 18, amount: 100000 });
+    expect(nextMissionCredit(100)).toEqual({ at: 125, left: 25, progress: 0, amount: 25000 });
+  });
+
+  it('adds up every milestone crossed between two totals', () => {
+    expect(missionCreditBetween(10, 24)).toBe(0);
+    expect(missionCreditBetween(24, 25)).toBe(25000);
+    expect(missionCreditBetween(25, 25)).toBe(0);
+    expect(missionCreditBetween(60, 110)).toBe(125000);
+    expect(missionCreditBetween(0, 200)).toBe(350000);
   });
 });

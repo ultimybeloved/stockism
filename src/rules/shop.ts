@@ -118,17 +118,40 @@ export const featuredPrice = (price: number): number => Math.round(price * (1 - 
 // Shop credit: money that only the shop takes. Admins hand it out as prizes and
 // players earn it from missions. It pays first, cash covers the rest, it never
 // expires, and it never turns into cash, so it adds nothing to the economy.
-// Every 25 missions claimed pays $25k of it.
+// Mission milestones pay it: every MISSION_CREDIT_EVERY lifetime missions, at
+// the amount of the biggest tier that milestone lands on (the 100th pays $100k,
+// the 25th, 50th and 75th $25k). Every tier's step must be a multiple of
+// MISSION_CREDIT_EVERY. Change the payouts here; the site and server follow.
 export const MISSION_CREDIT_EVERY = 25;
-export const MISSION_CREDIT_AMOUNT = 25000;
+export const MISSION_CREDIT_TIERS: readonly { every: number; amount: number }[] = [
+  { every: 100, amount: 100000 },
+  { every: 25, amount: 25000 },
+];
 
 /** Credit a mission claim pays, given the player's new lifetime mission total. */
-export const missionCreditFor = (newTotal: number): number =>
-  newTotal > 0 && newTotal % MISSION_CREDIT_EVERY === 0 ? MISSION_CREDIT_AMOUNT : 0;
+export const missionCreditFor = (newTotal: number): number => {
+  if (!(newTotal > 0) || newTotal % MISSION_CREDIT_EVERY !== 0) return 0;
+  return MISSION_CREDIT_TIERS.find((t) => newTotal % t.every === 0)?.amount || 0;
+};
 
-/** Missions left until the next credit payout (1 to MISSION_CREDIT_EVERY). */
-export const missionsToNextCredit = (total: number): number =>
-  MISSION_CREDIT_EVERY - (Math.max(0, Math.floor(total)) % MISSION_CREDIT_EVERY);
+/** The next milestone after `total` missions: where it is, how far, and what it pays. */
+export const nextMissionCredit = (total: number) => {
+  const done = Math.max(0, Math.floor(total || 0));
+  const at = (Math.floor(done / MISSION_CREDIT_EVERY) + 1) * MISSION_CREDIT_EVERY;
+  return { at, left: at - done, progress: MISSION_CREDIT_EVERY - (at - done), amount: missionCreditFor(at) };
+};
+
+/** Total milestone credit for going from `before` to `after` lifetime missions. */
+export const missionCreditBetween = (before: number, after: number): number => {
+  let sum = 0;
+  for (
+    let n = (Math.floor(Math.max(0, before) / MISSION_CREDIT_EVERY) + 1) * MISSION_CREDIT_EVERY;
+    n <= after;
+    n += MISSION_CREDIT_EVERY
+  )
+    sum += missionCreditFor(n);
+  return sum;
+};
 
 /** How a shop price is paid: credit first, cash for the rest. */
 export const splitShopPayment = (

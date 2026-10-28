@@ -93,6 +93,7 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
       welcome_streak: 'Welcome week',
       mission_reward: 'Missions',
       mission_credit: 'Mission shop credit',
+      mission_credit_backpay: 'Mission shop credit back pay',
       crew_mission_reward: 'Crew missions',
       rivalry_reward: 'Crew rivalries',
       achievement: 'Achievements',
