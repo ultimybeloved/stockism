@@ -157,7 +157,7 @@ export const adminGrantCosmeticFunction = callable<{
   revoke?: boolean;
 }>('adminGrantCosmetic');
 export const adminCreateGiveawayFunction = callable<
-  { title: string; text: string; channelId: string; roleId: string | null; endsAt: number; tiers: GiveawayTier[] },
+  { title: string; text: string; channelId: string; roleIds: string[]; endsAt: number; tiers: GiveawayTier[] },
   { id: string; messageId: string }
 >('adminCreateGiveaway');
 export const adminListGiveawaysFunction = callable<void, { giveaways: Panel.AdminGiveaway[] }>('adminListGiveaways');

@@ -7,7 +7,6 @@ import AdminIcon from '../AdminIcon';
 
 // Server roles a giveaway post can ping.
 const ROLES = [
-  { id: '', name: 'No ping' },
   { id: '1470587217607921674', name: 'Announcements' },
   { id: '1470587257051418838', name: 'Updates' },
   { id: '1534468500620578899', name: 'Event' },
@@ -85,20 +84,28 @@ export default function GiveawayCard({
             ))}
           </select>
         </label>
-        <label>
-          <span className={labelCls}>Ping</span>
-          <select
+        <div>
+          <span className={labelCls}>Ping roles (ids, comma separated, up to 3)</span>
+          <input
             className={`${field} w-full`}
-            value={draft.roleId}
-            onChange={(e) => g.patch({ roleId: e.target.value })}
-          >
+            value={draft.roleIds}
+            onChange={(e) => g.patch({ roleIds: e.target.value })}
+          />
+          <div className="flex gap-2 mt-1">
             {ROLES.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
+              <button
+                key={r.id}
+                className={`text-xs underline ${mutedClass}`}
+                onClick={() =>
+                  !draft.roleIds.includes(r.id) &&
+                  g.patch({ roleIds: [draft.roleIds.trim(), r.id].filter(Boolean).join(', ') })
+                }
+              >
+                + {r.name}
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
         <label>
           <span className={labelCls}>Ends (date, UTC)</span>
           <input

@@ -2,7 +2,7 @@
 // used by adminGiveaways.ts (create, end, the scheduled finisher) and not
 // listed in services.ts. Rules (tiers, the draw) live in rules/giveaways.
 //
-// giveaways/{id}: title, text, channelId, messageId, roleId, endsAt (ms),
+// giveaways/{id}: title, text, channelId, messageId, roleIds, endsAt (ms),
 //   status open | drawing | ended | cancelled, tiers, entries (count),
 //   winners [{ tier, uid, discordId, name }], createdBy, createdAt.
 // giveaways/{id}/entries/{discordId}: { uid, name, at }. One per Discord.
@@ -28,7 +28,7 @@ export interface Giveaway {
   text?: string;
   channelId: string;
   messageId?: string;
-  roleId?: string | null;
+  roleIds?: string[];
   endsAt: number;
   status: 'open' | 'drawing' | 'ended' | 'cancelled';
   tiers: GiveawayTier[];
@@ -44,7 +44,7 @@ export const enterButtonId = (id: string) => `giveaway:enter:${id}`;
 const cosmeticName = (id: string) => COSMETIC_CATALOG[id]?.name;
 const label = (p: GiveawayPrize) => prizeLabel(p, cosmeticName);
 const ts = (ms: number, style = 'F') => `<t:${Math.floor(ms / 1000)}:${style}>`;
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** The post's embed and button, for the live, ended or cancelled giveaway. */
 export function giveawayMessage(id: string, g: Giveaway) {
@@ -56,13 +56,13 @@ export function giveawayMessage(id: string, g: Giveaway) {
   const entries = g.entries || 0;
   const footer =
     g.status === 'open'
-      ? `${pxe('hourglass')} Ends ${ts(g.endsAt)} (${ts(g.endsAt, 'R')})\n${pxe('link')} Your Discord must be linked to your Stockism account to enter. One entry per person. Nobody wins twice.\n${plural(entries, 'entry')} so far.`
+      ? `${pxe('hourglass')} Ends ${ts(g.endsAt)} (${ts(g.endsAt, 'R')})\n${pxe('link')} Your Discord must be linked to your Stockism account to enter. One entry per person. Nobody wins twice.\n${plural(entries, 'entry', 'entries')} so far.`
       : g.status === 'cancelled'
         ? `${pxe('error')} This giveaway was cancelled.`
-        : `${pxe('trophy')} Ended ${ts(g.endsAt)} with ${plural(entries, 'entry')}. Prizes are paid out automatically.`;
+        : `${pxe('trophy')} Ended ${ts(g.endsAt)} with ${plural(entries, 'entry', 'entries')}. Prizes are paid out automatically.`;
   const embed = {
     title: g.title,
-    description: [g.text, prizes.join('\n\n'), footer].filter(Boolean).join('\n\n'),
+    description: [g.text, prizes.join(g.status === 'ended' ? '\n\n' : '\n'), footer].filter(Boolean).join('\n\n'),
     color: g.status === 'open' ? 0xf97316 : 0x71717a,
   };
   const components =

@@ -38,12 +38,12 @@ export const adminCreateGiveaway = cf().https.onCall(async (data, context) => {
   const title = clean(data?.title, GIVEAWAY_TITLE_MAX);
   const text = clean(data?.text, GIVEAWAY_TEXT_MAX);
   const channelId = String(data?.channelId || '');
-  const roleId = data?.roleId ? String(data.roleId) : null;
+  const roleIds: string[] = Array.isArray(data?.roleIds) ? data.roleIds.map(String) : [];
   const endsAt = Number(data?.endsAt);
   const tiers = data?.tiers as GiveawayTier[];
   if (!title) throw bad('Give it a title.');
   if (!SNOWFLAKE.test(channelId)) throw bad('Pick a channel.');
-  if (roleId && !SNOWFLAKE.test(roleId)) throw bad('That role id is not valid.');
+  if (roleIds.length > 3 || roleIds.some((r) => !SNOWFLAKE.test(r))) throw bad('Up to 3 valid role ids.');
   const now = Date.now();
   if (!Number.isFinite(endsAt) || endsAt < now + GIVEAWAY_MIN_MS || endsAt > now + GIVEAWAY_MAX_MS) {
     throw bad('The end time must be at least 10 minutes and at most 30 days away.');
@@ -59,11 +59,13 @@ export const adminCreateGiveaway = cf().https.onCall(async (data, context) => {
   }));
 
   const ref = db.collection('giveaways').doc();
-  const g: Giveaway = { title, text, channelId, roleId, endsAt, status: 'open', tiers: cleanTiers, entries: 0 };
+  const g: Giveaway = { title, text, channelId, roleIds, endsAt, status: 'open', tiers: cleanTiers, entries: 0 };
   const r = await discordApi('post', `/channels/${channelId}/messages`, {
     body: {
       ...giveawayMessage(ref.id, g),
-      ...(roleId ? { content: `<@&${roleId}>`, allowed_mentions: { roles: [roleId] } } : {}),
+      ...(roleIds.length
+        ? { content: roleIds.map((r) => `<@&${r}>`).join(' '), allowed_mentions: { roles: roleIds } }
+        : { allowed_mentions: { parse: [] } }),
     },
   });
   const messageId = (r.data as { id?: string })?.id;

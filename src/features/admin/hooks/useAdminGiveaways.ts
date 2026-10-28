@@ -13,7 +13,8 @@ export interface GiveawayDraft {
   title: string;
   text: string;
   channelId: string;
-  roleId: string;
+  /** Role ids to ping, comma separated as typed. */
+  roleIds: string;
   /** UTC, as typed: YYYY-MM-DD and HH:MM. */
   endDate: string;
   endTime: string;
@@ -24,11 +25,17 @@ const blankDraft = (): GiveawayDraft => ({
   title: '',
   text: '',
   channelId: '',
-  roleId: '',
+  roleIds: '',
   endDate: '',
   endTime: '21:00',
   tiers: [{ prize: { kind: 'credit', amount: 50000 }, winners: 1 }],
 });
+
+export const draftRoleIds = (d: GiveawayDraft) =>
+  d.roleIds
+    .split(/[\s,]+/)
+    .map((x) => x.replace(/[^\d]/g, ''))
+    .filter(Boolean);
 
 export const draftEndsAt = (d: GiveawayDraft) => Date.parse(`${d.endDate}T${d.endTime || '00:00'}:00Z`);
 
@@ -81,7 +88,7 @@ export function useAdminGiveaways() {
         title: draft.title.trim(),
         text: draft.text.trim(),
         channelId: draft.channelId,
-        roleId: draft.roleId || null,
+        roleIds: draftRoleIds(draft),
         endsAt: draftEndsAt(draft),
         tiers: draft.tiers,
       });
