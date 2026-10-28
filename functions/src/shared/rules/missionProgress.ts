@@ -253,7 +253,7 @@ const totalCounts = (total: TradeTotal | undefined, legacyValue: number, ctx: Mi
   missionTradeCounts(total?.shares, total?.value) || legacyValue >= playerMinTrade(ctx.player);
 
 const NO_FLAIR_NOTE = 'Pick a flair crew in Customize → My Look to finish this.';
-const EMPTY_FLAIR_NOTE = "Your flair crew has no characters on the site yet. Pick another one in Customize.";
+const EMPTY_FLAIR_NOTE = 'Your flair crew has no characters on the site yet. Pick another one in Customize.';
 
 const stampToMs = (v: unknown): number =>
   typeof v === 'number' ? v : ((v as { toMillis?: () => number } | null)?.toMillis?.() ?? 0);
@@ -412,7 +412,8 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
   }
   switch (mission.checkType) {
     case 'WEEKLY_AUCTION': {
-      const done = keptBuys(wp.auctionBuys, ctx).length > 0 || totalCounts(wp.auctionSold, wp.auctionSoldValue || 0, ctx);
+      const done =
+        keptBuys(wp.auctionBuys, ctx).length > 0 || totalCounts(wp.auctionSold, wp.auctionSoldValue || 0, ctx);
       return {
         ...flag(done),
         note: done
@@ -495,7 +496,10 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       const done = count(crews.length, target);
       return done.complete
         ? done
-        : { ...done, note: countedNote(crews.map((id) => CREWS[id]?.name || id)) ?? "Stocks with no crew don't count." };
+        : {
+            ...done,
+            note: countedNote(crews.map((id) => CREWS[id]?.name || id)) ?? "Stocks with no crew don't count.",
+          };
     }
     case 'WEEKLY_FLAIR_TOUR': {
       const flair = flairOf(ctx.player);
