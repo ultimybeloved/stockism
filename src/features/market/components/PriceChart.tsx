@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, type MouseEvent, type TouchEvent } from 'rea
 import { useTheme, useSession } from '../../../context/AppContext';
 import { usePriceHistory } from '../hooks/usePriceHistory';
 import { useChapterMarkers } from '../hooks/useChapterMarkers';
+import { useStoredToggle } from '../../../shared/hooks/useStoredToggle';
 import { chapterMarkerTitle, type ChapterMarker } from '../../../rules/chapterMarkers';
 import { formatAxisLabels } from '../../../utils/formatters';
 import { findLastOf } from '../../../utils/arrays';
@@ -65,6 +66,9 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
     showReviewDetail: isAdmin && showReviewSteps,
   });
   const [hoveredPoint, setHoveredPoint] = useState<(ChartPoint & { x: number; y: number; i: number }) | null>(null);
+  // Chapter flags crowd long charts, so they start hidden; the choice is shared
+  // by every chart and kept in the browser.
+  const [showFlags, toggleFlags] = useStoredToggle('chartChapterFlags');
   const chapterMarkers = useChapterMarkers();
   const chartRef = useRef<SVGSVGElement>(null);
 
@@ -123,6 +127,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
   // Chapter reviews inside the shown range, at the first point from the halt on.
   // The x axis is by point, not by time, so a marker sits on its point.
   const markers = useMemo(() => {
+    if (!showFlags) return [];
     const first = currentData[0]?.timestamp ?? 0;
     const last = currentData[currentData.length - 1]?.timestamp ?? 0;
     const out: { m: ChapterMarker; i: number }[] = [];
@@ -132,7 +137,7 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
       if (i > 0) out.push({ m, i });
     }
     return out;
-  }, [chapterMarkers, currentData]);
+  }, [chapterMarkers, currentData, showFlags]);
   const markerNear = (i: number) => {
     const reach = Math.max(1, Math.round(currentData.length / 60));
     return markers.find((k) => Math.abs(k.i - i) <= reach)?.m || null;
@@ -304,6 +309,21 @@ const PriceChart = ({ ticker, basePrice, currentPrice, timeRange, chartType = 'a
           </>
         )}
       </svg>
+
+      {chapterMarkers.length > 0 && (
+        <button
+          onClick={toggleFlags}
+          aria-pressed={showFlags}
+          className={`absolute top-1 left-1 px-2 py-1 text-[10px] font-semibold rounded-sm border transition-colors ${
+            showFlags
+              ? 'bg-purple-600 text-white border-purple-600'
+              : 'light:bg-white/80 light:text-slate-600 light:border-slate-300 light:hover:text-slate-900 dark:bg-zinc-800/80 dark:text-zinc-300 dark:border-zinc-700 dark:hover:text-white'
+          }`}
+          title="Show a flag on each weekly chapter review"
+        >
+          {showFlags ? 'Chapter flags: on' : 'Chapter flags'}
+        </button>
+      )}
 
       {/* Admin: show the review's real steps instead of the tidied single point */}
       {isAdmin && hasReviewDetail && (

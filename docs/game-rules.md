@@ -186,7 +186,7 @@ The Thursday timeline:
 | 20:56 | Opening auction runs, IPO price jumps apply, stop-losses sweep |
 | 21:00 | Market reopens |
 
-Every stock chart flags each chapter review with a marker (since 2026-10-22, with past reviews filled in from price history). Hovering or tapping it shows that stock's move from the halt to the 20:55 lock and the admin's chapter name and note (Admin, Weekly). Recorded at 20:55 by `market/chapterMarkers`, shape in `src/rules/chapterMarkers.ts`.
+Every stock chart can flag each chapter review with a marker (since 2026-10-22, with past reviews filled in from price history). The flags are off by default since 2026-10-28; the "Chapter flags" button on a chart turns them on for every chart, remembered in that browser. Hovering or tapping it shows that stock's move from the halt to the 20:55 lock and the admin's chapter name and note (Admin, Weekly). Recorded at 20:55 by `market/chapterMarkers`, shape in `src/rules/chapterMarkers.ts`.
 
 Admins can also halt the market manually at any time with a custom reason.
 
