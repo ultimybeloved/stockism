@@ -154,8 +154,10 @@ export interface MissionProgress {
   picks?: { ticker: string; change?: number; price?: number }[];
   /** What the picks' change is measured from. Absent when the picks show a price instead. */
   picksFrom?: string;
-  /** Picks count when sold, not bought. */
-  picksSell?: boolean;
+  /** What to do with a pick for it to count. Absent means buy. */
+  picksAction?: 'sell' | 'cover';
+  /** What to say when there are no picks. Absent means "No stock qualifies right now". */
+  picksEmpty?: string;
 }
 
 const HALT_LOCK_LABEL = "Thursday's 13:00 UTC price";
@@ -181,18 +183,37 @@ const pricedNow = (ctx: MissionContext, pass: (c: (typeof CHARACTERS)[number], p
     .map((c) => ({ ticker: c.ticker, price: ctx.prices[c.ticker]! }))
     .sort((x, y) => y.price - x.price);
 
-/** Stocks you hold enough of to count, whose bid right now is above what you paid, biggest gain first. */
-const sellAboveCost = (ctx: MissionContext) =>
+const halfSpread = (t: string) => (CHARACTER_MAP[t]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD) / 2;
+
+/** Stocks you hold enough of to count, whose bid right now is above (or below) what you paid, biggest move first. */
+const sellVsCost = (ctx: MissionContext, above: boolean) =>
   Object.entries(ctx.player.holdings || {})
     .map(([t, shares]) => {
       const cost = ctx.player.costBasis?.[t] || 0;
-      const spread = CHARACTER_MAP[t]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
-      const bid = (ctx.prices[t] || 0) * (1 - spread / 2);
+      const bid = (ctx.prices[t] || 0) * (1 - halfSpread(t));
       return { ticker: t, shares, cost, bid };
     })
-    .filter((h) => h.shares > 0 && h.cost > 0 && h.bid > h.cost && missionTradeCounts(h.shares, h.shares * h.bid))
+    .filter(
+      (h) =>
+        h.shares > 0 &&
+        h.cost > 0 &&
+        h.bid > 0 &&
+        (above ? h.bid > h.cost : h.bid < h.cost) &&
+        missionTradeCounts(h.shares, h.shares * h.bid),
+    )
     .map((h) => ({ ticker: h.ticker, change: (h.bid / h.cost - 1) * 100 }))
-    .sort((x, y) => y.change - x.change);
+    .sort((x, y) => Math.abs(y.change) - Math.abs(x.change));
+
+/** Open shorts big enough to count when covered, shown with today's price. */
+const shortsToCover = (ctx: MissionContext) =>
+  Object.entries(ctx.player.shorts || {})
+    .map(([t, s]) => ({ ticker: t, shares: s?.shares || 0, price: ctx.prices[t] || 0 }))
+    .filter(
+      (s) =>
+        s.shares > 0 && s.price > 0 && missionTradeCounts(s.shares, s.shares * s.price * (1 + halfSpread(s.ticker))),
+    )
+    .map((s) => ({ ticker: s.ticker, price: s.price }))
+    .sort((x, y) => y.price - x.price);
 
 const CREW_ROSTERS: Record<string, string[]> = Object.fromEntries(Object.values(CREWS).map((c) => [c.id, c.members]));
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_ROSTERS).flat());
@@ -299,7 +320,14 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
   const flair = flairOf(ctx.player);
   switch (mission.checkType) {
     case 'BUY_CREW':
-      return crew ? buyFlag(dp.buys, ctx, (b) => roster.includes(b.ticker)) : flag(false);
+      return crew
+        ? buyFlag(
+            dp.buys,
+            ctx,
+            (b) => roster.includes(b.ticker),
+            () => ({ picks: pricedNow(ctx, (c) => roster.includes(c.ticker)) }),
+          )
+        : flag(false);
     case 'BUY_RIVAL':
       return crew
         ? buyFlag(
@@ -344,10 +372,24 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
       const done = totalCounts(dp.profitSold, (dp.heldSoldValue || 0) - (dp.heldLossValue || 0), ctx);
       return done
         ? flag(true)
-        : { ...flag(false), picks: sellAboveCost(ctx), picksFrom: 'what you paid', picksSell: true };
+        : {
+            ...flag(false),
+            picks: sellVsCost(ctx, true),
+            picksFrom: 'what you paid',
+            picksAction: 'sell',
+            picksEmpty: 'Nothing you hold is above what you paid right now',
+          };
     }
     case 'SELL_LOSS':
-      return flag(totalCounts(dp.lossSold, dp.heldLossValue || 0, ctx));
+      return totalCounts(dp.lossSold, dp.heldLossValue || 0, ctx)
+        ? flag(true)
+        : {
+            ...flag(false),
+            picks: sellVsCost(ctx, false),
+            picksFrom: 'what you paid',
+            picksAction: 'sell',
+            picksEmpty: 'Nothing you hold is below what you paid right now',
+          };
     case 'LIMIT_FILL':
       return flag(keptBuys(dp.limitBuys, ctx).length > 0 || (dp.limitSoldValue || 0) >= min);
     case 'CREW_MAJORITY': {
@@ -358,7 +400,14 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
     case 'SHORT_OPEN':
       return flag(Object.values(dp.shorts || {}).some((s) => missionTradeCounts(s.shares, s.value)));
     case 'COVER_PROFIT':
-      return flag(totalCounts(dp.covered, dp.coverProfitValue || 0, ctx));
+      return totalCounts(dp.covered, dp.coverProfitValue || 0, ctx)
+        ? flag(true)
+        : {
+            ...flag(false),
+            picks: shortsToCover(ctx),
+            picksAction: 'cover',
+            picksEmpty: 'You have no open short big enough to count',
+          };
     case 'BUY_ETF':
       return buyFlag(
         dp.buys,
@@ -514,12 +563,17 @@ export const weeklyMissionProgress = (mission: Mission, wp: WeeklyProgress, ctx:
       const bought = weekBuys(wp, ctx);
       const crews = Object.keys(CREW_ROSTERS).filter((id) => bought.some((t) => CREW_ROSTERS[id]!.includes(t)));
       const done = count(crews.length, target);
-      return done.complete
-        ? done
-        : {
-            ...done,
-            note: countedNote(crews.map((id) => CREWS[id]?.name || id)) ?? "Stocks with no crew don't count.",
-          };
+      if (done.complete) return done;
+      // One stock per crew not yet counted, the priciest, so the list shows every crew left.
+      const left = Object.keys(CREW_ROSTERS).filter((id) => !crews.includes(id));
+      const picks = left
+        .map((id) => pricedNow(ctx, (c) => CREW_ROSTERS[id]!.includes(c.ticker))[0])
+        .filter((p): p is NonNullable<typeof p> => !!p);
+      return {
+        ...done,
+        note: countedNote(crews.map((id) => CREWS[id]?.name || id)) ?? "Stocks with no crew don't count.",
+        picks,
+      };
     }
     case 'WEEKLY_FLAIR_TOUR': {
       const flair = flairOf(ctx.player);

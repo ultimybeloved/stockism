@@ -156,12 +156,30 @@ describe('daily missions', () => {
       costBasis: { [MINE]: 20, [THEIRS]: 50 },
     };
     const p = dailyMissionProgress(DAILY_MISSIONS.PROFIT_TAKER!, {}, ctxOf(player, { [MINE]: 30, [THEIRS]: 40 }));
-    expect(p.picksSell).toBe(true);
+    expect(p.picksAction).toBe('sell');
     expect(p.picks?.map((x) => x.ticker)).toEqual([MINE]);
     expect(p.picks?.[0]?.change).toBeCloseTo(49.85);
     // Under 1 share and under $50 doesn't count, so it isn't listed.
     const tiny = { holdings: { [MINE]: 0.5 }, costBasis: { [MINE]: 20 } };
     expect(dailyMissionProgress(DAILY_MISSIONS.PROFIT_TAKER!, {}, ctxOf(tiny, { [MINE]: 30 })).picks).toEqual([]);
+  });
+
+  it('lists held stocks below what you paid for Cut Your Losses', () => {
+    const player = { holdings: { [MINE]: 2, [THEIRS]: 2 }, costBasis: { [MINE]: 20, [THEIRS]: 50 } };
+    const p = dailyMissionProgress(DAILY_MISSIONS.CUT_LOSSES!, {}, ctxOf(player, { [MINE]: 30, [THEIRS]: 40 }));
+    expect(p.picks?.map((x) => x.ticker)).toEqual([THEIRS]);
+    expect(p.picks?.[0]?.change).toBeLessThan(0);
+  });
+
+  it('lists own crew stocks for Crew Support and open shorts for Covered', () => {
+    const prices = { [MINE]: 30, [THEIRS]: 40 };
+    const crewPicks = dailyMissionProgress(crewSupport, {}, ctxOf({ crew: crew.id }, prices)).picks!;
+    expect(crewPicks.map((p) => p.ticker)).toContain(MINE);
+    expect(crewPicks.map((p) => p.ticker)).not.toContain(THEIRS);
+    const shorts = { shorts: { [MINE]: { shares: 2 }, [THEIRS]: { shares: 0.5 } } };
+    const cover = dailyMissionProgress(DAILY_MISSIONS.COVERED!, {}, ctxOf(shorts, prices));
+    expect(cover.picksAction).toBe('cover');
+    expect(cover.picks).toEqual([{ ticker: MINE, price: 30 }]);
   });
 
   it('sells count above or below what you paid', () => {
@@ -505,6 +523,9 @@ describe('new weekly missions', () => {
     const wp = (ts: string[]) => ({ buys: Object.fromEntries(ts.map((t) => [t, { shares: 1, value: 10 }])) });
     expect(weeklyMissionProgress(m, wp([a!, b!, c!]), ctxOf({}, {})).complete).toBe(true);
     expect(weeklyMissionProgress(m, wp([a!, b!]), ctxOf({}, {})).progress).toBe(2);
+    // One pick per crew not yet counted.
+    const picks = weeklyMissionProgress(m, wp([a!]), ctxOf({}, { [a!]: 10, [b!]: 20, [c!]: 30 })).picks!;
+    expect(picks.map((p) => p.ticker).sort()).toEqual([b!, c!].sort());
   });
 
   it('Flair Tour: 3 from the flair crew, or all of a smaller one', () => {
