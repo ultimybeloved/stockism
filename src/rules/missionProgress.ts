@@ -15,6 +15,7 @@
 import { CHARACTERS, CHARACTER_MAP, computeRarityTiers, type HoldingCohort } from '../characters';
 import { CREWS, RIVALRY, type Mission } from '../crews';
 import { flairOf } from './flairCrews';
+import { BID_ASK_SPREAD, ETF_BID_ASK_SPREAD } from './impact';
 import {
   missionMinTrade,
   missionTradeCounts,
@@ -109,6 +110,7 @@ export interface MissionPlayer {
   flairCrew?: unknown;
   holdings?: Record<string, number>;
   holdingCohorts?: Record<string, HoldingCohort>;
+  costBasis?: Record<string, number>;
   portfolioValue?: number;
   marginUsed?: number;
   grantedValue?: number;
@@ -152,6 +154,8 @@ export interface MissionProgress {
   picks?: { ticker: string; change?: number; price?: number }[];
   /** What the picks' change is measured from. Absent when the picks show a price instead. */
   picksFrom?: string;
+  /** Picks count when sold, not bought. */
+  picksSell?: boolean;
 }
 
 const HALT_LOCK_LABEL = "Thursday's 13:00 UTC price";
@@ -176,6 +180,19 @@ const pricedNow = (ctx: MissionContext, pass: (c: (typeof CHARACTERS)[number], p
   CHARACTERS.filter((c) => !c.ipoRequired && (ctx.prices[c.ticker] || 0) > 0 && pass(c, ctx.prices[c.ticker]!))
     .map((c) => ({ ticker: c.ticker, price: ctx.prices[c.ticker]! }))
     .sort((x, y) => y.price - x.price);
+
+/** Stocks you hold enough of to count, whose bid right now is above what you paid, biggest gain first. */
+const sellAboveCost = (ctx: MissionContext) =>
+  Object.entries(ctx.player.holdings || {})
+    .map(([t, shares]) => {
+      const cost = ctx.player.costBasis?.[t] || 0;
+      const spread = CHARACTER_MAP[t]?.isETF ? ETF_BID_ASK_SPREAD : BID_ASK_SPREAD;
+      const bid = (ctx.prices[t] || 0) * (1 - spread / 2);
+      return { ticker: t, shares, cost, bid };
+    })
+    .filter((h) => h.shares > 0 && h.cost > 0 && h.bid > h.cost && missionTradeCounts(h.shares, h.shares * h.bid))
+    .map((h) => ({ ticker: h.ticker, change: (h.bid / h.cost - 1) * 100 }))
+    .sort((x, y) => y.change - x.change);
 
 const CREW_ROSTERS: Record<string, string[]> = Object.fromEntries(Object.values(CREWS).map((c) => [c.id, c.members]));
 const ALL_CREW_TICKERS = new Set(Object.values(CREW_ROSTERS).flat());
@@ -289,7 +306,7 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
             dp.buys,
             ctx,
             (b) => ALL_CREW_TICKERS.has(b.ticker) && !roster.includes(b.ticker),
-            () => ({ note: "Any stock in another crew counts. Stocks with no crew don't." }),
+            () => ({ picks: pricedNow(ctx, (c) => ALL_CREW_TICKERS.has(c.ticker) && !roster.includes(c.ticker)) }),
           )
         : flag(false);
     case 'BUY_UNDERDOG':
@@ -323,8 +340,12 @@ export const dailyMissionProgress = (mission: Mission, dp: DailyProgress, ctx: M
         ),
       };
     }
-    case 'SELL_HELD':
-      return flag(totalCounts(dp.profitSold, (dp.heldSoldValue || 0) - (dp.heldLossValue || 0), ctx));
+    case 'SELL_HELD': {
+      const done = totalCounts(dp.profitSold, (dp.heldSoldValue || 0) - (dp.heldLossValue || 0), ctx);
+      return done
+        ? flag(true)
+        : { ...flag(false), picks: sellAboveCost(ctx), picksFrom: 'what you paid', picksSell: true };
+    }
     case 'SELL_LOSS':
       return flag(totalCounts(dp.lossSold, dp.heldLossValue || 0, ctx));
     case 'LIMIT_FILL':

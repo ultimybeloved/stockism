@@ -75,8 +75,8 @@ export default function MissionCard({
         <div className="mt-2">
           <p className={`text-xs ${mutedClass}`}>
             {mission.picks.length
-              ? `Counts if you buy 1 share or $50 now${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}:`
-              : `No stock qualifies right now${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}. Check back later.`}
+              ? `Counts if you ${mission.picksSell ? 'sell' : 'buy'} 1 share or $50 now${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}:`
+              : `${mission.picksSell ? 'Nothing you hold is above what you paid right now' : 'No stock qualifies right now'}${mission.picksFrom ? `, vs ${mission.picksFrom}` : ''}. Check back later.`}
           </p>
           {mission.picks.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">

@@ -144,6 +144,26 @@ describe('daily missions', () => {
     expect(dailyMissionProgress(DAILY_MISSIONS.BLUE_CHIP!, {}, ctx).picks).toBeDefined();
   });
 
+  it('lists rival crew stocks for Rival Trader', () => {
+    const ctx = ctxOf({ crew: crew.id }, { [MINE]: 30, [THEIRS]: 40 });
+    const picks = dailyMissionProgress(DAILY_MISSIONS.RIVAL_TRADER!, {}, ctx).picks!.map((p) => p.ticker);
+    expect(picks).toEqual([THEIRS]);
+  });
+
+  it('lists held stocks above what you paid for Profit Taker', () => {
+    const player = {
+      holdings: { [MINE]: 2, [THEIRS]: 2 },
+      costBasis: { [MINE]: 20, [THEIRS]: 50 },
+    };
+    const p = dailyMissionProgress(DAILY_MISSIONS.PROFIT_TAKER!, {}, ctxOf(player, { [MINE]: 30, [THEIRS]: 40 }));
+    expect(p.picksSell).toBe(true);
+    expect(p.picks?.map((x) => x.ticker)).toEqual([MINE]);
+    expect(p.picks?.[0]?.change).toBeCloseTo(49.85);
+    // Under 1 share and under $50 doesn't count, so it isn't listed.
+    const tiny = { holdings: { [MINE]: 0.5 }, costBasis: { [MINE]: 20 } };
+    expect(dailyMissionProgress(DAILY_MISSIONS.PROFIT_TAKER!, {}, ctxOf(tiny, { [MINE]: 30 })).picks).toEqual([]);
+  });
+
   it('sells count above or below what you paid', () => {
     const ctx = ctxOf({ holdings: {} }, {});
     const profit = DAILY_MISSIONS.PROFIT_TAKER!;
