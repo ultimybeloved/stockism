@@ -9,6 +9,9 @@
 //
 //   npx tsx scripts/grant-crew-fund-goddog.cjs            (dry run)
 //   npx tsx scripts/grant-crew-fund-goddog.cjs --confirm  (pays it)
+//   --day=2026-10-29  an earlier day instead of today (Crew Fund started 10-29).
+//   That day's list changed at the 21:00 reopen if the player rerolled, so it
+//   counts if Crew Fund was on the list under either week's reroll.
 //
 // Safe to re-run: the claimed flag is checked inside each transaction.
 
@@ -41,11 +44,17 @@ const { getWeekId } = require('../functions/src/shared/tradeRecords');
 const CREW = 'GOD_DOG';
 const MISSION = 'CREW_FUND';
 const CONFIRM = process.argv.includes('--confirm');
+const DAY_ARG = process.argv.find((a) => a.startsWith('--day='))?.slice(6);
 const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
 
 const main = async () => {
   const now = Date.now();
-  const today = new Date(now).toISOString().split('T')[0];
+  const today = DAY_ARG || new Date(now).toISOString().split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) throw new Error(`Bad --day: ${DAY_ARG}`);
+  const dayStart = Date.parse(`${today}T00:00:00Z`);
+  const dayEnd = Math.min(now, dayStart + 86400000 - 1);
+  // The weeks the day's list could have been drawn under (it can span the reopen).
+  const weeks = [...new Set([getWeekId(dayStart), getWeekId(dayEnd)])];
   const weekId = getWeekId(now);
   const stats = (await db.doc('market/crewStats').get()).data() || null;
   const reward = Math.round(DAILY_MISSIONS[MISSION].reward * getCrewMultiplier(stats, CREW));
@@ -55,9 +64,11 @@ const main = async () => {
   for (const d of snap.docs) {
     const u = d.data();
     if (u.isBot || u.isBanned) continue;
-    const seed = u.weeklyMissions?.[weekId]?.rerollSeed || 0;
-    const assigned = getDailyMissions(today, CREW, seed, holdsShortForMissions(u, u.dailyMissions?.[today], now));
-    if (!assigned.some((m) => m.id === MISSION)) continue;
+    const holds = holdsShortForMissions(u, u.dailyMissions?.[today], dayEnd);
+    const had = weeks.some((w) =>
+      getDailyMissions(today, CREW, u.weeklyMissions?.[w]?.rerollSeed || 0, holds).some((m) => m.id === MISSION),
+    );
+    if (!had) continue;
     if (u.dailyMissions?.[today]?.claimed?.[MISSION]) continue;
     list.push({ uid: d.id, name: u.displayName || d.id });
   }
