@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { marketTimes, formatDateTime, localWeeklyRange } from './localTime';
 
 // Node reads process.env.TZ on each Date operation, so each test can be a
@@ -11,10 +11,14 @@ afterEach(() => {
 describe("market times in the viewer's zone", () => {
   it('Chicago: the Thursday halt is a daytime window', () => {
     process.env.TZ = 'America/Chicago';
+    // The times follow next Thursday's daylight saving, so pin a summer week.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.UTC(2026, 6, 13));
     const t = marketTimes();
-    expect(t.halt).toMatch(/^Thu 8:00\sAM–4:00\sPM C[DS]T$/);
-    expect(t.reopenTime).toMatch(/^4:00\sPM C[DS]T$/);
-    expect(t.preMarket).toMatch(/^Thu 3:30\sPM–3:55\sPM C[DS]T$/);
+    vi.useRealTimers();
+    expect(t.halt).toMatch(/^Thu 8:00\sAM–4:00\sPM CDT$/);
+    expect(t.reopenTime).toMatch(/^4:00\sPM CDT$/);
+    expect(t.preMarket).toMatch(/^Thu 3:30\sPM–3:55\sPM CDT$/);
   });
 
   it('Tokyo: the halt crosses midnight, so both days are named', () => {

@@ -26,6 +26,8 @@ export interface Mission {
   crewOnly?: boolean;
   /** Only offered to players whose crew has flair crews. */
   flairOnly?: boolean;
+  /** Only offered to players whose crew has an ETF, from this UTC date on (every crew before). */
+  crewEtfFrom?: string;
   /** In the rotation from this UTC date (dailies) or week id (weeklies) on. */
   addedFrom?: string;
   /** Daily only: offered only to players holding a short (holdsShortForMissions). */
@@ -481,6 +483,7 @@ export const DAILY_MISSIONS: Record<string, Mission> = {
     reward: 100,
     checkType: 'BUY_CREW_ETF',
     crewOnly: true,
+    crewEtfFrom: '2026-10-31',
     addedFrom: '2026-10-29',
   },
 };
@@ -662,6 +665,7 @@ const missionPool = (missions: Record<string, Mission>, crewId: string | null | 
     (m) =>
       (!m.crewOnly || !!crewId) &&
       (!m.flairOnly || flairCrewsOf(crewId).length > 0) &&
+      (!m.crewEtfFrom || when < m.crewEtfFrom || !!(crewId && CREWS[crewId]?.etf)) &&
       (!m.addedFrom || when >= m.addedFrom) &&
       (!m.retiredFrom || when < m.retiredFrom),
   );

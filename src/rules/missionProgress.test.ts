@@ -218,6 +218,18 @@ describe('daily missions', () => {
     }
   });
 
+  it('Crew Fund goes only to crews with an ETF from 2026-10-31', () => {
+    const fund = (crewId: string, day: string) => {
+      for (let seed = 0; seed < 200; seed++)
+        if (getDailyMissions(day, crewId, seed).some((m) => m.id === 'CREW_FUND')) return true;
+      return false;
+    };
+    expect(CREWS.GOD_DOG!.etf).toBeNull();
+    expect(fund('GOD_DOG', '2026-10-30')).toBe(true);
+    expect(fund('GOD_DOG', '2026-10-31')).toBe(false);
+    expect(fund(crew.id, '2026-10-31')).toBe(true);
+  });
+
   it('from the pool change, Crew Majority is gone and Covered goes only to short holders until 2026-10-29', () => {
     const ids = (days: string[], holdsShort: boolean) => {
       const seen = new Set<string>();
