@@ -22,12 +22,8 @@ import { reportError } from '../shared/sentry';
 import { recordEventTrade } from '../shared/eventTradeRecords';
 import { logAdminAction, withAdminLog } from '../shared/adminLog';
 import { sideGameRoom } from '../shared/rules/equity';
-import { eventTradingClosed } from '../shared/rules/eventTrading';
 import { getLadderWithdrawable } from '../shared/ladderMath';
 import { getWeekId } from '../shared/tradeRecords';
-
-// Closed by hand, or not reopened since the weekly halt (rules/eventTrading).
-const EVENT_CLOSED_MSG = 'Trading on this market is closed while the latest chapter is reviewed.';
 
 /** One entry in predictions/current.list, the fields these lookups read. */
 type PredictionEntry = { id: string; type?: string; resolved?: boolean; settled?: boolean };
@@ -93,7 +89,6 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
     const market = list[idx];
     if (market.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market has resolved.');
     if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been canceled.');
-    if (eventTradingClosed(market)) throw new functions.https.HttpsError('failed-precondition', EVENT_CLOSED_MSG);
     if (market.opensAt && Date.now() < market.opensAt) {
       throw new functions.https.HttpsError('failed-precondition', 'This market is not open for betting yet.');
     }
@@ -220,7 +215,6 @@ export const sellEventShares = cf().https.onCall(async (data, context) => {
     const market = list[idx];
     if (market.resolved) throw new functions.https.HttpsError('failed-precondition', 'Market has resolved.');
     if (market.cancelled) throw new functions.https.HttpsError('failed-precondition', 'Market has been canceled.');
-    if (eventTradingClosed(market)) throw new functions.https.HttpsError('failed-precondition', EVENT_CLOSED_MSG);
 
     const outcomes = market.outcomes || [];
     const oi = outcomes.indexOf(outcome);

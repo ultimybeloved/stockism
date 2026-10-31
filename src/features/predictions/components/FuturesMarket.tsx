@@ -1,6 +1,5 @@
 // A futures market: outcome shares priced by the house market maker. A share
 // pays $1 if its outcome is confirmed, so a 27¢ share pays about 3.7x.
-import { eventTradingClosed } from '../../../rules/eventTrading';
 import { useEffect, useState } from 'react';
 import { themeClasses } from '../../../utils/theme';
 import { formatCompactCurrency, formatCurrency, formatMultiplier } from '../../../utils/formatters';
@@ -39,7 +38,6 @@ const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps
     return () => clearInterval(t);
   }, [opensIn]);
 
-  const closed = eventTradingClosed(m, now);
   const held = outcomes.filter((o) => (position?.shares?.[o] || 0) > 0);
   const worth = outcomes.reduce((s, o, i) => s + (position?.shares?.[o] || 0) * (prices[i] ?? 0), 0);
   // costBasis is the cash still in (buys minus sell refunds), across every outcome,
@@ -56,11 +54,7 @@ const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps
       <header className="px-3.5 pt-3 pb-2.5">
         <h3 className={`font-semibold leading-snug ${textClass}`}>{m.question}</h3>
         <p className={`text-xs mt-0.5 tabular-nums ${mutedClass}`}>
-          {closed
-            ? 'Trading closed while the latest chapter is reviewed.'
-            : opensIn > 0
-              ? `Opens in ${formatCountdown(opensIn)}`
-              : `${formatCompactCurrency(m.volume || 0)} volume`}
+          {opensIn > 0 ? `Opens in ${formatCountdown(opensIn)}` : `${formatCompactCurrency(m.volume || 0)} volume`}
         </p>
       </header>
       {opensIn <= 0 &&
@@ -75,7 +69,7 @@ const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps
               odds={price > 0 ? formatMultiplier(1 / price) : null}
               mine={held.includes(o)}
               picked={samePick(pick, 'futures', m.id, o)}
-              onPick={() => !closed && onPick({ kind: 'futures', id: m.id, option: o })}
+              onPick={() => onPick({ kind: 'futures', id: m.id, option: o })}
             />
           );
         })}
@@ -94,15 +88,13 @@ const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps
             {formatCurrency(Math.abs(gain))})
           </span>
           <span className={mutedClass}>. </span>
-          {!closed && (
-            <button
-              type="button"
-              onClick={() => onPick({ kind: 'futures', id: m.id, option: held[0]!, sell: true })}
-              className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
-            >
-              Sell
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => onPick({ kind: 'futures', id: m.id, option: held[0]!, sell: true })}
+            className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            Sell
+          </button>
         </p>
       )}
     </article>

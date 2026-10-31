@@ -24,7 +24,7 @@ const { sweepDustPositions } =
   require('../../functions/src/users/dustSweep') as typeof import('../../functions/src/users/dustSweep');
 const { createLimitOrder } =
   require('../../functions/src/orders/limitOrders') as typeof import('../../functions/src/orders/limitOrders');
-const { buyEventShares, sellEventShares } =
+const { sellEventShares } =
   require('../../functions/src/predictions/eventMarket') as typeof import('../../functions/src/predictions/eventMarket');
 const { computeDividend } =
   require('../../functions/src/market/dividends') as typeof import('../../functions/src/market/dividends');
@@ -138,8 +138,8 @@ it('hedged shares earn no dividend', () => {
   check('fully hedged pays nothing', none === 0, String(none));
 });
 
-it('closed long-term markets refuse buys and sells', async () => {
-  await seed([eventMarket({ tradingClosed: true })]);
+it('selling out of a long-term market frees the side-game room', async () => {
+  await seed([eventMarket({ q: [0, 1000] })]);
   await setUser('bettor', {
     cash: 10000,
     holdings: { [T]: 200 },
@@ -147,29 +147,9 @@ it('closed long-term markets refuse buys and sells', async () => {
     shorts: {},
     eventPositions: { evt_a: { shares: { No: 100 }, costBasis: 50, settled: false } },
   });
-  const buy = await call(buyEventShares, { marketId: 'evt_a', outcome: 'Yes', shares: 500 }, 'bettor');
-  check('buy refused', !!buy && buy.includes('closed'), buy || 'no error');
-  const sell = await call(sellEventShares, { marketId: 'evt_a', outcome: 'No', shares: 100 }, 'bettor');
-  check('sell refused', !!sell && sell.includes('closed'), sell || 'no error');
-
-  await seed([eventMarket({ q: [0, 1000] })]);
-  check(
-    'open market still sells',
-    (await call(sellEventShares, { marketId: 'evt_a', outcome: 'No', shares: 100 }, 'bettor')) === null,
-  );
-  check('selling out frees the side-game room', (await getUser('bettor')).eventPositions.evt_a.costBasis === 0);
-});
-
-it('a market not reopened since the halt stays closed', async () => {
-  await seed([eventMarket({ q: [0, 0], reopenedAt: Date.now() - 8 * DAY, opensAt: 1 })]);
-  const before = Date.UTC(2026, 9, 31);
-  if (Date.now() - before > 7 * DAY) {
-    const err = await call(buyEventShares, { marketId: 'evt_a', outcome: 'Yes', shares: 500 }, 'bettor');
-    check('stale market refuses', !!err && err.includes('closed'), err || 'no error');
-  }
-  await seed([eventMarket({ q: [0, 0], reopenedAt: Date.now() })]);
-  const ok = await call(buyEventShares, { marketId: 'evt_a', outcome: 'Yes', shares: 500 }, 'bettor');
-  check('reopened market trades', ok === null, ok || '');
+  const sold = await call(sellEventShares, { marketId: 'evt_a', outcome: 'No', shares: 100 }, 'bettor');
+  check('sale goes through', sold === null, sold || '');
+  check('nothing left counts against the limit', (await getUser('bettor')).eventPositions.evt_a.costBasis === 0);
 });
 
 it('hold gate covers dust and added shorts', async () => {
