@@ -107,7 +107,10 @@ export function computeDividend(
     // Loyalty-weighted share count: matured `eligible` aged from the ladder
     // epoch (see dividendWeightedShares in characters.ts), each pending lot
     // at its own rung (0 while inside the hold gate).
-    const weightedShares = dividendWeightedShares(graduated, now);
+    // Shares matched by a short in the same stock earn nothing: a hedged
+    // position has no price risk, so paying it would be free money.
+    const shorted = data.shorts?.[ticker]?.shares || 0;
+    const weightedShares = dividendWeightedShares(graduated, now) * (Math.max(0, shares - shorted) / shares);
     if (!(rate > 0 && weightedShares > 0)) continue;
     const price = snapshotPrices[ticker] || 0;
     if (!(price > 0)) continue;

@@ -1,6 +1,7 @@
 // Limit orders: the player-facing callable that creates one, plus the schedule
 // that sweeps the book. The matching engine itself is in limitOrderMatching.js.
 
+import { oppositePositionError } from '../shared/oppositePosition';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
@@ -187,6 +188,12 @@ export const createLimitOrder = cf().https.onCall(
           'Cannot place a sell order while you have an active short on this stock.',
         );
       }
+    }
+
+    // Long and short never mix.
+    if (type === 'BUY') {
+      const opposite = oppositePositionError(userData, ticker, 'buy');
+      if (opposite) throw new functions.https.HttpsError('failed-precondition', opposite);
     }
 
     // Block duplicate limit orders on same ticker + type

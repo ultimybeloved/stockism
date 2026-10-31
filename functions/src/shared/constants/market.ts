@@ -107,6 +107,8 @@ export const ADMIN_PRICE_PROTECTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 // not count: bot churn is not interest, and counting it would keep every stock
 // alive forever.
 export const NEGLECT_WINDOW_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+// Trades smaller than this don't restart the neglect clock.
+export const NEGLECT_MIN_TRADE_VALUE = 100;
 
 // Compounding daily. At 1% a day a neglected stock loses about a quarter of its
 // value in a month, which reads as a slide rather than a crash.

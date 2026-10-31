@@ -1,3 +1,4 @@
+import { eventTradingClosed } from '../../../rules/eventTrading';
 import PredictionCreateForm from './PredictionCreateForm';
 import PredictionExtendForm from './PredictionExtendForm';
 import { lmsrCost } from '../../../utils/calculations';
@@ -17,6 +18,9 @@ type AdminPrediction = PredictionDoc & {
   q?: number[];
   seedQ?: number[];
   cancelled?: boolean;
+  tradingClosed?: boolean;
+  reopenedAt?: number;
+  opensAt?: number;
 };
 
 const sumPool = (p: AdminPrediction) => Object.values(p.pools || {}).reduce((a, b) => a + b, 0) - (p.seedTotal || 0);
@@ -81,6 +85,8 @@ const PredictionsTab = ({
   setAllowAdditionalBets,
   handleExtendPrediction,
   handleDeletePrediction,
+  handleToggleEventTrading,
+  handleReopenEventMarkets,
   onCancelPrediction,
   loadAllBets,
   betsLoading,
@@ -95,6 +101,20 @@ const PredictionsTab = ({
   }) => {
   return (
     <div className="space-y-6">
+      {predictions.some((p) => p.type === 'event' && !p.resolved && !p.cancelled && eventTradingClosed(p)) && (
+        <div className="p-4 rounded-sm border-2 border-indigo-500">
+          <p className={`text-sm mb-2 ${mutedClass}`}>
+            Long-term markets are closed. Resolve or close any the chapter answered, then reopen the rest.
+          </p>
+          <button
+            onClick={handleReopenEventMarkets}
+            disabled={loading}
+            className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm"
+          >
+            Reopen Long-Term Markets
+          </button>
+        </div>
+      )}
       {/* SECTION 1: Resolve Pending Predictions */}
       {unresolvedPredictions.length > 0 && (
         <div className="p-4 rounded-sm border-2 border-amber-500 light:bg-amber-50 dark:bg-amber-900/20">
@@ -294,6 +314,15 @@ const PredictionsTab = ({
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 ml-2">
+                    {p.type === 'event' && !p.resolved && !p.cancelled && (
+                      <button
+                        onClick={() => handleToggleEventTrading(p.id)}
+                        disabled={loading}
+                        className="px-3 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm"
+                      >
+                        {eventTradingClosed(p) ? 'Reopen Trading' : 'Close Trading'}
+                      </button>
+                    )}
                     {!p.resolved && !p.cancelled && (
                       <button
                         onClick={() => onCancelPrediction(p.id)}

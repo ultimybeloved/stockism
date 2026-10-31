@@ -2,7 +2,7 @@
 
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { IPO_PRICE_JUMP, NEGLECT_FLOOR_MIN, NEGLECT_FLOOR_MAX, MIN_PRICE } from './constants';
+import { IPO_PRICE_JUMP, NEGLECT_FLOOR_MIN, NEGLECT_FLOOR_MAX, NEGLECT_MIN_TRADE_VALUE, MIN_PRICE } from './constants';
 import { indexFromStored } from './indexMaintenance';
 import { round2 } from './money';
 import { isRosterTicker } from './roster';
@@ -103,7 +103,8 @@ export const buildTickerFlowUpdate = ({
       trades: FieldValue.increment(1),
       shares: FieldValue.increment(amount || 0),
       netFlow: FieldValue.increment(direction * (totalValue || 0)),
-      lastTradedAt: now,
+      // A $1 trade isn't interest in a stock, and it used to hold off the slide.
+      ...((totalValue || 0) >= NEGLECT_MIN_TRADE_VALUE && { lastTradedAt: now }),
     },
   };
 };

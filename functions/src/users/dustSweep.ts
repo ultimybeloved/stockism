@@ -110,7 +110,11 @@ export const sweepDustPositions = cf().https.onCall(async (data: { side?: unknow
           const tickerHalt = haltedTickers[ticker];
           if (tickerHalt && tickerHalt.resumeAt && now < tickerHalt.resumeAt) continue;
           // Same 45-second hold as a normal cover.
-          if (now - stampMs(pos.openedAt as Timestamp | number | undefined) < TRADE_HOLD_PERIOD_MS) continue;
+          const lastAdded = Math.max(
+            stampMs(pos.openedAt as Timestamp | number | undefined),
+            stampMs(userData.lastBuyTime?.[ticker]),
+          );
+          if (now - lastAdded < TRADE_HOLD_PERIOD_MS) continue;
 
           const ask = round2(price * (1 + getSpread(ticker) / 2));
           const costBasis = pos.costBasis || pos.entryPrice || ask;
@@ -143,6 +147,9 @@ export const sweepDustPositions = cf().https.onCall(async (data: { side?: unknow
         // Never sweep locked shares (IPO lockup / margin-funded holds). If any
         // part of the position is locked, leave the whole thing alone.
         if (lockedShares(userData, ticker, now).total > 0) continue;
+
+        // Same 45-second hold as a normal sell.
+        if (now - stampMs(userData.lastBuyTime?.[ticker]) < TRADE_HOLD_PERIOD_MS) continue;
 
         const bid = Math.max(MIN_PRICE, round2(price * (1 - getSpread(ticker) / 2)));
         proceeds += bid * shares;

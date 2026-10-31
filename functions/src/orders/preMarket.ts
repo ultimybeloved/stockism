@@ -1,3 +1,4 @@
+import { oppositePositionError } from '../shared/oppositePosition';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
@@ -171,6 +172,9 @@ export const createPreMarketOrder = cf().https.onCall(
     }
 
     if (action === 'buy') {
+      const opposite = oppositePositionError(userData, ticker, 'buy');
+      if (opposite) throw new functions.https.HttpsError('failed-precondition', opposite);
+
       // Sum up cash already committed to other pending buy orders this session
       const pendingBuys = await db
         .collection('preMarketOrders')

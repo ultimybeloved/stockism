@@ -107,6 +107,17 @@ export interface PredictionRef {
   cancelled?: boolean;
 }
 
+/** Money riding on weekly bets that haven't been decided yet. */
+const openWeeklyBets = (userData: SideGameFields, predictions: readonly PredictionRef[] | null | undefined) => {
+  const open = new Set(
+    (predictions || []).filter((p) => p.type !== 'event' && !p.resolved && !p.cancelled).map((p) => p.id),
+  );
+  return Object.entries(userData.bets || {}).reduce(
+    (sum, [id, bet]) => sum + (bet && !bet.paid && open.has(id) ? Math.max(0, bet.amount || 0) : 0),
+    0,
+  );
+};
+
 /**
  * Money a player has riding on the side games right now: their own money in
  * the ladder (not the free check-in chips), long-term market positions at
@@ -121,13 +132,7 @@ export const sideGameCommitted = (
   ladderOwn: number,
 ) => {
   if (!userData) return Math.max(0, ladderOwn || 0);
-  const open = new Set(
-    (predictions || []).filter((p) => p.type !== 'event' && !p.resolved && !p.cancelled).map((p) => p.id),
-  );
-  const weekly = Object.entries(userData.bets || {}).reduce(
-    (sum, [id, bet]) => sum + (bet && !bet.paid && open.has(id) ? Math.max(0, bet.amount || 0) : 0),
-    0,
-  );
+  const weekly = openWeeklyBets(userData, predictions);
   // Max(0, …) guards any pre-clamp negative basis from older sells.
   const event = Object.values(userData.eventPositions || {}).reduce(
     (sum, p) => sum + (p && !p.settled ? Math.max(0, p.costBasis || 0) : 0),
@@ -135,6 +140,21 @@ export const sideGameCommitted = (
   );
   return round2(Math.max(0, ladderOwn || 0) + weekly + event);
 };
+
+/**
+ * What a player could still pull out of the side games: their own ladder money,
+ * long-term positions at sell-back value, and open weekly bets. A bailout is for
+ * a wiped out account, and net worth alone can't see this money.
+ */
+export const sideGameWorth = (
+  userData: SideGameFields | null | undefined,
+  predictions: readonly PredictionRef[] | null | undefined,
+  ladderOwn: number,
+  eventValue: number,
+) =>
+  round2(
+    Math.max(0, ladderOwn || 0) + Math.max(0, eventValue || 0) + (userData ? openWeeklyBets(userData, predictions) : 0),
+  );
 
 /** How much more a player may put into any side game: invested minus committed. */
 export const sideGameRoom = (

@@ -416,6 +416,7 @@ export function computeCover({
   shorts,
   marginUsed,
   newShorts,
+  userData,
 }: ComputeArgs): ComputeResult {
   // Validate short position exists
   const shortPosition = shorts[ticker];
@@ -424,9 +425,10 @@ export function computeCover({
   }
 
   // Enforce 45-second hold period
+  const lastAdded = (userData.lastBuyTime as Record<string, Stamp> | undefined)?.[ticker];
   const openedAt = shortPosition.openedAt as Stamp | undefined;
-  if (openedAt) {
-    const openedMs = stampMs(openedAt);
+  if (openedAt || lastAdded) {
+    const openedMs = Math.max(stampMs(openedAt), stampMs(lastAdded));
     const timeSinceOpen = now - openedMs;
 
     if (timeSinceOpen < TRADE_HOLD_PERIOD_MS) {

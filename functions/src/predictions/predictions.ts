@@ -1,3 +1,4 @@
+import { oppositePositionError } from '../shared/oppositePosition';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
@@ -371,6 +372,9 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
     if (userIPOPurchases + quantity > maxPerUser) {
       throw new functions.https.HttpsError('failed-precondition', `Exceeds per-user IPO limit (${maxPerUser}).`);
     }
+
+    const opposite = oppositePositionError(userData, ticker, 'buy');
+    if (opposite) throw new functions.https.HttpsError('failed-precondition', opposite);
 
     // Check cash
     const totalCost = ipo.basePrice * quantity;

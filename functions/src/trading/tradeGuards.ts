@@ -1,6 +1,7 @@
 // Pre-trade validation and anti-abuse gates for executeTrade. Every function
 // here either passes silently or throws an HttpsError that aborts the trade.
 // Internal module — required by trading.js, not exported through index.js.
+import { oppositePositionError } from '../shared/oppositePosition';
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -138,6 +139,12 @@ export function assertUserCanTrade(userData: UserData, action: string) {
       throw new functions.https.HttpsError('failed-precondition', 'Account is bankrupt. Use bailout to reset.');
     }
   }
+}
+
+// No long and short in the same stock.
+export function assertNoOppositePosition(userData: UserData, ticker: string, action: string) {
+  const error = oppositePositionError(userData, ticker, action);
+  if (error) throw new functions.https.HttpsError('failed-precondition', error);
 }
 
 // Hard per-IP cap: at most MAX_ACCOUNTS_PER_IP distinct accounts may buy/short from

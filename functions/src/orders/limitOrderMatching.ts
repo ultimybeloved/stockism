@@ -30,6 +30,8 @@ import {
   assertOrderStillActive,
   assertUserEligible,
   assertWashRule,
+  assertHoldPeriod,
+  assertNoOppositePosition,
   assertLimitStillMet,
   assertTradeLimit,
   resolveFillShares,
@@ -54,6 +56,7 @@ const CANCEL_ON = [
   'Insufficient cash',
   'Insufficient shares',
   'Trade limit reached',
+  'Cover your short',
 ];
 
 const closeOrder = (orderId: string, fields: Record<string, unknown>) =>
@@ -131,6 +134,8 @@ const fillOrder = async (
   const fillSource = order.type === 'STOP_LOSS' ? 'stop_loss' : 'limit';
   const action = effectiveType.toLowerCase();
   assertWashRule(userData, order.ticker, action, now);
+  assertHoldPeriod(userData, order.ticker, action, now);
+  assertNoOppositePosition(userData, order.ticker, action);
   assertNetworkSlot(net, order.userId, action, now);
 
   let fillShares = resolveFillShares({ effectiveType, order, userData, freshPrice, fillShares: requestedShares });

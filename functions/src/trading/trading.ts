@@ -48,6 +48,7 @@ import {
   assertNoLiveSellOrders,
   assertMarketTradable,
   assertUserCanTrade,
+  assertNoOppositePosition,
   assertIpAccountCap,
   assertCooldowns,
   assertVelocityLimits,
@@ -156,6 +157,7 @@ export const executeTrade = cf().https.onCall(
           }
 
           assertUserCanTrade(userData, action);
+          assertNoOppositePosition(userData, ticker, action);
 
           // Get user data
           const cash = userData.cash || 0;

@@ -2,9 +2,11 @@
 //
 // The scheduled liquidation scanners that used to live here are in
 // marginScanners.js, and syncPortfolio moved to portfolio.js.
+import { BANKRUPT_LINE, sideMoneyOf } from '../shared/sideMoney';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import {
   ADMIN_UID,
@@ -105,7 +107,15 @@ export const bailout = cf().https.onCall(async (_data: unknown, context) => {
   const userRef = db.collection('users').doc(uid);
 
   return db.runTransaction(async (transaction) => {
-    const userDoc = await transaction.get(userRef);
+    const [userDoc, ladderDoc, predDoc, liveLimits, livePreMarket] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(db.collection('ladderGameUsers').doc(uid)),
+      transaction.get(db.collection('predictions').doc('current')),
+      transaction.get(
+        db.collection('limitOrders').where('userId', '==', uid).where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']),
+      ),
+      transaction.get(db.collection('preMarketOrders').where('userId', '==', uid).where('status', '==', 'PENDING')),
+    ]);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
     const userData = userDoc.data() as MarginUser;
@@ -121,6 +131,25 @@ export const bailout = cf().https.onCall(async (_data: unknown, context) => {
     // Enforce 24-hour cooldown between bailouts
     if (userData.lastBailout && Date.now() - userData.lastBailout < TWENTY_FOUR_HOURS_MS) {
       throw new functions.https.HttpsError('failed-precondition', 'Bailout available once per 24 hours.');
+    }
+
+    // The bailout wipes stock and shorts, not the side games, so an account with
+    // money there isn't wiped out. Without this it collected the bailout, cleared
+    // any margin debt, and pulled the side money out afterwards.
+    if (sideMoneyOf(userData, predDoc.data()?.list || [], ladderDoc.data()) > BANKRUPT_LINE) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'You still have money in the ladder, long-term markets, or open bets. Bring it back first. A bailout is only for a fully wiped out account.',
+      );
+    }
+
+    // Orders placed before the wipe must not spend the fresh start.
+    for (const order of [...liveLimits.docs, ...livePreMarket.docs]) {
+      transaction.update(order.ref, {
+        status: 'CANCELED',
+        cancelReason: 'Account bailout',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     }
 
     const currentCrew = userData.crew;

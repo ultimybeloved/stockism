@@ -111,6 +111,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
     'Insufficient cash',
     'Insufficient shares',
     'Wash rule cooldown active on this ticker',
+    'Short position open on this ticker',
   ]);
 
   const failOrder = async (doc: admin.firestore.QueryDocumentSnapshot, order: PreMarketOrder, reason: string) => {
@@ -304,6 +305,11 @@ export const runMarketOpenProcessing = async (trigger: string) => {
           // armed at Thursday's auction.
           if (order.action === 'buy' && washRuleRemainingMs(ud, order.ticker) > 0) {
             throw new Error('Wash rule cooldown active on this ticker');
+          }
+
+          // Long and short never mix: a short opened after the order was queued.
+          if (order.action === 'buy' && (ud.shorts?.[order.ticker]?.shares || 0) > 0) {
+            throw new Error('Short position open on this ticker');
           }
 
           // Local variable resets correctly on each transaction retry.

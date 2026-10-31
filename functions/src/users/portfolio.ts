@@ -20,6 +20,7 @@ import { grantedSince, snapshotNetWorth, grossPortfolioValue } from '../shared/e
 import { eventPositionsValue } from '../shared/lmsr';
 import { checkDiscordWall, checkBanned } from '../shared/accountGuards';
 import { getWeekId } from '../shared/tradeRecords';
+import { BANKRUPT_LINE, sideMoneyOf } from '../shared/sideMoney';
 import type { Cohort } from '../shared/types';
 
 type Holdings = Record<string, number>;
@@ -365,12 +366,23 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   }
 
   // Check bankruptcy
-  if (portfolioValue <= 100 && !userData.isBankrupt && userData.displayName) {
+  // Net worth can't see the ladder, long-term markets, or open bets. Read them
+  // only for an account near the line, which is rare.
+  const nearBankrupt = userData.isBankrupt || portfolioValue <= BANKRUPT_LINE;
+  let sideMoney = 0;
+  if (nearBankrupt) {
+    const [ladderSnap, predSnap] = await Promise.all([
+      db.collection('ladderGameUsers').doc(uid).get(),
+      db.collection('predictions').doc('current').get(),
+    ]);
+    sideMoney = sideMoneyOf(userData, predSnap.data()?.list || [], ladderSnap.data());
+  }
+  if (portfolioValue + sideMoney <= BANKRUPT_LINE && !userData.isBankrupt && userData.displayName) {
     updateData.isBankrupt = true;
   }
 
   // Auto-clear bankruptcy if account has recovered
-  if (userData.isBankrupt && portfolioValue > 500 && (userData.cash || 0) >= 0) {
+  if (userData.isBankrupt && portfolioValue + sideMoney > 500 && (userData.cash || 0) >= 0) {
     updateData.isBankrupt = false;
     if (userData.bankruptAt) {
       updateData.bankruptAt = FieldValue.delete();

@@ -12,7 +12,8 @@
 
 import { CHARACTER_MAP } from '../shared/characters';
 import { lockedShares, floorExitShares } from '../shared/cohorts';
-import { pruneAndSumTradeHistory, isTickerPaused, washRuleRemainingMs } from '../shared/impact';
+import { pruneAndSumTradeHistory, isTickerPaused, stampMs, washRuleRemainingMs } from '../shared/impact';
+import { oppositePositionError } from '../shared/oppositePosition';
 import type { ActionHistory } from '../shared/impact';
 import type { LimitOrder, UserData } from '../shared/types';
 import type { DocumentSnapshot } from 'firebase-admin/firestore';
@@ -24,6 +25,7 @@ import {
   MAX_TRADES_PER_TICKER_24H,
   MIN_TRADE_SHARES,
   MIN_EXIT_SHARES,
+  TRADE_HOLD_PERIOD_MS,
   TRADE_SHARE_DECIMALS,
 } from '../shared/constants';
 
@@ -134,6 +136,23 @@ export const assertWashRule = (userData: UserData, ticker: string, action: strin
   if (washRuleRemainingMs(userData, ticker, now) > 0) {
     throw new Error('Wash rule cooldown active on this ticker');
   }
+};
+
+/**
+ * The 45-second hold, same gate executeTrade applies to a sell. Defers: the order
+ * is still good and fills on a later sweep, so this stays out of CANCEL_ON.
+ */
+export const assertHoldPeriod = (userData: UserData, ticker: string, action: string, now = Date.now()) => {
+  if (action !== 'sell') return;
+  if (now - stampMs(userData.lastBuyTime?.[ticker] as Parameters<typeof stampMs>[0]) < TRADE_HOLD_PERIOD_MS) {
+    throw new Error('Hold period active on this ticker');
+  }
+};
+
+/** Long and short never mix. Cancels: the position has to change first. */
+export const assertNoOppositePosition = (userData: UserData, ticker: string, action: string) => {
+  const error = oppositePositionError(userData, ticker, action);
+  if (error) throw new Error(error);
 };
 
 /** The trigger, re-checked against the fresh price. */

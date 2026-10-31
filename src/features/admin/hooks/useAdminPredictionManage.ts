@@ -9,6 +9,7 @@ import {
 import type { AdminHookDeps } from '../utils/adminShared';
 import { errorMessage } from '../../../utils/errors';
 import { logPanelAction } from '../utils/panelLog';
+import { useEventTradingActions } from './useEventTradingActions';
 import type { PredictionDoc } from '../../../types';
 
 // Predictions tab: resolve, extend/reopen, cancel-refund, and delete.
@@ -128,6 +129,8 @@ export function useAdminPredictionManage({
     setLoading(false);
   };
 
+  const { handleToggleEventTrading, handleReopenEventMarkets } = useEventTradingActions(setLoading, showMessage);
+
   const handleCancelPrediction = async (predictionId: string) => {
     if (!confirm('Cancel this market and refund everyone their stake?')) return;
 
@@ -219,6 +222,8 @@ export function useAdminPredictionManage({
     handleResolvePrediction,
     handleDeletePrediction,
     handleCancelPrediction,
+    handleToggleEventTrading,
+    handleReopenEventMarkets,
     extendPredictionId,
     setExtendPredictionId,
     extendDays,

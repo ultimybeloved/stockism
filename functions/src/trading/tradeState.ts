@@ -216,6 +216,10 @@ export function buildUserUpdates({
     if (action === 'sell') updates[`lastHeavyExit.${ticker}`] = Timestamp.now();
   }
 
+  // The 45-second hold restarts on anything that adds to a position, shorts
+  // included: openedAt stays put when a short is added to.
+  if (action === 'short') updates[`lastBuyTime.${ticker}`] = Timestamp.now();
+
   if (action === 'buy') {
     updates[`lastBuyTime.${ticker}`] = Timestamp.now();
 
