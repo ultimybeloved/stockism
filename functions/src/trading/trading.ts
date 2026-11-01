@@ -40,6 +40,7 @@ import {
   breakerCountUpdate,
 } from '../shared/impact';
 import { priceHistoryRef, appendPriceHistory } from '../shared/marketData';
+import { clientIp } from '../shared/clientIp';
 import { reportError } from '../shared/sentry';
 import type { PricePoint, ShortPosition, UserData } from '../shared/types';
 import type { ComputeArgs, ComputeResult } from './tradeActions';
@@ -96,7 +97,7 @@ export const executeTrade = cf().https.onCall(
     const actAs =
       context.auth.uid === ADMIN_UID && typeof data?.actAsUid === 'string' && data.actAsUid ? data.actAsUid : null;
     const uid = actAs || context.auth.uid;
-    const tradeIp: string = actAs ? 'unknown' : context.rawRequest?.ip || 'unknown';
+    const tradeIp: string = actAs ? 'unknown' : clientIp(context) || 'unknown';
     const { ticker, action, amount } = validateTradeInput(data);
     await assertNoLiveSellOrders(uid, ticker, action);
 

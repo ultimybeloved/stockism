@@ -13,6 +13,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 const db = admin.firestore();
 import { isWeeklyTradingHalt, chapterReviewHaltMsg, EVENT_AMM_LIQUIDITY, EVENT_MIN_BUYIN } from '../shared/constants';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
+import { clientIp } from '../shared/clientIp';
 import { writeNotification } from '../shared/notifications';
 import { lmsrCost, lmsrBuyCost, lmsrSellRefund, eventPositionsValue, type EventMarketRef } from '../shared/lmsr';
 import { getTotalInvested, predictionFlowUpdate } from '../shared/equity';
@@ -147,7 +148,7 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
       qAfter: q,
       b,
       cashAfter,
-      ip: context.rawRequest?.ip || null,
+      ip: clientIp(context) || null,
     });
     const newPosition = { shares: newShares, costBasis: round2((pos.costBasis || 0) + cost), settled: false };
     tx.update(userRef, {
@@ -254,7 +255,7 @@ export const sellEventShares = cf().https.onCall(async (data, context) => {
       qAfter: q,
       b,
       cashAfter,
-      ip: context.rawRequest?.ip || null,
+      ip: clientIp(context) || null,
     });
     const newPosition = {
       shares: newShares,

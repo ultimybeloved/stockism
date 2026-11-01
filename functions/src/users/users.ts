@@ -26,6 +26,7 @@ import { isDisposableEmailLive } from './disposableEmail';
 import { countIpAccounts } from './ipCap';
 import { cleanupBlockedAuthUser, applyPendingDiscordLink } from './signupHelpers';
 import { purgeAccount } from '../shared/accountDeletion';
+import { clientIp } from '../shared/clientIp';
 import { recordLedger } from '../shared/ledger';
 
 /** Why the per-network cap refused a signup, for the admin alert. */
@@ -97,7 +98,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
     await db.collection('watchlist_alerts').add({
       type: 'signup_blocked',
       relatedUID: uid,
-      ip: context.rawRequest?.ip || null,
+      ip: clientIp(context) || null,
       action: 'blocked',
       details: `Blocked signup "${trimmed}" — disposable email domain (${emailDomain})`,
       timestamp: FieldValue.serverTimestamp(),
@@ -111,7 +112,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
 
   // Watched IP check — block alt accounts from watched IPs
   let autoLinkData = null;
-  const signupIp = context.rawRequest?.ip || 'unknown';
+  const signupIp = clientIp(context) || 'unknown';
   const sanitizedSignupIp = signupIp !== 'unknown' ? signupIp.replace(/[.:/]/g, '_') : null;
   // The per-connection signup cap counts the whole connection (IPv6 /64), same
   // key the trade path uses.

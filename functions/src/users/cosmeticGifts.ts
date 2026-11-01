@@ -23,6 +23,7 @@ import { COSMETIC_CATALOG, COSMETIC_PRICE_LIST } from '../shared/constants/cosme
 import { BUNDLE_MAP, bundleQuote, featuredCosmeticId, featuredPrice } from '../shared/rules/shop';
 import { ownEntry } from '../shared/lookup';
 import { networkKey, checkDiscordWall } from '../shared/accountGuards';
+import { clientIp } from '../shared/clientIp';
 import { recordLedger } from '../shared/ledger';
 import { chargeShop } from '../shared/shopPayment';
 import { touchLastActive } from '../shared/activity';
@@ -144,7 +145,7 @@ export const giftCosmetic = cf().https.onCall(
         at: now,
         fromUid: uid,
         fromName: giver.displayName || null,
-        fromNet: networkKey(context.rawRequest?.ip),
+        fromNet: networkKey(clientIp(context)),
         toUid: recipientUid,
         toName: target.displayName || recipientName,
         itemId,
