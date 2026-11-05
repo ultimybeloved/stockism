@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSession } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
+import { isWeeklyHalt } from '../../../utils/marketHours';
+import { marketTimes } from '../../../utils/localTime';
 import { CHARACTER_MAP } from '../../../characters';
 import { useMarketActivity, type ActivityEntry } from '../hooks/useMarketActivity';
 import '../activity.css';
@@ -65,6 +67,18 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
   const { cardClass, mutedClass } = themeClasses;
   const navigate = useNavigate();
   const [more, setMore] = useState(false);
+  const { marketData } = useMarket();
+
+  // While the market is halted nothing trades, so the hourly counts fall to
+  // zero and the card looks dead. Say it's closed instead. Re-checked each
+  // 30s so the card flips on its own when the halt starts or ends.
+  const [weeklyHalt, setWeeklyHalt] = useState(isWeeklyHalt);
+  useEffect(() => {
+    const id = setInterval(() => setWeeklyHalt(isWeeklyHalt()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const manualHalt = !!marketData?.marketHalted;
+  const halted = manualHalt || weeklyHalt;
 
   // The dot idles red. Each time something lands, a green layer plays over it
   // for a few seconds; it lives only while its animation runs, so the color
@@ -91,24 +105,36 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
           <h2 className={`text-xs font-semibold uppercase tracking-wide ${mutedClass}`}>
             {ticker ? `Recent trades on $${ticker}` : 'Recent trades'}
           </h2>
-          <span className={`act-dot w-2 h-2 rounded-full bg-current ${down}`}>
-            {tick > 0 && <span key={tick} className={`act-live absolute inset-0 rounded-full bg-current ${up}`} />}
-          </span>
-        </div>
-        {/* Buys against sells over the last hour of the feed. */}
-        <div className="mt-2.5">
-          <div className="flex h-1.5 rounded-full overflow-hidden light:bg-zinc-200 dark:bg-zinc-800">
-            <div className={`act-bar bg-current ${up}`} style={{ width: `${buyPct}%` }} />
-            <div className={`act-bar bg-current ${down} opacity-80`} style={{ width: `${100 - buyPct}%` }} />
-          </div>
-          {!compact && (
-            <div className="mt-1 flex justify-between text-[11px] tabular-nums">
-              <span className={up}>{lastHour.buys} buys</span>
-              <span className={mutedClass}>last hour</span>
-              <span className={down}>{lastHour.sells} sells</span>
-            </div>
+          {halted ? (
+            <span className={`text-[11px] font-semibold uppercase tracking-wide ${mutedClass}`}>Market closed</span>
+          ) : (
+            <span className={`act-dot w-2 h-2 rounded-full bg-current ${down}`}>
+              {tick > 0 && <span key={tick} className={`act-live absolute inset-0 rounded-full bg-current ${up}`} />}
+            </span>
           )}
         </div>
+        {halted ? (
+          <p className={`mt-2 text-xs ${mutedClass}`}>
+            {manualHalt
+              ? 'Trading is paused. The last trades before the pause are below.'
+              : `Closed for the chapter review. Trading reopens at ${marketTimes().reopenTime}. The last trades before the close are below.`}
+          </p>
+        ) : (
+          /* Buys against sells over the last hour of the feed. */
+          <div className="mt-2.5">
+            <div className="flex h-1.5 rounded-full overflow-hidden light:bg-zinc-200 dark:bg-zinc-800">
+              <div className={`act-bar bg-current ${up}`} style={{ width: `${buyPct}%` }} />
+              <div className={`act-bar bg-current ${down} opacity-80`} style={{ width: `${100 - buyPct}%` }} />
+            </div>
+            {!compact && (
+              <div className="mt-1 flex justify-between text-[11px] tabular-nums">
+                <span className={up}>{lastHour.buys} buys</span>
+                <span className={mutedClass}>last hour</span>
+                <span className={down}>{lastHour.sells} sells</span>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {shown.length ? (
@@ -118,7 +144,7 @@ export default function ActivityFeed({ ticker, limit = 8, compact = false, class
           ))}
         </ul>
       ) : (
-        <p className={`px-4 pb-4 text-sm ${mutedClass}`}>No trades yet.</p>
+        <p className={`px-4 pb-4 text-sm ${mutedClass}`}>{halted ? 'No trades before the close.' : 'No trades yet.'}</p>
       )}
 
       {entries.length > limit && (
