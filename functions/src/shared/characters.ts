@@ -625,6 +625,14 @@ export const CHARACTERS: Character[] = [
   { name: 'Musashi Sasaki', ticker: 'TCHI', basePrice: 95, dateAdded: '2026-08-27T00:00:00', generation: 'pre' },
   { name: 'Sogen Magami', ticker: 'IKO', basePrice: 90, dateAdded: '2026-08-27T00:01:00', generation: 'pre' },
   { name: 'Takuma Arashimaya', ticker: 'YOKO', basePrice: 90, dateAdded: '2026-08-27T00:02:00', generation: 'pre' },
+  {
+    name: 'Ryuzo Magami',
+    ticker: 'MGMI',
+    basePrice: 10,
+    dateAdded: '2026-11-05T00:00:00',
+    generation: 'pre',
+    altNames: ['Ryujo Magami', 'Ryuujo Magami'],
+  },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
