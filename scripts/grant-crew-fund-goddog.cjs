@@ -3,9 +3,10 @@
 // Crew Fund for God Dog (2026-10-30, Darth YG): God Dog has no crew ETF, so
 // Crew Fund ("Buy your crew's ETF") could never be finished. It left their
 // rotation on 2026-10-31. This marks it claimed and pays it, exactly as a
-// normal claim would (crew multiplier, mission count, Mission Machine, rivalry,
+// normal claim would (crew multiplier, mission count, Mission Machine,
 // milestone credit, ledger), for every God Dog member who has it on today's
-// list and hasn't claimed it.
+// list and hasn't claimed it. A free mission must never count for Rivalries: it
+// makes the member "active" and drags the crew's score down.
 //
 //   npx tsx scripts/grant-crew-fund-goddog.cjs            (dry run)
 //   npx tsx scripts/grant-crew-fund-goddog.cjs --confirm  (pays it)
@@ -29,15 +30,10 @@ admin.initializeApp({ credential: admin.credential.cert(require(KEY_PATH)) });
 const db = admin.firestore();
 
 const { getDailyMissions, getCrewMultiplier, DAILY_MISSIONS } = require('../functions/src/shared/crews');
-const {
-  holdsShortForMissions,
-  nextRivalry,
-  rivalryQualified,
-} = require('../functions/src/shared/rules/missionProgress');
+const { holdsShortForMissions } = require('../functions/src/shared/rules/missionProgress');
 const { missionCreditFor } = require('../functions/src/shared/rules/shop');
 const { grantedValueUpdate } = require('../functions/src/shared/equity');
 const { recordLedger } = require('../functions/src/shared/ledger');
-const { noteRivalryActivity } = require('../functions/src/shared/rivalries');
 const { missionAchievementFor } = require('../functions/src/missions/missionChecks');
 const { getWeekId } = require('../functions/src/shared/tradeRecords');
 
@@ -87,15 +83,12 @@ const main = async () => {
       const u = user.data();
       if (!u || u.dailyMissions?.[today]?.claimed?.[MISSION]) return null;
       const newTotal = (u.totalMissionsCompleted || 0) + 1;
-      const wp = u.weeklyMissions?.[weekId] || {};
-      const rivalry = nextRivalry(wp, CREW);
       const updates = {
         cash: (u.cash || 0) + reward,
         totalMissionsCompleted: newTotal,
         ...grantedValueUpdate(reward),
         [`dailyMissions.${today}.claimed.${MISSION}`]: true,
         [`weeklyMissions.${weekId}.dailyClaims`]: admin.firestore.FieldValue.increment(1),
-        [`weeklyMissions.${weekId}.rivalry`]: rivalry,
       };
       const earned = missionAchievementFor(newTotal, u.achievements);
       if (earned) updates.achievements = admin.firestore.FieldValue.arrayUnion(earned);
@@ -119,11 +112,10 @@ const main = async () => {
         ref: MISSION,
         detail: { missions: newTotal },
       });
-      return { qualified: rivalryQualified({ rivalry }, CREW) };
+      return true;
     });
     if (!result) continue;
     paid += reward;
-    await noteRivalryActivity(weekId, CREW, r.uid, result.qualified);
     await userRef.collection('notifications').add({
       type: 'system',
       title: 'Crew Fund completed',
