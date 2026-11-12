@@ -226,11 +226,8 @@ export const marketMakerCycle = cf()
           if (newPrice === currentPrice) continue;
 
           updates[`prices.${ticker}`] = newPrice;
-          historyPoints[ticker] = {
-            timestamp: now,
-            price: newPrice,
-            source: 'market_maker',
-          };
+          // Untagged on purpose: the history is world-readable (PRIVATE_POINT_SOURCES).
+          historyPoints[ticker] = { timestamp: now, price: newPrice };
 
           count++;
           logger.info(
@@ -245,7 +242,7 @@ export const marketMakerCycle = cf()
         for (const [etf, next] of Object.entries(etfFollowUpdates(moved, freshPrices))) {
           if (isTickerPaused(fresh.haltedTickers, etf, now) || next === freshPrices[etf]) continue;
           updates[`prices.${etf}`] = next;
-          historyPoints[etf] = { timestamp: now, price: next, source: 'etf_follow' };
+          historyPoints[etf] = { timestamp: now, price: next };
         }
 
         if (count > 0) {

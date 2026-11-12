@@ -5,8 +5,9 @@
 // Bots no longer trade from wallets. The old bots were accounts with cash and
 // personalities making random trades, which drew the constant up-and-down
 // zigzag and could stall when a bot ran out of cash. The engine now moves the
-// price directly, like the stabilizer, and tags every chart point it writes:
-// 'bot' for storylines, 'bot_guard' for answers to a manipulator push. Bot
+// price directly, like the stabilizer. Its chart points are UNTAGGED (the
+// history is world-readable; see PRIVATE_POINT_SOURCES): every move goes to
+// the server-only moveLog on botState/storylines for the admin Bots screen. Bot
 // moves never count as trades, so they never stop neglect from setting in and
 // never show in trade counts or most-traded lists.
 //
@@ -61,6 +62,9 @@ const db = admin.firestore();
 const GUARD_LOG_MAX = 60;
 // One day of runs, for the admin Bots screen.
 const RUN_LOG_MAX = 96;
+// Two days of moves, for the admin Bots screen.
+const MOVE_LOG_MS = 48 * 60 * 60 * 1000;
+const MOVE_LOG_MAX = 300;
 const ACTIVE_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -68,8 +72,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 interface PlannedMove {
   ticker: string;
   move: number;
-  source: 'bot' | 'bot_guard';
   floor: number | null;
+}
+
+interface MoveLogEntry {
+  at: number;
+  ticker: string;
+  from: number;
+  to: number;
+  guard: boolean;
 }
 
 interface GuardLogEntry {
@@ -104,17 +115,16 @@ const applyWave = async (moves: PlannedMove[], clearOldFields: boolean) =>
       if (m.floor && m.move < 0 && next < m.floor) next = Math.min(p, round2(m.floor));
       if (next === p) continue;
       updates[`prices.${m.ticker}`] = next;
-      points[m.ticker] = { timestamp: now, price: next, source: m.source };
+      points[m.ticker] = { timestamp: now, price: next };
       applied.push({ ticker: m.ticker, frac: next / p - 1, from: p, to: next });
     }
 
-    // Parent ETFs follow, the same way they follow a player's trade. Tagged
-    // 'etf_follow' so the Bots screen does not count them as bot moves.
+    // Parent ETFs follow, the same way they follow a player's trade.
     const moved = Object.fromEntries(applied.map((a) => [a.ticker, a.to]));
     for (const [etf, next] of Object.entries(etfFollowUpdates(moved, prices))) {
       if (isTickerPaused(fresh.haltedTickers, etf, now) || next === prices[etf]) continue;
       updates[`prices.${etf}`] = next;
-      points[etf] = { timestamp: now, price: next, source: 'etf_follow' };
+      points[etf] = { timestamp: now, price: next };
     }
 
     // The old bots kept their daily counters on the world-readable market doc.
@@ -165,6 +175,8 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
       const saved = (stateSnap.data()?.tickers || {}) as Record<string, Partial<Storyline>>;
       const guardLog = (stateSnap.data()?.guardLog || []) as GuardLogEntry[];
       const runLog = (stateSnap.data()?.runLog || []) as unknown[];
+      const moveLog = (stateSnap.data()?.moveLog || []) as MoveLogEntry[];
+      const newMoves: MoveLogEntry[] = [];
       const launched: string[] = market.launchedTickers || [];
 
       // Classify every tradable stock and bring its storyline up to date.
@@ -230,7 +242,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
             const othersOpposite = await loadOthersOpened(ticker, since, group, first.move < 0 ? 'short' : 'buy');
             const answer = guardMove({ trades: list, price, exposure: exposure[ticker] || 0, othersOpposite });
             if (!answer) continue;
-            guardMoves.push({ ticker, move: answer.move, source: 'bot_guard', floor: null });
+            guardMoves.push({ ticker, move: answer.move, floor: null });
             guardWhy.set(ticker, { reason: answer.reason, uids: [...new Set(list.map((t) => t.uid))] });
           }
         }
@@ -251,7 +263,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
       const storyMoves: PlannedMove[] = [];
       for (const ticker of picked) {
         const move = stepMove(state[ticker]!, kinds[ticker]!, prices[ticker]!, now, rng, floors[ticker]);
-        if (Math.abs(move) >= 0.0005) storyMoves.push({ ticker, move, source: 'bot', floor: floors[ticker] ?? null });
+        if (Math.abs(move) >= 0.0005) storyMoves.push({ ticker, move, floor: floors[ticker] ?? null });
       }
 
       // Spread over two or three waves so prices tick rather than jump at once.
@@ -271,6 +283,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
           moved++;
           allApplied.push(a);
           const why = guardWhy.get(a.ticker);
+          newMoves.push({ at, ticker: a.ticker, from: a.from, to: a.to, guard: !!why });
           if (why) {
             // Guard moves are logged for the admin and never touch storyline totals.
             guardNotes.push({ at, ticker: a.ticker, from: a.from, to: a.to, ...why });
@@ -288,6 +301,9 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
           { at: now, moves: moved, guard: guardNotes.length, picked: picked.length, active: activeTickers },
           ...runLog,
         ].slice(0, RUN_LOG_MAX),
+        moveLog: [...newMoves.reverse(), ...moveLog]
+          .filter((m) => m.at >= Date.now() - MOVE_LOG_MS)
+          .slice(0, MOVE_LOG_MAX),
         updatedAt: Date.now(),
       });
 

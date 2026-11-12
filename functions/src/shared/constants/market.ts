@@ -167,3 +167,11 @@ export const MAX_ACTIVE_PRICE_ALERTS = 10;
 // direction per ticker in the cooldown.
 export const PRICE_MOVE_ALERT_PERCENT = 10;
 export const PRICE_MOVE_ALERT_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+
+// Chart points from the automated movers (bot engine, its guard, the market
+// maker and ETFs following them) carry NO source tag. market/priceHistory and
+// the archive are world-readable, so a tag let anyone total each stock's bot
+// drift and trade ahead of a storyline. The admin Bots screen reads the bot's
+// own server-only move log (botState/storylines.moveLog) instead. These are the
+// old tags, for scripts/strip-bot-point-tags.cjs and the test that keeps them out.
+export const PRIVATE_POINT_SOURCES = ['bot', 'bot_guard', 'etf_follow', 'market_maker'] as const;
