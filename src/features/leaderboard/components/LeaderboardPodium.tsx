@@ -100,7 +100,7 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
       </div>
       <TitleText title={leader.title} className="text-[11px]" />
       <div className="flex items-center justify-center gap-1 flex-wrap">
-        <PinDisplay userData={leader} size="sm" />
+        <PinDisplay userData={leader} size="sm" glow />
         {leader.isPublic && (
           <span className="text-xs" title="Public profile">
             <PixelIcon name="globe" set="admin" className="w-3 h-3 opacity-60" />

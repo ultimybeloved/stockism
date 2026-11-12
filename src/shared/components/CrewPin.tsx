@@ -8,21 +8,23 @@ const GLOW_SMALL = 'drop-shadow(0 0 2px #feae34) drop-shadow(0 0 4px #f77622)';
 const GLOW_BIG = 'drop-shadow(0 0 4px #feae34) drop-shadow(0 0 10px #f77622)';
 
 // A crew's small pin: its pixel crest, or its logo for a crew without one, or
-// the player's flair crew crest in its place. It glows for the week after the
-// main crew wins its rivalry.
+// the player's flair crew crest in its place. With `glow` (leaderboard only),
+// it glows for the week after the main crew wins its rivalry.
 const CrewPin = ({
   crew,
   flair,
   className = 'w-4 h-4',
   alt = '',
+  glow: allowGlow = false,
 }: {
   crew?: { id: string; icon?: string };
   flair?: FlairCrew | null;
   className?: string;
   alt?: string;
+  glow?: boolean;
 }) => {
   const src = flair ? flairCrestSrc(flair) : crewPinSrc(crew);
-  const glow = useRivalryGlow(crew?.id);
+  const glow = useRivalryGlow(crew?.id) && allowGlow;
   const [big, setBig] = useState(false);
   return (
     <img

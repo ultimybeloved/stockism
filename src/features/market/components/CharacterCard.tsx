@@ -331,7 +331,7 @@ const CharacterCard = ({
             >
               Details ↗
             </Link>
-            <div className="ml-auto">
+            <div className="basis-full">
               <CardTradeMenu
                 character={character}
                 price={price}

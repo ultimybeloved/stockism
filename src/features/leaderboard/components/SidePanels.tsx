@@ -26,7 +26,7 @@ const MiniRow = ({ place, leader, right }: { place: number; leader: RankedLeader
   return (
     <div className="flex items-center gap-2 px-4 py-1.5 text-sm">
       <span className={`w-5 text-xs font-bold tabular-nums ${mutedClass}`}>{place}</span>
-      {crew ? <CrewPin crew={crew} className="w-4 h-4 shrink-0" /> : <span className="w-4 h-4 shrink-0" />}
+      {crew ? <CrewPin glow crew={crew} className="w-4 h-4 shrink-0" /> : <span className="w-4 h-4 shrink-0" />}
       <span className={`flex-1 min-w-0 truncate font-medium ${textClass}`}>{leader.displayName || 'Anonymous'}</span>
       {right}
     </div>

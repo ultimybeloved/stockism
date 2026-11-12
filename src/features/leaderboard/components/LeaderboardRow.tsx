@@ -87,7 +87,7 @@ const LeaderboardRow = ({ leader, displayRank, isCurrentUser, userRowRef, sortBy
               <PixelIcon name="globe" set="admin" className="w-3 h-3 opacity-60" />
             </span>
           )}
-          <PinDisplay userData={leader} size="sm" />
+          <PinDisplay userData={leader} size="sm" glow />
           {isCurrentUser && <span className={`text-[10px] font-normal ${mutedClass}`}>(you)</span>}
         </div>
         <TitleText title={leader.title} />

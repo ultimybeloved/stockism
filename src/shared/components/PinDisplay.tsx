@@ -22,9 +22,12 @@ type PinSource = Pick<
 const PinDisplay = ({
   userData,
   size = 'sm',
+  glow = false,
 }: {
   userData: PinSource | null | undefined;
   size?: 'sm' | 'md' | 'lg';
+  /** Rivalry winner glow on the crew crest; the leaderboard only. */
+  glow?: boolean;
 }) => {
   if (!userData) return null;
 
@@ -52,7 +55,7 @@ const PinDisplay = ({
         pins.push(
           <span key="crew" title={label} className={`inline-flex items-center ${sizeClass}`}>
             {flair || crewPinSrc(crew) ? (
-              <CrewPin crew={crew} flair={flair} alt={label} className={imgSize} />
+              <CrewPin crew={crew} flair={flair} alt={label} className={imgSize} glow={glow} />
             ) : (
               crew.emblem
             )}

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 // Last week's Crew Rivalry winners (market/crewStats.rivalryWinners). Their
-// crest glows everywhere for the week. A small store rather than context so
+// crest glows on the leaderboard for the week (CrewPin `glow`). A small store rather than context so
 // every CrewPin can read it without sitting under a provider.
 let winners: string[] = [];
 const listeners = new Set<() => void>();

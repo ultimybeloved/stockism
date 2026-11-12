@@ -76,7 +76,7 @@ const PlayerSearch = () => {
               const crew = p.crew ? CREW_MAP[p.crew] : null;
               const row = (
                 <>
-                  {crew ? <CrewPin crew={crew} className="w-4 h-4" /> : <span className="w-4 h-4 shrink-0" />}
+                  {crew ? <CrewPin glow crew={crew} className="w-4 h-4" /> : <span className="w-4 h-4 shrink-0" />}
                   <span className={`flex-1 truncate font-medium ${textClass}`}>{p.displayName}</span>
                   <span className={`text-xs tabular-nums ${mutedClass}`}>{formatCurrency(p.netWorth)}</span>
                 </>

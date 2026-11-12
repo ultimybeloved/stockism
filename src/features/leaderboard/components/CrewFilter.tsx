@@ -30,7 +30,7 @@ export const CrewRail = ({ crewFilter, setCrewFilter, onPrefetch }: CrewFilterPr
         onClick={() => setCrewFilter(crew.id)}
         onHover={() => onPrefetch?.(crew.id)}
       >
-        <CrewPin crew={crew} className="w-4 h-4 shrink-0" />
+        <CrewPin glow crew={crew} className="w-4 h-4 shrink-0" />
         <span className="truncate">{crew.name}</span>
       </RailItem>
     ))}
@@ -72,7 +72,7 @@ export const CrewMenu = ({ crewFilter, setCrewFilter }: CrewFilterProps) => {
         onClick={() => setOpen((o) => !o)}
         className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-semibold rounded-sm border ${inputClass}`}
       >
-        {current ? <CrewPin crew={current} className="w-4 h-4 shrink-0" /> : null}
+        {current ? <CrewPin glow crew={current} className="w-4 h-4 shrink-0" /> : null}
         <span className={`${mutedClass} font-normal`}>Crew:</span>
         <span
           className="truncate"
@@ -94,7 +94,7 @@ export const CrewMenu = ({ crewFilter, setCrewFilter }: CrewFilterProps) => {
           </RailItem>
           {crewList().map((crew) => (
             <RailItem key={crew.id} active={crewFilter === crew.id} accent={crew.color} onClick={() => pick(crew.id)}>
-              <CrewPin crew={crew} className="w-4 h-4 shrink-0" />
+              <CrewPin glow crew={crew} className="w-4 h-4 shrink-0" />
               <span className="truncate">{crew.name}</span>
             </RailItem>
           ))}
