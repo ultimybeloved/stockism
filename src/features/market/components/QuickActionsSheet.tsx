@@ -13,6 +13,7 @@ import { getMarketClosedState } from '../../../utils/marketHours';
 import { getWatchlists } from '../utils/watchlists';
 import type { Character } from '../../../characters';
 import type { TradeAction } from '../../../types';
+import { usePreMarket, tradeLabel } from '../../../shared/hooks/usePreMarket';
 
 interface QuickActionsSheetProps {
   character: Character;
@@ -35,6 +36,7 @@ const QuickActionsSheet = ({
   const { user, userData, getColorBlindColors } = useSession();
   const { prices, marketData } = useMarket();
   const [action, setAction] = useState<TradeAction | null>(null);
+  const pre = usePreMarket();
   const sheetRef = useSheetRef(onClose);
   useEscapeKey(onClose, !action);
   const { sheetOverlayClass, sheetShellClass, textClass, mutedClass, ghostBtnClass } = themeClasses;
@@ -82,10 +84,10 @@ const QuickActionsSheet = ({
         </div>
         {user && (
           <div className="grid grid-cols-2 gap-2 mb-2">
-            {tradeBtn('buy', 'Buy', `${getColorBlindColors(true).bg} text-white`, true)}
-            {tradeBtn('sell', 'Sell', `${getColorBlindColors(false).bg} text-white`, held > 0)}
-            {tradeBtn('short', 'Short', 'border-2 border-orange-500 text-orange-500', true)}
-            {tradeBtn('cover', 'Cover', 'border-2 border-blue-500 text-blue-500', shorted)}
+            {tradeBtn('buy', tradeLabel('buy', pre), `${getColorBlindColors(true).bg} text-white`, true)}
+            {tradeBtn('sell', tradeLabel('sell', pre), `${getColorBlindColors(false).bg} text-white`, held > 0)}
+            {tradeBtn('short', 'Short', 'border-2 border-orange-500 text-orange-500', !pre)}
+            {tradeBtn('cover', 'Cover', 'border-2 border-blue-500 text-blue-500', shorted && !pre)}
           </div>
         )}
         <div className="grid grid-cols-2 gap-2">

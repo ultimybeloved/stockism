@@ -9,6 +9,7 @@ import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { DIVIDEND_TIER_META, formatShares } from '../utils/shared';
 import type { PortfolioItem } from '../utils/buildPositionItems';
 import type { TradeAction } from '../../../types';
+import { usePreMarket } from '../../../shared/hooks/usePreMarket';
 
 export interface PositionActions {
   onOrder: (ticker: string, action: TradeAction) => void;
@@ -35,6 +36,7 @@ const PositionDetail = ({
   const { getColorBlindColors } = useSession();
   const { textClass, mutedClass, ghostBtnClass } = themeClasses;
   const up = getColorBlindColors(true);
+  const pre = usePreMarket();
   const down = getColorBlindColors(false);
 
   const stat = (label: string, value: string, cls = textClass) => (
@@ -112,13 +114,13 @@ const PositionDetail = ({
 
         <div className="flex flex-wrap gap-2">
           <button onClick={() => onOrder(item.ticker, 'buy')} className={`${btn} ${up.bg} text-white`}>
-            Buy more
+            {pre ? 'Queue buy' : 'Buy more'}
           </button>
           <button onClick={() => onOrder(item.ticker, 'sell')} className={`${btn} ${down.bg} text-white`}>
-            Sell
+            {pre ? 'Queue sell' : 'Sell'}
           </button>
           <button onClick={() => onSellAll(item.ticker, item.shares)} className={`${btn} border ${ghostBtnClass}`}>
-            Sell all
+            {pre ? 'Queue sell all' : 'Sell all'}
           </button>
           {onLimitSell && (
             <>

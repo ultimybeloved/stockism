@@ -6,6 +6,7 @@ import { useHideOnScroll } from '../../../shared/hooks/useHideOnScroll';
 import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import type { TradeAction } from '../../../types';
+import { usePreMarket, tradeLabel } from '../../../shared/hooks/usePreMarket';
 
 interface StickyTradeBarProps {
   price: number;
@@ -19,6 +20,7 @@ const StickyTradeBar = ({ price, canSell, canCover, disabledReason, onAction }: 
   const { getColorBlindColors } = useSession();
   const navVisible = useHideOnScroll();
   const [more, setMore] = useState(false);
+  const pre = usePreMarket();
   const { cardClass, textClass, mutedClass } = themeClasses;
   const btn = 'flex-1 py-3 text-sm font-semibold uppercase rounded-sm disabled:opacity-40';
 
@@ -40,6 +42,7 @@ const StickyTradeBar = ({ price, canSell, canCover, disabledReason, onAction }: 
               <div className="flex gap-2 mb-2">
                 <button
                   type="button"
+                  disabled={pre}
                   onClick={() => onAction('short')}
                   className={`${btn} border-2 border-orange-500 text-orange-500`}
                 >
@@ -47,7 +50,7 @@ const StickyTradeBar = ({ price, canSell, canCover, disabledReason, onAction }: 
                 </button>
                 <button
                   type="button"
-                  disabled={!canCover}
+                  disabled={!canCover || pre}
                   onClick={() => onAction('cover')}
                   className={`${btn} border-2 border-blue-500 text-blue-500`}
                 >
@@ -62,7 +65,7 @@ const StickyTradeBar = ({ price, canSell, canCover, disabledReason, onAction }: 
                 onClick={() => onAction('buy')}
                 className={`${btn} ${getColorBlindColors(true).bg} text-white`}
               >
-                Buy
+                {tradeLabel('buy', pre)}
               </button>
               <button
                 type="button"
@@ -70,7 +73,7 @@ const StickyTradeBar = ({ price, canSell, canCover, disabledReason, onAction }: 
                 onClick={() => onAction('sell')}
                 className={`${btn} ${getColorBlindColors(false).bg} text-white`}
               >
-                Sell
+                {tradeLabel('sell', pre)}
               </button>
               <button
                 type="button"

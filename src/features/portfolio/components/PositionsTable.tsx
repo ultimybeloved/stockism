@@ -7,6 +7,7 @@ import { themeClasses } from '../../../utils/theme';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { formatShares } from '../utils/shared';
 import type { PortfolioItem } from '../utils/buildPositionItems';
+import { usePreMarket, tradeLabel } from '../../../shared/hooks/usePreMarket';
 
 interface PositionsTableProps extends PositionActions {
   items: PortfolioItem[];
@@ -42,6 +43,7 @@ const PositionsTable = ({
   const { getColorBlindColors } = useSession();
   const { textClass, mutedClass } = themeClasses;
   const up = getColorBlindColors(true);
+  const pre = usePreMarket();
   const down = getColorBlindColors(false);
 
   return (
@@ -118,13 +120,13 @@ const PositionsTable = ({
                       onClick={() => actions.onOrder(item.ticker, 'buy')}
                       className={`px-2.5 py-1 text-xs font-semibold uppercase rounded-sm text-white ${up.bg}`}
                     >
-                      Buy
+                      {tradeLabel('buy', pre)}
                     </button>
                     <button
                       onClick={() => actions.onOrder(item.ticker, 'sell')}
                       className={`ml-1.5 px-2.5 py-1 text-xs font-semibold uppercase rounded-sm text-white ${down.bg}`}
                     >
-                      Sell
+                      {tradeLabel('sell', pre)}
                     </button>
                   </td>
                 </tr>

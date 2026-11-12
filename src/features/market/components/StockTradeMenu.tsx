@@ -1,6 +1,7 @@
 // The stock page's Buy, Sell, Short and Cover buttons (tablets and desktops),
 // always showing. Phones use StickyTradeBar instead.
 import type { TradeAction } from '../../../types';
+import { usePreMarket, tradeLabel, PRE_MARKET_NO_QUEUE } from '../../../shared/hooks/usePreMarket';
 
 interface StockTradeMenuProps {
   marketClosed: boolean;
@@ -11,6 +12,7 @@ interface StockTradeMenuProps {
 }
 
 const StockTradeMenu = ({ marketClosed, canSell, canCover, colorBlindMode, onAction }: StockTradeMenuProps) => {
+  const pre = usePreMarket();
   if (marketClosed) {
     return (
       <button
@@ -28,8 +30,8 @@ const StockTradeMenu = ({ marketClosed, canSell, canCover, colorBlindMode, onAct
       `text-white ${colorBlindMode ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700'}`,
       canSell,
     ],
-    ['short', 'border-2 border-orange-500 text-orange-500 hover:bg-orange-500/10', true],
-    ['cover', 'border-2 border-blue-500 text-blue-500 hover:bg-blue-500/10', canCover],
+    ['short', 'border-2 border-orange-500 text-orange-500 hover:bg-orange-500/10', !pre],
+    ['cover', 'border-2 border-blue-500 text-blue-500 hover:bg-blue-500/10', canCover && !pre],
   ];
   return (
     <div className="max-md:hidden grid grid-cols-2 gap-2 mt-3 w-64">
@@ -37,10 +39,11 @@ const StockTradeMenu = ({ marketClosed, canSell, canCover, colorBlindMode, onAct
         <button
           key={action}
           disabled={!enabled}
+          title={pre && (action === 'short' || action === 'cover') ? PRE_MARKET_NO_QUEUE : undefined}
           onClick={() => onAction(action)}
           className={`py-1.5 text-xs font-semibold uppercase rounded-sm ${cls} disabled:opacity-40`}
         >
-          {action}
+          {tradeLabel(action, pre)}
         </button>
       ))}
     </div>

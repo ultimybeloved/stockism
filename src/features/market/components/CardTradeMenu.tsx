@@ -6,6 +6,7 @@ import { useSession } from '../../../context/AppContext';
 import { isPreMarketWindow } from '../../../utils/marketHours';
 import type { Character } from '../../../characters';
 import type { ShortPosition, TradeAction } from '../../../types';
+import { usePreMarket, tradeLabel } from '../../../shared/hooks/usePreMarket';
 
 interface CardTradeMenuProps {
   character: Character;
@@ -44,6 +45,8 @@ const CardTradeMenu = ({
   const buyCls = cb ? 'bg-teal-600 hover:bg-teal-700' : 'bg-green-600 hover:bg-green-700';
   const sellCls = cb ? 'bg-purple-600 hover:bg-purple-700' : 'bg-red-600 hover:bg-red-700';
   const shorted = !!shortPosition && shortPosition.shares > 0;
+  // Pre-market: Buy and Sell queue for the opening auction; Short and Cover wait for the reopen.
+  const pre = usePreMarket();
 
   const go = (action: TradeAction) => {
     if ((action === 'buy' || action === 'sell') && isPreMarketWindow()) setPreMarket(action);
@@ -63,33 +66,40 @@ const CardTradeMenu = ({
           {label}
         </button>
       ) : (
-        <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-1.5" onClick={(e) => e.stopPropagation()}>
+        <div
+          className={`w-full grid grid-cols-2 gap-1.5 ${pre ? '' : 'md:grid-cols-4'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
             onClick={() => go('buy')}
             className={`py-1.5 text-[11px] font-semibold uppercase rounded-sm text-white ${buyCls}`}
           >
-            Buy
+            {tradeLabel('buy', pre)}
           </button>
           <button
             onClick={() => go('sell')}
             disabled={holdings === 0}
             className={`py-1.5 text-[11px] font-semibold uppercase rounded-sm text-white disabled:opacity-50 ${sellCls}`}
           >
-            Sell
+            {tradeLabel('sell', pre)}
           </button>
-          <button
-            onClick={() => go('short')}
-            className="py-1.5 text-[11px] font-semibold uppercase rounded-sm border border-orange-500 light:text-orange-500 light:hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
-          >
-            Short
-          </button>
-          <button
-            onClick={() => go('cover')}
-            disabled={!shorted}
-            className="py-1.5 text-[11px] font-semibold uppercase rounded-sm border border-blue-500 light:text-blue-600 light:hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 disabled:opacity-50"
-          >
-            Cover
-          </button>
+          {!pre && (
+            <button
+              onClick={() => go('short')}
+              className="py-1.5 text-[11px] font-semibold uppercase rounded-sm border border-orange-500 light:text-orange-500 light:hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
+            >
+              Short
+            </button>
+          )}
+          {!pre && (
+            <button
+              onClick={() => go('cover')}
+              disabled={!shorted}
+              className="py-1.5 text-[11px] font-semibold uppercase rounded-sm border border-blue-500 light:text-blue-600 light:hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 disabled:opacity-50"
+            >
+              Cover
+            </button>
+          )}
         </div>
       )}
 

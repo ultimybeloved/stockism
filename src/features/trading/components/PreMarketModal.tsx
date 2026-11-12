@@ -40,6 +40,7 @@ interface PreMarketModalProps {
   holdings?: number;
   userCash: number;
   initialAction?: PreMarketAction;
+  initialShares?: number;
   onClose: () => void;
 }
 
@@ -49,13 +50,14 @@ const PreMarketModal = ({
   holdings,
   userCash,
   initialAction = 'buy',
+  initialShares,
   onClose,
 }: PreMarketModalProps) => {
   useEscapeKey(onClose);
   const dialogRef = useModalFocus();
   const { user, showNotification } = useSession();
   const [action, setAction] = useState<PreMarketAction>(initialAction);
-  const [shares, setShares] = useState(1);
+  const [shares, setShares] = useState(initialShares && initialShares > 0 ? Math.floor(initialShares) : 1);
   const [submitting, setSubmitting] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [queue, setQueue] = useState<BookSide>(EMPTY_SIDE);

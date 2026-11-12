@@ -20,6 +20,7 @@ import type { Character } from '../../../characters';
 import type { PricePoint, TradeAction } from '../../../types';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 import ChapterFlagsToggle from './ChapterFlagsToggle';
+import { usePreMarket, tradeLabel } from '../../../shared/hooks/usePreMarket';
 
 interface StockPopupProps {
   character: Character;
@@ -75,6 +76,7 @@ const StockPopup = ({
   const manyLists = getWatchlists(userData).length > 1;
   const halted = Date.now() < (marketData?.haltedTickers?.[ticker]?.resumeAt ?? 0);
   const closed = getMarketClosedState(marketData).closed;
+  const pre = usePreMarket();
   const canTrade = !!user && !halted && !closed;
   const current = action || pendingAction || null;
 
@@ -205,10 +207,20 @@ const StockPopup = ({
 
               {user && (
                 <div className="grid grid-cols-2 gap-2">
-                  {tradeBtn('buy', 'Buy (B)', `${getColorBlindColors(true).bg} text-white`)}
-                  {tradeBtn('sell', 'Sell (S)', `${getColorBlindColors(false).bg} text-white`, held > 0)}
-                  {tradeBtn('short', 'Short', 'border-2 border-orange-500 text-orange-500')}
-                  {tradeBtn('cover', 'Cover', 'border-2 border-blue-500 text-blue-500', (short?.shares || 0) > 0)}
+                  {tradeBtn('buy', `${tradeLabel('buy', pre)} (B)`, `${getColorBlindColors(true).bg} text-white`)}
+                  {tradeBtn(
+                    'sell',
+                    `${tradeLabel('sell', pre)} (S)`,
+                    `${getColorBlindColors(false).bg} text-white`,
+                    held > 0,
+                  )}
+                  {tradeBtn('short', 'Short', 'border-2 border-orange-500 text-orange-500', !pre)}
+                  {tradeBtn(
+                    'cover',
+                    'Cover',
+                    'border-2 border-blue-500 text-blue-500',
+                    (short?.shares || 0) > 0 && !pre,
+                  )}
                 </div>
               )}
 

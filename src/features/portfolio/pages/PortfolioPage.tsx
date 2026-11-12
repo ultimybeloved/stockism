@@ -24,7 +24,7 @@ interface PortfolioPageProps {
 const PortfolioPage = ({ onTrade, onLimitSell, onOpenTradeHistory, onToggleDrip, onShowLogin }: PortfolioPageProps) => {
   const { user, userData } = useSession();
   const { prices, dividendTierOverrides } = useMarket();
-  const [order, setOrder] = useState<{ ticker: string; action: TradeAction } | null>(null);
+  const [order, setOrder] = useState<{ ticker: string; action: TradeAction; shares?: number } | null>(null);
   const { bgClass, cardClass, mutedClass } = themeClasses;
 
   if (!user || !userData) {
@@ -51,7 +51,7 @@ const PortfolioPage = ({ onTrade, onLimitSell, onOpenTradeHistory, onToggleDrip,
         <PortfolioView
           currentValue={calculatePortfolioValue(userData, prices)}
           onTrade={onTrade}
-          onOpenOrder={(ticker, action) => setOrder({ ticker, action })}
+          onOpenOrder={(ticker, action, shares) => setOrder({ ticker, action, shares })}
           onLimitSell={onLimitSell}
           onOpenTradeHistory={onOpenTradeHistory}
           ipoPurchases={userData.ipoPurchases || {}}
@@ -65,6 +65,7 @@ const PortfolioPage = ({ onTrade, onLimitSell, onOpenTradeHistory, onToggleDrip,
         <TradeLauncher
           character={orderCharacter}
           action={order.action}
+          initialShares={order.shares}
           onTrade={onTrade}
           onClose={() => setOrder(null)}
         />

@@ -17,6 +17,7 @@ import { positionOf } from '../../../utils/holdingMarks';
 import { useLongPress } from '../hooks/useLongPress';
 import type { Character } from '../../../characters';
 import type { PricePoint, TradeAction } from '../../../types';
+import { usePreMarket, tradeLabel } from '../../../shared/hooks/usePreMarket';
 
 const DAY = 86_400_000;
 
@@ -126,6 +127,7 @@ const MarketList = ({
   const { cardClass, textClass, mutedClass } = themeClasses;
   const [trade, setTrade] = useState<{ character: Character; action: TradeAction } | null>(null);
   const closed = getMarketClosedState(marketData).closed;
+  const pre = usePreMarket();
   const sortProps = { sortBy, setSortBy };
 
   return (
@@ -214,7 +216,7 @@ const MarketList = ({
                         onClick={() => setTrade({ character: c, action: 'buy' })}
                         className={`px-2.5 py-1 text-xs font-semibold uppercase rounded-sm text-white disabled:opacity-40 ${getColorBlindColors(true).bg}`}
                       >
-                        Buy
+                        {tradeLabel('buy', pre)}
                       </button>
                       <button
                         type="button"
@@ -222,7 +224,7 @@ const MarketList = ({
                         onClick={() => setTrade({ character: c, action: 'sell' })}
                         className={`ml-1.5 px-2.5 py-1 text-xs font-semibold uppercase rounded-sm text-white disabled:opacity-40 ${getColorBlindColors(false).bg}`}
                       >
-                        Sell
+                        {tradeLabel('sell', pre)}
                       </button>
                     </td>
                   )}

@@ -19,6 +19,7 @@ import { filterHoldings, sortHoldings, type ShareInputs } from '../utils/shared'
 import { isWeeklyHalt } from '../../../utils/marketHours';
 import type { TradeAction } from '../../../types';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
+import { usePreMarket } from '../../../shared/hooks/usePreMarket';
 
 type DetailProps = ComponentProps<typeof PositionDetail>;
 type PositionTab = 'long' | 'short';
@@ -27,7 +28,8 @@ interface PositionsPanelProps {
   portfolioItems: PortfolioItem[];
   onTrade: (ticker: string, action: TradeAction, amount: number) => unknown;
   /** Opens the order form for a stock. */
-  onOpenOrder: (ticker: string, action: TradeAction) => void;
+  /** shares prefills the pre-market form (Sell all during pre-market). */
+  onOpenOrder: (ticker: string, action: TradeAction, shares?: number) => void;
   onLimitSell?: DetailProps['onLimitSell'];
   drip?: DetailProps['drip'];
   onToggleDrip?: DetailProps['onToggleDrip'];
@@ -94,10 +96,13 @@ const PositionsPanel = ({
     [shortItems, search, sortKey, sortDir],
   );
 
+  // Pre-market: Sell all queues the whole position for the opening auction.
+  const pre = usePreMarket();
   const totalValue = portfolioItems.reduce((sum, item) => sum + item.value, 0);
   const actions = {
     onOrder: onOpenOrder,
-    onSellAll: (ticker: string, shares: number) => onTrade(ticker, 'sell', shares),
+    onSellAll: (ticker: string, shares: number) =>
+      pre ? onOpenOrder(ticker, 'sell', shares) : onTrade(ticker, 'sell', shares),
     onLimitSell,
     drip,
     onToggleDrip,
@@ -151,7 +156,7 @@ const PositionsPanel = ({
           ) : (
             <>
               <div className="flex items-center justify-between gap-2 mb-2">
-                {onGroupSell && portfolioItems.length > 1 ? (
+                {onGroupSell && !pre && portfolioItems.length > 1 ? (
                   <button
                     type="button"
                     onClick={onGroupSell}

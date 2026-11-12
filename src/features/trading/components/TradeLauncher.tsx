@@ -20,9 +20,18 @@ interface TradeLauncherProps {
   onClose: () => void;
   /** Open on the limit or stop-loss form. */
   orderMode?: OrderFormMode;
+  /** Pre-market form's starting share count (Sell all). */
+  initialShares?: number;
 }
 
-const TradeLauncher = ({ character, action, onTrade, onClose, orderMode = false }: TradeLauncherProps) => {
+const TradeLauncher = ({
+  character,
+  action,
+  onTrade,
+  onClose,
+  orderMode = false,
+  initialShares,
+}: TradeLauncherProps) => {
   const { userData } = useSession();
   const { prices, priceHistory, marketData } = useMarket();
   const ticker = character.ticker;
@@ -38,6 +47,7 @@ const TradeLauncher = ({ character, action, onTrade, onClose, orderMode = false 
         holdings={holdings}
         userCash={userCash}
         initialAction={action}
+        initialShares={initialShares}
         onClose={onClose}
       />
     );
