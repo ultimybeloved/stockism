@@ -633,6 +633,7 @@ export const CHARACTERS: Character[] = [
     generation: 'pre',
     altNames: ['Ryujo Magami', 'Ryuujo Magami'],
   },
+  { name: 'Pyeong-gyeon Cho', ticker: 'PAWN', basePrice: 100, dateAdded: '2026-11-12T00:00:00', generation: 'pre' },
 
   // ETFs - crew-based funds (price = sum of member base prices / 5)
   {
