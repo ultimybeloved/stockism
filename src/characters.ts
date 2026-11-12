@@ -623,7 +623,14 @@ export const CHARACTERS: Character[] = [
   { name: 'Wondo Lee', ticker: 'POLR', basePrice: 90, dateAdded: '2026-08-20T00:06:00', generation: 'pre' },
   { name: 'Musashi Sasaki', ticker: 'TCHI', basePrice: 95, dateAdded: '2026-08-27T00:00:00', generation: 'pre' },
   { name: 'Sogen Magami', ticker: 'IKO', basePrice: 90, dateAdded: '2026-08-27T00:01:00', generation: 'pre' },
-  { name: 'Takuma Arashimaya', ticker: 'YOKO', basePrice: 90, dateAdded: '2026-08-27T00:02:00', generation: 'pre' },
+  {
+    name: 'Takuma Arashimaya',
+    ticker: 'YOKO',
+    basePrice: 90,
+    dateAdded: '2026-08-27T00:02:00',
+    generation: 'pre',
+    status: 'dead',
+  },
   {
     name: 'Ryuzo Magami',
     ticker: 'MGMI',
