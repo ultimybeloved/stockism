@@ -441,8 +441,10 @@ export const buyIPOShares = cf().https.onCall(async (data, context) => {
         [`prices.${ticker}`]: newPrice,
         launchedTickers: FieldValue.arrayUnion(ticker),
       });
+      // Tagged like the timed launch, so the halt audit and the Review tab
+      // don't read the launch jump as trading.
       appendPriceHistory(transaction, {
-        [ticker]: { timestamp: now, price: newPrice },
+        [ticker]: { timestamp: now, price: newPrice, source: 'ipo_launch' },
       });
     } else if (marketDoc.exists) {
       // Initialize price if not set

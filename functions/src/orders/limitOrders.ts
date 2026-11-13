@@ -171,14 +171,6 @@ export const createLimitOrder = cf().https.onCall(
       }
     }
 
-    // Validate short positions for COVER orders
-    if (type === 'COVER') {
-      const shortShares = userData.shorts?.[ticker]?.shares || 0;
-      if (shortShares < shares) {
-        throw new functions.https.HttpsError('failed-precondition', 'Insufficient short shares to cover.');
-      }
-    }
-
     // Anti-manipulation: Block SELL/STOP_LOSS if user has an active short on same ticker
     if (type === 'SELL' || type === 'STOP_LOSS') {
       const shortShares = userData.shorts?.[ticker]?.shares || 0;

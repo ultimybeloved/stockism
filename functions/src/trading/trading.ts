@@ -481,7 +481,8 @@ export const executeTrade = cf().https.onCall(
       }
       // The single most important failure in the game to be able to see.
       reportError(error, { where: 'executeTrade', uid, ticker, action, amount });
-      throw new functions.https.HttpsError('internal', 'Trade execution failed: ' + err.message);
+      // The detail goes to error reporting above, not to the player.
+      throw new functions.https.HttpsError('internal', 'Trade execution failed. Please try again.');
     }
   },
 );

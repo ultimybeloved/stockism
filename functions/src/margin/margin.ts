@@ -64,11 +64,13 @@ export const repayMargin = cf().https.onCall(async (data: { amount?: unknown }, 
     if (marginUsed <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'No margin debt.');
     }
-    if ((userData.cash || 0) < amount) {
+    // Asking to repay more than is owed pays off the debt, so the cash check
+    // is against what will actually be taken.
+    const repayAmount = Math.min(amount, marginUsed);
+    if ((userData.cash || 0) < repayAmount) {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
     }
 
-    const repayAmount = Math.min(amount, marginUsed);
     const newMarginUsed = marginUsed - repayAmount;
 
     const storedMarginUsed = newMarginUsed < 0.01 ? 0 : Math.round(newMarginUsed * 100) / 100;
