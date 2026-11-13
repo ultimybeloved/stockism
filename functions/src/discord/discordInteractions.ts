@@ -31,6 +31,7 @@ import type { PricePoint } from '../shared/types';
 import { recordLedger } from '../shared/ledger';
 import { ladderCommand, handleLadderButton } from './discordLadder';
 import { holdAck } from './discordAck';
+import { etfFollowUpdates } from '../trading/tradePricing';
 import { handleGiveawayButton } from './discordGiveaway';
 
 // Edit a deferred interaction reply. Discord kills any interaction that has not
@@ -427,6 +428,19 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
             // a concurrent trade on another ticker would be clobbered)
             marketUpdates[`prices.${pick.ticker}`] = livePrices[pick.ticker]!;
             historyPoints[pick.ticker] = { timestamp, price: livePrices[pick.ticker]!, source: 'daily_drop' };
+          }
+          // Crew ETFs follow their members, as they do for every other mover.
+          // No trailing links between characters: a free claim should not
+          // ripple through linked stocks (same choice as the bots).
+          const moved = Object.fromEntries(
+            picks.filter((p) => historyPoints[p.ticker]).map((p) => [p.ticker, livePrices[p.ticker]!]),
+          );
+          for (const [etf, etfPrice] of Object.entries(etfFollowUpdates(moved, market.prices || {}))) {
+            if (isPriceProtected(liveHistory, etf, ADMIN_PRICE_PROTECTION_MS)) continue;
+            if (isTickerPaused(market.haltedTickers, etf, timestamp)) continue;
+            livePrices[etf] = etfPrice;
+            marketUpdates[`prices.${etf}`] = etfPrice;
+            historyPoints[etf] = { timestamp, price: etfPrice, source: 'daily_drop' };
           }
           if (Object.keys(marketUpdates).length > 0) tx.update(marketRef, marketUpdates);
           return livePrices;

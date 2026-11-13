@@ -389,6 +389,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/market/migrationWalk.ts` | **Internal module.** Time-budgeted collection walks shared by the rename and split engines |
 | `functions/src/moderation/altDetection.ts` | scanForAltAccounts (scheduled) + manual trigger + alert review: proactive alt detection off stored IPs |
 | `functions/src/moderation/coordClustering.ts` | **Internal module.** Pure trade clustering behind coordDetection.ts |
+| `functions/src/orders/limitOrderRules.ts` | **Internal module.** Placement checks for a new limit order (cap, reserved shares, locks, duplicates); run up front and again inside the write transaction |
 | `functions/src/orders/limitOrderGuards.ts` | **Internal module.** Limit-order sweep screening; thrown wording decides cancel vs defer |
 | `functions/src/orders/limitOrderEffects.ts` | **Internal module.** Post-commit notifications and crew credit for limit-order fills and cancels |
 | `functions/src/predictions/eventMarket.ts` | Long-term event markets (LMSR): buy/sell shares, settlements, cancel |

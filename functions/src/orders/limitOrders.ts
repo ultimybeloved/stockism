@@ -1,7 +1,6 @@
 // Limit orders: the player-facing callable that creates one, plus the schedule
 // that sweeps the book. The matching engine itself is in limitOrderMatching.js.
 
-import { oppositePositionError } from '../shared/oppositePosition';
 import * as functions from 'firebase-functions/v1';
 import { cf, requireAppCheck } from '../shared/fnConfig';
 import * as admin from 'firebase-admin';
@@ -19,11 +18,10 @@ import {
   chapterReviewHaltMsg,
 } from '../shared/constants';
 import { touchLastActive, recordHeartbeat } from '../shared/activity';
-import { lockedShares } from '../shared/cohorts';
-import { checkDiscordWall } from '../shared/accountGuards';
 import { maxTradeSharesFor } from '../shared/impact';
 import type { LimitOrder, UserData } from '../shared/types';
 import { runLimitOrderCheck } from './limitOrderMatching';
+import { assertAccountCanOrder, assertOrderFits } from './limitOrderRules';
 import { claimNetworkForOrder, recordOrderOrigin } from './orderNetwork';
 
 export const createLimitOrder = cf().https.onCall(
@@ -89,22 +87,7 @@ export const createLimitOrder = cf().https.onCall(
     }
 
     const userData = userDoc.data() as UserData;
-
-    // Check if user is banned
-    if (userData.isBanned) {
-      throw new functions.https.HttpsError('permission-denied', 'Account is banned.');
-    }
-
-    // Suspected-alt wall: same gate as executeTrade, or queued orders bypass it
-    checkDiscordWall(userData);
-
-    // Check if user is bankrupt or in debt
-    if (userData.isBankrupt) {
-      throw new functions.https.HttpsError('failed-precondition', 'Cannot create orders while bankrupt.');
-    }
-    if ((userData.cash || 0) < 0) {
-      throw new functions.https.HttpsError('failed-precondition', 'Cannot create orders while in debt.');
-    }
+    assertAccountCanOrder(userData);
 
     // Block orders on IPO-phase tickers that haven't launched — queued orders
     // would otherwise bypass the IPO's per-user and supply limits entirely.
@@ -119,109 +102,43 @@ export const createLimitOrder = cf().https.onCall(
       }
     }
 
-    // Fetch active orders early (needed for validation checks below).
-    // PARTIALLY_FILLED orders are still live, so they count toward the cap,
-    // reserved shares, and the duplicate check just like PENDING ones.
-    const pendingOrders = await db
+    // Fast answer first, from a plain read. The same checks run again inside
+    // the transaction below, which is the one that counts.
+    const liveOrdersQuery = db
       .collection('limitOrders')
       .where('userId', '==', uid)
-      .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED'])
-      .get();
+      .where('status', 'in', ['PENDING', 'PARTIALLY_FILLED']);
+    const liveOrdersOf = (snap: admin.firestore.QuerySnapshot) => snap.docs.map((d) => d.data() as LimitOrder);
+    assertOrderFits(userData, liveOrdersOf(await liveOrdersQuery.get()), { ticker, type, shares });
 
-    if (pendingOrders.size >= 20) {
-      throw new functions.https.HttpsError('resource-exhausted', 'Maximum 20 pending orders allowed.');
-    }
-
-    // Validate holdings for SELL/STOP_LOSS orders (account for shares reserved by pending sells/stop losses)
-    if (type === 'SELL' || type === 'STOP_LOSS') {
-      const currentHoldings = userData.holdings?.[ticker] || 0;
-      if (currentHoldings < shares) {
-        throw new functions.https.HttpsError('failed-precondition', 'Insufficient holdings to sell.');
-      }
-      const pendingSellShares = pendingOrders.docs
-        .filter((doc) => {
-          const o = doc.data() as LimitOrder;
-          return o.ticker === ticker && (o.type === 'SELL' || o.type === 'STOP_LOSS');
-        })
-        .reduce((sum, doc) => {
-          const o = doc.data() as LimitOrder;
-          return sum + (o.shares - (o.filledShares || 0)); // only the unfilled remainder is still reserved
-        }, 0);
-      if (currentHoldings < shares + pendingSellShares) {
-        throw new functions.https.HttpsError(
-          'failed-precondition',
-          'Insufficient holdings (some shares reserved by pending orders).',
-        );
-      }
-
-      // Lockups: can't queue a sell / stop-loss against IPO- or margin-locked shares
-      // (otherwise a queued order would dodge the hold and flip the position).
-      const locks = lockedShares(userData, ticker);
-      if (locks.total > 0) {
-        const freeShares = Math.max(0, currentHoldings - locks.total);
-        if (shares > freeShares) {
-          const parts: string[] = [];
-          if (locks.ipo > 0) parts.push(`${locks.ipo} IPO-locked`);
-          if (locks.margin > 0) parts.push(`${locks.margin} margin-locked`);
-          throw new functions.https.HttpsError(
-            'failed-precondition',
-            `Some $${ticker} shares are locked (${parts.join(', ')}). You can place a sell for up to ${freeShares} now.`,
-          );
-        }
-      }
-    }
-
-    // Anti-manipulation: Block SELL/STOP_LOSS if user has an active short on same ticker
-    if (type === 'SELL' || type === 'STOP_LOSS') {
-      const shortShares = userData.shorts?.[ticker]?.shares || 0;
-      if (shortShares > 0) {
-        throw new functions.https.HttpsError(
-          'failed-precondition',
-          'Cannot place a sell order while you have an active short on this stock.',
-        );
-      }
-    }
-
-    // Long and short never mix.
-    if (type === 'BUY') {
-      const opposite = oppositePositionError(userData, ticker, 'buy');
-      if (opposite) throw new functions.https.HttpsError('failed-precondition', opposite);
-    }
-
-    // Block duplicate limit orders on same ticker + type
-    // Treat SELL and STOP_LOSS as equivalent to prevent double-selling
-    const sellTypes = ['SELL', 'STOP_LOSS'];
-    const isSellType = sellTypes.includes(type);
-    const existingOrderOnTicker = pendingOrders.docs.some((doc) => {
-      const o = doc.data() as LimitOrder;
-      const isExistingSellType = sellTypes.includes(o.type);
-      return o.ticker === ticker && (isSellType ? isExistingSellType : o.type === type);
-    });
-    if (existingOrderOnTicker) {
-      throw new functions.https.HttpsError(
-        'already-exists',
-        `You already have a pending sell or stop-loss order on ${ticker}. Cancel it first.`,
-      );
-    }
-
-    // Accounts-per-connection rule, same as executeTrade. Last, so an order that
-    // fails any check above never takes one of the connection's slots.
+    // Accounts-per-connection rule, same as executeTrade. After the checks, so
+    // an order that fails them never takes one of the connection's slots.
     const networkKey = await claimNetworkForOrder({ context, uid, isBuy: type === 'BUY' });
 
-    // Create the order
-    const expiresAt = Date.now() + NINETY_DAYS_MS; // 90 days
-    const orderRef = await db.collection('limitOrders').add({
-      userId: uid,
-      ticker,
-      type,
-      shares,
-      limitPrice,
-      allowPartialFills: !!allowPartialFills,
-      status: 'PENDING',
-      filledShares: 0,
-      createdAt: FieldValue.serverTimestamp(),
-      expiresAt,
-      updatedAt: FieldValue.serverTimestamp(),
+    // Write the order. The player's record is read and stamped in the same
+    // transaction, so two orders placed at the same instant run one after the
+    // other and the second sees the first.
+    const orderRef = db.collection('limitOrders').doc();
+    await db.runTransaction(async (tx) => {
+      const freshUser = await tx.get(userRef);
+      if (!freshUser.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
+      const fresh = freshUser.data() as UserData;
+      assertAccountCanOrder(fresh);
+      assertOrderFits(fresh, liveOrdersOf(await tx.get(liveOrdersQuery)), { ticker, type, shares });
+      tx.set(orderRef, {
+        userId: uid,
+        ticker,
+        type,
+        shares,
+        limitPrice,
+        allowPartialFills: !!allowPartialFills,
+        status: 'PENDING',
+        filledShares: 0,
+        createdAt: FieldValue.serverTimestamp(),
+        expiresAt: Date.now() + NINETY_DAYS_MS, // 90 days
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      tx.update(userRef, { lastLimitOrderAt: Date.now() });
     });
     // Kept off the order doc on purpose: see orderNetwork.js.
     await recordOrderOrigin(orderRef.id, { uid, key: networkKey });

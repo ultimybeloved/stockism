@@ -125,6 +125,16 @@ it('long and short never mix', async () => {
   );
 });
 
+it('same-instant limit orders cannot double up', async () => {
+  await seed();
+  await setUser('racer', { cash: 50000, portfolioValue: 60000, holdings: { [T]: 100 }, costBasis: { [T]: 100 } });
+  const order = { ticker: T, type: 'SELL', shares: 80, limitPrice: 150, allowPartialFills: false };
+  const results = await Promise.all([1, 2, 3, 4].map(() => call(createLimitOrder, order, 'racer')));
+  const live = await db.collection('limitOrders').where('userId', '==', 'racer').get();
+  check('exactly one order placed', live.size === 1, `${live.size} placed`);
+  check('the rest are refused', results.filter((r) => r !== null).length === 3, JSON.stringify(results));
+});
+
 it('hedged shares earn no dividend', () => {
   const now = Date.now();
   const data = {
