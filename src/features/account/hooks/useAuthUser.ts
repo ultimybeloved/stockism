@@ -7,6 +7,7 @@ import type { User } from 'firebase/auth';
 import type { Unsubscribe } from 'firebase/firestore';
 import type { AppContextValue } from '../../../context/AppContext';
 import type { UserData } from '../../../types';
+import { consumeDiscordLoginState } from '../discordLoginState';
 
 // Auth state, the user-doc subscription, and the auth-adjacent URL flows
 // (Discord OAuth redirect, email verification action codes).
@@ -32,18 +33,27 @@ export function useAuthUser({
   // Handle Discord OAuth redirect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const discordToken = params.get('discord_token');
+    // The sign-in token comes back after the "#", which browsers never send to
+    // any server, so it stays out of hosting logs and referrers.
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const discordToken = hashParams.get('discord_token');
+    const legacyToken = params.get('discord_token');
     const discordError = params.get('discord_error');
-    const discordName = params.get('discord_name');
-    if (discordName) setSuggestedName(discordName);
+    const discordName = hashParams.get('discord_name');
 
-    if (discordToken) {
-      // Sign in with custom token from Discord OAuth
+    if (discordToken || legacyToken) {
       // Take the one-time sign-in token out of the address bar either way, so it
       // never sits in browser history.
-      const token = discordToken;
       window.history.replaceState({}, document.title, window.location.pathname);
-      signInWithCustomToken(auth, token).catch((error) => {
+      // Only use a token that answers a login THIS browser started. A token
+      // with no matching code (or one in the old "?" spot) may be a crafted
+      // link trying to sign the player into someone else's account.
+      if (!discordToken || !consumeDiscordLoginState(hashParams.get('discord_state'))) {
+        showNotification('error', 'Discord sign-in failed. Please try again.');
+        return;
+      }
+      if (discordName) setSuggestedName(discordName);
+      signInWithCustomToken(auth, discordToken).catch((error) => {
         Sentry.captureException(error);
         showNotification('error', 'Discord sign-in failed. Please try again.');
       });

@@ -12,6 +12,7 @@ import { auth, googleProvider, twitterProvider } from '../../../firebase';
 import { themeClasses } from '../../../utils/theme';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import { DISCORD_INVITE_URL } from '../../../constants/links';
+import { startDiscordLoginState } from '../discordLoginState';
 
 interface LoginModalProps {
   onClose: () => void;
@@ -72,7 +73,7 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
   const handleDiscordSignIn = () => {
     const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
     const redirectUri = encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordAuth');
-    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20email`;
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20email&state=${startDiscordLoginState()}`;
     window.location.href = discordAuthUrl;
   };
 

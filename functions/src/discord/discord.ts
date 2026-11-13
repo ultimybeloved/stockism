@@ -222,6 +222,19 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
     // picker. It is only a prefill — createUser re-validates it server-side, so
     // nothing here is trusted.
     const suggestion = needsName ? `&discord_name=${encodeURIComponent(username)}` : '';
+    // The site sends a one-time code as `state` and only accepts a token that
+    // comes back with the same code, so a crafted link can't sign a player into
+    // someone else's account. The token rides after the "#", which browsers
+    // never send to a server, keeping it out of hosting logs and referrers.
+    const state =
+      typeof req.query.state === 'string' && /^[a-f0-9]{32}$/.test(req.query.state) ? req.query.state : null;
+    if (state) {
+      return void res.redirect(
+        `https://stockism.app/#discord_token=${customToken}&discord_state=${state}${suggestion}`,
+      );
+    }
+    // No code: a tab still running the previous site version. The current site
+    // refuses this form, so it only serves those tabs until they reload.
     return void res.redirect(`https://stockism.app/?discord_token=${customToken}${suggestion}`);
   } catch (error) {
     logger.error('Discord auth error:', error);
