@@ -48,3 +48,7 @@ export const LEADERBOARD_POOL_MAX = 1600;
 export const RANK_SNAP_EVERY_MS = 60 * 60 * 1000;
 export const RANK_SNAP_KEEP_MS = 26 * 60 * 60 * 1000;
 export const RANK_BASE_MIN_AGE_MS = 20 * 60 * 60 * 1000;
+
+// How old the saved net-worth board may be and still decide the Top 10 / Top 3
+// / #1 achievements in syncPortfolio. Past this it queries the accounts itself.
+export const LEADERBOARD_RANK_DOC_MAX_AGE_MS = 60 * 60 * 1000;

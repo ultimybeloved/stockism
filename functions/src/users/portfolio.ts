@@ -15,6 +15,7 @@ import {
   ANIMAL_TICKERS,
   UNIFIER_FULL_SHARE_MIN,
   DIVIDEND_DEMON_HOLD_MS,
+  LEADERBOARD_RANK_DOC_MAX_AGE_MS,
 } from '../shared/constants';
 import { grantedSince, snapshotNetWorth, grossPortfolioValue } from '../shared/equity';
 import { eventPositionsValue } from '../shared/lmsr';
@@ -282,15 +283,25 @@ export const syncPortfolio = cf().https.onCall(async (data, context) => {
   const MIN_PORTFOLIO_FOR_LEADERBOARD = 5000;
   if (netWorth >= MIN_PORTFOLIO_FOR_LEADERBOARD && !currentAchievements.includes('TOP_1')) {
     try {
-      const topSnap = await db.collection('users').orderBy('portfolioValue', 'desc').limit(10).get();
-
-      const topUsers: string[] = [];
-      topSnap.forEach((doc) => {
-        const d = doc.data()!;
-        if (!d.isBot && (d.portfolioValue || 0) >= MIN_PORTFOLIO_FOR_LEADERBOARD) {
-          topUsers.push(doc.id);
-        }
-      });
+      // The saved net-worth board (one read), which getLeaderboard rewrites
+      // whenever anyone opens the leaderboard. This used to load the ten
+      // biggest accounts in full on every sync, for every player past $5,000
+      // who was not yet #1. Only when the saved board is missing or old does
+      // it fall back to that query.
+      const boardSnap = await db.collection('leaderboard').doc('global').get();
+      const board = boardSnap.data();
+      let topUsers: string[];
+      if (board && now - (board.generatedAt || 0) < LEADERBOARD_RANK_DOC_MAX_AGE_MS) {
+        topUsers = ((board.entries || []) as { userId: string; portfolioValue?: number }[])
+          .filter((e) => (e.portfolioValue || 0) >= MIN_PORTFOLIO_FOR_LEADERBOARD)
+          .slice(0, 10)
+          .map((e) => e.userId);
+      } else {
+        const topSnap = await db.collection('users').orderBy('portfolioValue', 'desc').limit(10).get();
+        topUsers = topSnap.docs
+          .filter((doc) => !doc.data().isBot && (doc.data().portfolioValue || 0) >= MIN_PORTFOLIO_FOR_LEADERBOARD)
+          .map((doc) => doc.id);
+      }
 
       const userPosition = topUsers.indexOf(uid);
       if (userPosition !== -1) {

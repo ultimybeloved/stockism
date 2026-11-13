@@ -271,6 +271,9 @@ export const runLimitOrderCheck = async () => {
     let expired = 0;
     const now = Date.now();
     const tickerExecutionCount: Record<string, number> = {};
+    // Order owners read this sweep, for the pre-fill screen only (a fill
+    // re-reads its player inside the transaction).
+    const sweepUsers = new Map<string, UserData | null>();
 
     for (const orderDoc of ordersSnapshot.docs) {
       try {
@@ -296,18 +299,6 @@ export const runLimitOrderCheck = async () => {
           continue;
         }
 
-        const orderUserDoc = await db.collection('users').doc(order.userId).get();
-        if (orderUserDoc.exists) {
-          const userVerdict = screenUser(orderUserDoc.data() as UserData);
-          if (userVerdict) {
-            await closeOrder(orderId, { status: 'CANCELED', cancelReason: userVerdict.reason });
-            logger.info(`Cancelled order ${orderId}: ${userVerdict.log}`);
-            await notifyCanceled(order, orderId, userVerdict.reason!);
-            canceled++;
-            continue;
-          }
-        }
-
         const currentPrice = prices[order.ticker];
         if (!currentPrice) {
           logger.info(`No price data for ${order.ticker}, skipping order ${orderId}`);
@@ -315,6 +306,25 @@ export const runLimitOrderCheck = async () => {
         }
         if (isTickerHalted(haltedTickersMap, order.ticker)) continue;
         if (!triggerMet(order, currentPrice)) continue;
+
+        // The owner is only looked at once their order could fill, and once per
+        // sweep. This read used to come first, so every open order cost an
+        // account read every 15 minutes however far its price was. An order
+        // from a banned or bankrupt account still never fills: it is canceled
+        // here the moment its price is reached.
+        if (!sweepUsers.has(order.userId)) {
+          const orderUserDoc = await db.collection('users').doc(order.userId).get();
+          sweepUsers.set(order.userId, orderUserDoc.exists ? (orderUserDoc.data() as UserData) : null);
+        }
+        const orderUser = sweepUsers.get(order.userId);
+        const userVerdict = orderUser ? screenUser(orderUser) : null;
+        if (userVerdict) {
+          await closeOrder(orderId, { status: 'CANCELED', cancelReason: userVerdict.reason });
+          logger.info(`Cancelled order ${orderId}: ${userVerdict.log}`);
+          await notifyCanceled(order, orderId, userVerdict.reason!);
+          canceled++;
+          continue;
+        }
 
         const tickerCount = tickerExecutionCount[order.ticker] || 0;
         if (tickerCount >= ORDERS_PER_TICKER_PER_CYCLE) {

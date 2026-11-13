@@ -53,6 +53,12 @@ const IPO_TICKER = 'EUNH';
 if (!CHARACTER_MAP[IPO_TICKER]) throw new Error(`${IPO_TICKER} is not in characters.ts`);
 CHARACTER_MAP[IPO_TICKER].ipoRequired = true;
 
+// A stock with no links to others, so dumping it moves nothing the checks below price.
+const DUMP_TICKER = CHARACTERS.find(
+  (c) =>
+    !c.isETF && !c.ipoRequired && !c.trailingFactors?.length && ![TICKER, STOP_TICKER, IPO_TICKER].includes(c.ticker),
+)!.ticker;
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 async function main() {
@@ -91,6 +97,8 @@ async function main() {
     // and the auction used to round it to cents and fail it as "Insufficient
     // shares" — so the position could be queued but never actually closed.
     pm_dust: { cash: 0, holdings: { [TICKER]: 0.004 } },
+    // Dumps enough at the open to move the stock past the wash-rule trigger.
+    pm_dumper: { cash: 0, holdings: { [DUMP_TICKER]: 1500 } },
   };
   for (const [uid, data] of Object.entries(users)) {
     await db
@@ -110,6 +118,7 @@ async function main() {
     { id: 'pm_t5', userId: 'pm_staleUser', ticker: TICKER, action: 'buy', shares: 5, createdAt: eightDaysAgo },
     { id: 'pm_t6', userId: 'pm_ipoUser', ticker: IPO_TICKER, action: 'buy', shares: 5, createdAt: now },
     { id: 'pm_t7', userId: 'pm_dust', ticker: TICKER, action: 'sell', shares: 0.004, createdAt: now },
+    { id: 'pm_t8', userId: 'pm_dumper', ticker: DUMP_TICKER, action: 'sell', shares: 1500, createdAt: now },
   ];
   for (const o of orders) {
     const { id, ...rest } = o;
@@ -319,6 +328,31 @@ async function main() {
     'dust position fully closed, not left as an unsellable speck',
     !dustUser.holdings?.[TICKER] && dustUser.cash > 0,
     JSON.stringify(dustUser.holdings || {}),
+  );
+
+  // ── The auction keeps the 24h history and arms the wash rule ───────────
+  // It wrote neither until 2026-11-12, so a dump at the open could be bought
+  // straight back at 21:00 and never touched the daily allowance.
+  const dumper = (await db.collection('users').doc('pm_dumper').get()).data();
+  const dumpEntry = dumper.tickerTradeHistory?.[DUMP_TICKER]?.sell?.[0];
+  check(
+    'auction dump booked its share of the opening move',
+    dumpEntry?.shares === 1500 && dumpEntry?.impact >= 0.04,
+    JSON.stringify(dumpEntry),
+  );
+  check(
+    'auction dump armed the wash rule and the short-after-dump block',
+    !!dumper.lastHeavySell?.[DUMP_TICKER] && !!dumper.lastHeavyExit?.[DUMP_TICKER],
+    JSON.stringify({ sell: dumper.lastHeavySell, exit: dumper.lastHeavyExit }),
+  );
+  const buyEntry = (await db.collection('users').doc('pm_richBuyer').get()).data().tickerTradeHistory?.[TICKER]
+    ?.buy?.[0];
+  check('auction buy on the side that moved the open booked impact', buyEntry?.impact > 0, JSON.stringify(buyEntry));
+  const outvoted = sellerUser.tickerTradeHistory?.[TICKER]?.sell?.[0];
+  check(
+    'auction sell against the move booked no impact and armed nothing',
+    outvoted?.shares === 30 && outvoted?.impact === 0 && !sellerUser.lastHeavySell?.[TICKER],
+    JSON.stringify(outvoted),
   );
 
   const leftover = await db.collection('preMarketOrders').where('status', '==', 'PENDING').get();

@@ -7,7 +7,7 @@ const db = admin.firestore();
 
 import { CHARACTER_MAP } from '../shared/characters';
 import { MAX_PRICE_CHANGE_PERCENT, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '../shared/constants';
-import { liquidityFor, calculateMarginalImpact, washRuleRemainingMs } from '../shared/impact';
+import { liquidityFor, calculateMarginalImpact, washRuleRemainingMs, heavySellStamps } from '../shared/impact';
 import { writeNotification } from '../shared/notifications';
 import { applyDueIPOJumps, appendPriceHistory } from '../shared/marketData';
 import { reportError } from '../shared/sentry';
@@ -32,6 +32,7 @@ interface OpenSummary {
 // Same propagation executeTrade and limit fills use, so the auction moves
 // related characters and parent ETFs the same way every other lane does.
 import { computePriceUpdates } from '../trading/tradePricing';
+import { pruneHistoryMap, appendTradeEntries } from '../trading/tradeState';
 // The stop-loss sweep that runs on the opening prices this file computes.
 import { runStopLossSweep } from './marketOpenStopLoss';
 import { holdForDelayedOpen } from '../market/delayedOpenState';
@@ -205,7 +206,20 @@ export const runMarketOpenProcessing = async (trigger: string) => {
       byTicker[e.order.ticker]![e.order.action === 'buy' ? 'buys' : 'sells'] += e.fillableShares;
     }
 
-    const auctionPrices: Record<string, { openingPrice: number; openingAsk: number; openingBid: number }> = {};
+    // `pushSide` is the side whose demand moved the open, `pushShares` that
+    // side's total and `movePct` how far it moved: each fill on that side books
+    // its share of the move (see auctionHistory below).
+    const auctionPrices: Record<
+      string,
+      {
+        openingPrice: number;
+        openingAsk: number;
+        openingBid: number;
+        pushSide: 'buy' | 'sell';
+        pushShares: number;
+        movePct: number;
+      }
+    > = {};
     const priceWrites: Record<string, number> = {};
     const auctionHistoryPoints: Record<string, PricePoint> = {};
     for (const [ticker, { buys, sells }] of Object.entries(byTicker)) {
@@ -227,6 +241,9 @@ export const runMarketOpenProcessing = async (trigger: string) => {
         openingPrice,
         openingAsk: round2(openingPrice * (1 + spread / 2)),
         openingBid: round2(openingPrice * (1 - spread / 2)),
+        pushSide: netDemand > 0 ? 'buy' : 'sell',
+        pushShares: netDemand > 0 ? buys : sells,
+        movePct: Math.abs(openingPrice - basePrice) / basePrice,
       };
 
       if (openingPrice !== basePrice) {
@@ -315,6 +332,27 @@ export const runMarketOpenProcessing = async (trigger: string) => {
           // Local variable resets correctly on each transaction retry.
           let localFillShares = order.shares;
 
+          // The player's 24h history with this fill on it, as every other lane
+          // keeps: the fill's share of the opening move counts against the
+          // daily allowance, and a heavy sell arms the wash rule. The auction
+          // wrote none of it, so a dump at the open could be bought straight
+          // back at 21:00.
+          const auctionHistory = (shares: number) =>
+            appendTradeEntries(
+              pruneHistoryMap(ud.tickerTradeHistory || {}, Date.now()),
+              order.ticker,
+              order.action,
+              {
+                ts: Date.now(),
+                shares,
+                impact:
+                  prices.pushSide === order.action && prices.pushShares > 0
+                    ? prices.movePct * Math.min(1, shares / prices.pushShares)
+                    : 0,
+              },
+              {},
+            );
+
           if (order.action === 'buy') {
             const affordable = Math.floor(((ud.cash || 0) / executionPrice) * 100) / 100;
             localFillShares = round2(Math.min(localFillShares, affordable));
@@ -345,6 +383,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               [`costBasis.${order.ticker}`]: newCostBasis,
               [`lastBuyTime.${order.ticker}`]: Timestamp.now(),
               lastTradeTime: FieldValue.serverTimestamp(),
+              tickerTradeHistory: auctionHistory(localFillShares),
               // Dividend/exit-loyalty lot ledger — same write executeTrade
               // makes. Without it these shares had no lot, and the next
               // dividend run restarted their 10-day clock from scratch.
@@ -389,9 +428,12 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               marketPrice: prices.openingPrice,
               viaAuction: true,
             });
+            const history = auctionHistory(localFillShares);
             const updates: Record<string, unknown> = {
               cash: FieldValue.increment(executionPrice * localFillShares),
               lastTradeTime: FieldValue.serverTimestamp(),
+              tickerTradeHistory: history,
+              ...heavySellStamps(history, order.ticker, 'sell', Date.now(), FieldValue.serverTimestamp()),
               // Dividend/exit-loyalty lot ledger — same write executeTrade makes.
               ...cohortRemoveUpdate(ud, order.ticker, localFillShares),
               ...creditUpdates,

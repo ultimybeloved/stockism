@@ -51,7 +51,20 @@ export const createUser = cf().https.onCall(async (data, context) => {
   }
 
   const uid = context.auth.uid;
-  const displayName = data.displayName;
+  const displayName = data?.displayName;
+
+  // Email-and-password signups must have verified the address. The site holds
+  // them on a "verify your email" screen, but only the site did: a direct call
+  // made an account on any made-up address, which also walks past the
+  // disposable-email block below. The sign-in token can be up to an hour
+  // behind a fresh verification, so a "not verified" there is double-checked
+  // against the live sign-in record.
+  if (context.auth.token?.firebase?.sign_in_provider === 'password' && !context.auth.token.email_verified) {
+    const record = await admin.auth().getUser(uid);
+    if (!record.emailVerified) {
+      throw new functions.https.HttpsError('failed-precondition', 'Verify your email before choosing a name.');
+    }
+  }
 
   // Validate displayName
   if (!displayName || typeof displayName !== 'string') {

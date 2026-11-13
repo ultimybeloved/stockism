@@ -252,7 +252,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 - After 3 shorts on one ticker, further shorts wait for the oldest to age out of an 8-hour window.
 - Forced short covers are capped at 3 per ticker per scan so a crowded short cannot cascade into a squeeze.
 - Margin-bought shares lock for 36 hours, so borrowed money cannot spike a stock and bail.
-- **Wash rule.** Pushing a stock down 4% or more in 24 hours with sells or shorts blocks buying it back for 48 hours. A heavy sell also blocks shorting that stock for 48 hours. Sells through limit orders and stop losses count too. Exits are never blocked.
+- **Wash rule.** Pushing a stock down 4% or more in 24 hours with sells or shorts blocks buying it back for 48 hours. A heavy sell also blocks shorting that stock for 48 hours. Sells through limit orders, stop losses and the opening auction count too (an auction fill books its share of the opening move, since 2026-11-12). Exits are never blocked.
 - **Circuit breaker.** A stock that moves 10% in 5 minutes pauses for 3 minutes, at most twice a day. This binds bots and the market maker too, and catches groups that each stay inside their own limits.
 - **Coordination scan.** An hourly scan flags groups trading one stock together. Tight downward clusters get the 48-hour buy-back and short block. Admins can review what a flagged push made each player, remove it, and keep repeat offenders out of Platinum and Diamond for the season.
 

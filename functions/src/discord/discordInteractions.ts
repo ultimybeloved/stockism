@@ -261,49 +261,6 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
           return;
         }
 
-        if (messageId) {
-          let alreadyClaimed = false;
-          try {
-            await db.runTransaction(async (tx) => {
-              const freshDoc = await tx.get(db.collection('users').doc(uid));
-              const freshClaimed = freshDoc.data()!.claimedDailyStockMessages || [];
-              if (freshClaimed.includes(messageId)) {
-                alreadyClaimed = true;
-                return;
-              }
-              // Keep only what the guard can still act on. This array is purely
-              // a double-claim ledger, and a drop older than the 72-hour window
-              // is refused by the expiry check above no matter what is in here,
-              // so anything past the window is dead weight that grew by one
-              // entry per claim forever. Snowflakes carry their own timestamp,
-              // so nothing extra has to be stored to prune them.
-              const keep = freshClaimed.filter((id: string) => {
-                try {
-                  return Date.now() - (Number(BigInt(id) >> 22n) + DISCORD_EPOCH_MS) <= DROP_CLAIM_WINDOW_MS;
-                } catch {
-                  return false;
-                } // not a snowflake — cannot be re-claimed anyway
-              });
-              tx.update(freshDoc.ref, {
-                claimedDailyStockMessages: [...keep, messageId],
-              });
-            });
-          } catch (txErr) {
-            logger.error('Daily stock claim reservation failed:', txErr);
-            await editOriginal({
-              content: `${pxe('error')} Something went wrong reserving your claim. Try again in a moment!`,
-            });
-            return;
-          }
-
-          if (alreadyClaimed) {
-            await editOriginal({
-              content: `${pxe('hourglass')} You already claimed from this drop! Wait for the next one.`,
-            });
-            return;
-          }
-        }
-
         // One market read serves both the roll (which needs live prices to
         // rank the drop tiers) and the buy-side price impact applied below.
         const marketRef = db.collection('market').doc('current');
@@ -321,18 +278,41 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
           return;
         }
 
-        // Award the shares in a transaction with a FRESH read of holdings —
-        // the query read above is seconds stale by now, and a concurrent trade
-        // (or a claim on a second drop message) would be clobbered by a blind
-        // write computed from it. claimedDailyStockMessages was already
-        // written by the reservation transaction above.
-        await db.runTransaction(async (tx) => {
+        // Mark the drop claimed and award the shares in ONE transaction, on a
+        // FRESH read of the player. One transaction, so a double click can't
+        // roll twice, and a failure can't use up the claim without paying it
+        // (the claim used to be marked first, in a transaction of its own, so
+        // an error after it left "already claimed" and no shares). Fresh,
+        // because the query read above is seconds stale by now and a
+        // concurrent trade would be clobbered by a write computed from it.
+        const alreadyClaimed = await db.runTransaction(async (tx) => {
           const freshUser = await tx.get(db.collection('users').doc(uid));
           if (!freshUser.exists) throw new Error('User vanished mid-claim');
           const freshHoldings: Record<string, number> = freshUser.data()!.holdings || {};
           const freshCostBasis = freshUser.data()!.costBasis || {};
 
+          const claimUpdate: Record<string, unknown> = {};
+          if (messageId) {
+            const freshClaimed: string[] = freshUser.data()!.claimedDailyStockMessages || [];
+            if (freshClaimed.includes(messageId)) return true;
+            // Keep only what the guard can still act on. This array is purely
+            // a double-claim ledger, and a drop older than the 72-hour window
+            // is refused by the expiry check above no matter what is in here,
+            // so anything past the window is dead weight that grew by one
+            // entry per claim forever. Snowflakes carry their own timestamp,
+            // so nothing extra has to be stored to prune them.
+            const keep = freshClaimed.filter((id) => {
+              try {
+                return Date.now() - (Number(BigInt(id) >> 22n) + DISCORD_EPOCH_MS) <= DROP_CLAIM_WINDOW_MS;
+              } catch {
+                return false;
+              } // not a snowflake — cannot be re-claimed anyway
+            });
+            claimUpdate.claimedDailyStockMessages = [...keep, messageId];
+          }
+
           const updates: Record<string, unknown> = {
+            ...claimUpdate,
             lastDailyStockClaim: FieldValue.serverTimestamp(),
             lastDailyStockResult: {
               picks: picks.map((p) => ({
@@ -394,7 +374,15 @@ export const discordInteractions = cf({ memory: '1GB' }).https.onRequest(async (
             ref: messageId || null,
             detail: { picks: picks.map((p) => ({ ticker: p.ticker, shares: p.shares })) },
           });
+          return false;
         });
+
+        if (alreadyClaimed) {
+          await editOriginal({
+            content: `${pxe('hourglass')} You already claimed from this drop! Wait for the next one.`,
+          });
+          return;
+        }
 
         // Apply buy-side price impact (simulates buy pressure for free shares).
         // Admin-protected tickers are skipped — automated movers must never
