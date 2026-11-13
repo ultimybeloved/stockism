@@ -11,10 +11,16 @@ import type { AppContextValue } from '../../../context/AppContext';
 
 // Background upkeep for the signed-in account: prediction payout claims,
 // debounced portfolio sync, daily margin interest, and bankruptcy reminders.
+const PAYOUT_RETRY_MS = 5 * 60 * 1000;
+
 type MaintenanceArgs = Pick<AppContextValue, 'user' | 'userData' | 'prices' | 'predictions' | 'showNotification'>;
 
 export function useAccountMaintenance({ user, userData, prices, predictions, showNotification }: MaintenanceArgs) {
-  // Auto-process payouts when prediction is resolved
+  // Auto-process payouts when prediction is resolved.
+  // This effect re-runs on every account or market update, so each claim is
+  // remembered: one already on its way is never sent twice, and one that failed
+  // waits PAYOUT_RETRY_MS before another try instead of firing on every update.
+  const payoutAttemptsRef = useRef<Record<string, number>>({});
   useEffect(() => {
     const processPayouts = async () => {
       if (!user || !userData || !userData.bets) return;
@@ -24,6 +30,10 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
 
         const userBet = userData.bets[prediction.id];
         if (!userBet || userBet.paid) continue;
+
+        const key = `${user.uid}:${prediction.id}`;
+        if (Date.now() - (payoutAttemptsRef.current[key] || 0) < PAYOUT_RETRY_MS) continue;
+        payoutAttemptsRef.current[key] = Date.now();
 
         try {
           const result = await claimPredictionPayoutFunction({ predictionId: prediction.id });
@@ -48,15 +58,19 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
 
   // Sync portfolio value, history, and achievements via Cloud Function
   // (these fields are blocked from client-side writes by security rules).
-  // Debounced, with a minimum interval: the sync's own write updates userData,
-  // which re-arms this effect — without the floor every active client would
-  // call the backend roughly every 30 seconds for the whole session.
+  // At most one sync per PORTFOLIO_SYNC_MIN_INTERVAL_MS, and never sooner than
+  // 30 seconds after the change that asked for it. A pending sync is left alone
+  // rather than pushed back by later changes: restarting the wait on every
+  // price tick meant a busy market could postpone the sync indefinitely.
   const lastPortfolioSyncRef = useRef(0);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const uid = user?.uid;
   useEffect(() => {
-    if (!user || !userData || Object.keys(prices).length === 0) return;
+    if (!uid || !userData || Object.keys(prices).length === 0 || syncTimerRef.current) return;
 
-    const timeout = setTimeout(async () => {
-      if (Date.now() - lastPortfolioSyncRef.current < PORTFOLIO_SYNC_MIN_INTERVAL_MS) return;
+    const wait = Math.max(30000, lastPortfolioSyncRef.current + PORTFOLIO_SYNC_MIN_INTERVAL_MS - Date.now());
+    syncTimerRef.current = setTimeout(async () => {
+      syncTimerRef.current = null;
       lastPortfolioSyncRef.current = Date.now();
       try {
         await syncPortfolioFunction();
@@ -65,10 +79,17 @@ export function useAccountMaintenance({ user, userData, prices, predictions, sho
         // history, and achievements quietly stop updating.
         reportUnexpected(error, { where: 'syncPortfolio' });
       }
-    }, 30000);
+    }, wait);
+  }, [uid, userData, prices]);
 
-    return () => clearTimeout(timeout);
-  }, [user, userData, prices]);
+  // Drop a pending sync on sign-out or account switch.
+  useEffect(
+    () => () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    },
+    [uid],
+  );
 
   // Daily margin interest (charged at midnight or on login)
   useEffect(() => {
