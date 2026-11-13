@@ -4,6 +4,7 @@
 import type { DocumentData } from 'firebase-admin/firestore';
 import { BULLBEAR_FRAME_ID, cleanCosmeticStyle, frameTrend } from '../shared/rules/cosmetics';
 import { flairOf } from '../shared/rules/flairCrews';
+import { maxAchievementSlots, maxShopSlots } from '../shared/rules/pinSlots';
 
 // Players write displayedShopPins / displayedAchievementPins / activeCosmetics
 // directly from the client (they're on the user-doc rules allowlist), so
@@ -45,8 +46,15 @@ export const sanitizeDisplayFields = (userData: DocumentData) => {
   delete cosmeticStyle.markColor;
 
   return {
-    displayedAchievementPins: asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id)),
-    displayedShopPins: asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)),
+    // Owned, then cut to the slots the player has: the screen stops at the cap,
+    // a raw write does not.
+    displayedAchievementPins: [
+      ...new Set(asArray(userData.displayedAchievementPins).filter((id) => achievements.includes(id))),
+    ].slice(0, maxAchievementSlots(userData)),
+    displayedShopPins: [...new Set(asArray(userData.displayedShopPins).filter((id) => ownedPins.includes(id)))].slice(
+      0,
+      maxShopSlots(userData),
+    ),
     activeCosmetics,
     cosmeticStyle,
     title,

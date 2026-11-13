@@ -26,6 +26,9 @@ export const addPendingShares = (
   return c;
 };
 
+// Anything smaller than this in a lot is float noise, not shares.
+const COHORT_NOISE = 1e-9;
+
 // Decrement a cohort by `shares`. Consumes eligible first, then oldest pending
 // (FIFO by availableAt). Returns null if the cohort is fully consumed.
 export const decrementCohort = (cohort: Cohort | null, shares: number): Cohort | null => {
@@ -50,8 +53,15 @@ export const decrementCohort = (cohort: Cohort | null, shares: number): Cohort |
     }
   }
 
-  if (eligible === 0 && pending.length === 0) return null;
-  return { ...cohort, eligible, pending };
+  // Subtracting share counts leaves float crumbs (0.1 + 0.2 - 0.3 is 5.5e-17,
+  // not 0). A crumb used to survive a full sell as a ghost lot, so the ledger
+  // was never deleted and a re-buy inherited the old position's ETF clock.
+  // Nothing real is this small: the exit grid's smallest size is a millionth.
+  if (eligible < COHORT_NOISE) eligible = 0;
+  const kept = pending.filter((p) => (p.shares || 0) >= COHORT_NOISE);
+
+  if (eligible === 0 && kept.length === 0) return null;
+  return { ...cohort, eligible, pending: kept };
 };
 
 // Fold fully matured pending lots (held past the top loyalty rung) into

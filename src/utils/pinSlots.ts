@@ -1,18 +1,13 @@
-import { ACHIEVEMENTS } from '../constants/achievements';
+import { maxAchievementSlots, maxShopSlots } from '../rules/pinSlots';
 import type { UserData } from '../types';
 
 // Pin slot math + toggle logic, shared by the customization modal and the
-// achievements page. Base 1 slot each; +1 achievement slot for earning every
-// achievement; +1 of each purchasable in the shop (extraAchievementSlot /
-// extraShopSlot booleans on the user doc, set by the purchasePin backend).
+// achievements page. The slot counts themselves are a shared rule
+// (src/rules/pinSlots.ts), enforced again by the server on public payloads.
 
-export const getMaxAchievementSlots = (userData: UserData | null | undefined): number => {
-  const earned = Array.isArray(userData?.achievements) ? userData.achievements.length : 0;
-  const allBonus = earned >= Object.keys(ACHIEVEMENTS).length ? 1 : 0;
-  return 1 + (userData?.extraAchievementSlot ? 1 : 0) + allBonus;
-};
+export const getMaxAchievementSlots = (userData: UserData | null | undefined): number => maxAchievementSlots(userData);
 
-export const getMaxShopSlots = (userData: UserData | null | undefined): number => 1 + (userData?.extraShopSlot ? 1 : 0);
+export const getMaxShopSlots = (userData: UserData | null | undefined): number => maxShopSlots(userData);
 
 // Toggle an id in a displayed-pins list, respecting the slot cap: removing
 // always works, adding is a no-op when the list is full.

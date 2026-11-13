@@ -67,6 +67,9 @@ const LEADERBOARD_FIELDS = [
   // never included in the payload sent to clients.
   'ownedShopPins',
   'ownedCosmetics',
+  // Bought pin slots: how many displayed pins survive (rules/pinSlots).
+  'extraAchievementSlot',
+  'extraShopSlot',
   'ownedTitles',
   'titleMeta',
   // Banned accounts are skipped. Missing from this list until 2026-10-14, so
