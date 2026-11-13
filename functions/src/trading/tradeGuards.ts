@@ -253,11 +253,16 @@ export function assertCooldowns(userData: UserData, ticker: string, action: stri
 // counting them would lock a player out of a ticker because their own stop loss
 // fired. Fills are still bounded by the 24h per-ticker cap and the daily
 // price-impact cap, which they check for themselves at fill time.
-function countManualTrades(snap: admin.firestore.QuerySnapshot, action: string | null = null) {
+function countManualTrades(
+  snap: admin.firestore.QuerySnapshot,
+  action: string | null = null,
+  sinceMs: number | null = null,
+) {
   return snap.docs.filter((d) => {
     const t = d.data();
     if (t.source) return false;
     if (!TRADE_RECORD_ACTIONS.has(t.action)) return false;
+    if (sinceMs !== null && !(stampMs(t.timestamp) > sinceMs)) return false;
     return action ? t.action === action : true;
   }).length;
 }
@@ -286,14 +291,9 @@ export async function assertVelocityLimits(uid: string, ticker: string, action: 
     );
   }
 
-  const fiveMinAgo = new Date(now - TRADE_BURST_WINDOW_MS);
-  const burstTradesSnap = await db
-    .collection('trades')
-    .where('uid', '==', uid)
-    .where('ticker', '==', ticker)
-    .where('timestamp', '>', fiveMinAgo)
-    .get();
-  const burstCount = countManualTrades(burstTradesSnap, action);
+  // The burst window sits inside the hour just read, so it is counted from the
+  // same results instead of a second query.
+  const burstCount = countManualTrades(recentTickerTradesSnap, action, now - TRADE_BURST_WINDOW_MS);
 
   if (burstCount >= TRADE_BURST_LIMIT) {
     throw new functions.https.HttpsError(

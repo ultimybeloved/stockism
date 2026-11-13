@@ -972,6 +972,21 @@ async function testThrottles() {
   const eB = await err({ ticker: T, action: 'buy', amount: 1 }, 'thr_burst');
   check('burst limit: max 3 buys per ticker per 5 min', !!eB && /Slow down/i.test(eB), eB || 'no error');
 
+  // Three buys older than the burst window (still inside the hour) don't trip it
+  await setUser('thr_oldburst', { cash: 10000 });
+  const batchOld = db.batch();
+  for (let i = 0; i < 3; i++) {
+    batchOld.set(db.collection('trades').doc(), {
+      uid: 'thr_oldburst',
+      ticker: T,
+      action: 'buy',
+      timestamp: admin.firestore.Timestamp.fromMillis(now - 6 * MIN - i * 1000),
+    });
+  }
+  await batchOld.commit();
+  const okOld = await ok({ ticker: T, action: 'buy', amount: 1 }, 'thr_oldburst');
+  check('burst limit ignores buys older than 5 min', okOld.success === true, JSON.stringify(okOld));
+
   // Velocity limit: 15 trades per ticker per hour
   await setUser('thr_vel', { cash: 10000 });
   const batch2 = db.batch();

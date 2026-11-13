@@ -450,7 +450,7 @@ export const executeTrade = cf().https.onCall(
       await sendTradeLimitNotifications(uid, action, ticker, result.remainingTrades);
 
       // Award context-based achievements AFTER transaction completes
-      await processTradeAchievements(uid, ticker, action, result);
+      const userAfterTrade = await processTradeAchievements(uid, ticker, action, result);
 
       // Remove internal context from response
       delete (result as Partial<typeof result>).achievementCtx;
@@ -464,6 +464,7 @@ export const executeTrade = cf().https.onCall(
         amount,
         result,
         ip: tradeIp,
+        userData: userAfterTrade,
       });
       if (actAs) logger.info(`ADMIN TRADE: ${action} ${amount} $${ticker} on ${uid}`);
 

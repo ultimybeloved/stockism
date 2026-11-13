@@ -197,10 +197,19 @@ export async function sendTradeLimitNotifications(
 
 // Award context-based achievements AFTER the transaction completes (can't do
 // additional queries inside the transaction). Mutates result.newAchievements.
-export async function processTradeAchievements(uid: string, ticker: string, action: string, result: TradeResult) {
+// Returns the player's record as just read (null if the read failed), so the
+// side effects that follow don't have to fetch it again.
+export async function processTradeAchievements(
+  uid: string,
+  ticker: string,
+  action: string,
+  result: TradeResult,
+): Promise<UserData | null> {
+  let readUser: UserData | null = null;
   try {
     const ctx: Partial<AchievementCtx> = result.achievementCtx || {};
     const userDoc = await db.collection('users').doc(uid).get();
+    readUser = (userDoc.exists ? userDoc.data() : {}) as UserData;
     if (userDoc.exists) {
       const userData = userDoc.data()!;
       const currentAchievements: string[] = userData.achievements || [];
@@ -264,6 +273,7 @@ export async function processTradeAchievements(uid: string, ticker: string, acti
   } catch (achErr) {
     reportError(achErr, { where: 'executeTrade.achievementCheck', uid, ticker, action });
   }
+  return readUser;
 }
 
 // Fire-and-forget: trade feed entry, achievement notifications, crew mission
@@ -274,6 +284,7 @@ export async function writeTradeSideEffects({
   action,
   result,
   ip,
+  userData,
 }: {
   uid: string;
   ticker: string;
@@ -281,10 +292,16 @@ export async function writeTradeSideEffects({
   amount: number;
   result: TradeResult;
   ip: string;
+  // The record processTradeAchievements just read; fetched here only if that failed.
+  userData?: UserData | null;
 }) {
   try {
-    const userDoc2 = await db.collection('users').doc(uid).get();
-    const uData: UserData & { displayName?: string } = (userDoc2.exists ? userDoc2.data() : {}) as UserData;
+    const needsName = action === 'buy' || action === 'short';
+    let uData: UserData & { displayName?: string } = userData || {};
+    if (!userData && needsName) {
+      const userDoc2 = await db.collection('users').doc(uid).get();
+      uData = (userDoc2.exists ? userDoc2.data() : {}) as UserData;
+    }
 
     // Notify on new achievements
     if (result.newAchievements && result.newAchievements.length > 0) {
