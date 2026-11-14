@@ -156,7 +156,9 @@ const PlayerOverview = ({ file }: { file: PlayerFileResponse; prices: PriceMap }
                 ? `until ${utcDate(u.streakSaverUntil)}`
                 : 'no'}
           </Fact>
-          <Fact label="Mission autopilot">{u.missionAutopilot ? 'yes' : 'no'}</Fact>
+          <Fact label="Mission autopilot">
+            {u.missionAutopilot ? (u.missionAutopilotOff ? 'owned, switched off' : 'on') : 'no'}
+          </Fact>
           <Fact label="Bot commands used">
             {da ? `${int(da.total)} (last ${ago(da.lastAt)} ago)` : 'none recorded'}
           </Fact>

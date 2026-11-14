@@ -72,7 +72,9 @@ export interface RepayMarginResponse {
 }
 
 export interface PurchasePinRequest {
-  action: 'buyPin' | 'buySlot' | 'buyStreakSaver' | 'buyAutopilot';
+  action: 'buyPin' | 'buySlot' | 'buyStreakSaver' | 'buyAutopilot' | 'setAutopilot';
+  /** setAutopilot: switch Mission Autopilot on or off. */
+  on?: boolean;
   pinId?: string;
   slotType?: string;
   /** buyStreakSaver: a key of STREAK_SAVER_PLANS. */

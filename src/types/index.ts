@@ -250,6 +250,8 @@ export interface UserData {
   streakSaverUntil?: number;
   /** Mission Autopilot (shop perk): missions are claimed for this player. Server-written. */
   missionAutopilot?: boolean;
+  /** The owner switched Mission Autopilot off. Server-written. */
+  missionAutopilotOff?: boolean;
   crew?: string | null;
   isAdmin?: boolean;
   activeCosmetics?: ActiveCosmetics;

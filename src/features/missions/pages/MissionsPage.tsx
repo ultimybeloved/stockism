@@ -87,8 +87,9 @@ export default function MissionsPage({
 
       {userData?.missionAutopilot && (
         <p className="px-3 py-2 rounded-sm border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-sm font-semibold">
-          Mission Autopilot is on. Your missions are claimed for you every day just after 00:00 UTC, and the week's
-          missions the night it opens.
+          {userData.missionAutopilotOff
+            ? 'Mission Autopilot is switched off. Your missions are yours to finish and claim. Switch it back on under Customize, Shop, Perks.'
+            : "Mission Autopilot is on. Your missions are claimed for you every day just after 00:00 UTC, and the week's missions the night it opens. They do not count toward shop credit. Switch it off under Customize, Shop, Perks."}
         </p>
       )}
 

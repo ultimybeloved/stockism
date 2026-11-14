@@ -49,7 +49,7 @@ export async function claimMission(uid: string, missionId: string, type: Mission
     const userData = userDoc.data()!;
     checkBanned(userData);
     checkDiscordWall(userData);
-    if (auto && userData.missionAutopilot !== true) {
+    if (auto && (userData.missionAutopilot !== true || userData.missionAutopilotOff)) {
       throw new functions.https.HttpsError('failed-precondition', 'No Mission Autopilot.');
     }
     const now = Date.now();
@@ -178,12 +178,12 @@ export async function claimMission(uid: string, missionId: string, type: Mission
 /**
  * Mission Autopilot for one account: claims every mission it has today and this
  * week that is not claimed yet. Returns how many it paid. Does nothing for an
- * account without the perk, a banned one, or one whose owner has been away for
+ * account without the perk, one that switched it off, a banned one, or one whose owner has been away for
  * MISSION_AUTOPILOT_IDLE_DAYS.
  */
 export async function autoClaimMissions(uid: string, now: number = Date.now()): Promise<number> {
   const data = (await db.collection('users').doc(uid).get()).data();
-  if (!data || data.missionAutopilot !== true || data.isBanned) return 0;
+  if (!data || data.missionAutopilot !== true || data.missionAutopilotOff || data.isBanned) return 0;
   if (now - getLastActiveMs(data) >= MISSION_AUTOPILOT_IDLE_DAYS * 24 * 60 * 60 * 1000) return 0;
 
   const today = dayOf(now);

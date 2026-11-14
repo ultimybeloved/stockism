@@ -182,6 +182,7 @@ const PinShopModal = ({
             onEquipCosmetic={onEquipCosmetic}
             onSetCosmeticStyle={onSetCosmeticStyle}
             onRequestPurchase={setConfirmPurchase}
+            onPinAction={onPurchase}
             onRequestGift={(cosmetic, price) =>
               setGift({ kind: 'cosmetic', id: cosmetic.id, name: cosmetic.name, price })
             }
@@ -266,6 +267,13 @@ const PinShopModal = ({
                   </>
                 )}
               </p>
+              {confirmPurchase.type === 'perk' && confirmPurchase.item === 'autopilot' && (
+                <p className="text-sm font-semibold light:text-red-600 dark:text-red-400 -mt-2 mb-4">
+                  Heads up: missions it claims for you do not count toward shop credit milestones or mission
+                  achievements. Only missions you finish and claim yourself do. You can switch it off and back on any
+                  time under Perks.
+                </p>
+              )}
               {split && (
                 <p className={`text-sm ${mutedClass} -mt-2 mb-4`}>
                   {split.fromCash > 0

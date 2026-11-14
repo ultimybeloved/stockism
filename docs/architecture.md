@@ -262,6 +262,7 @@ Quick reference so you know where to look and where to add things.
 | `src/features/ipo/hooks/useIPOManagement.ts` | handleBuyIPO |
 | `src/features/missions/hooks/useDailyOperations.ts` | handleDailyCheckin, handleBailout |
 | `src/features/profile/hooks/usePinShop.ts` | handlePinAction, handlePurchaseCosmetic, handleEquipCosmetic |
+| `src/features/profile/hooks/perkActions.ts` | The perk actions handlePinAction hands off: streak saver, Mission Autopilot purchase, and the autopilot on/off switch |
 | `src/utils/calculations.ts` | All price/portfolio math — canonical, do not duplicate. Includes `getShortRisk`/`getShortMargin` (mirror the backend force-cover check) and `getAccountAgeImpactFactor` |
 | `src/utils/theme.ts` | Shared theme class strings (`themeClasses`), each carrying its `light:` and `dark:` styles — canonical, do not duplicate |
 | `src/utils/formatters.ts` | Currency, number, percentage formatting |

@@ -18,6 +18,7 @@ import type { Cosmetic, CosmeticType } from '../../../../constants/cosmetics';
 import type { CosmeticStyle, CosmeticStyleKey } from '../../../../rules/cosmetics';
 import type { ShopPin } from '../../../../crews';
 import type { PendingPurchase } from '../PinShopModal';
+import type { PinAction } from '../../hooks/usePinShop';
 
 interface ShopTabProps {
   /** Cash plus shop credit: what the player can spend here. */
@@ -25,6 +26,7 @@ interface ShopTabProps {
   onEquipCosmetic: (type: string, cosmeticId: string | null) => unknown;
   onSetCosmeticStyle: <K extends CosmeticStyleKey>(key: K, value: NonNullable<CosmeticStyle[K]> | null) => unknown;
   onRequestPurchase: (purchase: PendingPurchase) => void;
+  onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
   /** Opens the gift dialog for a shop item at the price the giver would pay. */
   onRequestGift: (cosmetic: Cosmetic, price: number) => void;
   /** Previews cosmetics on the sample row (one per slot); null clears it. */
@@ -52,6 +54,7 @@ const ShopTab = ({
   onEquipCosmetic,
   onSetCosmeticStyle,
   onRequestPurchase,
+  onPinAction,
   onRequestGift,
   onTryOn,
   onTryPin,
@@ -177,7 +180,7 @@ const ShopTab = ({
             onPick={sel.pick}
           />
         ) : category === 'perk' ? (
-          <ShopPerks budget={budget} onRequestPurchase={onRequestPurchase} />
+          <ShopPerks budget={budget} onRequestPurchase={onRequestPurchase} onPinAction={onPinAction} />
         ) : category === 'pin' ? (
           <div className="pt-4">
             <ShopPinGrid pins={shopPins()} selectedId={sel.pin?.id || null} owned={ownedPins} onPick={sel.pickPin} />

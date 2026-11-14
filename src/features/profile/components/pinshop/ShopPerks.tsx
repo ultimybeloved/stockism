@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useSession } from '../../../../context/AppContext';
 import { formatCurrency } from '../../../../utils/formatters';
 import { formatDateTime } from '../../../../utils/localTime';
@@ -15,6 +16,7 @@ import {
 import { getTodayDateString, toUTCDateString } from '../../../../utils/date';
 import type { StreakSaverPlan } from '../../../../rules/economy';
 import type { PendingPurchase } from '../PinShopModal';
+import type { PinAction } from '../../hooks/usePinShop';
 
 const TOP_REWARD = CHECKIN_STREAK_REWARDS[CHECKIN_STREAK_REWARDS.length - 1];
 const SAVER_BLURB = `Every daily check-in pays the top $${TOP_REWARD}, even if you miss days.`;
@@ -31,9 +33,11 @@ const PLANS: { plan: StreakSaverPlan; name: string; blurb: string }[] = [
 const ShopPerks = ({
   budget,
   onRequestPurchase,
+  onPinAction,
 }: {
   budget: number;
   onRequestPurchase: (purchase: PendingPurchase) => void;
+  onPinAction: (action: PinAction, payload: unknown, cost?: number) => void;
 }) => {
   const { userData } = useSession();
   const { textClass, mutedClass } = themeClasses;
@@ -51,7 +55,7 @@ const ShopPerks = ({
     name: string,
     blurb: string,
     price: number,
-    done: string | null,
+    done: ReactNode,
     canBuy: boolean,
     buy: () => void,
   ) => (
@@ -64,7 +68,11 @@ const ShopPerks = ({
         <div className={`text-xs ${mutedClass}`}>{blurb}</div>
       </div>
       {done ? (
-        <span className="shrink-0 text-xs font-bold text-orange-500">{done}</span>
+        typeof done === 'string' ? (
+          <span className="shrink-0 text-xs font-bold text-orange-500">{done}</span>
+        ) : (
+          done
+        )
       ) : (
         <button
           type="button"
@@ -105,9 +113,17 @@ const ShopPerks = ({
       {row(
         'autopilot',
         'Mission Autopilot',
-        'Every mission you get is claimed for you, every day, forever: full reward, and your crew always has you counted in Rivalries. Auto-claimed missions do not count toward shop credit milestones.',
+        'Every mission you get is claimed for you, every day: full reward, and your crew always has you counted in Rivalries. Missions it claims do NOT count toward shop credit milestones or mission achievements. You can switch it off and on; a change starts with the next daily missions.',
         MISSION_AUTOPILOT_PRICE,
-        userData?.missionAutopilot ? 'Owned' : null,
+        userData?.missionAutopilot ? (
+          <button
+            type="button"
+            onClick={() => onPinAction('setAutopilot', !!userData.missionAutopilotOff)}
+            className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-sm border light:border-amber-200 light:text-zinc-700 dark:border-zinc-700 dark:text-zinc-200 hover:border-orange-500"
+          >
+            {userData.missionAutopilotOff ? 'Off. Switch on' : 'On. Switch off'}
+          </button>
+        ) : null,
         budget >= MISSION_AUTOPILOT_PRICE,
         () =>
           onRequestPurchase({

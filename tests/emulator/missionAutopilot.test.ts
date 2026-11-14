@@ -137,6 +137,19 @@ async function main() {
   check('missions already claimed by hand are skipped', (await autoClaimMissions('half')) === count - 1);
   check('and only the rest is paid', (await read('half')).cash === 1000 + all - daily[0]!.reward);
 
+  // --- Switching it off and on ---
+  await seed('switcher', { missionAutopilot: true });
+  await purchasePin.run({ action: 'setAutopilot', on: false }, ctx('switcher'));
+  check('switched off, a run pays nothing', (await autoClaimMissions('switcher')) === 0);
+  check('and the perk is still owned', (await read('switcher')).missionAutopilot === true);
+  await purchasePin.run({ action: 'setAutopilot', on: true }, ctx('switcher'));
+  check('switching on does not pay on the spot', (await read('switcher')).cash === 1000);
+  check('the next run pays everything', (await autoClaimMissions('switcher')) === count);
+  check(
+    'only an owner can use the switch',
+    await refused(() => purchasePin.run({ action: 'setAutopilot', on: true }, ctx('plain'))),
+  );
+
   await seed('solo', { missionAutopilot: true, crew: null });
   const soloPaid = await autoClaimMissions('solo');
   check('an owner without a crew is still paid', soloPaid > 0 && (await read('solo')).cash > 1000);

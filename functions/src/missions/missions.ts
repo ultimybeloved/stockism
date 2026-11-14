@@ -250,6 +250,17 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
       });
       transaction.update(userRef, { missionAutopilot: true, ...updates });
       return { success: true, cost: MISSION_AUTOPILOT_PRICE, paid, autopilot: true };
+    } else if (action === 'setAutopilot') {
+      // An owner can switch it off to do missions by hand (those count toward
+      // shop credit) and back on. Either way it takes effect at the next daily run.
+      if (!userData.missionAutopilot) {
+        throw new functions.https.HttpsError('failed-precondition', 'You do not own Mission Autopilot.');
+      }
+      if (typeof data.on !== 'boolean') {
+        throw new functions.https.HttpsError('invalid-argument', 'Invalid setting.');
+      }
+      transaction.update(userRef, { missionAutopilotOff: data.on ? FieldValue.delete() : true });
+      return { success: true, on: data.on as boolean };
     } else {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid action.');
     }

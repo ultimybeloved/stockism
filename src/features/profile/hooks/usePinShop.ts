@@ -15,6 +15,7 @@ import { formatCurrency } from '../../../utils/formatters';
 import type { ActionHookDeps } from '../../../shared/hooks/types';
 import type { CosmeticStyle, CosmeticStyleKey } from '../../../rules/cosmetics';
 import { afterShopPayment } from '../../../rules/shop';
+import { isPerkAction, runPerkAction } from './perkActions';
 
 /** What a gift is: one shop item or a whole bundle. */
 export interface GiftTarget {
@@ -33,7 +34,8 @@ export type PinAction =
   | 'setFlairCrew'
   | 'buySlot'
   | 'buyStreakSaver'
-  | 'buyAutopilot';
+  | 'buyAutopilot'
+  | 'setAutopilot';
 
 export function usePinShop({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handlePinAction = useCallback(
@@ -41,8 +43,7 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
     // or null (setFlairCrew), a slot type (buySlot) or a streak saver plan (buyStreakSaver).
     async (action: PinAction, payload: unknown, cost?: number) => {
       if (!user || !userData) return;
-      if (action === 'buyPin' || action === 'buySlot' || action === 'buyStreakSaver' || action === 'buyAutopilot')
-        setLoadingKey('pinAction', true);
+      if (action === 'buyPin' || action === 'buySlot' || isPerkAction(action)) setLoadingKey('pinAction', true);
       try {
         const userRef = doc(db, 'users', user.uid);
         if (action === 'buyPin') {
@@ -80,27 +81,8 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
           setUserData((prev) => (prev ? { ...prev, [slotKey]: true, ...afterShopPayment(prev, cost || 0) } : prev));
           playSound('purchase');
           showNotification('success', `Unlocked extra ${payload} pin slot!`);
-        } else if (action === 'buyStreakSaver') {
-          const res = await purchasePinFunction({ action: 'buyStreakSaver', plan: payload as string });
-          const until = (res.data as { until?: number | null }).until;
-          setUserData((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  ...(until ? { streakSaverUntil: until } : { streakSaverPermanent: true }),
-                  ...afterShopPayment(prev, cost || 0),
-                }
-              : prev,
-          );
-          playSound('purchase');
-          showNotification('success', 'Streak saver on. Every check-in pays the top reward.');
-        } else if (action === 'buyAutopilot') {
-          await purchasePinFunction({ action: 'buyAutopilot' });
-          setUserData((prev) =>
-            prev ? { ...prev, missionAutopilot: true, ...afterShopPayment(prev, cost || 0) } : prev,
-          );
-          playSound('purchase');
-          showNotification('success', 'Mission Autopilot on. Your missions are claimed for you from now on.');
+        } else if (isPerkAction(action)) {
+          await runPerkAction(action, payload, cost || 0, { setUserData, showNotification });
         }
       } catch (err) {
         reportUnexpected(err, { where: 'handlePinAction' });

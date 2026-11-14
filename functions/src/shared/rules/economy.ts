@@ -56,6 +56,9 @@ export const streakSaverActive = (u: StreakSaverFields | null | undefined, now =
 // Auto-claimed missions do not move the lifetime mission count, so they earn
 // no shop credit milestones and no mission achievements. It rests while the
 // owner has not opened the game for MISSION_AUTOPILOT_IDLE_DAYS, like dividends.
+// The owner can switch it off and on (missionAutopilotOff); either way the
+// change starts with the next daily run, so a day cannot be split between
+// hand claims that earn credit and an instant sweep of the rest.
 export const MISSION_AUTOPILOT_PRICE = 1000000;
 export const MISSION_AUTOPILOT_IDLE_DAYS = 30;
 
