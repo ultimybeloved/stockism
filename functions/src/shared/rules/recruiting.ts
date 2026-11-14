@@ -8,7 +8,8 @@
 // Discord is one account forever) and kept playing, which is what makes a farm
 // of throwaway accounts worthless. "Kept playing" can be shown three ways
 // (Darth YG, 2026-11-14: check-ins alone are easy to miss): check-ins,
-// finished missions, or trades.
+// finished missions, or trades. Trades alone can be spammed in one sitting, so
+// that way also needs a couple of check-ins (Darth YG, 2026-11-14).
 
 import { toMs, type TimeLike } from './activity';
 
@@ -22,6 +23,8 @@ export const RECRUIT_MIN_CHECKINS = 7;
 export const RECRUIT_MIN_MISSIONS = 10;
 /** Trades made (the 20-trade achievement's count). */
 export const RECRUIT_MIN_TRADES = 20;
+/** Check-ins the trades way needs on top, so it takes coming back on another day. */
+export const RECRUIT_TRADES_MIN_CHECKINS = 2;
 /** The recruit's account must be at least this old. */
 export const RECRUIT_MIN_AGE_DAYS = 14;
 /**
@@ -62,14 +65,18 @@ export interface RecruitProgress {
   isBot?: boolean;
 }
 
-/** Check-ins, missions, or trades: any one of the three counts. */
-export const recruitPlayedEnough = (recruit: RecruitProgress): boolean =>
-  (recruit.totalCheckins || 0) >= RECRUIT_MIN_CHECKINS ||
-  (recruit.totalMissionsCompleted || 0) >= RECRUIT_MIN_MISSIONS ||
-  (recruit.totalTrades || 0) >= RECRUIT_MIN_TRADES;
+/** Check-ins, missions, or trades with a couple of check-ins: any one of the three counts. */
+export const recruitPlayedEnough = (recruit: RecruitProgress): boolean => {
+  const checkins = recruit.totalCheckins || 0;
+  return (
+    checkins >= RECRUIT_MIN_CHECKINS ||
+    (recruit.totalMissionsCompleted || 0) >= RECRUIT_MIN_MISSIONS ||
+    ((recruit.totalTrades || 0) >= RECRUIT_MIN_TRADES && checkins >= RECRUIT_TRADES_MIN_CHECKINS)
+  );
+};
 
 /** The same three ways, as words for the invite card and the board. */
-export const RECRUIT_PLAY_TEXT = `${RECRUIT_MIN_CHECKINS} check-ins, ${RECRUIT_MIN_MISSIONS} missions, or ${RECRUIT_MIN_TRADES} trades`;
+export const RECRUIT_PLAY_TEXT = `${RECRUIT_MIN_CHECKINS} check-ins, ${RECRUIT_MIN_MISSIONS} missions, or ${RECRUIT_MIN_TRADES} trades plus ${RECRUIT_TRADES_MIN_CHECKINS} check-ins`;
 
 /** Recruiter achievements, by recruits paid for. Ids match src/constants/achievements.ts. */
 export const RECRUITER_TIERS = [

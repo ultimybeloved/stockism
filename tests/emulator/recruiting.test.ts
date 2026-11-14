@@ -136,7 +136,9 @@ async function main() {
   await signUp('trader', 'Boss_Man', 'net_i');
   await user('trader').update({ totalTrades: 20, discordId: 'discord_trader' });
   await backdate('trader', 15);
-  check('twenty trades count too', (await settleRecruit('trader')) === 'paid');
+  check('twenty trades alone are not enough', (await settleRecruit('trader')) === 'waiting');
+  await user('trader').update({ totalCheckins: 2 });
+  check('twenty trades plus two check-ins count', (await settleRecruit('trader')) === 'paid');
 
   // --- Rolling over past the weekly cap ---
   await addPlayer('rolled', 'RolledOver', 'net_j');

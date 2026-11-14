@@ -10,6 +10,7 @@ import {
   RECRUIT_EXPIRY_DAYS,
   RECRUIT_MIN_MISSIONS,
   RECRUIT_MIN_TRADES,
+  RECRUIT_TRADES_MIN_CHECKINS,
   RECRUITER_TIERS,
   recruiterAchievements,
 } from './recruiting';
@@ -57,7 +58,14 @@ describe('ways to show a recruit kept playing', () => {
     expect(recruitQualifies(idle, oldEnough, NOW)).toBe(false);
     expect(recruitQualifies({ ...idle, totalCheckins: RECRUIT_MIN_CHECKINS }, oldEnough, NOW)).toBe(true);
     expect(recruitQualifies({ ...idle, totalMissionsCompleted: RECRUIT_MIN_MISSIONS }, oldEnough, NOW)).toBe(true);
-    expect(recruitQualifies({ ...idle, totalTrades: RECRUIT_MIN_TRADES }, oldEnough, NOW)).toBe(true);
+    const traded = { ...idle, totalTrades: RECRUIT_MIN_TRADES, totalCheckins: RECRUIT_TRADES_MIN_CHECKINS };
+    expect(recruitQualifies(traded, oldEnough, NOW)).toBe(true);
+  });
+
+  it('does not take trades alone, however many', () => {
+    expect(recruitQualifies({ ...idle, totalTrades: 500 }, oldEnough, NOW)).toBe(false);
+    const oneDay = { ...idle, totalTrades: 500, totalCheckins: RECRUIT_TRADES_MIN_CHECKINS - 1 };
+    expect(recruitQualifies(oneDay, oldEnough, NOW)).toBe(false);
   });
 
   it('does not add partial progress together', () => {
@@ -71,8 +79,8 @@ describe('ways to show a recruit kept playing', () => {
   });
 
   it('still needs Discord and the account age', () => {
-    expect(recruitQualifies({ totalTrades: 500 }, oldEnough, NOW)).toBe(false);
-    expect(recruitQualifies({ ...idle, totalTrades: 500 }, oldEnough + DAY, NOW)).toBe(false);
+    expect(recruitQualifies({ totalTrades: 500, totalCheckins: 5 }, oldEnough, NOW)).toBe(false);
+    expect(recruitQualifies({ ...idle, totalTrades: 500, totalCheckins: 5 }, oldEnough + DAY, NOW)).toBe(false);
   });
 });
 
