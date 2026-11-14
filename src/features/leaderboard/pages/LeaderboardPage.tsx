@@ -3,11 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { useSession } from '../../../context/AppContext';
 import { useSeason } from '../../season/hooks/useSeason';
 import SeasonBoard from '../../season/components/SeasonBoard';
+import RecruiterBoard from '../components/RecruiterBoard';
 import { useUserRowPosition } from '../hooks/useUserRowPosition';
 import { useYourStanding } from '../hooks/useYourStanding';
 import { formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { prefetchBoard } from '../hooks/boardCache';
+import { RECRUITS_SORT } from '../../../rules/recruiting';
 import { CREW_MAP } from '../../../crews';
 import { CrewMenu, CrewRail } from '../components/CrewFilter';
 import { BoardRail, BoardTabs, GainUnitSwitch, type BoardMode, type GainUnit } from '../components/BoardNav';
@@ -31,10 +33,13 @@ const LeaderboardPage = () => {
   const { user, userData } = useSession();
   const wide = useWideScreen();
   const [crewFilter, setCrewFilter] = useState('ALL');
-  // The season card deep-links in with ?board=season.
+  // The season card deep-links in with ?board=season, the invite card with ?board=recruiters.
   const [searchParams] = useSearchParams();
   const { active: seasonActive } = useSeason();
-  const [sortMode, setSortMode] = useState<BoardMode>(searchParams.get('board') === 'season' ? 'season' : 'value');
+  const linked = searchParams.get('board');
+  const [sortMode, setSortMode] = useState<BoardMode>(
+    linked === 'season' || linked === 'recruiters' ? linked : 'value',
+  );
   const [gainUnit, setGainUnit] = useState<GainUnit>('$');
   const sortBy = sortFor(sortMode, gainUnit);
   const uid = user?.uid ?? null;
@@ -99,6 +104,7 @@ const LeaderboardPage = () => {
   const prefetchMode = (mode: BoardMode) => {
     if (mode === 'value' || mode === 'gain')
       prefetchBoard(sortFor(mode, gainUnit), crewFilter === 'ALL' ? null : crewFilter, uid);
+    else if (mode === 'recruiters') prefetchBoard(RECRUITS_SORT, null, uid);
   };
   const prefetchCrew = (id: string) => listMode && prefetchBoard(sortBy, id === 'ALL' ? null : id, uid);
   const openGainers = () => {
@@ -165,6 +171,8 @@ const LeaderboardPage = () => {
             <div className="p-3">
               <SeasonBoard />
             </div>
+          ) : sortMode === 'recruiters' ? (
+            <RecruiterBoard userRowRef={userRowRef} />
           ) : loading ? (
             <div className={`text-center py-8 ${mutedClass}`}>Loading...</div>
           ) : filteredLeaders.length === 0 ? (

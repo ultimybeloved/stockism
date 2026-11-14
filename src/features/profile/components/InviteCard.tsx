@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { themeClasses } from '../../../utils/theme';
 import { useSession } from '../../../context/AppContext';
 import { formatCurrency } from '../../../utils/formatters';
@@ -12,7 +13,7 @@ import {
 } from '../../../rules/recruiting';
 
 // The player's invite link and how their recruits are doing (rules/recruiting).
-const InviteCard = () => {
+const InviteCard = ({ hideBoardLink = false }: { hideBoardLink?: boolean }) => {
   const { userData } = useSession();
   const { textClass, mutedClass, inputClass } = themeClasses;
   const [copied, setCopied] = useState(false);
@@ -58,6 +59,14 @@ const InviteCard = () => {
       <p className={`text-xs ${mutedClass} mt-3`}>
         <span className={`font-semibold ${textClass}`}>{paid}</span> rewarded ·{' '}
         <span className={`font-semibold ${textClass}`}>{pending}</span> still earning it
+        {!hideBoardLink && (
+          <>
+            {' · '}
+            <Link to="/leaderboard?board=recruiters" className="font-semibold text-orange-500 hover:text-orange-400">
+              Top recruiters
+            </Link>
+          </>
+        )}
       </p>
     </div>
   );

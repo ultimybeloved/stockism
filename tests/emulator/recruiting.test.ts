@@ -89,6 +89,7 @@ async function main() {
     boss.grantedValue === RECRUITER_REWARD && newbie.grantedValue === RECRUIT_BONUS,
   );
   check('counts moved from pending to paid', boss.recruiting.pending === 0 && boss.recruiting.paid === 1);
+  check('the payout time is kept for board ties', boss.recruiting.lastPaidAt > Date.now() - 60000);
   check('the flag is cleared', newbie.recruitPending === undefined);
   check('the record is closed as paid', (await record('newbie')).status === 'paid');
   const ledger = await db.collection('ledger').where('ref', '==', 'recruits/newbie').get();

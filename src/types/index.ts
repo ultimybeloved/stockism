@@ -368,6 +368,8 @@ export interface LeaderRow {
   /** Net-worth boards: places moved up since about a day ago (negative = down),
    * null if new to the board, absent until the server has a day of history. */
   rankChange?: number | null;
+  /** Recruiters board only: recruits who stuck and were paid for. */
+  recruits?: number;
   [key: string]: unknown;
 }
 

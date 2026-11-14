@@ -4,7 +4,7 @@ import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { themeClasses } from '../../../utils/theme';
 
-export type BoardMode = 'value' | 'gain' | 'season';
+export type BoardMode = 'value' | 'gain' | 'season' | 'recruiters';
 export type GainUnit = '$' | '%';
 
 interface BoardNavProps {
@@ -33,6 +33,7 @@ const boards = (seasonActive: boolean): { value: BoardMode; label: ReactNode }[]
         },
       ]
     : []),
+  { value: 'recruiters', label: 'Recruiters' },
 ];
 
 const UNITS = [

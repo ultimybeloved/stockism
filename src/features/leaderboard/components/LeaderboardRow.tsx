@@ -11,6 +11,7 @@ import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
 import { getRankMedal, getRankStyle, formatGainPct, formatGainDollars } from '../../../utils/leaderboardRank';
 import type { RankedLeader } from '../hooks/boardCache';
+import { RECRUITS_SORT } from '../../../rules/recruiting';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import RankMove from './RankMove';
 
@@ -33,6 +34,7 @@ const LeaderboardRow = ({ leader, displayRank, isCurrentUser, userRowRef, sortBy
   const gainClass = colorBlindMode ? 'text-teal-500' : 'text-emerald-500';
   const lossClass = colorBlindMode ? 'text-purple-500' : 'text-red-500';
   const isGainSort = sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
+  const isRecruitSort = sortBy === RECRUITS_SORT;
   const crew = leader.crew ? CREW_MAP[leader.crew] : null;
   const cosmetics = getCosmeticStyles(leader.activeCosmetics, null, {
     seedKey: leader.displayName,
@@ -71,7 +73,7 @@ const LeaderboardRow = ({ leader, displayRank, isCurrentUser, userRowRef, sortBy
         ) : (
           `#${displayRank}`
         )}
-        {!isGainSort && <RankMove change={leader.rankChange} className="block leading-tight" />}
+        {!isGainSort && !isRecruitSort && <RankMove change={leader.rankChange} className="block leading-tight" />}
       </div>
       <div className="flex-1 min-w-0">
         <div className={`font-semibold truncate ${textClass} flex items-center gap-1`}>
@@ -96,10 +98,15 @@ const LeaderboardRow = ({ leader, displayRank, isCurrentUser, userRowRef, sortBy
           Date.now() - (nameChangedMs as number) < 30 * 24 * 60 * 60 * 1000 && (
             <div className={`text-xs ${mutedClass}`}>formerly {leader.previousDisplayName}</div>
           )}
-        <div className={`text-xs ${mutedClass}`}>{leader.holdingsCount || 0} characters</div>
+        {!isRecruitSort && <div className={`text-xs ${mutedClass}`}>{leader.holdingsCount || 0} characters</div>}
       </div>
       <div className="text-right">
-        {isGainSort ? (
+        {isRecruitSort ? (
+          <>
+            <div className={`font-bold ${textClass}`}>{leader.recruits || 0}</div>
+            <div className={`text-xs ${mutedClass}`}>{leader.recruits === 1 ? 'recruit' : 'recruits'}</div>
+          </>
+        ) : isGainSort ? (
           <>
             <div className={`font-bold ${(leader.weeklyGain || 0) >= 0 ? gainClass : lossClass}`}>
               {sortBy === 'weeklyGainPercent'

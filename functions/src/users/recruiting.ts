@@ -106,6 +106,8 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
       'recruiting.paid': FieldValue.increment(1),
       'recruiting.week': week,
       'recruiting.weekPaid': paidThisWeek + 1,
+      // Breaks ties on the recruiters board: first to a count ranks higher.
+      'recruiting.lastPaidAt': now,
       ...grantedValueUpdate(RECRUITER_REWARD, now),
     });
     recordLedger(tx, {

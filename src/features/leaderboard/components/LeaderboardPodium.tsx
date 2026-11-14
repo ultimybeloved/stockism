@@ -12,6 +12,7 @@ import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { CSSProperties, Ref } from 'react';
 import type { User } from 'firebase/auth';
 import type { RankedLeader } from '../hooks/boardCache';
+import { RECRUITS_SORT } from '../../../rules/recruiting';
 import PixelIcon from '../../../shared/components/PixelIcon';
 
 // Gold / silver / bronze card treatments, keyed by podium place.
@@ -108,8 +109,17 @@ const PodiumCard = forwardRef<HTMLDivElement, PodiumCardProps>(({ leader, place,
         )}
         {isCurrentUser && <span className={`text-[10px] font-normal ${mutedClass}`}>(you)</span>}
       </div>
-      <div className={`text-xs ${mutedClass} truncate`}>{leader.holdingsCount || 0} characters</div>
-      {sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent' ? (
+      {sortBy !== RECRUITS_SORT && (
+        <div className={`text-xs ${mutedClass} truncate`}>{leader.holdingsCount || 0} characters</div>
+      )}
+      {sortBy === RECRUITS_SORT ? (
+        <div className="mt-1">
+          <div className={`font-bold ${isFirst ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} ${textClass}`}>
+            {leader.recruits || 0}
+          </div>
+          <div className={`text-xs ${mutedClass}`}>{leader.recruits === 1 ? 'recruit' : 'recruits'}</div>
+        </div>
+      ) : sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent' ? (
         <div className="mt-1">
           <div
             className={`font-bold ${isFirst ? 'text-base sm:text-lg' : 'text-sm sm:text-base'} ${gain >= 0 ? gainClass : lossClass}`}

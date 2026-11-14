@@ -94,6 +94,25 @@ async function main() {
   check('p006 is new to the board', move('p006') === null, `got ${move('p006')}`);
   const snaps = (await db.collection('leaderboardRanks').doc('HOSTEL').get()).data().snaps;
   check("today's ranks were saved for tomorrow", snaps.length === 2 && snaps[1].ranks.p002 === 1, `${snaps.length}`);
+
+  console.log('\n8: the recruiters board ranks by recruits who stuck');
+  const users = db.collection('users');
+  await Promise.all([
+    users.doc(uidOf(55)).update({ recruiting: { paid: 3, lastPaidAt: 2000 } }),
+    // Same count, reached earlier: ranks above.
+    users.doc(uidOf(56)).update({ recruiting: { paid: 3, lastPaidAt: 1000 } }),
+    users.doc(uidOf(57)).update({ recruiting: { paid: 1, lastPaidAt: 3000 } }),
+    users.doc(uidOf(58)).update({ recruiting: { pending: 4 } }),
+    users.doc('cheat').set({ displayName: 'cheat', isBanned: true, recruiting: { paid: 9 } }),
+  ]);
+  // A crew is ignored: this is one board for everyone.
+  r = await call({ sortBy: 'recruits', crew: 'WORKERS' }, uidOf(57));
+  const order = r.leaderboard?.map((e: Loose) => `${e.userId}:${e.recruits}`).join();
+  check('paid recruits rank, ties to whoever got there first', order === 'p056:3,p055:3,p057:1', order);
+  check('the caller sees their place', r.callerRank === 3, `got ${r.callerRank}`);
+  check('no net worth is published on it', r.leaderboard?.[0]?.portfolioValue === undefined);
+  r = await call({ sortBy: 'recruits' }, uidOf(58));
+  check('still-pending recruits earn no place', r.callerRank === null, `got ${r.callerRank}`);
 }
 
 it('leaderboard', main);

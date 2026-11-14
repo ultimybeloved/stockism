@@ -3,6 +3,7 @@ import { db } from '../../../firebase';
 import { getLeaderboardFunction } from '../../../api/callables';
 import { LEADERBOARD_DOC_FRESH_MS } from '../../../constants';
 import type { LeaderRow } from '../../../types';
+import { RECRUITS_SORT } from '../../../rules/recruiting';
 
 export interface RankedLeader extends LeaderRow {
   rank: number;
@@ -29,8 +30,17 @@ const inflight: Record<string, Promise<CachedBoard>> = {};
 // Must mirror the backend cacheKey in functions/src/users/leaderboard.ts
 export const isGainSort = (sortBy: string) => sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
 export const docKey = (sortBy: string, crew: string | null) =>
-  crew ? (isGainSort(sortBy) ? `${sortBy}_${crew}` : crew) : isGainSort(sortBy) ? sortBy : 'global';
-const paramsFor = (sortBy: string, crew: string | null) => (crew ? { sortBy, crew } : { sortBy });
+  sortBy === RECRUITS_SORT
+    ? RECRUITS_SORT
+    : crew
+      ? isGainSort(sortBy)
+        ? `${sortBy}_${crew}`
+        : crew
+      : isGainSort(sortBy)
+        ? sortBy
+        : 'global';
+const paramsFor = (sortBy: string, crew: string | null) =>
+  crew && sortBy !== RECRUITS_SORT ? { sortBy, crew } : { sortBy };
 
 const decorate = (entries: LeaderRow[]): RankedLeader[] =>
   entries.map((u, i) => ({

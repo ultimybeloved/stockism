@@ -19,6 +19,7 @@ import { withRankMoves } from './leaderboardMoves';
 import { CREW_MAP } from '../shared/crews';
 import { asArray, sanitizeDisplayFields } from './displayFields';
 import { ownEntry } from '../shared/lookup';
+import { RECRUITS_SORT } from '../shared/rules/recruiting';
 
 import {
   LEADERBOARD_CACHE_TTL,
@@ -82,20 +83,61 @@ const LEADERBOARD_FIELDS = [
   'eventPositionsValue',
 ];
 
+// What every board publishes about a player, whatever it is sorted by.
+const baseEntry = (userId: string, userData: DocumentData) => ({
+  userId,
+  displayName: userData.displayName || 'Anonymous',
+  crew: userData.crew || null,
+  isCrewHead: userData.isCrewHead || false,
+  crewHeadColor: userData.crewHeadColor || null,
+  holdingsCount: userData.holdings ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length : 0,
+  displayCrewPin: userData.displayCrewPin ?? null,
+  ...sanitizeDisplayFields(userData),
+  achievements: asArray(userData.achievements),
+  previousDisplayName: userData.previousDisplayName || null,
+  nameChangedAt: userData.nameChangedAt || null,
+  isPublic: userData.isPublic || false,
+});
+
+// Top recruiters: players ranked by recruits who stuck and were paid for
+// (rules/recruiting). Ties go to whoever got there first. No net worth is
+// published here, since most of these players are not on the net-worth board.
+const recruiterBoard = async (): Promise<BoardEntry[]> => {
+  const snapshot = await db
+    .collection('users')
+    .where('recruiting.paid', '>', 0)
+    .orderBy('recruiting.paid', 'desc')
+    .limit(LEADERBOARD_SIZE * 2)
+    .select(...LEADERBOARD_FIELDS, 'recruiting')
+    .get();
+  return snapshot.docs
+    .map((d): DocumentData => ({ ...d.data(), userId: d.id }))
+    .filter((u) => !u.isBot && !u.isBanned)
+    .sort(
+      (a, b) =>
+        b.recruiting.paid - a.recruiting.paid || (a.recruiting.lastPaidAt || 0) - (b.recruiting.lastPaidAt || 0),
+    )
+    .slice(0, LEADERBOARD_SIZE)
+    .map((u) => ({ ...baseEntry(u.userId, u), recruits: u.recruiting.paid as number }));
+};
+
 export const getLeaderboard = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
-  const { crew, sortBy = 'value' } = data || {};
+  const { sortBy = 'value' } = data || {};
+  // The recruiters board is one board for everyone, never split by crew.
+  const crew = sortBy === RECRUITS_SORT ? null : data?.crew;
   // Every board key becomes a document id, so only real crews and sorts.
   if (crew != null && !ownEntry(CREW_MAP, crew)) {
     throw new functions.https.HttpsError('invalid-argument', 'Unknown crew');
   }
-  if (!['value', 'weeklyGain', 'weeklyGainPercent'].includes(sortBy)) {
+  if (!['value', 'weeklyGain', 'weeklyGainPercent', RECRUITS_SORT].includes(sortBy)) {
     throw new functions.https.HttpsError('invalid-argument', 'Unknown board');
   }
   try {
     // Two weekly-gain sorts: 'weeklyGain' (dollars) and 'weeklyGainPercent'.
     const gainSort = sortBy === 'weeklyGain' || sortBy === 'weeklyGainPercent';
-    const cacheKey = crew ? (gainSort ? `${sortBy}_${crew}` : crew) : gainSort ? sortBy : 'global';
+    const ownKey = gainSort || sortBy === RECRUITS_SORT;
+    const cacheKey = crew ? (gainSort ? `${sortBy}_${crew}` : crew) : ownKey ? sortBy : 'global';
     const docRef = db.collection('leaderboard').doc(cacheKey);
 
     // Layer 1: in-memory cache (this warm instance). Layer 2: the shared
@@ -114,7 +156,9 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
       }
     }
     if (!leaderboard) {
-      if (gainSort) {
+      if (sortBy === RECRUITS_SORT) {
+        leaderboard = await recruiterBoard();
+      } else if (gainSort) {
         let query: Query = db.collection('users');
         if (crew) {
           query = query.where('crew', '==', crew);
@@ -158,26 +202,11 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
           const weeklyGain = currentValue - granted - valueSevenDaysAgo;
           const weeklyGainPercent = netReturnPercent(currentValue, valueSevenDaysAgo, granted);
 
-          const holdingsCount = userData.holdings
-            ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length
-            : 0;
-
           allUsers.push({
-            userId: doc.id,
-            displayName: userData.displayName || 'Anonymous',
+            ...baseEntry(doc.id, userData),
             portfolioValue: currentValue,
-            crew: userData.crew || null,
-            isCrewHead: userData.isCrewHead || false,
-            crewHeadColor: userData.crewHeadColor || null,
-            holdingsCount,
-            displayCrewPin: userData.displayCrewPin ?? null,
-            ...sanitizeDisplayFields(userData),
-            achievements: asArray(userData.achievements),
             weeklyGain,
             weeklyGainPercent: Math.round(weeklyGainPercent * 100) / 100,
-            previousDisplayName: userData.previousDisplayName || null,
-            nameChangedAt: userData.nameChangedAt || null,
-            isPublic: userData.isPublic || false,
           });
         });
 
@@ -224,28 +253,9 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
             break;
         }
 
-        const board = docs.slice(0, LEADERBOARD_SIZE).map((userData) => {
-          // Count holdings (only non-zero positions)
-          const holdingsCount = userData.holdings
-            ? Object.keys(userData.holdings).filter((k) => userData.holdings[k] > 0).length
-            : 0;
-
-          return {
-            userId: userData.userId,
-            displayName: userData.displayName || 'Anonymous',
-            portfolioValue: netWorthOf(userData),
-            crew: userData.crew || null,
-            isCrewHead: userData.isCrewHead || false,
-            crewHeadColor: userData.crewHeadColor || null,
-            holdingsCount: holdingsCount,
-            displayCrewPin: userData.displayCrewPin ?? null,
-            ...sanitizeDisplayFields(userData),
-            achievements: asArray(userData.achievements),
-            previousDisplayName: userData.previousDisplayName || null,
-            nameChangedAt: userData.nameChangedAt || null,
-            isPublic: userData.isPublic || false,
-          };
-        });
+        const board = docs
+          .slice(0, LEADERBOARD_SIZE)
+          .map((userData) => ({ ...baseEntry(userData.userId, userData), portfolioValue: netWorthOf(userData) }));
         leaderboard = await withRankMoves(cacheKey, board, Date.now());
       }
 
@@ -268,7 +278,7 @@ export const getLeaderboard = cf().https.onCall(async (data, context) => {
       const callerIndex = leaderboard!.findIndex((entry) => entry.userId === context.auth!.uid);
       if (callerIndex !== -1) {
         callerRank = callerIndex + 1;
-      } else if (!gainSort) {
+      } else if (sortBy === 'value') {
         // Caller is outside top 50 — count aggregation instead of reading one
         // doc per higher-ranked user (that scaled with the caller's rank).
         // Only for the net-worth sort: the aggregation ranks by net worth,

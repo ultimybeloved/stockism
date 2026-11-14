@@ -26,6 +26,8 @@ export const RECRUIT_EXPIRY_DAYS = 60;
 export const RECRUIT_LINK_MEMORY_DAYS = 30;
 
 export const RECRUIT_REF_PARAM = 'ref';
+/** The recruiters board: its getLeaderboard sort and its `leaderboard/{key}` doc. One board, never split by crew. */
+export const RECRUITS_SORT = 'recruits';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** A name as it may appear in an invite link (same shape as a username). */
