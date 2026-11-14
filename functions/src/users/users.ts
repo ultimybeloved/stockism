@@ -26,6 +26,7 @@ import { isDisposableEmailLive } from './disposableEmail';
 import { countIpAccounts } from './ipCap';
 import { cleanupBlockedAuthUser, applyPendingDiscordLink } from './signupHelpers';
 import { announceSignup } from './signupAnnounce';
+import { recordRecruit } from './recruiting';
 import { purgeAccount } from '../shared/accountDeletion';
 import { clientIp } from '../shared/clientIp';
 import { recordLedger } from '../shared/ledger';
@@ -391,6 +392,15 @@ export const createUser = cf().https.onCall(async (data, context) => {
       logger.error('Failed to apply pending Discord link:', err);
     }
 
+    // Came in through a player's invite link? Note who recruited them (see
+    // recruiting.ts). Best-effort, like the link above.
+    let recruiterName: string | null = null;
+    try {
+      recruiterName = await recordRecruit({ recruitUid: uid, ref: data?.ref, signupTrackingKey, sanitizedSignupIp });
+    } catch (err) {
+      logger.error('Failed to record recruit:', err);
+    }
+
     // Auto-link to watched user after successful account creation
     if (autoLinkData) {
       try {
@@ -434,7 +444,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
 
     // Post the new player in the Discord sign-up feed (see signupAnnounce.ts for
     // why this was removed in June 2026 and restored).
-    await announceSignup(trimmed, context.auth.token?.firebase?.sign_in_provider);
+    await announceSignup(trimmed, context.auth.token?.firebase?.sign_in_provider, recruiterName);
 
     // (signup IP is recorded inside the create transaction above — see "Reserve
     // this account's per-IP slot")

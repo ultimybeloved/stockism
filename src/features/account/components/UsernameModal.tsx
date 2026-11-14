@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createUserFunction, checkUsernameFunction } from '../../../api/callables';
+import { readRecruitRef } from '../recruitRef';
 import { containsProfanity, getProfanityMessage } from '../../../utils/profanity';
 import { validateUsername } from '../../../utils/username';
 import { themeClasses } from '../../../utils/theme';
@@ -91,7 +92,7 @@ const UsernameModal = ({ onComplete, suggestedName = '' }: { onComplete: () => v
     setLoading(true);
     try {
       // Create user via Cloud Function (ensures case-insensitive username uniqueness)
-      await createUserFunction({ displayName: trimmed });
+      await createUserFunction({ displayName: trimmed, ref: readRecruitRef() });
       onComplete();
     } catch (err) {
       // Handle specific error codes from Cloud Function

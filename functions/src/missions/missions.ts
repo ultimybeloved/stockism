@@ -30,6 +30,7 @@ import { holdsShortForMissions, nextRivalry, rivalryQualified } from '../shared/
 import { weeklyMissionsOpen } from '../shared/rules/missions';
 import { missionCreditFor } from '../shared/rules/shop';
 import { noteRivalryActivity } from '../shared/rivalries';
+import { settleRecruit } from '../users/recruiting';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -399,7 +400,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'dailyCheckin');
 
   try {
-    const { response } = await db.runTransaction(async (transaction) => {
+    const { response, recruitPending } = await db.runTransaction(async (transaction) => {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await transaction.get(userRef);
 
@@ -525,8 +526,14 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
         },
         crew: (userData.crew as string | undefined) || null,
         weekId: checkinWeekId,
+        recruitPending: userData.recruitPending === true,
       };
     });
+    // An invited player may have just earned the recruit rewards (users/recruiting.ts).
+    // Awaited so the work is not cut off, and never allowed to fail the check-in.
+    if (recruitPending) {
+      await settleRecruit(uid).catch((err) => reportError(err, { where: 'dailyCheckin.settleRecruit', uid }));
+    }
     return response;
   } catch (error) {
     if (error instanceof functions.https.HttpsError) {

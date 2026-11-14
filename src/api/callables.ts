@@ -13,7 +13,9 @@ import type { GiveawayTier } from '../rules/giveaways';
 // function deletes and recreates it.
 const callable = <Req = unknown, Res = unknown>(name: string) => httpsCallable<Req, Res>(functions, name);
 
-export const createUserFunction = callable<{ displayName: string }, { success: boolean }>('createUser');
+export const createUserFunction = callable<{ displayName: string; ref?: string | null }, { success: boolean }>(
+  'createUser',
+);
 export const checkUsernameFunction = callable<{ displayName: string }, { available: boolean }>('checkUsername');
 export const deleteAccountFunction = callable<{ confirmUsername: string }>('deleteAccount');
 export const changeDisplayNameFunction = callable<{ displayName: string }, { success: boolean }>('changeDisplayName');

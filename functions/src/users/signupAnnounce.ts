@@ -21,13 +21,19 @@ const PROVIDER_LABELS: Record<string, string> = {
 /** Underscores are the only markdown character a username can contain. */
 const escapeName = (name: string) => name.replace(/_/g, '\\_');
 
-export function buildSignupEmbed(displayName: string, provider: string | undefined, nowMs: number) {
+export function buildSignupEmbed(
+  displayName: string,
+  provider: string | undefined,
+  nowMs: number,
+  recruiterName?: string | null,
+) {
   const via = PROVIDER_LABELS[provider || ''];
   return {
     color: SIGNUP_EMBED_COLOR,
     title: `${pxe('party')} New player`,
     description:
       `**${escapeName(displayName)}** just joined Stockism${via ? ` with ${via}` : ''}.\n` +
+      (recruiterName ? `Recruited by **${escapeName(recruiterName)}**.\n` : '') +
       `Say hi, and run \`/welcome\` here for your welcome week.`,
     url: SITE_URL,
     timestamp: new Date(nowMs).toISOString(),
@@ -35,6 +41,6 @@ export function buildSignupEmbed(displayName: string, provider: string | undefin
 }
 
 /** Best-effort: sendDiscordMessage reports its own failures and never throws. */
-export async function announceSignup(displayName: string, provider: string | undefined) {
-  await sendDiscordMessage(null, [buildSignupEmbed(displayName, provider, Date.now())], 'signups');
+export async function announceSignup(displayName: string, provider: string | undefined, recruiterName?: string | null) {
+  await sendDiscordMessage(null, [buildSignupEmbed(displayName, provider, Date.now(), recruiterName)], 'signups');
 }

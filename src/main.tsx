@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import MarketDataProvider from './app/MarketDataProvider';
 import CrashScreen from './shared/components/CrashScreen';
+import { captureRecruitRef } from './features/account/recruitRef';
 import './index.css';
 import './styles/seasonFrames.css';
 import './styles/titles.css';
@@ -16,6 +17,8 @@ import './styles/cosmetics/swatches.css';
 import './styles/cosmetics/marks.css';
 import './styles/cosmetics/profileBackgrounds.css';
 import './styles/trophies.css';
+
+captureRecruitRef();
 
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,

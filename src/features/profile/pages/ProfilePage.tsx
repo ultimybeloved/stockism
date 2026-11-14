@@ -13,6 +13,7 @@ import ProfileChart from '../components/ProfileChart';
 import TradingStats from '../components/TradingStats';
 import LadderStats from '../components/LadderStats';
 import ProfileSettings from '../components/ProfileSettings';
+import InviteCard from '../components/InviteCard';
 import PredictionHistory from '../components/PredictionHistory';
 import DeleteAccountSection from '../components/DeleteAccountSection';
 
@@ -136,6 +137,7 @@ const ProfilePage = ({
             portfolioValue={portfolioValue}
           />
 
+          <InviteCard />
           <ProfileSettings userData={userData} user={user} />
 
           <PredictionHistory userBetHistory={userBetHistory} userData={userData} />

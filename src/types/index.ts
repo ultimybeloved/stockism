@@ -170,6 +170,8 @@ export interface UserData {
   marginCallAt?: TimestampLike;
   peakPortfolioValue?: number;
   totalCheckins?: number;
+  /** Recruiting rewards (rules/recruiting): recruits still earning it, and paid for. Server-written. */
+  recruiting?: { pending?: number; paid?: number };
   totalTrades?: number;
   totalMissionsCompleted?: number;
   /** Lifetime profit from non-crew characters (NPC Lover). */

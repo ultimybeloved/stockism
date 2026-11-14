@@ -25,6 +25,13 @@ describe('buildSignupEmbed', () => {
     expect(buildSignupEmbed('Gun', undefined, 0).description).toContain('**Gun** just joined Stockism.');
   });
 
+  it('credits the recruiter when there is one', () => {
+    expect(buildSignupEmbed('Gun', 'custom', 0, 'big_deal_fan').description).toContain(
+      'Recruited by **big\\_deal\\_fan**.',
+    );
+    expect(buildSignupEmbed('Gun', 'custom', 0, null).description).not.toContain('Recruited');
+  });
+
   it('escapes underscores so a name cannot change the formatting', () => {
     expect(buildSignupEmbed('big_deal_fan', 'password', 0).description).toContain('**big\\_deal\\_fan**');
   });
