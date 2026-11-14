@@ -153,6 +153,16 @@ export const DIRECT_REPLY_BUDGET_MS = 1200;
 // Public site URL. Slash-command replies deep-link back here (this is the whole
 // point of the "trade on the website" buttons).
 export const SITE_URL = 'https://stockism.app';
+// Where Discord sends a player back after sign-in or linking. It must be the
+// exact address the site sent them out with, and both must be registered in the
+// Discord Developer Portal. The site address (2026-11-14) is a Vercel rewrite
+// onto the same function, tagged `via=site`, so Discord's consent screen names
+// stockism.app instead of a raw cloud address; the old one keeps working.
+const DISCORD_RETURN_PATHS = { discordAuth: 'auth/discord', discordLink: 'auth/discord-link' } as const;
+export const discordRedirectUri = (fn: keyof typeof DISCORD_RETURN_PATHS, via: unknown): string =>
+  via === 'site'
+    ? `${SITE_URL}/${DISCORD_RETURN_PATHS[fn]}`
+    : `https://us-central1-stockism-abb28.cloudfunctions.net/${fn}`;
 // The official server's public invite (same link as the site footer).
 export const DISCORD_INVITE_URL = 'https://discord.gg/X875CEvtx2';
 // How many leaderboard rows a /leaderboard reply shows. Discord embeds get

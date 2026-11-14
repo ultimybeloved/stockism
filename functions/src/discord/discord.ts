@@ -13,6 +13,7 @@ import {
   UNVERIFIED_STARTING_CASH,
   DISCORD_DAILY_DROP_CHANNEL,
   DISCORD_LINK_NONCE_TTL_MS,
+  discordRedirectUri,
 } from '../shared/constants';
 import { sendDiscordMessage, pxe, pxButton } from '../shared/discordApi';
 import {
@@ -68,7 +69,7 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
     // must exactly match the redirect URIs registered in the Discord Developer Portal
     // (Stockism login app). If the domain, region, or project ID changes, update both
     // places here AND the portal, or Discord login breaks.
-    const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordAuth';
+    const redirectUri = discordRedirectUri('discordAuth', req.query.via);
 
     // Exchange code for access token
     const tokenResponse = await axios.post(
@@ -304,7 +305,7 @@ export const discordLink = cf().https.onRequest(async (req, res) => {
   try {
     const clientId = process.env.DISCORD_CLIENT_ID;
     const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-    const redirectUri = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordLink';
+    const redirectUri = discordRedirectUri('discordLink', req.query.via);
 
     // Exchange code for access token
     const tokenResponse = await axios.post(

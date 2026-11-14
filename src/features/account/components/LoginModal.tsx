@@ -166,9 +166,12 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
           <span aria-hidden="true">×</span>
         </button>
 
-        <h2 className={`text-lg font-semibold mb-6 ${textClass}`}>
+        <h2 className={`text-lg font-semibold mb-2 ${textClass}`}>
           {isForgotPassword ? 'Reset Password' : isRegistering ? 'Create Account' : 'Sign In'}
         </h2>
+        <p className={`text-xs ${mutedClass} mb-5`}>
+          Free fan game. No real money, no payments. Your email is only used to log in, and other players never see it.
+        </p>
 
         {!isForgotPassword && (
           <>
