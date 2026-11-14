@@ -33,8 +33,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export const isRecruitRef = (ref: unknown): ref is string =>
   typeof ref === 'string' && /^[A-Za-z0-9_]{3,20}$/.test(ref);
 
-export const inviteLink = (displayName: string): string =>
-  `https://stockism.app/?${RECRUIT_REF_PARAM}=${encodeURIComponent(displayName)}`;
+/**
+ * A link to `path` on the site that credits `displayName` as the recruiter.
+ * Without a usable name (a guest) it is the plain address.
+ */
+export const inviteLink = (displayName: unknown, path = '/'): string =>
+  `https://stockism.app${path}${isRecruitRef(displayName) ? `?${RECRUIT_REF_PARAM}=${displayName}` : ''}`;
 
 /** Which week a payout falls in, for the weekly cap. Weeks turn over Thursday 00:00 UTC. */
 export const recruitWeek = (nowMs: number): number => Math.floor(nowMs / (7 * DAY_MS));

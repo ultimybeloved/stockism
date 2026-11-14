@@ -8,6 +8,7 @@ import { useSession, useTheme } from '../../../context/AppContext';
 import CrewPin from '../../../shared/components/CrewPin';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { barcode, pickSlipTheme } from '../utils/recapSlipThemes';
+import { isRecruitRef } from '../../../rules/recruiting';
 
 const DAY_MS = 86400000;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -189,7 +190,7 @@ const WeekRecapSlip = forwardRef<HTMLDivElement, { recap: WeeklyRecap; style?: C
       <div className="mt-auto px-5 pb-4 pt-2 flex items-end justify-between gap-3">
         <div className="text-xs flex items-center gap-1" style={muted}>
           <PixelIcon name="stockism" className="w-3.5 h-3.5" />
-          stockism.app
+          stockism.app{isRecruitRef(name) ? `/?ref=${name}` : ''}
         </div>
         <div className="flex items-stretch h-6 gap-[2px] opacity-60" aria-hidden>
           {barcode(`${user?.uid || ''}:${recap.weekId}`, 28).map((w, i) => (

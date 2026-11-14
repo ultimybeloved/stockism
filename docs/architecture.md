@@ -254,7 +254,8 @@ Quick reference so you know where to look and where to add things.
 | `src/features/trading/hooks/useTradeManagement.ts` | handleTrade — trade execution, retry logic (achievement side-effects in `tradeAchievements.ts`) |
 | `src/features/missions/hooks/useMissionManagement.ts` | handleClaimMissionReward, handleRerollMissions, handleClaimWeeklyMissionReward |
 | `src/features/missions/hooks/useMissionBoard.ts` | Today's and this week's missions with progress, from the shared rules |
-| `src/features/missions/components/WeekRecapCard.tsx` | The Weekly Slip on home and Missions (WeekRecapSlip draws it, recapSlipThemes picks its look); Save image via html-to-image |
+| `src/features/missions/components/WeekRecapCard.tsx` | The Weekly Slip on home and Missions (WeekRecapSlip draws it, recapSlipThemes picks its look); Copy and Save image through `src/shared/hooks/useShareImage.ts` (html-to-image), the one place a piece of the page becomes a picture |
+| `src/features/market/components/StockShare.tsx` | The Share button on a stock page: a preview of `StockShareCard` (ticker, price, range change, chart line from `utils/sharePrices.ts`; text and lines only, never character art) with Copy image, Save image, and Copy link. The link and the address printed on the picture carry the player's invite name (`inviteLink`) |
 | `src/features/missions/pages/MissionsPage.tsx` | /missions: the week strip, weekly and daily missions, reroll, the crew rivalry |
 | `src/features/margin/hooks/useMarginManagement.ts` | handleEnableMargin, handleDisableMargin, handleRepayMargin |
 | `src/features/crews/hooks/useCrewManagement.ts` | handleCrewSelect, handleCrewLeave |

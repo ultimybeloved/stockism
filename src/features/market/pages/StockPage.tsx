@@ -21,6 +21,8 @@ import { useStockSwipe } from '../hooks/useStockSwipe';
 import { usePhone } from '../../../shared/hooks/useMediaQuery';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 import ChapterFlagsToggle from '../components/ChapterFlagsToggle';
+import StockShare from '../components/StockShare';
+import { sharePrices } from '../utils/sharePrices';
 
 type ChartType = 'area' | 'bar';
 
@@ -52,6 +54,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
 
   const {
     character,
+    fullHistory,
     currentPrice,
     positionShares,
     shortPosition,
@@ -72,6 +75,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
 
   const { cardClass, textClass, mutedClass, bgClass } = themeClasses;
 
+  const range = TIME_RANGES.find((r) => r.key === timeRange) ?? TIME_RANGES[0]!;
   const aliasTarget = useTickerAliasRedirect(ticker, !!character, marketData);
   const tradeOpen =
     !!user && !!character && !marketClosed && Date.now() >= (marketData?.haltedTickers?.[ticker]?.resumeAt ?? 0);
@@ -139,7 +143,7 @@ const StockPage = ({ onTrade }: StockPageProps) => {
             hovered={hoveredChartPoint}
             rangeFirst={priceStats.first}
             rangeChange={priceStats.change}
-            rangeLabel={TIME_RANGES.find((r) => r.key === timeRange)?.label ?? ''}
+            rangeLabel={range.label}
             upColor={upColor}
             downColor={downColor}
           >
@@ -168,6 +172,15 @@ const StockPage = ({ onTrade }: StockPageProps) => {
                 onChange={setTimeRange}
               />
               <div className="flex gap-2">
+                <StockShare
+                  ticker={ticker}
+                  character={character}
+                  crews={crews}
+                  currentPrice={currentPrice}
+                  prices={sharePrices(fullHistory, range.hours, currentPrice)}
+                  change={priceStats.change}
+                  rangeLabel={range.label}
+                />
                 <ChapterFlagsToggle />
                 <SegmentedSwitch
                   label="Chart type"
