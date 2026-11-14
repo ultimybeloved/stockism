@@ -72,7 +72,7 @@ export interface RepayMarginResponse {
 }
 
 export interface PurchasePinRequest {
-  action: 'buyPin' | 'buySlot' | 'buyStreakSaver';
+  action: 'buyPin' | 'buySlot' | 'buyStreakSaver' | 'buyAutopilot';
   pinId?: string;
   slotType?: string;
   /** buyStreakSaver: a key of STREAK_SAVER_PLANS. */

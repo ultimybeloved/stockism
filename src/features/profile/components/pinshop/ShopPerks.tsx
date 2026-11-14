@@ -10,6 +10,7 @@ import {
   streakSaverActive,
   liveCheckinStreak,
   canBuyStreakSaver,
+  MISSION_AUTOPILOT_PRICE,
 } from '../../../../rules/economy';
 import { getTodayDateString, toUTCDateString } from '../../../../utils/date';
 import type { StreakSaverPlan } from '../../../../rules/economy';
@@ -101,6 +102,21 @@ const ShopPerks = ({
           onRequestPurchase({ type: 'perk', item: plan, name, price }),
         );
       })}
+      {row(
+        'autopilot',
+        'Mission Autopilot',
+        'Every mission you get is claimed for you, every day, forever: full reward, and your crew always has you counted in Rivalries. Auto-claimed missions do not count toward shop credit milestones.',
+        MISSION_AUTOPILOT_PRICE,
+        userData?.missionAutopilot ? 'Owned' : null,
+        budget >= MISSION_AUTOPILOT_PRICE,
+        () =>
+          onRequestPurchase({
+            type: 'perk',
+            item: 'autopilot',
+            name: 'Mission Autopilot',
+            price: MISSION_AUTOPILOT_PRICE,
+          }),
+      )}
       {row(
         'slot_achievement',
         '+1 Achievement Pin Slot',

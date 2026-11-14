@@ -120,6 +120,7 @@ export const LEDGER_GROUPS: LedgerGroup[] = [
       pin_purchase: 'Pins',
       pin_slot_purchase: 'Pin slots',
       streak_saver_purchase: 'Streak savers',
+      autopilot_purchase: 'Mission autopilot',
       name_change: 'Name changes',
       mission_reroll: 'Mission rerolls',
     },

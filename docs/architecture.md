@@ -331,7 +331,9 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/users/portfolio.ts` | syncPortfolio, sweepDustPositions |
 | `functions/src/crews/crew.ts` | switchCrew, leaveCrew |
 | `functions/src/orders/limitOrders.ts` | createLimitOrder + the sweep schedule; engine is in `limitOrderMatching.ts` (internal) |
-| `functions/src/missions/missions.ts` | Mission claims, reroll, dailyCheckin, purchasePin. Claims count toward the crew's rivalry |
+| `functions/src/missions/missions.ts` | claimMissionReward, reroll, dailyCheckin, purchasePin (pins, slots, streak saver, Mission Autopilot) |
+| `functions/src/missions/claimMission.ts` | **Internal module.** `claimMission`: the one place a mission is paid (reward, underdog bonus, ledger, rivalry count), used by a player's claim and by Mission Autopilot. `autoClaimMissions` claims everything open for one autopilot owner |
+| `functions/src/missions/autopilot.ts` | missionAutopilot: daily 00:05 UTC, runs `autoClaimMissions` for every account with `missionAutopilot`. Sandbox suite: `npm run test:autopilot` |
 | `functions/src/crews/rivalries.ts` | **Internal module.** Settles last week's Crew Rivalries and pairs the new week, run by weeklyCrewRankings. Pure rules in `rivalryRules.ts`; the live board doc is `functions/src/shared/rivalries.ts` |
 | `functions/src/predictions/predictions.ts` | Prediction markets, IPO price jumps |
 | `functions/src/ladder/ladderGame.ts` | Ladder game callable (playLadderGame) and leaderboard |

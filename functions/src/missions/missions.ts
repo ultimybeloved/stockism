@@ -11,25 +11,23 @@ import {
   checkinRewardFor,
   liveCheckinStreak,
   canBuyStreakSaver,
+  MISSION_AUTOPILOT_PRICE,
 } from '../shared/rules/economy';
-import { getDailyMissions, getWeeklyMissions, getCrewMultiplier, PIN_COLLECTIONS, SHOP_PINS } from '../shared/crews';
+import { getDailyMissions, getWeeklyMissions, PIN_COLLECTIONS, SHOP_PINS } from '../shared/crews';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
 import { reportError } from '../shared/sentry';
 import { getLadderChips } from '../shared/ladderMath';
 
-// Mission completion rules live in ./missionChecks so the Discord bot's
-// /missions command reads the exact same logic instead of a second copy.
-import { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchievementFor } from './missionChecks';
+// Paying a mission lives in ./claimMission, shared with Mission Autopilot.
+import { claimMission, autoClaimMissions } from './claimMission';
 import { recordLedger } from '../shared/ledger';
 import { chargeShop } from '../shared/shopPayment';
 import { ownEntry } from '../shared/lookup';
 import { getWeekId } from '../shared/tradeRecords';
-import { holdsShortForMissions, nextRivalry, rivalryQualified } from '../shared/rules/missionProgress';
+import { holdsShortForMissions } from '../shared/rules/missionProgress';
 import { weeklyMissionsOpen } from '../shared/rules/missions';
-import { missionCreditFor } from '../shared/rules/shop';
-import { noteRivalryActivity } from '../shared/rivalries';
 import { settleRecruit } from '../users/recruiting';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
@@ -42,147 +40,11 @@ export const claimMissionReward = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'missions');
   const { missionId, type } = data || {};
 
-  if (!missionId || !type || !['daily', 'weekly'].includes(type)) {
+  if (typeof missionId !== 'string' || !missionId || !['daily', 'weekly'].includes(type)) {
     throw new functions.https.HttpsError('invalid-argument', 'Invalid mission data.');
   }
 
-  const userRef = db.collection('users').doc(uid);
-
-  const marketRef = db.collection('market').doc('current');
-  const crewStatsRef = db.collection('market').doc('crewStats');
-  const haltLockRef = db.collection('market').doc('callBaseline');
-
-  const result = await db.runTransaction(async (transaction) => {
-    const [userDoc, marketDoc, crewStatsDoc, haltLockDoc] = await Promise.all([
-      transaction.get(userRef),
-      transaction.get(marketRef),
-      transaction.get(crewStatsRef),
-      transaction.get(haltLockRef),
-    ]);
-    if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
-
-    const userData = userDoc.data()!;
-    checkBanned(userData);
-    checkDiscordWall(userData);
-    const now = Date.now();
-    const ctx = missionContext(userData, marketDoc.exists ? marketDoc.data() : null, now, haltLockDoc.data() || null);
-    const today = new Date(now).toISOString().split('T')[0]!;
-    const weekId = getWeekId(now);
-    const crew: string | null = userData.crew || null;
-
-    // Check if already claimed
-    if (type === 'daily') {
-      const claimed = userData.dailyMissions?.[today]?.claimed?.[missionId];
-      if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
-    } else {
-      const claimed = userData.weeklyMissions?.[weekId]?.claimed?.[missionId];
-      if (claimed) throw new functions.https.HttpsError('already-exists', 'Already claimed.');
-    }
-
-    // The mission must actually be assigned to this user today/this week.
-    // The client only shows assigned missions; without this check a direct
-    // call could claim every mission in the catalog each day. Players without
-    // a crew get missions too since 2026-10-22, from the non-crew pool.
-    const rerollSeed = userData.weeklyMissions?.[weekId]?.rerollSeed || 0;
-    const assignedMissions =
-      type === 'daily'
-        ? getDailyMissions(
-            today,
-            crew,
-            rerollSeed,
-            holdsShortForMissions(userData, userData.dailyMissions?.[today], now),
-          )
-        : getWeeklyMissions(crew, weekId, rerollSeed);
-    const assignedMission = assignedMissions.find((m) => m.id === missionId);
-    if (!assignedMission) {
-      throw new functions.https.HttpsError('failed-precondition', 'Mission not assigned.');
-    }
-    // Claims are capped by count, not just by id: the set depends on the crew,
-    // so switching crews mid-day handed out a fresh set to claim again.
-    const claimedMap: Record<string, boolean> =
-      (type === 'daily' ? userData.dailyMissions?.[today]?.claimed : userData.weeklyMissions?.[weekId]?.claimed) || {};
-    const claimedCount = Object.values(claimedMap).filter(Boolean).length;
-    if (claimedCount >= assignedMissions.length) {
-      throw new functions.https.HttpsError(
-        'failed-precondition',
-        `You've claimed all your ${type} missions. New ones ${type === 'daily' ? 'tomorrow' : 'next week'}.`,
-      );
-    }
-
-    // Server-defined reward (ignoring client-provided values entirely),
-    // scaled by the crew's underdog multiplier for this week.
-    const crewMultiplier = crew ? getCrewMultiplier(crewStatsDoc.exists ? crewStatsDoc.data() : null, crew) : 1;
-    const reward = Math.round(assignedMission.reward * crewMultiplier);
-
-    // Verify mission is actually completed server-side
-    const weeklyProgress = userData.weeklyMissions?.[weekId] || {};
-    const done =
-      type === 'daily'
-        ? isDailyMissionDone(missionId, userData.dailyMissions?.[today] || {}, ctx)
-        : isWeeklyMissionDone(missionId, weeklyProgress, ctx);
-    if (!done) {
-      throw new functions.https.HttpsError('failed-precondition', 'Mission not completed yet.');
-    }
-
-    const newTotal = (userData.totalMissionsCompleted || 0) + 1;
-    const updates: Record<string, unknown> = {
-      cash: (userData.cash || 0) + reward,
-      totalMissionsCompleted: newTotal,
-      // Free money: booked so percent-return boards can net it out.
-      ...grantedValueUpdate(reward),
-    };
-
-    if (type === 'daily') {
-      updates[`dailyMissions.${today}.claimed.${missionId}`] = true;
-      // Mission Machine counts the week's daily claims.
-      updates[`weeklyMissions.${weekId}.dailyClaims`] = FieldValue.increment(1);
-    } else {
-      updates[`weeklyMissions.${weekId}.claimed.${missionId}`] = true;
-    }
-    // Rivalries: every mission finished in a crew counts toward its week.
-    const rivalry = crew ? nextRivalry(weeklyProgress, crew) : null;
-    if (rivalry) updates[`weeklyMissions.${weekId}.rivalry`] = rivalry;
-
-    // Check mission achievements
-    const earned = missionAchievementFor(newTotal, userData.achievements);
-    if (earned) updates.achievements = FieldValue.arrayUnion(earned);
-
-    // Every so many missions pays shop credit (rules/shop). Not cash, so it is
-    // not granted value: it can only be spent in the shop.
-    const credit = missionCreditFor(newTotal);
-    if (credit) updates.shopCredit = (userData.shopCredit || 0) + credit;
-
-    transaction.update(userRef, updates);
-    recordLedger(transaction, {
-      uid,
-      type: 'mission_reward',
-      amount: reward,
-      cashAfter: (userData.cash || 0) + reward,
-      ref: missionId,
-      detail: { missionType: type },
-    });
-    recordLedger(transaction, {
-      uid,
-      type: 'mission_credit',
-      account: 'credit',
-      amount: credit,
-      cashAfter: (userData.shopCredit || 0) + credit,
-      ref: missionId,
-      detail: { missions: newTotal },
-    });
-
-    return {
-      success: true,
-      reward,
-      newTotal,
-      credit,
-      rivalry: crew && rivalry ? { weekId, crew, qualified: rivalryQualified({ rivalry }, crew) } : null,
-    };
-  });
-
-  const { rivalry, ...response } = result;
-  if (rivalry) await noteRivalryActivity(rivalry.weekId, rivalry.crew, uid, rivalry.qualified);
-  return response;
+  return claimMission(uid, missionId, type);
 });
 
 /**
@@ -285,7 +147,7 @@ const lastCheckinDay = (lastCheckin: unknown): string | null => {
 };
 
 /**
- * Purchase a pin, an extra pin slot or a streak saver from the shop
+ * Purchase a pin, an extra pin slot, a streak saver or Mission Autopilot from the shop
  */
 export const purchasePin = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -299,7 +161,7 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
 
   const userRef = db.collection('users').doc(uid);
 
-  return db.runTransaction(async (transaction) => {
+  const result = await db.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) throw new functions.https.HttpsError('not-found', 'User not found.');
 
@@ -378,10 +240,26 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
         ...updates,
       });
       return { success: true, cost: plan.price, until, paid };
+    } else if (action === 'buyAutopilot') {
+      // Shop perk: every mission is claimed for the owner from now on (rules/economy).
+      if (userData.missionAutopilot) {
+        throw new functions.https.HttpsError('already-exists', 'You already have Mission Autopilot.');
+      }
+      const { updates, paid } = chargeShop(transaction, uid, userData, MISSION_AUTOPILOT_PRICE, {
+        type: 'autopilot_purchase',
+      });
+      transaction.update(userRef, { missionAutopilot: true, ...updates });
+      return { success: true, cost: MISSION_AUTOPILOT_PRICE, paid, autopilot: true };
     } else {
       throw new functions.https.HttpsError('invalid-argument', 'Invalid action.');
     }
   });
+  // A new owner's missions are claimed right away instead of at the next daily
+  // run. Never allowed to fail the purchase, which has already gone through.
+  if ('autopilot' in result) {
+    await autoClaimMissions(uid).catch((err) => reportError(err, { where: 'purchasePin.autopilot', uid }));
+  }
+  return result;
 });
 
 /**

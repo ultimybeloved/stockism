@@ -85,6 +85,13 @@ export default function MissionsPage({
       <WeekStrip weekly={weekly} />
       <ShopCreditProgress total={userData?.totalMissionsCompleted || 0} credit={userData?.shopCredit || 0} />
 
+      {userData?.missionAutopilot && (
+        <p className="px-3 py-2 rounded-sm border border-emerald-500/30 bg-emerald-500/10 text-emerald-500 text-sm font-semibold">
+          Mission Autopilot is on. Your missions are claimed for you every day just after 00:00 UTC, and the week's
+          missions the night it opens.
+        </p>
+      )}
+
       {board.multiplier > 1 && (
         <p className="px-3 py-2 rounded-sm border border-orange-500/30 bg-orange-500/10 text-orange-500 text-sm font-semibold">
           Underdog bonus: all mission rewards x{board.multiplier} this week

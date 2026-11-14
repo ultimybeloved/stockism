@@ -248,6 +248,8 @@ export interface UserData {
   /** Streak saver shop perk (rules/economy): server-written only. */
   streakSaverPermanent?: boolean;
   streakSaverUntil?: number;
+  /** Mission Autopilot (shop perk): missions are claimed for this player. Server-written. */
+  missionAutopilot?: boolean;
   crew?: string | null;
   isAdmin?: boolean;
   activeCosmetics?: ActiveCosmetics;

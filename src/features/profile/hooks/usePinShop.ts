@@ -26,7 +26,14 @@ export interface GiftTarget {
 }
 
 export type PinAction =
-  'buyPin' | 'setShopPins' | 'setAchievementPins' | 'toggleCrewPin' | 'setFlairCrew' | 'buySlot' | 'buyStreakSaver';
+  | 'buyPin'
+  | 'setShopPins'
+  | 'setAchievementPins'
+  | 'toggleCrewPin'
+  | 'setFlairCrew'
+  | 'buySlot'
+  | 'buyStreakSaver'
+  | 'buyAutopilot';
 
 export function usePinShop({ user, userData, showNotification, setUserData, setLoadingKey }: ActionHookDeps) {
   const handlePinAction = useCallback(
@@ -34,7 +41,8 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
     // or null (setFlairCrew), a slot type (buySlot) or a streak saver plan (buyStreakSaver).
     async (action: PinAction, payload: unknown, cost?: number) => {
       if (!user || !userData) return;
-      if (action === 'buyPin' || action === 'buySlot' || action === 'buyStreakSaver') setLoadingKey('pinAction', true);
+      if (action === 'buyPin' || action === 'buySlot' || action === 'buyStreakSaver' || action === 'buyAutopilot')
+        setLoadingKey('pinAction', true);
       try {
         const userRef = doc(db, 'users', user.uid);
         if (action === 'buyPin') {
@@ -86,6 +94,13 @@ export function usePinShop({ user, userData, showNotification, setUserData, setL
           );
           playSound('purchase');
           showNotification('success', 'Streak saver on. Every check-in pays the top reward.');
+        } else if (action === 'buyAutopilot') {
+          await purchasePinFunction({ action: 'buyAutopilot' });
+          setUserData((prev) =>
+            prev ? { ...prev, missionAutopilot: true, ...afterShopPayment(prev, cost || 0) } : prev,
+          );
+          playSound('purchase');
+          showNotification('success', 'Mission Autopilot on. Your missions are claimed for you from now on.');
         }
       } catch (err) {
         reportUnexpected(err, { where: 'handlePinAction' });

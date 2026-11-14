@@ -49,6 +49,15 @@ export const canBuyStreakSaver = (liveStreak: number, saverActive: boolean) =>
 export const streakSaverActive = (u: StreakSaverFields | null | undefined, now = Date.now()) =>
   !!u && (u.streakSaverPermanent === true || (u.streakSaverUntil || 0) > now);
 
+// Mission Autopilot, a shop perk (Darth YG, 2026-11-14): a one-time purchase
+// after which every mission the owner is given is claimed for them, paid in
+// full, and counted for their crew in Rivalries. Priced as a long-term goal.
+// Auto-claimed missions do not move the lifetime mission count, so they earn
+// no shop credit milestones and no mission achievements. It rests while the
+// owner has not opened the game for MISSION_AUTOPILOT_IDLE_DAYS, like dividends.
+export const MISSION_AUTOPILOT_PRICE = 1000000;
+export const MISSION_AUTOPILOT_IDLE_DAYS = 30;
+
 /** What a check-in on streak day `streak` (1-based) pays. */
 export const checkinRewardFor = (streak: number, saverActive = false) =>
   CHECKIN_STREAK_REWARDS[

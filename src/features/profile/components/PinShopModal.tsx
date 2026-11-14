@@ -34,7 +34,7 @@ export type PendingPurchase =
     }
   | { type: 'bundle'; item: Bundle; price: number; count: number }
   | { type: 'slot'; item: 'achievement' | 'shop'; price: number }
-  | { type: 'perk'; item: StreakSaverPlan; name: string; price: number };
+  | { type: 'perk'; item: StreakSaverPlan | 'autopilot'; name: string; price: number };
 
 interface PinShopModalProps {
   onClose: () => void;
@@ -96,7 +96,8 @@ const PinShopModal = ({
       } else if (confirmPurchase.type === 'slot') {
         await onPurchase('buySlot', confirmPurchase.item, confirmPurchase.price);
       } else if (confirmPurchase.type === 'perk') {
-        await onPurchase('buyStreakSaver', confirmPurchase.item, confirmPurchase.price);
+        if (confirmPurchase.item === 'autopilot') await onPurchase('buyAutopilot', null, confirmPurchase.price);
+        else await onPurchase('buyStreakSaver', confirmPurchase.item, confirmPurchase.price);
       } else if (confirmPurchase.type === 'cosmetic') {
         const ok = await onPurchaseCosmetic(confirmPurchase.item.id);
         // Keep the style they picked while shopping (Split Flap, Bull / Bear, tint).
