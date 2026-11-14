@@ -1085,6 +1085,30 @@ const badges = {
     rect(9, 1, 10, 3, 'n');
     rect(9, 0, 10, 0, 'R');
   },
+  recruiter: ({ rect, px, line }) => {
+    // Recruiter: a megaphone calling players in, with a green plus (one more).
+    rect(2, 8, 4, 12, 'n');
+    rect(3, 13, 4, 16, 'n');
+    px(3, 16, 'm');
+    px(4, 16, 'm');
+    rect(5, 8, 6, 12, 'y');
+    rect(7, 7, 8, 13, 'y');
+    rect(9, 6, 10, 14, 'Y');
+    rect(11, 5, 12, 15, 'Y');
+    rect(13, 4, 13, 16, 'W');
+    rect(14, 5, 14, 15, 'S');
+    line(5, 8, 12, 5, 'W');
+    line(5, 12, 12, 15, 'y');
+    px(16, 7, 'Y');
+    px(17, 6, 'Y');
+    px(16, 10, 'Y');
+    px(17, 10, 'Y');
+    px(18, 10, 'Y');
+    px(16, 13, 'Y');
+    px(17, 14, 'Y');
+    rect(4, 2, 6, 2, 'g');
+    rect(5, 1, 5, 3, 'g');
+  },
 };
 for (const [name, draw] of Object.entries(badges)) fs.writeFileSync(path.join(out, name + '.svg'), sprite(draw));
 console.log('wrote', Object.keys(badges).length);

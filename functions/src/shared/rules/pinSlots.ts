@@ -11,7 +11,7 @@
 // Number of achievements in src/constants/achievements.ts. The backend has no
 // copy of that list, so the count lives here; src/utils/pinSlots.test.ts fails
 // if the two drift apart.
-export const ACHIEVEMENT_COUNT = 49;
+export const ACHIEVEMENT_COUNT = 50;
 
 /** The user-doc fields the slot math reads. */
 export interface PinSlotFields {

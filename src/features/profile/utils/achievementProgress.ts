@@ -16,6 +16,7 @@ const trades: Counter = { read: (u) => u.totalTrades || 0 };
 const checkins: Counter = { read: (u) => u.totalCheckins || 0 };
 const missions: Counter = { read: (u) => u.totalMissionsCompleted || 0 };
 const wins: Counter = { read: (u) => u.predictionWins || 0 };
+const recruits: Counter = { read: (u) => u.recruiting?.paid || 0 };
 // Same net worth the server checks: portfolio value minus margin borrowed.
 const worth: Counter = { read: (u) => (u.portfolioValue || 0) - (u.marginUsed || 0), money: true };
 const npc: Counter = { read: (u) => u.npcProfit || 0, money: true };
@@ -44,6 +45,7 @@ const TARGETS: Record<string, [Counter, number]> = {
   MISSION_10: [missions, 10],
   MISSION_50: [missions, 50],
   MISSION_100: [missions, 100],
+  RECRUITER: [recruits, 1],
 };
 
 /** Progress toward a locked counted achievement, or null if it isn't a count. */

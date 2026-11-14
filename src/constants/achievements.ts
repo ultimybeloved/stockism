@@ -342,6 +342,16 @@ export const ACHIEVEMENTS = {
     hint: 'Connect your Discord from the profile page',
     revocable: false,
   },
+  // Granted by settleRecruit (functions/src/users/recruiting.ts).
+  RECRUITER: {
+    id: 'RECRUITER',
+    name: 'Recruiter',
+    emoji: '📣',
+    icon: 'achievements/recruiter.svg',
+    description: 'Bring in a player who sticks',
+    hint: 'Share your invite link from your profile',
+    revocable: false,
+  },
 
   // Daily Mission milestones
   MISSION_10: {

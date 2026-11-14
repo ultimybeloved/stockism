@@ -190,6 +190,7 @@ const NOTEWORTHY_ACHIEVEMENTS = {
   DEDICATED_100: { name: 'Legendary', description: 'Check in 100 days total' },
   MISSION_50: { name: 'Mission Master', description: 'Complete 50 daily missions' },
   MISSION_100: { name: 'Mission Legend', description: 'Complete 100 daily missions' },
+  RECRUITER: { name: 'Recruiter', description: 'Bring in a player who sticks' },
 };
 
 export const achievementAlert = cf().https.onCall(async (data, context) => {

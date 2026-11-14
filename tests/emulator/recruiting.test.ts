@@ -89,6 +89,7 @@ async function main() {
     boss.grantedValue === RECRUITER_REWARD && newbie.grantedValue === RECRUIT_BONUS,
   );
   check('counts moved from pending to paid', boss.recruiting.pending === 0 && boss.recruiting.paid === 1);
+  check('the recruiter earns the Recruiter achievement', boss.achievements?.includes('RECRUITER') === true);
   check('the payout time is kept for board ties', boss.recruiting.lastPaidAt > Date.now() - 60000);
   check('the flag is cleared', newbie.recruitPending === undefined);
   check('the record is closed as paid', (await record('newbie')).status === 'paid');
@@ -113,6 +114,7 @@ async function main() {
   await user('boss').update({ 'recruiting.week': recruitWeek(Date.now()) - 1 });
   check('a new week pays them', (await settleRecruit('sixth')) === 'paid');
   check('the new week starts its own count', (await read('boss')).recruiting.weekPaid === 1);
+  check('the achievement is granted once', (await read('boss')).achievements.length === 1);
 
   // --- Closing without paying ---
   await addPlayer('slow', 'SlowPoke', 'net_d');

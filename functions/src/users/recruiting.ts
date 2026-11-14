@@ -19,6 +19,7 @@ import { grantedValueUpdate } from '../shared/equity';
 import { recordLedger } from '../shared/ledger';
 import { writeNotification } from '../shared/notifications';
 import { reportError } from '../shared/sentry';
+import { asArray } from './displayFields';
 
 const db = admin.firestore();
 const recruits = () => db.collection('recruits');
@@ -108,6 +109,10 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
       'recruiting.weekPaid': paidThisWeek + 1,
       // Breaks ties on the recruiters board: first to a count ranks higher.
       'recruiting.lastPaidAt': now,
+      // The Recruiter achievement, on the first recruit who sticks.
+      ...(asArray(recruiter.achievements).includes('RECRUITER')
+        ? {}
+        : { achievements: FieldValue.arrayUnion('RECRUITER'), 'achievementDates.RECRUITER': now }),
       ...grantedValueUpdate(RECRUITER_REWARD, now),
     });
     recordLedger(tx, {
