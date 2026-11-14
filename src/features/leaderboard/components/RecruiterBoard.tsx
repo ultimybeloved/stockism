@@ -2,7 +2,7 @@ import { useEffect, useState, type RefObject } from 'react';
 import { useSession } from '../../../context/AppContext';
 import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
-import { RECRUITER_REWARD, RECRUIT_MIN_AGE_DAYS, RECRUIT_MIN_CHECKINS, RECRUITS_SORT } from '../../../rules/recruiting';
+import { RECRUITER_REWARD, RECRUIT_MIN_AGE_DAYS, RECRUIT_PLAY_TEXT, RECRUITS_SORT } from '../../../rules/recruiting';
 import InviteCard from '../../profile/components/InviteCard';
 import { loadBoard, type RankedLeader } from '../hooks/boardCache';
 import LeaderboardPodium from './LeaderboardPodium';
@@ -35,8 +35,8 @@ const RecruiterBoard = ({ userRowRef }: { userRowRef: RefObject<HTMLDivElement |
     <div>
       <div className="p-3 space-y-2">
         <p className={`text-xs ${mutedClass}`}>
-          Ranked by recruits who stuck: they joined through the player's invite link, linked Discord, and checked in on{' '}
-          {RECRUIT_MIN_CHECKINS} days over at least {RECRUIT_MIN_AGE_DAYS} days. Each one pays the recruiter{' '}
+          Ranked by recruits who stuck: they joined through the player's invite link, linked Discord, and kept playing
+          for {RECRUIT_MIN_AGE_DAYS} days ({RECRUIT_PLAY_TEXT}). Each one pays the recruiter{' '}
           {formatCurrency(RECRUITER_REWARD)}.
         </p>
         <InviteCard hideBoardLink />

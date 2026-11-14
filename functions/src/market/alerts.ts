@@ -191,6 +191,9 @@ const NOTEWORTHY_ACHIEVEMENTS = {
   MISSION_50: { name: 'Mission Master', description: 'Complete 50 daily missions' },
   MISSION_100: { name: 'Mission Legend', description: 'Complete 100 daily missions' },
   RECRUITER: { name: 'Recruiter', description: 'Bring in a player who sticks' },
+  RECRUITER_BRONZE: { name: 'Bronze Recruiter', description: 'Bring in 3 players who stick' },
+  RECRUITER_SILVER: { name: 'Silver Recruiter', description: 'Bring in 5 players who stick' },
+  RECRUITER_GOLD: { name: 'Gold Recruiter', description: 'Bring in 10 players who stick' },
 };
 
 export const achievementAlert = cf().https.onCall(async (data, context) => {

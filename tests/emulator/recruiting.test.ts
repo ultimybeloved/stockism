@@ -17,7 +17,7 @@ const admin = require('../../functions/node_modules/firebase-admin');
 admin.initializeApp({ projectId: PROJECT_ID });
 const db = admin.firestore();
 
-const { recordRecruit, settleRecruit } =
+const { recordRecruit, settleRecruit, settleQueuedRecruits } =
   require('../../functions/src/users/recruiting') as typeof import('../../functions/src/users/recruiting');
 const { RECRUITER_REWARD, RECRUIT_BONUS, RECRUIT_WEEKLY_CAP, RECRUIT_EXPIRY_DAYS, recruitWeek } =
   require('../../functions/src/shared/rules/recruiting') as typeof import('../../functions/src/shared/rules/recruiting');
@@ -115,6 +115,49 @@ async function main() {
   check('a new week pays them', (await settleRecruit('sixth')) === 'paid');
   check('the new week starts its own count', (await read('boss')).recruiting.weekPaid === 1);
   check('the achievement is granted once', (await read('boss')).achievements.length === 1);
+
+  // --- Other ways to show they kept playing ---
+  const backdate = (uid: string, days: number) =>
+    db
+      .collection('recruits')
+      .doc(uid)
+      .update({ createdAt: Date.now() - days * DAY });
+  await addPlayer('grinder', 'Grinder', 'net_h');
+  await signUp('grinder', 'Boss_Man', 'net_h');
+  await user('grinder').update({ totalMissionsCompleted: 10, discordId: 'discord_grinder' });
+  await backdate('grinder', 15);
+  check('ten missions count without a single check-in', (await settleRecruit('grinder')) === 'paid');
+  check(
+    'the third recruit earns the bronze achievement',
+    (await read('boss')).achievements.join() === 'RECRUITER,RECRUITER_BRONZE',
+    (await read('boss')).achievements,
+  );
+  await addPlayer('trader', 'TraderJoe', 'net_i');
+  await signUp('trader', 'Boss_Man', 'net_i');
+  await user('trader').update({ totalTrades: 20, discordId: 'discord_trader' });
+  await backdate('trader', 15);
+  check('twenty trades count too', (await settleRecruit('trader')) === 'paid');
+
+  // --- Rolling over past the weekly cap ---
+  await addPlayer('rolled', 'RolledOver', 'net_j');
+  await signUp('rolled', 'Boss_Man', 'net_j');
+  await makeReady('rolled');
+  await user('boss').update({ 'recruiting.week': recruitWeek(Date.now()), 'recruiting.weekPaid': RECRUIT_WEEKLY_CAP });
+  check('over the cap, a qualified recruit is queued', (await settleRecruit('rolled')) === 'waiting');
+  check('and marked as queued', (await record('rolled')).queued === true);
+  check('the recruiter check-in pays nothing while still capped', (await settleQueuedRecruits('boss')) === 0);
+  await backdate('rolled', RECRUIT_EXPIRY_DAYS + 5);
+  check('a queued recruit does not expire', (await settleRecruit('rolled')) === 'waiting');
+  await user('boss').update({ 'recruiting.week': recruitWeek(Date.now()) - 1 });
+  const cashBefore = (await read('boss')).cash;
+  check('next week the recruiter check-in pays it', (await settleQueuedRecruits('boss')) === 1);
+  check('the reward landed', (await read('boss')).cash === cashBefore + RECRUITER_REWARD);
+  check(
+    'the record is paid and off the queue',
+    (await record('rolled')).status === 'paid' && (await record('rolled')).queued === undefined,
+  );
+  check('the fifth recruit earns silver', (await read('boss')).achievements.includes('RECRUITER_SILVER'));
+  check('nothing is left pending', (await read('boss')).recruiting.pending === 0);
 
   // --- Closing without paying ---
   await addPlayer('slow', 'SlowPoke', 'net_d');

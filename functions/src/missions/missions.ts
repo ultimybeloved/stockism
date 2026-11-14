@@ -28,7 +28,7 @@ import { ownEntry } from '../shared/lookup';
 import { getWeekId } from '../shared/tradeRecords';
 import { holdsShortForMissions } from '../shared/rules/missionProgress';
 import { weeklyMissionsOpen } from '../shared/rules/missions';
-import { settleRecruit } from '../users/recruiting';
+import { settleQueuedRecruits, settleRecruit } from '../users/recruiting';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
   requireAppCheck(context);
@@ -289,7 +289,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'dailyCheckin');
 
   try {
-    const { response, recruitPending } = await db.runTransaction(async (transaction) => {
+    const { response, recruitPending, recruitsWaiting } = await db.runTransaction(async (transaction) => {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await transaction.get(userRef);
 
@@ -416,12 +416,17 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
         crew: (userData.crew as string | undefined) || null,
         weekId: checkinWeekId,
         recruitPending: userData.recruitPending === true,
+        recruitsWaiting: (userData.recruiting?.pending || 0) > 0,
       };
     });
     // An invited player may have just earned the recruit rewards (users/recruiting.ts).
     // Awaited so the work is not cut off, and never allowed to fail the check-in.
     if (recruitPending) {
       await settleRecruit(uid).catch((err) => reportError(err, { where: 'dailyCheckin.settleRecruit', uid }));
+    }
+    // A recruiter's own check-in pays any recruits held over by the weekly cap.
+    if (recruitsWaiting) {
+      await settleQueuedRecruits(uid).catch((err) => reportError(err, { where: 'dailyCheckin.settleQueued', uid }));
     }
     return response;
   } catch (error) {

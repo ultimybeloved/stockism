@@ -8,7 +8,12 @@ import {
   RECRUIT_MIN_CHECKINS,
   RECRUIT_MIN_AGE_DAYS,
   RECRUIT_EXPIRY_DAYS,
+  RECRUIT_MIN_MISSIONS,
+  RECRUIT_MIN_TRADES,
+  RECRUITER_TIERS,
+  recruiterAchievements,
 } from './recruiting';
+import { ACHIEVEMENTS } from '../constants/achievements';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 10, 30);
@@ -43,6 +48,45 @@ describe('recruitQualifies', () => {
   it('never pays for a banned account or a bot', () => {
     expect(recruitQualifies({ ...ready, isBanned: true }, oldEnough, NOW)).toBe(false);
     expect(recruitQualifies({ ...ready, isBot: true }, oldEnough, NOW)).toBe(false);
+  });
+});
+
+describe('ways to show a recruit kept playing', () => {
+  const idle = { discordId: 'd1' };
+  it('takes check-ins, missions, or trades', () => {
+    expect(recruitQualifies(idle, oldEnough, NOW)).toBe(false);
+    expect(recruitQualifies({ ...idle, totalCheckins: RECRUIT_MIN_CHECKINS }, oldEnough, NOW)).toBe(true);
+    expect(recruitQualifies({ ...idle, totalMissionsCompleted: RECRUIT_MIN_MISSIONS }, oldEnough, NOW)).toBe(true);
+    expect(recruitQualifies({ ...idle, totalTrades: RECRUIT_MIN_TRADES }, oldEnough, NOW)).toBe(true);
+  });
+
+  it('does not add partial progress together', () => {
+    const almost = {
+      ...idle,
+      totalCheckins: RECRUIT_MIN_CHECKINS - 1,
+      totalMissionsCompleted: RECRUIT_MIN_MISSIONS - 1,
+      totalTrades: RECRUIT_MIN_TRADES - 1,
+    };
+    expect(recruitQualifies(almost, oldEnough, NOW)).toBe(false);
+  });
+
+  it('still needs Discord and the account age', () => {
+    expect(recruitQualifies({ totalTrades: 500 }, oldEnough, NOW)).toBe(false);
+    expect(recruitQualifies({ ...idle, totalTrades: 500 }, oldEnough + DAY, NOW)).toBe(false);
+  });
+});
+
+describe('recruiter achievements', () => {
+  it('come at 1, 3, 5, and 10 recruits', () => {
+    expect(recruiterAchievements(0)).toEqual([]);
+    expect(recruiterAchievements(1)).toEqual(['RECRUITER']);
+    expect(recruiterAchievements(4)).toEqual(['RECRUITER', 'RECRUITER_BRONZE']);
+    expect(recruiterAchievements(5)).toHaveLength(3);
+    expect(recruiterAchievements(10)).toHaveLength(RECRUITER_TIERS.length);
+  });
+
+  it('are all real achievements', () => {
+    for (const tier of RECRUITER_TIERS) expect(Object.keys(ACHIEVEMENTS)).toContain(tier.id);
   });
 });
 

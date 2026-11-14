@@ -352,6 +352,33 @@ export const ACHIEVEMENTS = {
     hint: 'Share your invite link from your profile',
     revocable: false,
   },
+  RECRUITER_BRONZE: {
+    id: 'RECRUITER_BRONZE',
+    name: 'Bronze Recruiter',
+    emoji: '📣',
+    icon: 'achievements/recruiter_bronze.svg',
+    description: 'Bring in 3 players who stick',
+    hint: 'Keep sharing your invite link',
+    revocable: false,
+  },
+  RECRUITER_SILVER: {
+    id: 'RECRUITER_SILVER',
+    name: 'Silver Recruiter',
+    emoji: '📣',
+    icon: 'achievements/recruiter_silver.svg',
+    description: 'Bring in 5 players who stick',
+    hint: 'Keep sharing your invite link',
+    revocable: false,
+  },
+  RECRUITER_GOLD: {
+    id: 'RECRUITER_GOLD',
+    name: 'Gold Recruiter',
+    emoji: '📣',
+    icon: 'achievements/recruiter_gold.svg',
+    description: 'Bring in 10 players who stick',
+    hint: 'Keep sharing your invite link',
+    revocable: false,
+  },
 
   // Daily Mission milestones
   MISSION_10: {

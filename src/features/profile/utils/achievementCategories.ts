@@ -40,5 +40,5 @@ export const ACHIEVEMENT_CATEGORIES: Record<string, string[]> = {
   Missions: ['MISSION_10', 'MISSION_50', 'MISSION_100'],
   Leaderboard: ['TOP_10', 'TOP_3', 'TOP_1'],
   Crew: ['CROWNED', 'DYNASTY', 'USURPER'],
-  Community: ['DISCORD_LINKED', 'RECRUITER'],
+  Community: ['DISCORD_LINKED', 'RECRUITER', 'RECRUITER_BRONZE', 'RECRUITER_SILVER', 'RECRUITER_GOLD'],
 };

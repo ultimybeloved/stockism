@@ -5,7 +5,9 @@
 // is their recruit. Nothing is paid at sign-up: the recruiter's reward and the
 // recruit's bonus both land only once the recruit has linked Discord (one
 // Discord is one account forever) and kept playing, which is what makes a farm
-// of throwaway accounts worthless.
+// of throwaway accounts worthless. "Kept playing" can be shown three ways
+// (Darth YG, 2026-11-14: check-ins alone are easy to miss): check-ins,
+// finished missions, or trades.
 
 import { toMs, type TimeLike } from './activity';
 
@@ -13,11 +15,18 @@ import { toMs, type TimeLike } from './activity';
 export const RECRUITER_REWARD = 10000;
 /** Cash to the recruit at the same moment. */
 export const RECRUIT_BONUS = 2500;
-/** Daily check-ins the recruit needs. One a day, so this is days played. */
+/** Any ONE of these shows the recruit kept playing. */
 export const RECRUIT_MIN_CHECKINS = 7;
+/** Missions finished by hand (the Mission Rookie achievement's count). */
+export const RECRUIT_MIN_MISSIONS = 10;
+/** Trades made (the 20-trade achievement's count). */
+export const RECRUIT_MIN_TRADES = 20;
 /** The recruit's account must be at least this old. */
 export const RECRUIT_MIN_AGE_DAYS = 14;
-/** Recruits a recruiter can be paid for in one week. The rest wait their turn. */
+/**
+ * Recruits a recruiter can be paid for in one week. The rest roll over: they
+ * are queued and paid in a later week, and a queued recruit never expires.
+ */
 export const RECRUIT_WEEKLY_CAP = 5;
 /** A recruit who has not qualified by now never will. */
 export const RECRUIT_EXPIRY_DAYS = 60;
@@ -45,15 +54,38 @@ export const recruitWeek = (nowMs: number): number => Math.floor(nowMs / (7 * DA
 
 export interface RecruitProgress {
   totalCheckins?: number;
+  totalMissionsCompleted?: number;
+  totalTrades?: number;
   discordId?: string | null;
   isBanned?: boolean;
   isBot?: boolean;
 }
 
+/** Check-ins, missions, or trades: any one of the three counts. */
+export const recruitPlayedEnough = (recruit: RecruitProgress): boolean =>
+  (recruit.totalCheckins || 0) >= RECRUIT_MIN_CHECKINS ||
+  (recruit.totalMissionsCompleted || 0) >= RECRUIT_MIN_MISSIONS ||
+  (recruit.totalTrades || 0) >= RECRUIT_MIN_TRADES;
+
+/** The same three ways, as words for the invite card and the board. */
+export const RECRUIT_PLAY_TEXT = `${RECRUIT_MIN_CHECKINS} check-ins, ${RECRUIT_MIN_MISSIONS} missions, or ${RECRUIT_MIN_TRADES} trades`;
+
+/** Recruiter achievements, by recruits paid for. Ids match src/constants/achievements.ts. */
+export const RECRUITER_TIERS = [
+  { id: 'RECRUITER', recruits: 1 },
+  { id: 'RECRUITER_BRONZE', recruits: 3 },
+  { id: 'RECRUITER_SILVER', recruits: 5 },
+  { id: 'RECRUITER_GOLD', recruits: 10 },
+] as const;
+
+/** The recruiter achievements a player with `paid` recruits has earned. */
+export const recruiterAchievements = (paid: number): string[] =>
+  RECRUITER_TIERS.filter((t) => paid >= t.recruits).map((t) => t.id);
+
 /** Has the recruit done enough for both sides to be paid? */
 export function recruitQualifies(recruit: RecruitProgress, signedUpAt: TimeLike, nowMs: number): boolean {
   if (recruit.isBanned || recruit.isBot || !recruit.discordId) return false;
-  if ((recruit.totalCheckins || 0) < RECRUIT_MIN_CHECKINS) return false;
+  if (!recruitPlayedEnough(recruit)) return false;
   return nowMs - toMs(signedUpAt) >= RECRUIT_MIN_AGE_DAYS * DAY_MS;
 }
 

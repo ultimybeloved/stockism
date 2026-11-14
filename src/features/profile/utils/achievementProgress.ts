@@ -46,6 +46,9 @@ const TARGETS: Record<string, [Counter, number]> = {
   MISSION_50: [missions, 50],
   MISSION_100: [missions, 100],
   RECRUITER: [recruits, 1],
+  RECRUITER_BRONZE: [recruits, 3],
+  RECRUITER_SILVER: [recruits, 5],
+  RECRUITER_GOLD: [recruits, 10],
 };
 
 /** Progress toward a locked counted achievement, or null if it isn't a count. */

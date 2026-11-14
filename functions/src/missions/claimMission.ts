@@ -14,6 +14,7 @@ import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { getLastActiveMs } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
 import { reportError } from '../shared/sentry';
+import { settleRecruit } from '../users/recruiting';
 import { isDailyMissionDone, isWeeklyMissionDone, missionContext, missionAchievementFor } from './missionChecks';
 import { recordLedger } from '../shared/ledger';
 import { getWeekId } from '../shared/tradeRecords';
@@ -167,11 +168,17 @@ export async function claimMission(uid: string, missionId: string, type: Mission
       newTotal,
       credit,
       rivalry: crew && rivalry ? { weekId, crew, qualified: rivalryQualified({ rivalry }, crew) } : null,
+      recruitPending: !auto && userData.recruitPending === true,
     };
   });
 
-  const { rivalry, ...response } = result;
+  const { rivalry, recruitPending, ...response } = result;
   if (rivalry) await noteRivalryActivity(rivalry.weekId, rivalry.crew, uid, rivalry.qualified);
+  // Finished missions are one way an invited player earns the recruit rewards
+  // (users/recruiting.ts). Never allowed to fail the claim.
+  if (recruitPending) {
+    await settleRecruit(uid).catch((err) => reportError(err, { where: 'claimMission.settleRecruit', uid }));
+  }
   return response;
 }
 

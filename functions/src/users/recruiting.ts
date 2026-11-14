@@ -4,6 +4,9 @@
 // settleRecruit runs when the recruit checks in and pays both sides once the
 // recruit has earned it. One private doc per recruit, `recruits/{recruitUid}`
 // (no client access), so an account can be somebody's recruit at most once.
+// A qualified recruit over the recruiter's weekly cap is marked `queued` and
+// rolls over: settleQueuedRecruits pays it when the recruiter next checks in
+// in a later week, whether or not the recruit ever comes back.
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import {
@@ -11,6 +14,7 @@ import {
   RECRUIT_BONUS,
   RECRUIT_WEEKLY_CAP,
   isRecruitRef,
+  recruiterAchievements,
   recruitExpired,
   recruitQualifies,
   recruitWeek,
@@ -68,8 +72,9 @@ type Outcome = 'paid' | 'waiting' | 'closed';
 
 /**
  * Pays the recruiter and the recruit if the recruit has qualified. Called after
- * the recruit's check-in, so it reads the count that check-in just wrote. Safe
- * to call again: a recruit is paid once, and one still short simply waits.
+ * the recruit's check-in or mission claim, so it reads the count that just
+ * changed. Safe to call again: a recruit is paid once, and one still short
+ * simply waits.
  */
 export async function settleRecruit(recruitUid: string): Promise<Outcome> {
   const now = Date.now();
@@ -93,13 +98,21 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
       return { outcome: 'closed' as const };
     };
     if (!recruiter || recruiter.isBanned || recruiter.isBot || recruit.isBanned) return close('void');
-    if (recruitExpired(record.createdAt, now)) return close('expired');
-    if (!recruitQualifies(recruit, record.createdAt, now)) return { outcome: 'waiting' as const };
+    // A queued recruit already qualified in time, so the deadline no longer applies.
+    if (!record.queued) {
+      if (recruitExpired(record.createdAt, now)) return close('expired');
+      if (!recruitQualifies(recruit, record.createdAt, now)) return { outcome: 'waiting' as const };
+    }
 
-    // Weekly cap: a recruit over it stays pending and is paid on a later check-in.
+    // Weekly cap: a recruit over it is queued and rolls over to a later week.
     const week = recruitWeek(now);
     const paidThisWeek = recruiter.recruiting?.week === week ? recruiter.recruiting?.weekPaid || 0 : 0;
-    if (paidThisWeek >= RECRUIT_WEEKLY_CAP) return { outcome: 'waiting' as const };
+    if (paidThisWeek >= RECRUIT_WEEKLY_CAP) {
+      if (!record.queued) tx.update(recordSnap.ref, { queued: true });
+      return { outcome: 'waiting' as const };
+    }
+    const held = asArray(recruiter.achievements);
+    const earned = recruiterAchievements((recruiter.recruiting?.paid || 0) + 1).filter((id) => !held.includes(id));
 
     tx.update(recruiterRef, {
       cash: FieldValue.increment(RECRUITER_REWARD),
@@ -109,10 +122,9 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
       'recruiting.weekPaid': paidThisWeek + 1,
       // Breaks ties on the recruiters board: first to a count ranks higher.
       'recruiting.lastPaidAt': now,
-      // The Recruiter achievement, on the first recruit who sticks.
-      ...(asArray(recruiter.achievements).includes('RECRUITER')
-        ? {}
-        : { achievements: FieldValue.arrayUnion('RECRUITER'), 'achievementDates.RECRUITER': now }),
+      // Recruiter achievements, at 1, 3, 5, and 10 recruits (rules/recruiting).
+      ...(earned.length ? { achievements: FieldValue.arrayUnion(...earned) } : {}),
+      ...Object.fromEntries(earned.map((id) => [`achievementDates.${id}`, now])),
       ...grantedValueUpdate(RECRUITER_REWARD, now),
     });
     recordLedger(tx, {
@@ -134,7 +146,7 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
       cashAfter: (recruit.cash || 0) + RECRUIT_BONUS,
       ref: `recruits/${recruitUid}`,
     });
-    tx.update(recordSnap.ref, { status: 'paid', paidAt: now });
+    tx.update(recordSnap.ref, { status: 'paid', paidAt: now, queued: FieldValue.delete() });
     return {
       outcome: 'paid' as const,
       recruiterUid: recruiterRef.id,
@@ -159,4 +171,24 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
     ]).catch((err) => reportError(err, { where: 'settleRecruit.notify', uid: recruitUid }));
   }
   return result.outcome;
+}
+
+/**
+ * Pays a recruiter's queued recruits (the ones held back by the weekly cap) as
+ * far as this week's cap allows. Called after the recruiter's own check-in.
+ */
+export async function settleQueuedRecruits(recruiterUid: string): Promise<number> {
+  const queued = await recruits()
+    .where('recruiterUid', '==', recruiterUid)
+    .where('queued', '==', true)
+    .limit(RECRUIT_WEEKLY_CAP)
+    .get();
+  let paid = 0;
+  for (const doc of queued.docs) {
+    const outcome = await settleRecruit(doc.id);
+    if (outcome === 'paid') paid++;
+    // Still over the cap: the rest wait for next week.
+    else if (outcome === 'waiting') break;
+  }
+  return paid;
 }
