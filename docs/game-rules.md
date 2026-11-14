@@ -79,7 +79,7 @@ Growth missions measure net worth: free money received that week and margin debt
 
 ### Dividends
 
-Every stock pays a weekly dividend on Thursday at 12:58 UTC, calculated against the frozen pre-halt price snapshot so payout prices cannot be gamed. Each player is paid at most once per week (a re-run skips anyone already paid). Bots and banned accounts are not paid.
+Every stock pays a weekly dividend on Thursday at 12:58 UTC, calculated against the frozen pre-halt price snapshot so payout prices cannot be gamed. Each player is paid at most once per week (a re-run skips anyone already paid). Bots and banned accounts are not paid. Dividends also pause for an account that has not been opened in 30 days (since 2026-11-13), and resume at the first payout after the player comes back; shares keep climbing the loyalty ladder while paused.
 
 The base rate is the stock's rarity tier, which is ranked by live price and updates itself as the market moves:
 
@@ -222,6 +222,7 @@ Admins can also halt the market manually at any time with a custom reason.
 | Weekly missions | Opening Bell ($500) + 1 more, $500 to $750 |
 | Crew rivalry | $1,500 win / $500 loss, for finishing 5 missions |
 | Dividend hold requirement | 10 days |
+| Dividend pause for inactive accounts | 30 days without opening the app |
 | Dividend loyalty ladder | 1x / 1.25x at 4 weeks / 1.5x at 8 weeks |
 | Exit impact discount | 10% / 25% / 40% on the same ladder |
 | IPO supply | 150 shares, 10 per player |

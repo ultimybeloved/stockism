@@ -6,11 +6,12 @@ const require = createRequire(import.meta.url);
 type Mod = typeof import('./dividends');
 let dividendWeekKey: Mod['dividendWeekKey'];
 let computeDividend: Mod['computeDividend'];
+let isDividendActive: Mod['isDividendActive'];
 
 beforeAll(() => {
   const admin = require('firebase-admin');
   if (!admin.apps.length) admin.initializeApp({ projectId: 'dividend-test' });
-  ({ dividendWeekKey, computeDividend } = require('./dividends') as Mod);
+  ({ dividendWeekKey, computeDividend, isDividendActive } = require('./dividends') as Mod);
 });
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -23,6 +24,20 @@ describe('dividendWeekKey', () => {
     expect(dividendWeekKey(thu + 6 * DAY)).toBe('2026-10-15'); // following Wednesday
     expect(dividendWeekKey(Date.UTC(2026, 9, 22, 0, 0))).toBe('2026-10-22'); // next Thursday
     expect(dividendWeekKey(Date.UTC(2026, 9, 14, 23, 59))).toBe('2026-10-08'); // Wednesday before
+  });
+});
+
+describe('isDividendActive', () => {
+  const now = Date.UTC(2026, 10, 19, 12, 58);
+
+  it('pays a player who opened the app or made a move in the last 30 days', () => {
+    expect(isDividendActive({ lastSynced: now - 29 * DAY }, now)).toBe(true);
+    expect(isDividendActive({ lastActive: now - 2 * DAY, lastSynced: now - 90 * DAY }, now)).toBe(true);
+  });
+
+  it('pauses an account not seen for 30 days or more, or never seen', () => {
+    expect(isDividendActive({ lastSynced: now - 30 * DAY, lastActive: now - 45 * DAY }, now)).toBe(false);
+    expect(isDividendActive({}, now)).toBe(false);
   });
 });
 

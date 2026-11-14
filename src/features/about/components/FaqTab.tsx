@@ -109,9 +109,10 @@ const FaqTab = () => {
           the pre-halt price snapshot. The rate depends on the stock&apos;s rarity: Legendary pays the most (1% a week)
           and Common the least (0.3%), with ETFs at a flat 0.7%. Rarity goes by price rank, so it changes as the market
           moves. Shares must be held for at least 10 days to earn anything, and they earn 1.25x at 4 weeks and 1.5x at 8
-          weeks. Check the Portfolio modal to see each holding&apos;s tier and projected weekly income. You can also
-          turn on DRIP per stock in your portfolio to automatically reinvest each payout into more shares instead of
-          taking cash.
+          weeks. Dividends pause if you have not opened Stockism in 30 days, and start again at the next payout after
+          you come back. Check the Portfolio modal to see each holding&apos;s tier and projected weekly income. You can
+          also turn on DRIP per stock in your portfolio to automatically reinvest each payout into more shares instead
+          of taking cash.
         </p>
       </div>
 

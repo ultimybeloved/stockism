@@ -16,7 +16,7 @@ import { graduateCohort } from '../shared/cohorts';
 import type { Cohort, TxLogEntry } from '../shared/types';
 import { writeNotification } from '../shared/notifications';
 import { reportError } from '../shared/sentry';
-import { recordHeartbeat } from '../shared/activity';
+import { recordHeartbeat, getLastActiveMs } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
 import { recordLedger } from '../shared/ledger';
 
@@ -32,6 +32,14 @@ export const dividendWeekKey = (now: number): string => {
     .toISOString()
     .slice(0, 10);
 };
+
+// Dividends pause for an account nobody has opened in this long, and resume at
+// the first payout after the player comes back. Before this (2026-11-13) about a
+// third of each week's payout went to accounts that had been gone a month or
+// more. Nothing is lost: lots keep ageing up the loyalty ladder while paused.
+export const DIVIDEND_INACTIVE_DAYS = 30;
+export const isDividendActive = (data: DocumentData, now: number): boolean =>
+  now - getLastActiveMs(data) < DIVIDEND_INACTIVE_DAYS * 24 * 60 * 60 * 1000;
 
 export interface DividendResult {
   cohortUpdates: Record<string, Cohort>;
@@ -184,6 +192,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
     usersConsidered: 0,
     usersPaid: 0,
     usersSkippedAlreadyPaid: 0,
+    usersSkippedInactive: 0,
     usersFailed: 0,
     totalPaid: 0,
     totalReinvested: 0,
@@ -198,6 +207,9 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
       // Banned accounts had their holdings wiped and earn nothing further.
       if (data.isBot || data.isBanned) return null;
       if (data.lastDividendWeek === week) return { alreadyPaid: true as const };
+      // No write at all for a paused account: the week is left unclaimed, and
+      // graduating cohorts is by date, so the next paid run catches them up.
+      if (!isDividendActive(data, now)) return { alreadyPaid: false as const, inactive: true as const };
 
       const payout = computeDividend(data, now, snapshotPrices, rateFor);
       // Always persist graduated cohorts so pending shares move to eligible over time.
@@ -259,13 +271,17 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
         }
       }
       tx.update(userRef, updates);
-      return { alreadyPaid: false as const, payout, hasCashPayout, hasDrip, totalRounded };
+      return { alreadyPaid: false as const, inactive: false as const, payout, hasCashPayout, hasDrip, totalRounded };
     });
 
     if (!result) return;
     stats.usersConsidered += 1;
     if (result.alreadyPaid) {
       stats.usersSkippedAlreadyPaid += 1;
+      return;
+    }
+    if (result.inactive) {
+      stats.usersSkippedInactive += 1;
       return;
     }
     const { payout, hasCashPayout, hasDrip, totalRounded } = result;
@@ -322,6 +338,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
       usersConsidered: stats.usersConsidered,
       usersPaid: stats.usersPaid,
       usersSkippedAlreadyPaid: stats.usersSkippedAlreadyPaid,
+      usersSkippedInactive: stats.usersSkippedInactive,
       usersFailed: stats.usersFailed,
       totalPaid: Math.round(stats.totalPaid * 100) / 100,
       totalReinvested: Math.round(stats.totalReinvested * 100) / 100,
@@ -331,7 +348,7 @@ async function runDividendPayout({ source = 'scheduled' } = {}) {
     });
 
   logger.info(
-    `Dividend payout (${source}) week ${week}: ${stats.usersPaid}/${stats.usersConsidered} paid, ${stats.usersSkippedAlreadyPaid} already paid, ${stats.usersFailed} failed, $${stats.totalPaid.toFixed(2)} total, ${durationMs}ms`,
+    `Dividend payout (${source}) week ${week}: ${stats.usersPaid}/${stats.usersConsidered} paid, ${stats.usersSkippedAlreadyPaid} already paid, ${stats.usersSkippedInactive} inactive, ${stats.usersFailed} failed, $${stats.totalPaid.toFixed(2)} total, ${durationMs}ms`,
   );
   if (stats.usersFailed > 0) {
     // Surfaced so a partial run gets noticed; a re-run pays only the ones missed.
