@@ -40,7 +40,8 @@ const LeaderboardPage = () => {
   const [sortMode, setSortMode] = useState<BoardMode>(
     linked === 'season' || linked === 'recruiters' ? linked : 'value',
   );
-  const [gainUnit, setGainUnit] = useState<GainUnit>('$');
+  // Top Gainers opens in percent, so smaller accounts are seen first (2026-11-14).
+  const [gainUnit, setGainUnit] = useState<GainUnit>('%');
   const sortBy = sortFor(sortMode, gainUnit);
   const uid = user?.uid ?? null;
   // Ranked on net worth: margin debt is taken off on the server.
