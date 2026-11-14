@@ -25,6 +25,7 @@ import { buildSeasonBaseline } from '../season/seasonTiers';
 import { isDisposableEmailLive } from './disposableEmail';
 import { countIpAccounts } from './ipCap';
 import { cleanupBlockedAuthUser, applyPendingDiscordLink } from './signupHelpers';
+import { announceSignup } from './signupAnnounce';
 import { purgeAccount } from '../shared/accountDeletion';
 import { clientIp } from '../shared/clientIp';
 import { recordLedger } from '../shared/ledger';
@@ -431,8 +432,9 @@ export const createUser = cf().https.onCall(async (data, context) => {
       }
     }
 
-    // Signup announcements to Discord were removed on purpose (June 2026):
-    // broadcasting new usernames was the troll-signup payoff. Don't add them back.
+    // Post the new player in the Discord sign-up feed (see signupAnnounce.ts for
+    // why this was removed in June 2026 and restored).
+    await announceSignup(trimmed, context.auth.token?.firebase?.sign_in_provider);
 
     // (signup IP is recorded inside the create transaction above — see "Reserve
     // this account's per-IP slot")
