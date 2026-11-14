@@ -72,7 +72,9 @@ const LoginModal = ({ onClose }: LoginModalProps) => {
 
   const handleDiscordSignIn = () => {
     const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
-    const redirectUri = encodeURIComponent('https://us-central1-stockism-abb28.cloudfunctions.net/discordAuth');
+    // The site's own address (a rewrite onto the discordAuth function), so Discord's
+    // screen names stockism.app. Must be registered in the Discord Developer Portal.
+    const redirectUri = encodeURIComponent('https://stockism.app/auth/discord');
     const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=identify%20email&state=${startDiscordLoginState()}`;
     window.location.href = discordAuthUrl;
   };

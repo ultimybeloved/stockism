@@ -3,7 +3,9 @@ import { startDiscordLinkFunction, unlinkOwnDiscordFunction } from '../../../api
 import { errorMessage } from '../../../utils/errors';
 
 const DISCORD_CLIENT_ID = '1467420774477467752';
-const DISCORD_LINK_REDIRECT = 'https://us-central1-stockism-abb28.cloudfunctions.net/discordLink';
+// The site's own address (a rewrite onto the discordLink function), registered
+// in the Discord Developer Portal.
+const DISCORD_LINK_REDIRECT = 'https://stockism.app/auth/discord-link';
 
 // Starts the Discord link flow. The backend mints a single-use code first and we
 // send that as the OAuth `state`, which is how discordLink knows the person who

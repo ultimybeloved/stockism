@@ -4,9 +4,16 @@ import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
+// On the real site, Google and X sign-in run through stockism.app itself
+// (vercel.json rewrites /__/auth and /__/firebase onto Firebase), so their
+// screens name stockism.app instead of a firebaseapp.com address. Anywhere else
+// (local, previews) has no such rewrite and keeps the configured address.
+const SITE_HOST = 'stockism.app';
+const onSite = typeof window !== 'undefined' && window.location.hostname === SITE_HOST;
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  authDomain: onSite ? SITE_HOST : import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
