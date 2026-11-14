@@ -65,6 +65,11 @@ const CrewSelectionModal = ({
   const freeSwitchOpen = !!currentCrew && hasFreeSwitch(userData);
   const isFreeTarget = (crewId: string) => freeSwitchOpen && isFreeSwitchTarget(crewId, userData);
 
+  // No crew head this week: the biggest active portfolio takes the crown at
+  // the next Thursday reopen, so the first active member gets it.
+  const crownOpen = (crewId: string) =>
+    !!crewStats && !(crewStats.heads as Record<string, unknown> | undefined)?.[crewId];
+
   // 30-day rejoin lockout on crews you recently left. A free switch ignores it.
   const lockDaysLeft = (crewId: string) => {
     if (isFreeTarget(crewId)) return 0;
@@ -125,7 +130,8 @@ const CrewSelectionModal = ({
           )}
           {!isGuest && !currentCrew && (
             <p className={`text-sm ${mutedClass} mt-1`}>
-              Join a crew for crew missions and weekly Rivalries. Less active crews pay bonus rewards!
+              Join a crew for crew missions and weekly Rivalries. Less active crews pay bonus rewards, and a crew with
+              an open crown makes its first active member crew head.
             </p>
           )}
         </div>
@@ -327,6 +333,12 @@ const CrewSelectionModal = ({
                         {multiplier > 1 && <span className="text-orange-500 font-semibold">x{multiplier} rewards</span>}
                         {typeof activeCount === 'number' && <span className={mutedClass}>{activeCount} active</span>}
                       </div>
+                    )}
+                    {crownOpen(crew.id) && (
+                      <span className="text-xs text-amber-500 mt-1 block">
+                        <PixelIcon name="crew_head" className="w-3.5 h-3.5 mr-1 align-[-2px]" />
+                        Crown open: be active to take it
+                      </span>
                     )}
                     {crew.id === currentCrew && (
                       <span className="text-xs text-orange-500 mt-2 block">✓ Current crew</span>

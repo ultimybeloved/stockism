@@ -26,11 +26,20 @@ import { holdForDelayedOpen } from './delayedOpenState';
 import { runChapterReviewRecap } from './reviewRecap';
 
 type Mover = { ticker: string; price: number; change: number };
+const THURSDAY = 4;
 
 // Builds and posts the daily market summary Discord embed. Shared by the
 // scheduled run and the admin re-trigger. Only the scheduled run records the
 // daily market-index point, so a manual re-run can't double-record it.
-async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory: boolean }) {
+// `post: false` does the day's bookkeeping (index point, closes) without the
+// Discord post: on Thursdays the Week in Review covers the day, ten minutes later.
+async function doDailyMarketSummary({
+  recordIndexHistory,
+  post = true,
+}: {
+  recordIndexHistory: boolean;
+  post?: boolean;
+}) {
   const marketRef = db.collection('market').doc('current');
   const marketSnap = await marketRef.get();
 
@@ -216,7 +225,7 @@ async function doDailyMarketSummary({ recordIndexHistory }: { recordIndexHistory
     inline: false,
   });
 
-  await sendDiscordMessage(null, [embed]);
+  if (post) await sendDiscordMessage(null, [embed]);
   return { success: true };
 }
 
@@ -225,7 +234,7 @@ export const dailyMarketSummary = cf()
   .timeZone('UTC')
   .onRun(async () => {
     try {
-      await doDailyMarketSummary({ recordIndexHistory: true });
+      await doDailyMarketSummary({ recordIndexHistory: true, post: new Date().getUTCDay() !== THURSDAY });
       await recordHeartbeat('dailyMarketSummary');
     } catch (error) {
       reportError(error, { where: 'dailyMarketSummary' });

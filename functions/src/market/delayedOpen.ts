@@ -27,7 +27,7 @@ import {
 import { finalizeReview } from './reviewChanges';
 import { runChapterReviewRecap } from './reviewRecap';
 import { recordChapterMarker } from './chapterMarkers';
-import { runWeeklyCrewRankings, runWeeklyMarketSummary, runWeeklyLeaderboard } from './marketWeekly';
+import { runWeeklyCrewRankings, runWeeklyMarketSummary } from './marketWeekly';
 import { runMarketOpenProcessing } from '../orders/marketOrders';
 
 const db = admin.firestore();
@@ -118,8 +118,6 @@ const runStep = async (id: string, d: DelayedOpen) => {
       return runWeeklyCrewRankings();
     case 'weeklyMarketSummary':
       return runWeeklyMarketSummary();
-    case 'weeklyLeaderboard':
-      return runWeeklyLeaderboard();
   }
 };
 

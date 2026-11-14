@@ -29,7 +29,7 @@ const { CREW_SWITCH_EVENT, isFreeSwitchTarget } =
 
 const EVENT_CREW = CREW_SWITCH_EVENT?.crewIds[0];
 const PAID_CREW = 'YAMAZAKI'; // not an event crew
-const FROM_CREW = 'WORKERS';
+const FROM_CREW = 'GOD_DOG'; // never an event crew
 const TICKER = 'GUN';
 
 const ctx = (uid: string) => ({ auth: { uid }, rawRequest: { ip: '203.0.113.9' } });

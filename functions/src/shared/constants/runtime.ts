@@ -42,7 +42,7 @@ export const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
   { job: 'payDividends', maxAgeHours: 8 * 24, label: 'Dividend payout' },
-  { job: 'weeklyMarketSummary', maxAgeHours: 8 * 24, label: 'Weekly market report' },
+  { job: 'weeklyMarketSummary', maxAgeHours: 8 * 24, label: 'Week in Review post' },
   { job: 'seasonCheckpoint', maxAgeHours: 8 * 24, label: 'Season checkpoint' },
   // Daily.
   { job: 'dailyMarketSummary', maxAgeHours: 48, label: 'Daily market summary' },
@@ -73,7 +73,6 @@ export const WATCHED_SCHEDULED_JOBS = [
     label: 'Crew rankings, multipliers, and crew heads',
     watchedSince: ADDED_2026_09_28,
   },
-  { job: 'weeklyLeaderboard', maxAgeHours: 8 * 24, label: 'Weekly leaderboard post', watchedSince: ADDED_2026_09_28 },
   { job: 'syncAllPortfolios', maxAgeHours: 48, label: 'Portfolio sync', watchedSince: ADDED_2026_09_28 },
   { job: 'scheduledArchiving', maxAgeHours: 48, label: 'Chart history archiving', watchedSince: ADDED_2026_09_28 },
   { job: 'backupMarketData', maxAgeHours: 48, label: 'Daily backup', watchedSince: ADDED_2026_09_28 },

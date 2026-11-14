@@ -108,7 +108,9 @@ const CrewPage = ({ onOpenCrewSelection }: { onOpenCrewSelection?: () => void })
                 </span>
               </div>
             ) : (
-              <p className={`text-sm ${mutedClass}`}>No crew head this week.</p>
+              <p className={`text-sm ${mutedClass}`}>
+                No crew head this week. The biggest active portfolio takes the crown at the Thursday reopen.
+              </p>
             )}
           </div>
 

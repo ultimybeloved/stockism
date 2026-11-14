@@ -88,5 +88,4 @@ export const DELAYED_STEPS = [
   { id: 'marketOpenAlert', at: 0 },
   { id: 'weeklyCrewRankings', at: 5 },
   { id: 'weeklyMarketSummary', at: 10 },
-  { id: 'weeklyLeaderboard', at: 15 },
 ] as const;

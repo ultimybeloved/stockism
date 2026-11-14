@@ -4,13 +4,21 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
-import { ONE_WEEK_MS, ACTIVE_USER_WINDOW_MS, ACTIVE_USER_WINDOW_DAYS } from '../shared/constants';
-import { sendDiscordMessage, pxe } from '../shared/discordApi';
+import {
+  ONE_WEEK_MS,
+  FOURTEEN_DAYS_MS,
+  ACTIVE_USER_WINDOW_MS,
+  ACTIVE_USER_WINDOW_DAYS,
+  LEADERBOARD_PERCENT_MIN_BASELINE,
+} from '../shared/constants';
+import { sendDiscordMessage, crewEmoji, pxe } from '../shared/discordApi';
+import { CREW_MAP } from '../shared/crews';
+import { weekInReviewEmbed } from './weekInReview';
 import { getLastActiveMs, sumMarketActivity, recordHeartbeat } from '../shared/activity';
 import { priceHistoryRef } from '../shared/marketData';
 import { reportError } from '../shared/sentry';
 import { isRosterTicker } from '../shared/roster';
-import { netWorthOf } from '../shared/equity';
+import { netWorthOf, tradingNetWorthOf, snapshotNetWorth, netReturnPercent, grantedSince } from '../shared/equity';
 import type { DocumentData } from 'firebase-admin/firestore';
 import type { PricePoint } from '../shared/types';
 import { runWeeklyCrewRankings, runCrewRoleSyncOnly } from './crewRankings';
@@ -72,7 +80,26 @@ async function writeFeatureUsage({
   }
 }
 
-// Builds and posts the weekly market report. Read-only apart from the Discord
+// Players by weekly percent gain, net of margin debt and free money: the same
+// sums as the site's Top Gainers board (users/leaderboard.ts).
+function weeklyClimbers(players: UserRow[], now: number) {
+  const out: { name: string; percent: number }[] = [];
+  for (const u of players) {
+    const snap = u.portfolioSnapshot7d;
+    if (!snap || snap.timestamp < now - FOURTEEN_DAYS_MS) continue;
+    const before = snapshotNetWorth(snap, u.marginUsed || 0);
+    if (before < LEADERBOARD_PERCENT_MIN_BASELINE) continue;
+    const percent = netReturnPercent(
+      tradingNetWorthOf(u as DocumentData),
+      before,
+      grantedSince(u as DocumentData, ONE_WEEK_MS),
+    );
+    if (percent > 0) out.push({ name: u.displayName || 'Anonymous', percent });
+  }
+  return out.sort((x, y) => y.percent - x.percent).slice(0, 5);
+}
+
+// Builds and posts the Week in Review (weekInReview.ts). Read-only apart from the Discord
 // post, so it is safe to re-run by hand (see triggerWeeklyMarketSummary).
 export async function runWeeklyMarketSummary() {
   try {
@@ -113,9 +140,8 @@ export async function runWeeklyMarketSummary() {
       weeklyChanges.push({ ticker, price: currentPrice, change, priceWeekAgo });
     });
 
-    weeklyChanges.sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
-    const topGainer = weeklyChanges.find((s) => s.change > 0);
-    const topLoser = weeklyChanges.find((s) => s.change < 0);
+    const gainers = weeklyChanges.filter((c) => c.change > 0).sort((x, y) => y.change - x.change);
+    const losers = weeklyChanges.filter((c) => c.change < 0).sort((x, y) => x.change - y.change);
 
     // Weekly volume
     const {
@@ -135,70 +161,49 @@ export async function runWeeklyMarketSummary() {
     // Per-feature stamps come from touchLastActive(uid, feature).
     await writeFeatureUsage({ users, tradesByUid, since: weekAgo, now });
 
-    // Top portfolios — bots and banned accounts are excluded from all
-    // user-facing rankings. Net worth (margin debt off), matching the site's
-    // board and the weekly leaderboard.
-    const topPortfolios = users
-      .filter((u) => !u.isBot && !u.isBanned && u.portfolioValue > 0)
+    // Bots and banned accounts are excluded from all user-facing rankings.
+    // Net worth (margin debt off), matching the site's board.
+    const ranked = users.filter((u) => !u.isBot && !u.isBanned);
+    const portfolios = ranked
+      .filter((u) => !u.isBankrupt && u.portfolioValue > 0)
       .map((u) => ({ name: u.displayName || 'Anonymous', worth: netWorthOf(u as DocumentData) }))
-      .sort((a, b) => b.worth - a.worth)
+      .sort((x, y) => y.worth - x.worth)
       .slice(0, 5);
+
+    // Recruiters paid for a recruit since the last report.
+    const recruiters = ranked
+      .filter((u) => (u.recruiting?.lastPaidAt || 0) >= weekAgo && u.recruiting?.paid > 0)
+      .sort((x, y) => y.recruiting.paid - x.recruiting.paid)
+      .map((u) => ({ name: u.displayName || 'Anonymous', total: u.recruiting.paid as number }));
+
+    // Written by the crew rankings five minutes before this runs.
+    const crewStats = (await db.collection('market').doc('crewStats').get()).data();
 
     // The shop's featured item turns over at the Thursday reopen, just before
     // this runs, so the report announces the new one.
     const featuredId = featuredCosmeticId(COSMETIC_PRICE_LIST, now + 60 * 1000);
     const featured = featuredId ? COSMETIC_CATALOG[featuredId] : null;
 
-    // Build comprehensive embed
-    const embed = {
-      title: `${pxe('trade')} Weekly Market Report`,
-      description: `Week ending ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
-      color: 0x4ecdc4,
-      fields: [
-        {
-          name: `${pxe('chart')} Weekly Activity`,
-          value: `${weeklyTrades} trades\n$${weeklyVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })} total volume\n${activeUsers} active users (last ${ACTIVE_USER_WINDOW_DAYS} days)`,
-          inline: false,
-        },
-        {
-          name: `${pxe('rocket')} Biggest Mover (Up)`,
-          value: topGainer
-            ? `**${topGainer.ticker}**\n$${topGainer.priceWeekAgo.toFixed(2)} → $${topGainer.price.toFixed(2)}\n+${topGainer.change.toFixed(1)}%`
-            : 'None',
-          inline: true,
-        },
-        {
-          name: `${pxe('chart_down')} Biggest Mover (Down)`,
-          value: topLoser
-            ? `**${topLoser.ticker}**\n$${topLoser.priceWeekAgo.toFixed(2)} → $${topLoser.price.toFixed(2)}\n${topLoser.change.toFixed(1)}%`
-            : 'None',
-          inline: true,
-        },
-        {
-          name: `${pxe('trophy')} Top 5 Portfolios`,
-          value:
-            topPortfolios
-              .map(
-                (u, i) => `${i + 1}. ${u.name} - $${u.worth.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-              )
-              .join('\n') || 'None',
-          inline: false,
-        },
-        ...(featured
-          ? [
-              {
-                name: `${pxe('shop')} Featured in the Shop This Week`,
-                value: `**${featured.name}**: $${featuredPrice(featured.price).toLocaleString()} (normally $${featured.price.toLocaleString()}). 25% off until the next Thursday reopen.`,
-                inline: false,
-              },
-            ]
-          : []),
-      ],
-      footer: {
-        text: 'Next report: same time next week',
+    const embed = weekInReviewEmbed(
+      {
+        weekEndUnix: Math.floor(now / 1000),
+        trades: weeklyTrades,
+        volume: weeklyVolume,
+        activePlayers: activeUsers,
+        activeWindowDays: ACTIVE_USER_WINDOW_DAYS,
+        gainers,
+        losers,
+        climbers: weeklyClimbers(ranked, now),
+        portfolios,
+        rivalryWinners: crewStats?.rivalryWinners || [],
+        recruiters,
+        featured: featured
+          ? { name: featured.name, price: featured.price, salePrice: featuredPrice(featured.price) }
+          : null,
       },
-      timestamp: new Date().toISOString(),
-    };
+      pxe,
+      (id) => `${crewEmoji(id)} ${CREW_MAP[id]?.name || id}`,
+    );
 
     await sendDiscordMessage(null, [embed]);
     return { posted: true, activeUsers, weeklyTrades };
@@ -225,80 +230,13 @@ export const weeklyMarketSummary = cf()
   });
 
 /**
- * Admin-only manual re-run of the weekly market report. Posts the same embed to
+ * Admin-only manual re-run of the Week in Review. Posts the same embed to
  * Discord immediately. Nothing else is written, so extra runs are harmless.
  */
 export const triggerWeeklyMarketSummary = cf().https.onCall(async (data, context) => {
   requireAdmin(context, 'Admin only.');
   return runWeeklyMarketSummary();
 });
-
-/**
- * Weekly Leaderboard - Runs at the Thursday reopen (21:15 UTC)
- */
-export async function runWeeklyLeaderboard() {
-  try {
-    const usersSnapshot = await db.collection('users').get();
-
-    if (usersSnapshot.empty) {
-      logger.info('No users found');
-      return null;
-    }
-
-    // Calculate portfolio values and sort
-    const activeCutoff = Date.now() - ACTIVE_USER_WINDOW_MS;
-    let activeCount = 0;
-    const traders: { username: string; portfolioValue: number }[] = [];
-    usersSnapshot.forEach((doc) => {
-      const user = doc.data()!;
-      if (!user.isBot && getLastActiveMs(user) >= activeCutoff) activeCount++;
-      // Bots and banned accounts are excluded from all user-facing rankings.
-      // Ranked on net worth (margin debt off), matching the site's board.
-      if (!user.isBankrupt && !user.isBot && !user.isBanned) {
-        traders.push({
-          username: user.displayName,
-          portfolioValue: user.portfolioValue != null ? netWorthOf(user) : user.cash || 0,
-        });
-      }
-    });
-
-    traders.sort((a, b) => b.portfolioValue - a.portfolioValue);
-    const top5 = traders.slice(0, 5);
-
-    const leaderboardText = top5
-      .map((trader, idx) => {
-        const medal = pxe((['rank1', 'rank2', 'rank3', 'rank4', 'rank5'] as const)[idx]!);
-        return `${medal} **${trader.username}** - $${trader.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
-      })
-      .join('\n');
-
-    const embed = {
-      color: 0xffd700, // Gold
-      title: `${pxe('trophy')} Weekly Leaderboard`,
-      description: leaderboardText,
-      footer: {
-        text: `Total Active Users (last ${ACTIVE_USER_WINDOW_DAYS} days): ${activeCount}`,
-      },
-      timestamp: new Date().toISOString(),
-    };
-
-    await sendDiscordMessage(null, [embed]);
-    logger.info('Weekly leaderboard sent');
-    await recordHeartbeat('weeklyLeaderboard');
-    return null;
-  } catch (error) {
-    reportError(error, { where: 'weeklyLeaderboard' });
-    return null;
-  }
-}
-
-export const weeklyLeaderboard = cf()
-  .pubsub.schedule('15 21 * * 4')
-  .timeZone('UTC')
-  .onRun(async () => {
-    if (await holdForDelayedOpen('weeklyLeaderboard')) return null;
-    return runWeeklyLeaderboard();
-  });
 
 // 5 min rather than the 60s default: this scans every user doc and then makes
 // up to 18 Discord round-trips. Billed on actual runtime, so the headroom is

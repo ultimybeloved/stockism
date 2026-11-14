@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { themeClasses } from '../../../utils/theme';
 import { broadcastNotificationFunction } from '../../../api/callables';
-import { CREW_SWITCH_EVENT, CREW_SWITCH_PENALTY, CREW_REJOIN_LOCKOUT_DAYS, hasFreeSwitch } from '../../../crews';
+import {
+  CREW_SWITCH_EVENT,
+  CREW_SWITCH_PENALTY,
+  CREW_REJOIN_LOCKOUT_DAYS,
+  hasFreeSwitch,
+  switchEventCrewNames,
+} from '../../../crews';
 import { formatUTCDateTime } from '../../../utils/formatters';
 import { errorMessage } from '../../../utils/errors';
 import AdminIcon from './AdminIcon';
@@ -16,7 +22,7 @@ const DEFAULT_TITLE = eventOn ? 'One free crew switch' : '';
 
 const DEFAULT_MESSAGE =
   eventOn && CREW_SWITCH_EVENT
-    ? `Until ${formatUTCDateTime(CREW_SWITCH_EVENT.endsAt)}, you get one free switch to any crew with flair crews. ` +
+    ? `Until ${formatUTCDateTime(CREW_SWITCH_EVENT.endsAt)}, you get one free switch to ${switchEventCrewNames()}. ` +
       `No ${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty, and no ${CREW_REJOIN_LOCKOUT_DAYS} day lockout on the crew you leave. ` +
       `Open the crew menu to switch.`
     : '';

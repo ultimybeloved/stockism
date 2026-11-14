@@ -774,13 +774,21 @@ export interface CrewSwitchEvent {
   endsAt: number;
 }
 
-// Flair crews launch: one free move into any crew that has flair crews, for
-// players who want to rep one. Keep crewIds in step with src/rules/flairCrews.ts.
+// Underdog call (Darth YG, 2026-11-14): Workers had nobody active and no crew
+// head, Hostel had one active player. One free move into either. The earlier
+// event was 'flair_2026_10' (the flair crews launch, ended 2026-11-03).
 export const CREW_SWITCH_EVENT: CrewSwitchEvent | null = {
-  id: 'flair_2026_10',
-  crewIds: ['ALLIED', 'BIG_DEAL', 'SECRET_FRIENDS', 'HOSTEL', 'FIST_GANG', 'WORKERS', 'KITAE_UNION'],
-  endsAt: Date.UTC(2026, 10, 3, 21, 0), // 2026-11-03 21:00 UTC
+  id: 'underdog_2026_11',
+  crewIds: ['WORKERS', 'HOSTEL'],
+  endsAt: Date.UTC(2026, 11, 17, 21, 0), // 2026-12-17 21:00 UTC
 };
+
+/** The event's crews as words: "Workers and Hostel". */
+export const switchEventCrewNames = (): string =>
+  (CREW_SWITCH_EVENT?.crewIds || [])
+    .map((id) => CREW_MAP[id]?.name || id)
+    .join(', ')
+    .replace(/, ([^,]*)$/, (_, last) => ` and ${last}`);
 
 /** True while the event runs and this player hasn't used their free switch yet. */
 export const hasFreeSwitch = (

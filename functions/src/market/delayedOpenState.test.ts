@@ -34,6 +34,6 @@ describe('late open', () => {
   });
 
   it('runs the steps in their usual order and spacing', () => {
-    expect(DELAYED_STEPS.map((s) => s.at)).toEqual([-30, -30, -6, -5, -4, 0, 5, 10, 15]);
+    expect(DELAYED_STEPS.map((s) => s.at)).toEqual([-30, -30, -6, -5, -4, 0, 5, 10]);
   });
 });

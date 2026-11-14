@@ -54,7 +54,7 @@ Stocks can also be **split** (for example 3-for-1): the price divides, every hol
 There are 10 crews: Allied, Big Deal, Fist Gang, God Dog, Secret Friends, Hostel, White Tiger Job Center, Workers, Kitae Kim's Union, and Yamazaki Syndicate.
 
 - Joining is free. Switching costs 5% of your portfolio and locks you out of the crew you left for 30 days.
-- **Free switch event** (`CREW_SWITCH_EVENT` in `src/crews.ts`). While one runs, each player gets one free switch into any of its crews: no penalty, no lockout on the crew left, and a lockout on the destination doesn't block it. The 24h cooldown still applies, and joining from no crew doesn't use it up. Current: the flair crews launch, until 2026-11-03 21:00 UTC, into any crew that has flair crews (not God Dog, White Tiger Job Center, or Yamazaki Syndicate).
+- **Free switch event** (`CREW_SWITCH_EVENT` in `src/crews.ts`). While one runs, each player gets one free switch into any of its crews: no penalty, no lockout on the crew left, and a lockout on the destination doesn't block it. The 24h cooldown still applies, and joining from no crew doesn't use it up. Current: the underdog call, until 2026-12-17 21:00 UTC, into Workers or Hostel (Darth YG, 2026-11-14: Workers had no active players and no crew head). The crew picker marks any crew with no head as "Crown open". Before it: the flair crews launch, until 2026-11-03.
 - **Underdog bonus.** Crews with fewer active players earn a reward multiplier of up to 2x on all mission and rivalry payouts, recalculated every Thursday reopen from last week's activity.
 - **Crew head.** Every Thursday reopen (Monday until 2026-10-22) the biggest net worth (portfolio minus margin debt, since 2026-10-14) among a crew's active members is crowned. Crew totals and weekly gains in the weekly report are net of margin debt too. Four straight weeks earns a dynasty, and taking the crown off a long-reigning head is tracked separately. The crown is cosmetic and pays nothing.
 - **Flair crews** (since 2026-10-27). A smaller crew inside your main crew that you can rep, picked in My Look. Its crest takes the place of your crew pin. Free to pick or change any time. From 2026-10-29 the flair missions (Flair Support, Flair Tour) ask for the flair crew's characters, including ones outside the main crew (Allied + Cheonliang gets Sujin Kim). Rankings, the underdog bonus, crew head, the ETF, and the other missions stay with the main crew. The crew-switch screen lists each crew's flair crews. Switching main crew drops the flair, and the pin goes back to the new crew's regular crest. Allied: Burn Knuckles, Ansan Public, Cheonliang, and J High. Big Deal: Back Door. Secret Friends: Gangseo Union and Cheonliang. Hostel: Hostel A and Runaway Fam. Fist Gang: Liberation Training Corps and The Beggars. Workers: Black Workers. Kitae Kim's Union: The Cartel. God Dog, White Tiger Job Center, and Yamazaki Syndicate have none. The list and which characters belong to each live in `src/rules/flairCrews.ts`.
@@ -294,7 +294,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | All-time high/low sweep | hourly at :20 |
 | Coordination scan | hourly at :35 |
 | Alt account scan | 04:00 daily |
-| Daily market summary | 21:00 daily |
+| Daily market summary | 21:00 daily (the closes are recorded every day; the Discord post skips Thursday, when the Week in Review covers it) |
 | Market backup | every 24h |
 | Archiving and portfolio sync | every 24h |
 | Dividends | Thursday 12:58 |
@@ -305,8 +305,7 @@ The economy is fake money, but the leaderboard is not, so a fair amount of the b
 | Call price lock | Thursday 13:00 |
 | Calls scored and paid | Thursday 20:55 |
 | Weekly crew rankings, rivalries, week-open prices | Thursday 21:05 |
-| Weekly market summary | Thursday 21:10 |
-| Weekly leaderboard | Thursday 21:15 |
+| Week in Review post (movers, top climbers by percent, top portfolios, rivalry winners, recruiters, featured shop item) | Thursday 21:10 |
 | Monthly permanent backup | 1st of month 00:00 |
 
 ---

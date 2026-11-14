@@ -371,7 +371,7 @@ export async function runWeeklyCrewRankings({ postToDiscord = true } = {}) {
     const head = heads[crew.id];
     const headText = head
       ? `${pxe('crew_head')} ${head.displayName} ($${head.portfolioValue.toLocaleString(undefined, { maximumFractionDigits: 0 })})`
-      : 'Vacant';
+      : 'Open. The first active member takes the crown.';
 
     return {
       name: `${idx + 1}. ${crewEmoji(crew.id)} ${crew.name}`,
