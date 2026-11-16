@@ -171,6 +171,22 @@ async function main() {
       tickers: i === 9 ? ['x'.repeat(10)].concat(Array(300).fill('T')) : [],
     })),
   });
+  // Entry sizes (2026-11-16): the counts were capped, the entries were not.
+  const page = 'x'.repeat(20000);
+  await check('flat watchlist of huge strings', 'blocked', { watchlist: [page, page] });
+  await check('flat watchlist holding a map', 'blocked', { watchlist: [{ junk: page }] });
+  await check('named watchlist of huge tickers', 'blocked', {
+    watchlists: [{ id: 'main', name: 'Watchlist', tickers: [page] }],
+  });
+  await check('named watchlist tickers that are not a list', 'blocked', {
+    watchlists: [{ id: 'main', name: 'Watchlist', tickers: page }],
+  });
+  await check('DRIP toggle holding a huge string', 'blocked', { 'drip.JAY': page });
+  await check('displayed pin that is a huge string', 'blocked', { displayedShopPins: [page] });
+  await check('displayed achievement pin holding a map', 'blocked', { displayedAchievementPins: [{ junk: page }] });
+  await check('equip a huge string as a cosmetic', 'blocked', { 'activeCosmetics.banner': page });
+  await check('equip a map as a cosmetic', 'blocked', { 'activeCosmetics.banner': { junk: page } });
+  await check('cosmetic style choice that is a huge string', 'blocked', { 'cosmeticStyle.flap': page });
   await check('grant self a permanent streak saver', 'blocked', { streakSaverPermanent: true });
   await check('extend own streak saver', 'blocked', { streakSaverUntil: 9e12 });
   await check('grant self mission autopilot', 'blocked', { missionAutopilot: true });
@@ -199,7 +215,9 @@ async function main() {
   await check('pick a flair crew', 'allowed', { flairCrew: 'BURN_KNUCKLES' });
   await check('clear the flair crew', 'allowed', { flairCrew: null });
   await check('equip a cosmetic', 'allowed', { 'activeCosmetics.banner': 'gold' });
+  await check('unequip a cosmetic', 'allowed', { 'activeCosmetics.banner': null });
   await check('set a cosmetic style choice', 'allowed', { 'cosmeticStyle.flap': 'scramble' });
+  await check('set a cosmetic color pair', 'allowed', { 'cosmeticStyle.tickerColors': '#ff0000,#00ff00' });
   await check('save ten full-size named watchlists', 'allowed', {
     watchlists: Array.from({ length: 10 }, (_, i) => ({
       id: `l${Date.now().toString(36)}${i}`,

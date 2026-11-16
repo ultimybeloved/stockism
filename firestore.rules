@@ -95,16 +95,32 @@ service cloud.firestore {
         && (!changed.hasAny(['marginTutorialCompleted']) || data.marginTutorialCompleted is bool)
         && (!changed.hasAny(['ladderTutorial2Completed']) || data.ladderTutorial2Completed is bool)
         && (!changed.hasAny(['displayCrewPin']) || data.displayCrewPin is bool)
-        && (!changed.hasAny(['watchlist']) || (data.watchlist is list && data.watchlist.size() <= 300))
-        && (!changed.hasAny(['drip']) || (data.drip is map && data.drip.size() <= 300))
+        && (!changed.hasAny(['watchlist'])
+            || (data.watchlist is list && data.watchlist.size() <= 300 && shortText(data.watchlist, 6000)))
+        && (!changed.hasAny(['drip'])
+            || (data.drip is map && data.drip.size() <= 300 && shortText(data.drip.keys(), 6000)
+                && data.drip.values().hasOnly([true, false])))
         && (!changed.hasAny(['displayedShopPins'])
-            || (data.displayedShopPins is list && data.displayedShopPins.size() <= 20))
+            || (data.displayedShopPins is list && data.displayedShopPins.size() <= 20
+                && shortText(data.displayedShopPins, 1200)))
         && (!changed.hasAny(['displayedAchievementPins'])
-            || (data.displayedAchievementPins is list && data.displayedAchievementPins.size() <= 20))
+            || (data.displayedAchievementPins is list && data.displayedAchievementPins.size() <= 20
+                && shortText(data.displayedAchievementPins, 1200)))
         && (!changed.hasAny(['activeCosmetics'])
-            || (data.activeCosmetics is map && data.activeCosmetics.size() <= 20))
+            || (data.activeCosmetics is map && data.activeCosmetics.size() <= 20
+                && shortText(data.activeCosmetics.keys(), 1200)
+                && shortText(data.activeCosmetics.values(), 1200)))
         && (!changed.hasAny(['cosmeticStyle'])
-            || (data.cosmeticStyle is map && data.cosmeticStyle.size() <= 20));
+            || (data.cosmeticStyle is map && data.cosmeticStyle.size() <= 20
+                && shortText(data.cosmeticStyle.keys(), 1200)
+                && shortText(data.cosmeticStyle.values(), 1200)));
+    }
+
+    // Counting entries is not enough: 300 "tickers" could each be a page of
+    // text (found 2026-11-16). Joining the entries bounds them all at once,
+    // since rules cannot loop. Limits are several times the longest honest value.
+    function shortText(entries, maxChars) {
+      return entries.join('').size() <= maxChars;
     }
 
     // One named watchlist: an id, a name and at most 300 tickers, nothing
@@ -115,7 +131,8 @@ service cloud.firestore {
         || (lists[i].size() == 3
             && lists[i].id is string && lists[i].id.size() <= 40
             && lists[i].name is string && lists[i].name.size() <= 40
-            && lists[i].tickers.size() <= 300);
+            && lists[i].tickers.size() <= 300
+            && lists[i].tickers.join('').size() <= 6000);
     }
 
     // Flair crew: cleared, or a short id. Readers (rules/flairCrews flairOf)
@@ -448,7 +465,8 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
       // Users can update read status only
       allow update: if isOwner(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) &&
+        request.resource.data.read is bool;
       // Only Cloud Functions can create (via admin SDK)
       allow create: if false;
     }
