@@ -38,6 +38,7 @@ const ADDED_2026_10_14 = Date.UTC(2026, 9, 15);
 const ADDED_2026_10_22 = Date.UTC(2026, 9, 23);
 const ADDED_2026_10_25 = Date.UTC(2026, 9, 26);
 const ADDED_2026_11_14 = Date.UTC(2026, 10, 15);
+const ADDED_2026_11_16 = Date.UTC(2026, 10, 17);
 export const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
@@ -101,4 +102,5 @@ export const WATCHED_SCHEDULED_JOBS = [
     watchedSince: ADDED_2026_10_25,
   },
   { job: 'missionAutopilot', maxAgeHours: 48, label: 'Mission autopilot', watchedSince: ADDED_2026_11_14 },
+  { job: 'archiveSnapshot', maxAgeHours: 8 * 24, label: 'Weekly Wayback save', watchedSince: ADDED_2026_11_16 },
 ];

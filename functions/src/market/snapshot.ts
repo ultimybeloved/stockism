@@ -19,6 +19,7 @@ const db = admin.firestore();
 import { CHARACTERS, CHARACTER_MAP } from '../shared/characters';
 import { isWeeklyTradingHalt } from '../shared/constants';
 import { isRosterTicker } from '../shared/roster';
+import { HEARTBEAT_DOC, recordHeartbeat } from '../shared/activity';
 
 /** One row of the cached global leaderboard. */
 interface BoardEntry {
@@ -308,12 +309,20 @@ const runArchive = async (includePredictions: boolean) => {
 //
 // Predictions ride along on the 1st-8th, which works out to roughly monthly.
 // Two saves at up to 2 minutes each.
+//
+// Runs again at 22:30 and 23:30, and those do nothing once the week's save has
+// landed. One try a week was not enough: Save Page Now failed on three of four
+// Thursdays in a row (2026-10-22 to 2026-11-12) and each of those weeks was lost.
+const ARCHIVE_DONE_WINDOW_MS = 6 * 60 * 60 * 1000;
 export const archiveSnapshot = cf({ timeoutSeconds: 300 })
-  .pubsub.schedule('30 21 * * 4')
+  .pubsub.schedule('30 21-23 * * 4')
   .timeZone('UTC')
   .onRun(async () => {
+    const last = (await HEARTBEAT_DOC().get()).data()?.archiveSnapshot;
+    if (typeof last === 'number' && Date.now() - last < ARCHIVE_DONE_WINDOW_MS) return null;
     const includePredictions = new Date().getUTCDate() <= 7;
-    await runArchive(includePredictions);
+    const results = await runArchive(includePredictions);
+    if (results[0]?.requested) await recordHeartbeat('archiveSnapshot');
     return null;
   });
 

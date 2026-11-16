@@ -32,6 +32,7 @@ import { isRosterTicker } from '../shared/roster';
 import { round2 } from '../shared/money';
 import { etfFollowUpdates } from '../trading/tradePricing';
 import { recordHeartbeat } from '../shared/activity';
+import { reportError } from '../shared/sentry';
 import type { PricePoint } from '../shared/types';
 import { decayTarget, isNeglected } from './neglectDecayRules';
 import { publishActivity } from './activityFeed';
@@ -274,10 +275,21 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
 
       let moved = 0;
       const allApplied: { ticker: string; frac: number }[] = [];
+      // A wave that fails twice ends the round, but only after the moves that
+      // did land are written down below. It used to skip that, so the daily
+      // caps and the admin Bots screen missed them (about once a day in
+      // November 2026, "transaction has expired").
+      let waveError: unknown = null;
       for (let i = 0; i < waves.length; i++) {
         if (i > 0) await sleep(15000 + Math.floor(Math.random() * 25000));
         if (!waves[i]!.length && i > 0) continue;
-        const applied = await applyWave(waves[i]!, i === 0);
+        let applied;
+        try {
+          applied = await applyWave(waves[i]!, i === 0).catch(() => applyWave(waves[i]!, i === 0));
+        } catch (err) {
+          waveError = err;
+          break;
+        }
         const at = Date.now();
         for (const a of applied) {
           moved++;
@@ -311,10 +323,11 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
         `botTrader: ${moved} moves (${guardMoves.length} guard), ${picked.length} picked, ${activeTickers} active stocks`,
       );
       await publishActivity(allApplied);
+      if (waveError) throw waveError;
       await recordHeartbeat('botTrader');
       return null;
     } catch (error) {
-      logger.error('Error in botTrader:', error);
+      reportError(error, { where: 'botTrader' });
       return null;
     }
   });

@@ -400,7 +400,7 @@ async function settleResolvedEventMarkets() {
   return { settled: marketsSettled };
 }
 
-export const processEventSettlements = cf()
+export const processEventSettlements = cf({ timeoutSeconds: 540, memory: '512MB' })
   .pubsub.schedule('every 30 minutes')
   .timeZone('UTC')
   .onRun(async () => {
@@ -417,7 +417,7 @@ export const processEventSettlements = cf()
 /**
  * Admin: settle resolved markets immediately instead of waiting for the cron.
  */
-export const triggerEventSettlements = cf().https.onCall(
+export const triggerEventSettlements = cf({ timeoutSeconds: 540, memory: '512MB' }).https.onCall(
   withAdminLog('trigger_event_settlements', async (data, context) => {
     requireAdmin(context, 'Admin only.');
     return await settleResolvedEventMarkets();
@@ -431,7 +431,7 @@ export const triggerEventSettlements = cf().https.onCall(
  * (which blocks further trading) and settled (so the settlement cron ignores
  * it). Safe to retry: positions already marked settled are skipped.
  */
-export const cancelEventMarket = cf().https.onCall(async (data, context) => {
+export const cancelEventMarket = cf({ timeoutSeconds: 540, memory: '512MB' }).https.onCall(async (data, context) => {
   requireAdmin(context, 'Admin only.');
   const marketId = data && data.marketId;
   if (!marketId) {

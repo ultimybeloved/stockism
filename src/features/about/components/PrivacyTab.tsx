@@ -107,15 +107,20 @@ const PrivacyTab = () => {
       <div>
         <h3 className="font-semibold text-orange-500 mb-2">Data deletion:</h3>
         <p className={`text-sm ${mutedClass}`}>
-          You can delete your account and all associated data anytime from your Profile (click your username → scroll to
-          bottom → Delete Account). To stop alt-account abuse, a record of your IP address and Discord ID is kept after
-          deletion, which blocks them from making a new account for 30 days.
+          You can delete your account anytime from your Profile (click your username → scroll to bottom → Delete
+          Account). This removes your account from the game and deletes your sign-in, including your email.
+        </p>
+        <p className={`text-sm ${mutedClass} mt-2`}>
+          Some things are kept. A private copy of the account as it was, including your IP address and Discord ID, and
+          its trade and money history stay on file. Only the admin can see them, and they are used to look into cheating
+          and alt accounts. Your username stays reserved and may still appear in past season results. Your IP address
+          and Discord ID can't make a new account for 30 days.
         </p>
       </div>
 
       <div className="mt-4 p-3 rounded-sm light:bg-amber-50 dark:bg-zinc-800/50">
         <p className={`text-xs ${mutedClass}`}>
-          Last updated: September 2026. This is a fan project with no legal entity behind it. If you have privacy
+          Last updated: November 2026. This is a fan project with no legal entity behind it. If you have privacy
           concerns, please reach out to us directly.
         </p>
         <p className={`text-xs ${mutedClass} mt-2`}>

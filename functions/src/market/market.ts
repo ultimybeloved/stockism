@@ -229,7 +229,7 @@ async function doDailyMarketSummary({
   return { success: true };
 }
 
-export const dailyMarketSummary = cf()
+export const dailyMarketSummary = cf({ timeoutSeconds: 300, memory: '512MB' })
   .pubsub.schedule('0 21 * * *')
   .timeZone('UTC')
   .onRun(async () => {
@@ -333,17 +333,19 @@ export const triggerReviewChanges = cf({ timeoutSeconds: 300 }).https.onCall(asy
 /**
  * Manual trigger for daily market summary (admin only)
  */
-export const triggerDailyMarketSummary = cf().https.onCall(async (data, context) => {
-  // Admin check
-  requireAdmin(context);
+export const triggerDailyMarketSummary = cf({ timeoutSeconds: 300, memory: '512MB' }).https.onCall(
+  async (data, context) => {
+    // Admin check
+    requireAdmin(context);
 
-  try {
-    return await doDailyMarketSummary({ recordIndexHistory: false });
-  } catch (error) {
-    logger.error('Error in triggerDailyMarketSummary:', error);
-    return { success: false, error: (error as Error).message };
-  }
-});
+    try {
+      return await doDailyMarketSummary({ recordIndexHistory: false });
+    } catch (error) {
+      logger.error('Error in triggerDailyMarketSummary:', error);
+      return { success: false, error: (error as Error).message };
+    }
+  },
+);
 
 /**
  * Weekly Market Summary - Runs Mondays at 00:00 UTC

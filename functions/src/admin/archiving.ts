@@ -146,14 +146,23 @@ async function doArchivePriceHistory(ticker: string | null = null) {
       const toKeep = history.slice(history.length - MAX_HISTORY_SIZE);
       if (toArchive.length === 0) continue;
 
-      const archiveRef = marketRef.collection('price_history').doc(t);
-      const archiveSnap = await archiveRef.get();
-      const existingArchive = archiveSnap.exists ? archiveSnap.data()!.history || [] : [];
+      // One stock's archive failing (a full archive doc, say) must not stop
+      // the rest: the trims are applied after this loop, so a throw here used
+      // to leave EVERY stock untrimmed, which is how the live doc filled up
+      // on 2026-07-22. That stock keeps its points live and is reported.
+      try {
+        const archiveRef = marketRef.collection('price_history').doc(t);
+        const archiveSnap = await archiveRef.get();
+        const existingArchive = archiveSnap.exists ? archiveSnap.data()!.history || [] : [];
 
-      await archiveRef.set({
-        history: [...existingArchive, ...toArchive].sort((a: PricePoint, b: PricePoint) => a.timestamp - b.timestamp),
-        lastUpdated: FieldValue.serverTimestamp(),
-      });
+        await archiveRef.set({
+          history: [...existingArchive, ...toArchive].sort((a: PricePoint, b: PricePoint) => a.timestamp - b.timestamp),
+          lastUpdated: FieldValue.serverTimestamp(),
+        });
+      } catch (err) {
+        reportError(err, { where: 'doArchivePriceHistory', ticker: t, points: toArchive.length });
+        continue;
+      }
 
       liveRemovals[t] = toArchive;
       archivedCount++;
@@ -228,7 +237,7 @@ export const archivePriceHistory = cf().https.onCall(async (data, context) => {
 // only be doing the same job a few hours early.
 
 // Scheduled function: Auto-archive daily at 01:20 UTC
-export const scheduledArchiving = cf()
+export const scheduledArchiving = cf({ timeoutSeconds: 300 })
   // Fixed clock time, not 'every 24 hours': an interval schedule restarts its
   // countdown on every deploy, so a few deploys in a row skipped whole days.
   .pubsub.schedule('20 1 * * *')
@@ -262,7 +271,9 @@ export const scheduledArchiving = cf()
  * Runs daily at 01:20 UTC to recalculate and update all users' portfolio values
  * Ensures leaderboards and rankings reflect current market prices
  */
-export const syncAllPortfolios = cf()
+// Loads every player. The default 60 seconds was a third used in November
+// 2026; this leaves room for the player count to grow.
+export const syncAllPortfolios = cf({ timeoutSeconds: 540, memory: '512MB' })
   // Fixed clock time, not 'every 24 hours': an interval schedule restarts its
   // countdown on every deploy, so a few deploys in a row skipped whole days.
   .pubsub.schedule('20 1 * * *')

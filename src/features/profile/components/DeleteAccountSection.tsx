@@ -32,7 +32,7 @@ const DeleteAccountSection = ({
         <div className={`p-3 rounded-sm ${subtleClass}`}>
           <h4 className="font-semibold text-red-500 mb-2">Delete Your Account</h4>
           <p className={`text-sm ${mutedClass} mb-3`}>
-            This will permanently delete your account and all associated data including:
+            This will permanently remove your account from the game. You lose:
           </p>
           <ul className={`text-sm ${mutedClass} mb-3 ml-4 list-disc`}>
             <li>Your username and profile</li>
@@ -40,6 +40,9 @@ const DeleteAccountSection = ({
             <li>Trade history and achievements</li>
             <li>Prediction bets and results</li>
           </ul>
+          <p className={`text-xs ${mutedClass} mb-3`}>
+            A private copy stays on file for the admin to look into cheating. The Privacy page has the details.
+          </p>
           <p className="text-xs text-red-400 mb-3">This action cannot be undone.</p>
           <div className="flex gap-2">
             <button

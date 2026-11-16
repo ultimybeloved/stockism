@@ -11,6 +11,7 @@ import { COSMETIC_CATALOG } from '../shared/constants';
 import { discordApi } from '../shared/discordApi';
 import { logAdminAction } from '../shared/adminLog';
 import { reportError } from '../shared/sentry';
+import { warmDiscordBot } from '../discord/discordWarm';
 import {
   GIVEAWAY_MAX_MS,
   GIVEAWAY_MIN_MS,
@@ -127,6 +128,8 @@ export const runGiveaways = cf()
   .pubsub.schedule('every 5 minutes')
   .timeZone('UTC')
   .onRun(async () => {
+    // Rides along: keeps the bot awake so button presses beat Discord's 3s.
+    const warm = warmDiscordBot();
     const snap = await db.collection('giveaways').where('status', 'in', ['open', 'drawing']).get();
     const now = Date.now();
     for (const d of snap.docs) {
@@ -141,6 +144,7 @@ export const runGiveaways = cf()
         reportError(err, { where: 'runGiveaways', id: d.id });
       }
     }
+    await warm;
     logger.info(`runGiveaways: ${snap.size} live`);
     return null;
   });
