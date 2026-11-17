@@ -343,6 +343,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/ladder/ladderCore.ts` | **Internal module.** runLadderGame: one ladder play in one transaction, shared by the site and Discord `/ladder` |
 | `functions/src/moderation/watchlist.ts` | IP watchlist, fraud detection |
 | `functions/src/admin/archiving.ts` | Data archiving and cleanup |
+| `functions/src/admin/retention.ts` | **Internal module.** `runRetentionCleanup`, run nightly by scheduledArchiving: deletes read notifications after 90 days, limit-order connection records (`orderOrigins`) after 180 days and deleted-account copies (`deletedUsers`) after a year. Limits in `shared/constants/retention.ts`. `npm run test:retention` |
 | `functions/src/orders/marketOrders.ts` | processMarketOpenOrders (pre-market auction + stop-loss sweep, Thursday 20:56 UTC) + triggerMarketOpenOrders (admin re-run for recovery) |
 | `functions/src/orders/preMarket.ts` | createPreMarketOrder / cancelPreMarketOrder (queue window Thursday 20:30–20:55 UTC) |
 | `functions/src/orders/orderNetwork.ts` | **Internal module, not in services.ts.** The per-connection (IP) rules for queued orders: placement takes a slot, limit/stop-loss fills share the connection's daily allowance. The connection lives in the private `orderOrigins` collection, never on an order doc (pre-market orders are world-readable). `npm run test:limitorders` section 18 |

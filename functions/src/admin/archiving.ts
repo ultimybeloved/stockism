@@ -15,6 +15,7 @@ import { priceHistoryRef } from '../shared/marketData';
 import { writeNotification } from '../shared/notifications';
 import { recordHeartbeat } from '../shared/activity';
 import { reportError } from '../shared/sentry';
+import { runRetentionCleanup } from './retention';
 import { seasonMarginUpdate } from '../season/seasonTiers';
 import { getWeekId } from '../shared/tradeRecords';
 import { eventPositionsValue } from '../shared/lmsr';
@@ -261,6 +262,13 @@ export const scheduledArchiving = cf({ timeoutSeconds: 300 })
       logger.info('Cleanup result:', cleanupResult);
     } catch (error) {
       logger.error('Scheduled cleanup failed:', error);
+    }
+
+    // Old read notifications, order connection records and deleted-account copies.
+    try {
+      logger.info('Retention cleanup:', await runRetentionCleanup());
+    } catch (error) {
+      reportError(error, { where: 'scheduledArchiving.retention' });
     }
 
     return null;

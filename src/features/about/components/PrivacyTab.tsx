@@ -113,8 +113,8 @@ const PrivacyTab = () => {
         <p className={`text-sm ${mutedClass} mt-2`}>
           Some things are kept. A private copy of the account as it was, including your IP address and Discord ID, and
           its trade and money history stay on file. Only the admin can see them, and they are used to look into cheating
-          and alt accounts. Your username stays reserved and may still appear in past season results. Your IP address
-          and Discord ID can't make a new account for 30 days.
+          and alt accounts. The private copy is deleted after one year. Your username stays reserved and may still
+          appear in past season results. Your IP address and Discord ID can't make a new account for 30 days.
         </p>
       </div>
 

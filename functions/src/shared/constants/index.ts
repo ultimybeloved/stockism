@@ -21,3 +21,4 @@ export * from './dailyDrop';
 export * from './cosmetics';
 export * from './seasons';
 export * from './runtime';
+export * from './retention';
