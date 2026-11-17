@@ -55,8 +55,10 @@ service cloud.firestore {
       // Trading data must be updated via executeTrade Cloud Function
       allow update: if isAdmin() || (isOwner(userId) && validateSafeUserUpdate());
 
-      // Admin can delete user documents (for cleanup)
-      allow delete: if isAdmin();
+      // Nobody deletes a player record from the browser, the admin included.
+      // Deletion goes through the server (purgeAccount), which keeps the
+      // archive copy, the name reservation and the Discord and IP blocks.
+      allow delete: if false;
     }
 
     // Allowlist: a non-admin user may only change this fixed set of harmless
