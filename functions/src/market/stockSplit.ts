@@ -157,6 +157,14 @@ export const PHASES: { name: string; label: string; run: (args: PhaseArgs) => Pr
         (d) => (typeof d.prices?.[t] === 'number' ? { [`prices.${t}`]: splitPrice(d.prices[t], n) } : {}),
         splitId,
       );
+      // The prices when the halt began: the chapter marker and "this week"
+      // mission moves are measured from them.
+      done += await applyOnce(
+        'callBaseline',
+        m.doc('callBaseline'),
+        (d) => (typeof d.prices?.[t] === 'number' ? { [`prices.${t}`]: splitPrice(d.prices[t], n) } : {}),
+        splitId,
+      );
       done += await applyOnce(
         'tickerStats',
         m.doc('tickerStats'),

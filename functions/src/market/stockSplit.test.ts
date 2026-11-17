@@ -87,11 +87,20 @@ describe('market, orders and trades', () => {
         ath: { SHNG: 2200 },
         atl: { SHNG: 1300 },
         volumes: { SHNG: 40 },
+        dayClosePrices: { SHNG: 1990, GOO: 51 },
+        weekOpenPrices: { SHNG: 1900 },
       },
       'SHNG',
       10,
     );
-    expect(up).toEqual({ 'prices.SHNG': 200, 'ath.SHNG': 220, 'atl.SHNG': 130, 'volumes.SHNG': 400 });
+    expect(up).toEqual({
+      'prices.SHNG': 200,
+      'ath.SHNG': 220,
+      'atl.SHNG': 130,
+      'volumes.SHNG': 400,
+      'dayClosePrices.SHNG': 199,
+      'weekOpenPrices.SHNG': 190,
+    });
   });
 
   it('an open limit order keeps its dollar size', () => {

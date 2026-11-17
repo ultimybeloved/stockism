@@ -161,6 +161,8 @@ export const PHASES: { name: string; label: string; run: (args: PhaseArgs) => Pr
       // Dividends are paid off the pre-halt snapshot, so a rename that misses
       // it pays this week's holders nothing.
       await move(m.doc('preHaltSnapshot'), (d) => mapMoveUpdates('prices', d.prices, old, nw));
+      // The halt price lock (chapter markers, "this week" mission moves).
+      await move(m.doc('callBaseline'), (d) => mapMoveUpdates('prices', d.prices, old, nw));
       // tickerStats keys flow stats by ticker at the TOP level, and also
       // carries a nested shortInterest map that the neglect decay reads. Miss
       // that one and a renamed stock looks un-shorted, which silently switches

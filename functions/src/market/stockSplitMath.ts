@@ -91,7 +91,10 @@ export const buildUserSplitUpdates = (
 /** market/current. Prices and records down; IPO share volumes up. */
 export const buildMarketSplitUpdates = (m: DocumentData | null | undefined, ticker: string, n: number) => {
   const up: Updates = {};
-  for (const map of ['prices', 'ath', 'atl']) {
+  // dayClosePrices and weekOpenPrices are what missions and the weekly recap
+  // measure a move from. Left alone, a split stock read as a 67% drop: every
+  // buy counted as a dip and the recap listed it as the week's biggest loser.
+  for (const map of ['prices', 'ath', 'atl', 'dayClosePrices', 'weekOpenPrices']) {
     if (typeof m?.[map]?.[ticker] === 'number') up[`${map}.${ticker}`] = splitPrice(m![map][ticker], n);
   }
   if (typeof m?.volumes?.[ticker] === 'number') up[`volumes.${ticker}`] = splitShares(m!.volumes[ticker], n);

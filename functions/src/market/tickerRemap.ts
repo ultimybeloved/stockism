@@ -135,6 +135,10 @@ export const MARKET_TICKER_MAPS = [
   'ath',
   'atl',
   'breakerCounts',
+  // What missions and the weekly recap measure a move from. Left under the old
+  // name, buys of the renamed stock could not count for those missions.
+  'dayClosePrices',
+  'weekOpenPrices',
 ];
 
 /** Everything one player document needs changed. {} means already migrated. */
