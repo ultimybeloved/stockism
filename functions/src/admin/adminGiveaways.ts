@@ -11,6 +11,7 @@ import { COSMETIC_CATALOG } from '../shared/constants';
 import { discordApi } from '../shared/discordApi';
 import { logAdminAction } from '../shared/adminLog';
 import { reportError } from '../shared/sentry';
+import { recordHeartbeat } from '../shared/activity';
 import { warmDiscordBot } from '../discord/discordWarm';
 import {
   GIVEAWAY_MAX_MS,
@@ -145,6 +146,7 @@ export const runGiveaways = cf()
       }
     }
     await warm;
+    await recordHeartbeat('runGiveaways');
     logger.info(`runGiveaways: ${snap.size} live`);
     return null;
   });

@@ -289,6 +289,7 @@ export const chapterReviewRecap = cf()
   .onRun(async (_context) => {
     if (await holdForDelayedOpen('chapterReviewRecap')) return null;
     await runChapterReviewRecap();
+    await recordHeartbeat('chapterReviewRecap');
     return null;
   });
 
@@ -361,6 +362,7 @@ export const marketClosedAlert = cf()
   .timeZone('UTC')
   .onRun(async () => {
     await sendMarketStatusAlert('closed');
+    await recordHeartbeat('marketClosedAlert');
     return null;
   });
 
@@ -371,6 +373,7 @@ export const preMarketOpenAlert = cf()
   .onRun(async () => {
     if (await holdForDelayedOpen('preMarketOpenAlert')) return null;
     await sendMarketStatusAlert('premarket');
+    await recordHeartbeat('preMarketOpenAlert');
     return null;
   });
 
@@ -381,6 +384,7 @@ export const marketOpenAlert = cf()
   .onRun(async () => {
     if (await holdForDelayedOpen('marketOpenAlert')) return null;
     await sendMarketStatusAlert('open');
+    await recordHeartbeat('marketOpenAlert');
     return null;
   });
 

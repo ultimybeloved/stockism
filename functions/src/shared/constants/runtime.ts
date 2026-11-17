@@ -39,6 +39,7 @@ const ADDED_2026_10_22 = Date.UTC(2026, 9, 23);
 const ADDED_2026_10_25 = Date.UTC(2026, 9, 26);
 const ADDED_2026_11_14 = Date.UTC(2026, 10, 15);
 const ADDED_2026_11_16 = Date.UTC(2026, 10, 17);
+const ADDED_2026_11_17 = Date.UTC(2026, 10, 18);
 export const WATCHED_SCHEDULED_JOBS = [
   // Weekly (Thursday): 8 days covers a full cycle plus a missed run.
   { job: 'processMarketOpenOrders', maxAgeHours: 8 * 24, label: 'Thursday opening auction' },
@@ -103,4 +104,23 @@ export const WATCHED_SCHEDULED_JOBS = [
   },
   { job: 'missionAutopilot', maxAgeHours: 48, label: 'Mission autopilot', watchedSince: ADDED_2026_11_14 },
   { job: 'archiveSnapshot', maxAgeHours: 8 * 24, label: 'Weekly Wayback save', watchedSince: ADDED_2026_11_16 },
+  // Added 2026-11-17: the Thursday Discord posts, the giveaway payer, the chart
+  // tidy-up, and the monthly backup had no outside signal at all.
+  { job: 'chapterReviewRecap', maxAgeHours: 8 * 24, label: 'Chapter recap post', watchedSince: ADDED_2026_11_17 },
+  { job: 'marketClosedAlert', maxAgeHours: 8 * 24, label: 'Market closed post', watchedSince: ADDED_2026_11_17 },
+  { job: 'preMarketOpenAlert', maxAgeHours: 8 * 24, label: 'Pre-market post', watchedSince: ADDED_2026_11_17 },
+  { job: 'marketOpenAlert', maxAgeHours: 8 * 24, label: 'Market open post', watchedSince: ADDED_2026_11_17 },
+  {
+    job: 'collapseReviewHistory',
+    maxAgeHours: 8 * 24,
+    label: 'Chapter review chart tidy-up',
+    watchedSince: ADDED_2026_11_17,
+  },
+  { job: 'runGiveaways', maxAgeHours: 6, label: 'Giveaway draws and payouts', watchedSince: ADDED_2026_11_17 },
+  {
+    job: 'monthlyPermanentBackup',
+    maxAgeHours: 32 * 24,
+    label: 'Monthly permanent backup',
+    watchedSince: ADDED_2026_11_17,
+  },
 ];

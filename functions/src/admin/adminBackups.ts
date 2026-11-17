@@ -382,9 +382,11 @@ export const monthlyPermanentBackup = cf()
       logger.info(`Monthly leaderboard backup saved: ${yearMonth}_leaderboard.json`);
 
       logger.info(`Monthly permanent backup complete for ${yearMonth}`);
+      await recordHeartbeat('monthlyPermanentBackup');
       return null;
     } catch (error) {
       logger.error('Error in monthly permanent backup:', error);
+      reportError(error, { where: 'monthlyPermanentBackup' });
       return null;
     }
   });

@@ -13,6 +13,7 @@ import { cf } from '../shared/fnConfig';
 import * as logger from 'firebase-functions/logger';
 
 import { reportError } from '../shared/sentry';
+import { recordHeartbeat } from '../shared/activity';
 import { finalizeReview } from './reviewChanges';
 import { holdForDelayedOpen, scheduledReviewWindow } from './delayedOpenState';
 
@@ -30,6 +31,7 @@ export const collapseReviewHistory = cf({ timeoutSeconds: 300 })
         `collapseReviewHistory: ${result.tickerCount} tickers recorded, ` +
           `${result.tidied} tidied, ${result.folded} points folded`,
       );
+      await recordHeartbeat('collapseReviewHistory');
     } catch (err) {
       // A failure here leaves the chart untidy but costs nothing else: prices
       // are untouched either way, and the admin trigger can re-run it.
