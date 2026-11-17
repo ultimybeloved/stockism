@@ -11,28 +11,19 @@ beforeAll(() => {
 });
 
 describe('buildSignupEmbed', () => {
-  it('names the player and how they signed up', () => {
-    const embed = buildSignupEmbed('Gun', 'google.com', 0);
-    expect(embed.description).toContain('**Gun** just joined Stockism with Google.');
+  it('names the player and nothing else', () => {
+    const embed = buildSignupEmbed('Gun', 0);
+    expect(embed.description).toBe('**Gun** just joined Stockism.');
+    expect(embed).not.toHaveProperty('url');
     expect(embed.timestamp).toBe('1970-01-01T00:00:00.000Z');
   });
 
-  it('labels a Discord signup', () => {
-    expect(buildSignupEmbed('Gun', 'custom', 0).description).toContain('with Discord.');
-  });
-
-  it('leaves the method out when it is unknown', () => {
-    expect(buildSignupEmbed('Gun', undefined, 0).description).toContain('**Gun** just joined Stockism.');
-  });
-
   it('credits the recruiter when there is one', () => {
-    expect(buildSignupEmbed('Gun', 'custom', 0, 'big_deal_fan').description).toContain(
-      'Recruited by **big\\_deal\\_fan**.',
-    );
-    expect(buildSignupEmbed('Gun', 'custom', 0, null).description).not.toContain('Recruited');
+    expect(buildSignupEmbed('Gun', 0, 'big_deal_fan').description).toContain('Recruited by **big\\_deal\\_fan**.');
+    expect(buildSignupEmbed('Gun', 0, null).description).not.toContain('Recruited');
   });
 
   it('escapes underscores so a name cannot change the formatting', () => {
-    expect(buildSignupEmbed('big_deal_fan', 'password', 0).description).toContain('**big\\_deal\\_fan**');
+    expect(buildSignupEmbed('big_deal_fan', 0).description).toContain('**big\\_deal\\_fan**');
   });
 });

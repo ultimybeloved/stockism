@@ -444,7 +444,7 @@ export const createUser = cf().https.onCall(async (data, context) => {
 
     // Post the new player in the Discord sign-up feed (see signupAnnounce.ts for
     // why this was removed in June 2026 and restored).
-    await announceSignup(trimmed, context.auth.token?.firebase?.sign_in_provider, recruiterName);
+    await announceSignup(trimmed, recruiterName);
 
     // (signup IP is recorded inside the create transaction above — see "Reserve
     // this account's per-IP slot")

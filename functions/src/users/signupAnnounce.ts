@@ -7,40 +7,27 @@
 // player-typed text here and it is already limited to letters, digits, and
 // underscores by validateUsernameFormat.
 import { sendDiscordMessage, pxe } from '../shared/discordApi';
-import { SITE_URL } from '../shared/constants';
 
 const SIGNUP_EMBED_COLOR = 0x2ecc71;
-
-const PROVIDER_LABELS: Record<string, string> = {
-  'google.com': 'Google',
-  'twitter.com': 'Twitter',
-  password: 'Email',
-  custom: 'Discord',
-};
 
 /** Underscores are the only markdown character a username can contain. */
 const escapeName = (name: string) => name.replace(/_/g, '\\_');
 
-export function buildSignupEmbed(
-  displayName: string,
-  provider: string | undefined,
-  nowMs: number,
-  recruiterName?: string | null,
-) {
-  const via = PROVIDER_LABELS[provider || ''];
+// Name only (Darth YG, 2026-11-17): a new account has not joined the Discord
+// server yet, so the post does not greet them, point them at /welcome, or link
+// to the site.
+export function buildSignupEmbed(displayName: string, nowMs: number, recruiterName?: string | null) {
   return {
     color: SIGNUP_EMBED_COLOR,
     title: `${pxe('party')} New player`,
     description:
-      `**${escapeName(displayName)}** just joined Stockism${via ? ` with ${via}` : ''}.\n` +
-      (recruiterName ? `Recruited by **${escapeName(recruiterName)}**.\n` : '') +
-      `Say hi, and run \`/welcome\` here for your welcome week.`,
-    url: SITE_URL,
+      `**${escapeName(displayName)}** just joined Stockism.` +
+      (recruiterName ? `\nRecruited by **${escapeName(recruiterName)}**.` : ''),
     timestamp: new Date(nowMs).toISOString(),
   };
 }
 
 /** Best-effort: sendDiscordMessage reports its own failures and never throws. */
-export async function announceSignup(displayName: string, provider: string | undefined, recruiterName?: string | null) {
-  await sendDiscordMessage(null, [buildSignupEmbed(displayName, provider, Date.now(), recruiterName)], 'signups');
+export async function announceSignup(displayName: string, recruiterName?: string | null) {
+  await sendDiscordMessage(null, [buildSignupEmbed(displayName, Date.now(), recruiterName)], 'signups');
 }
