@@ -33,6 +33,7 @@
     "test:audit1031": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core audit1031.test\"",
     "test:ipcap": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core ipCap.test\"",
     "test:activity": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core activityFeed.test\"",
+    "test:callouts": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core callouts.test\"",
     "test:trading": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core trading.test\"",
     "test:limitorders": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core limitOrders.test\"",
     "test:premarket": "firebase emulators:exec --config firebase.emulator-test.json --only firestore \"vitest run -c tests/emulator/vitest.config.ts --project core preMarket.test\"",

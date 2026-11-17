@@ -36,6 +36,7 @@ import { reportError } from '../shared/sentry';
 import type { PricePoint } from '../shared/types';
 import { decayTarget, isNeglected } from './neglectDecayRules';
 import { publishActivity } from './activityFeed';
+import { runCallouts } from '../discord/callouts';
 import {
   type Kind,
   type Storyline,
@@ -323,6 +324,7 @@ export const botTrader = cf({ timeoutSeconds: 300, memory: '256MB' })
         `botTrader: ${moved} moves (${guardMoves.length} guard), ${picked.length} picked, ${activeTickers} active stocks`,
       );
       await publishActivity(allApplied);
+      await runCallouts();
       if (waveError) throw waveError;
       await recordHeartbeat('botTrader');
       return null;

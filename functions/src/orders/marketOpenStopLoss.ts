@@ -212,6 +212,7 @@ const executeSweepFill = async (
     cashAfter: round2((userData.cash || 0) + sweepTotal),
     source: 'stop_loss',
     orderId: orderDoc.id,
+    before: userData,
   });
 
   const moved = Object.entries(priceUpdates);

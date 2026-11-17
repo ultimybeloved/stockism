@@ -10,6 +10,7 @@ import { round2 } from './money';
 import { tickerStatsRef, buildTickerFlowUpdate } from './marketData';
 import type { UserData } from './types';
 import { recordLedger } from './ledger';
+import { bigWinOf } from './calloutRules';
 const db = admin.firestore();
 
 // The mission week id (the Thursday it began) that keys weeklyMissions. One
@@ -158,6 +159,8 @@ interface TradeRecordInput {
   source?: string | null;
   ip?: string | null;
   orderId?: string | null;
+  /** The player's record before this fill. Lets a big closing win be queued for Discord. */
+  before?: UserData | null;
 }
 
 // Writes one record to the trades collection, inside the caller's transaction.
@@ -184,6 +187,7 @@ export function recordTrade(
     source = null,
     ip = null,
     orderId = null,
+    before = null,
   }: TradeRecordInput,
 ) {
   const record: Record<string, unknown> = {
@@ -217,6 +221,14 @@ export function recordTrade(
       ref: `trades/${tradeRef.id}`,
       detail: { ticker, shares: amount, ...(source ? { source } : {}) },
     });
+  }
+
+  // A big win that closes the position out is queued for the Discord call-outs
+  // (discord/callouts.ts), in the same transaction so a failed trade never
+  // queues one. Not when an admin placed the trade for the player.
+  const win = source === 'admin' ? null : bigWinOf(before, ticker, action, amount, price);
+  if (win) {
+    transaction.set(db.collection('calloutQueue').doc(), { kind: 'win', uid, ticker, ...win, at: Date.now() });
   }
 
   // Per-ticker running totals, written in the same transaction as the record

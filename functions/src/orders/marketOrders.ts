@@ -461,6 +461,7 @@ export const runMarketOpenProcessing = async (trigger: string) => {
               cashBefore: ud.cash || 0,
               cashAfter: round2((ud.cash || 0) + sellTotal),
               source: 'premarket',
+              before: ud,
             });
           }
 

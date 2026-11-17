@@ -407,6 +407,7 @@ export const applySellFill = (transaction: admin.firestore.Transaction, ctx: Fil
     cashAfter: round2(userData.cash! + totalRevenue),
     source: fillSource,
     orderId,
+    before: userData,
   });
 
   applyPriceUpdates(transaction, marketRef, priceUpdates);

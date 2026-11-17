@@ -368,6 +368,7 @@ export const executeTrade = cf().https.onCall(
             cashBefore: cash,
             cashAfter: newCash,
             ip,
+            before: userData,
           });
 
           // ANTI-MANIPULATION: Save IP-level tickerTradeHistory

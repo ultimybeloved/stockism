@@ -28,6 +28,8 @@ import { ownEntry } from '../shared/lookup';
 import { getWeekId } from '../shared/tradeRecords';
 import { holdsShortForMissions } from '../shared/rules/missionProgress';
 import { weeklyMissionsOpen } from '../shared/rules/missions';
+import { announceStreak } from '../discord/callouts';
+import { isStreakMilestone } from '../shared/calloutRules';
 import { settleQueuedRecruits, settleRecruit } from '../users/recruiting';
 
 export const claimMissionReward = cf().https.onCall(async (data, context) => {
@@ -289,7 +291,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
   touchLastActive(uid, 'dailyCheckin');
 
   try {
-    const { response, recruitPending, recruitsWaiting } = await db.runTransaction(async (transaction) => {
+    const { response, recruitPending, recruitsWaiting, newStreak } = await db.runTransaction(async (transaction) => {
       const userRef = db.collection('users').doc(uid);
       const userDoc = await transaction.get(userRef);
 
@@ -413,6 +415,7 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
           ladderTopUpAmount,
           totalCheckins: updates.totalCheckins,
         },
+        newStreak,
         crew: (userData.crew as string | undefined) || null,
         weekId: checkinWeekId,
         recruitPending: userData.recruitPending === true,
@@ -424,6 +427,8 @@ export const dailyCheckin = cf().https.onCall(async (data, context) => {
     if (recruitPending) {
       await settleRecruit(uid).catch((err) => reportError(err, { where: 'dailyCheckin.settleRecruit', uid }));
     }
+    // A long streak is posted in Discord (discord/callouts.ts).
+    if (newStreak && isStreakMilestone(newStreak)) await announceStreak(uid, newStreak);
     // A recruiter's own check-in pays any recruits held over by the weekly cap.
     if (recruitsWaiting) {
       await settleQueuedRecruits(uid).catch((err) => reportError(err, { where: 'dailyCheckin.settleQueued', uid }));
