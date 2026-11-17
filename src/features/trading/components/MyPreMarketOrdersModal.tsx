@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { cancelPreMarketOrderFunction } from '../../../api/callables';
-import { themeClasses } from '../../../utils/theme';
+import { getChangeColors, themeClasses } from '../../../utils/theme';
 import { useSession } from '../../../context/AppContext';
 
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
@@ -21,7 +21,7 @@ interface PreMarketOrder {
 const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
   useEscapeKey(onClose);
   const dialogRef = useModalFocus();
-  const { user, showNotification } = useSession();
+  const { user, userData, showNotification } = useSession();
   const [orders, setOrders] = useState<PreMarketOrder[]>([]);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const { textClass, mutedClass, borderClass, overlayClass, modalShellClass } = themeClasses;
@@ -109,6 +109,7 @@ const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
                         cancelling={cancelling}
                         textClass={textClass}
                         mutedClass={mutedClass}
+                        colorBlind={!!userData?.colorBlindMode}
                       />
                     ))}
                   </div>
@@ -126,6 +127,7 @@ const MyPreMarketOrdersModal = ({ onClose }: { onClose: () => void }) => {
                         cancelling={cancelling}
                         textClass={textClass}
                         mutedClass={mutedClass}
+                        colorBlind={!!userData?.colorBlindMode}
                       />
                     ))}
                   </div>
@@ -145,17 +147,19 @@ const OrderRow = ({
   cancelling,
   textClass,
   mutedClass,
+  colorBlind,
 }: {
   order: PreMarketOrder;
   onCancel: (orderId: string) => void;
   cancelling: string | null;
   textClass: string;
   mutedClass: string;
+  colorBlind: boolean;
 }) => (
   <div className="flex items-center justify-between px-3 py-2 rounded-sm light:bg-slate-100 dark:bg-zinc-800">
     <div>
       <span className={`font-bold text-sm ${textClass}`}>${order.ticker}</span>
-      <span className={`text-xs ml-2 ${order.action === 'buy' ? 'text-green-500' : 'text-red-400'}`}>
+      <span className={`text-xs ml-2 ${getChangeColors(order.action === 'buy', colorBlind).text}`}>
         {order.action.toUpperCase()}
       </span>
       <span className={`text-xs ml-2 ${mutedClass}`}>{order.shares} shares</span>

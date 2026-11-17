@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { themeClasses } from '../../../utils/theme';
+import { getChangeColors, themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import type { PriceAlert } from '../../../types';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
@@ -23,6 +24,7 @@ export default function PriceAlertModal({
 }: PriceAlertModalProps) {
   useEscapeKey(onClose);
   const dialogRef = useModalFocus();
+  const cb = !!useSession().userData?.colorBlindMode;
   const [direction, setDirection] = useState('above');
   const [targetPrice, setTargetPrice] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -165,7 +167,7 @@ export default function PriceAlertModal({
                     className="flex items-center justify-between px-3 py-2 rounded-sm border text-sm light:border-amber-200 light:bg-amber-50 dark:border-zinc-800 dark:bg-zinc-950"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={isAbove ? 'text-green-500' : 'text-red-500'}>{isAbove ? '▲' : '▼'}</span>
+                      <span className={getChangeColors(isAbove, cb).text}>{isAbove ? '▲' : '▼'}</span>
                       <span className="font-medium">${alert.targetPrice!.toFixed(2)}</span>
                       <span className={`text-xs ${mutedClass}`}>
                         {Number(pct) > 0 ? '+' : ''}

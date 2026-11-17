@@ -3,7 +3,7 @@ import { collection, doc, query, where, onSnapshot, type Timestamp } from 'fireb
 import { db } from '../../../firebase';
 import { createPreMarketOrderFunction, cancelPreMarketOrderFunction } from '../../../api/callables';
 import { formatCurrency } from '../../../utils/formatters';
-import { themeClasses } from '../../../utils/theme';
+import { getChangeColors, themeClasses } from '../../../utils/theme';
 import { calculatePriceImpactDollars, getBidAskPrices, liquidityFor } from '../../../utils/calculations';
 import { getPreMarketTimeRemaining, formatCountdown, isPreMarketLockout } from '../../../utils/marketHours';
 import { PRE_MARKET_MAX_BUY_BUFFER, MIN_TRADE_SHARES, MIN_EXIT_SHARES } from '../../../constants/economy';
@@ -55,7 +55,8 @@ const PreMarketModal = ({
 }: PreMarketModalProps) => {
   useEscapeKey(onClose);
   const dialogRef = useModalFocus();
-  const { user, showNotification } = useSession();
+  const { user, userData, showNotification } = useSession();
+  const cb = !!userData?.colorBlindMode;
   const [action, setAction] = useState<PreMarketAction>(initialAction);
   const [shares, setShares] = useState(initialShares && initialShares > 0 ? Math.floor(initialShares) : 1);
   const [submitting, setSubmitting] = useState(false);
@@ -297,7 +298,7 @@ const PreMarketModal = ({
             <button
               onClick={handleSubmit}
               disabled={submitting || shares <= 0 || shares > maxShares || maxShares === 0}
-              className={`w-full py-3 text-sm font-semibold rounded-sm mb-3 ${action === 'buy' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white disabled:opacity-50`}
+              className={`w-full py-3 text-sm font-semibold rounded-sm mb-3 ${getChangeColors(action === 'buy', cb).bg} ${getChangeColors(action === 'buy', cb).bgHover} text-white disabled:opacity-50`}
             >
               {submitting ? 'Queuing...' : `Queue ${action === 'buy' ? 'Buy' : 'Sell'} for Market Open`}
             </button>
@@ -310,7 +311,7 @@ const PreMarketModal = ({
             {myOrders.map((o) => (
               <div key={o.id} className="flex items-center justify-between py-1.5 text-sm">
                 <span className={textClass}>
-                  <span className={o.action === 'buy' ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold'}>
+                  <span className={`font-semibold ${getChangeColors(o.action === 'buy', cb).text}`}>
                     {o.action.toUpperCase()}
                   </span>{' '}
                   {o.shares} shares @ {formatCurrency(o.action === 'buy' ? ask : bid)} est.

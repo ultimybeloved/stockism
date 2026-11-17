@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSeason } from '../hooks/useSeason';
 import SeasonProgress from './SeasonProgress';
-import { themeClasses } from '../../../utils/theme';
+import { getChangeColors, themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
 import { SEASON_REWARDS } from '../../../rules/seasons';
 
 import {
@@ -34,6 +35,7 @@ const readOpen = () => {
 };
 
 const SeasonCard = () => {
+  const cb = !!useSession().userData?.colorBlindMode;
   const [open, setOpen] = useState(readOpen);
   const toggle = () => {
     const next = !open;
@@ -100,7 +102,7 @@ const SeasonCard = () => {
             <PixelIcon name="season" className="w-4 h-4 mr-1 align-[-3px]" />
             {seasonLabel(season)} · {season.name}
             {!open && inSeason && (
-              <span className={`ml-2 font-bold ${returnPercent! >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+              <span className={`ml-2 font-bold ${getChangeColors(returnPercent! >= 0, cb).text}`}>
                 {fmtPct(returnPercent!)}
               </span>
             )}
@@ -142,7 +144,7 @@ const SeasonCard = () => {
         <>
           <div className="flex items-baseline gap-2 mt-3">
             {/* In season, returnPercent is always set. */}
-            <span className={`text-2xl font-bold ${returnPercent! >= 0 ? 'text-green-500' : 'text-red-400'}`}>
+            <span className={`text-2xl font-bold ${getChangeColors(returnPercent! >= 0, cb).text}`}>
               {fmtPct(returnPercent!)}
             </span>
             <span className={`text-xs ${mutedClass}`}>season return, trading only</span>

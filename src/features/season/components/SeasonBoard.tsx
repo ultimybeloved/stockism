@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { getSeasonStandingsFunction } from '../../../api/callables';
 import { useSession } from '../../../context/AppContext';
 
-import { themeClasses } from '../../../utils/theme';
+import { getChangeColors, themeClasses } from '../../../utils/theme';
 import {
   SEASON_TIERS,
   SEASON_TIER_MAP,
@@ -28,7 +28,8 @@ import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 // Banked tiers (Bronze) show solid. Everything above is decided when the season
 // ends, so it shows dashed, as where each player would land if it ended now.
 const SeasonBoard = () => {
-  const { user } = useSession();
+  const { user, userData } = useSession();
+  const cb = !!userData?.colorBlindMode;
   const { textClass, mutedClass } = themeClasses;
   const [data, setData] = useState<SeasonStandingsResponse | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -145,9 +146,7 @@ const SeasonBoard = () => {
                 </span>
               )}
               <span
-                className={`w-20 text-right font-semibold tabular-nums ${
-                  excess >= 0 ? 'text-green-500' : 'text-red-400'
-                }`}
+                className={`w-20 text-right font-semibold tabular-nums ${getChangeColors(excess >= 0, cb).text}`}
                 title={`${fmt(excess)} against the market`}
               >
                 {fmt(e.returnPercent)}
