@@ -8,13 +8,7 @@ import * as logger from 'firebase-functions/logger';
 const db = admin.firestore();
 
 import * as crypto from 'crypto';
-import {
-  STARTING_CASH,
-  UNVERIFIED_STARTING_CASH,
-  DISCORD_DAILY_DROP_CHANNEL,
-  DISCORD_LINK_NONCE_TTL_MS,
-  discordRedirectUri,
-} from '../shared/constants';
+import { DISCORD_DAILY_DROP_CHANNEL, DISCORD_LINK_NONCE_TTL_MS, discordRedirectUri } from '../shared/constants';
 import { sendDiscordMessage, pxe, pxButton } from '../shared/discordApi';
 import {
   isDiscordRelinkBlocked,
@@ -22,9 +16,8 @@ import {
   isDiscordBindingLocked,
   bindDiscordToUid,
 } from '../shared/accountGuards';
-import { grantedValueUpdate } from '../shared/equity';
 import { recordHeartbeat } from '../shared/activity';
-import { recordLedger } from '../shared/ledger';
+import { attachDiscordToAccount } from './discordAttach';
 
 /**
  * Park a new signup's Discord details until they have picked a name.
@@ -60,6 +53,15 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
 
   if (!code) {
     return void res.status(400).send('Missing authorization code');
+  }
+
+  // The site sends a one-time code as `state` and only accepts a token that
+  // comes back with the same code, so a crafted link can't sign a player into
+  // someone else's account. A request without one is refused before any work:
+  // the site would throw its token away anyway.
+  const state = typeof req.query.state === 'string' && /^[a-f0-9]{32}$/.test(req.query.state) ? req.query.state : null;
+  if (!state) {
+    return void res.redirect('https://stockism.app/?discord_error=true');
   }
 
   try {
@@ -156,6 +158,17 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
       } catch (error) {
         existingUser = null;
       }
+      // A sign-in we made ourselves for an earlier Discord signup that never
+      // picked a name: no profile and no way to sign in but through here. It
+      // was created unverified until 2026-11-16, which locked its owner out on
+      // the next try (the check below told them to verify an email login they
+      // never had). Discord has verified the address, so mark it.
+      if (existingUser && !existingUser.emailVerified && existingUser.providerData.length === 0) {
+        const hasProfile = (await db.collection('users').doc(existingUser.uid).get()).exists;
+        if (!hasProfile) {
+          existingUser = await admin.auth().updateUser(existingUser.uid, { emailVerified: true });
+        }
+      }
       // Only an account that proved it owns the address may be matched.
       // Otherwise someone could sign up with another person's email and a
       // password, wait for them to log in with Discord, and share their account.
@@ -165,39 +178,21 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
 
       if (existingUser) {
         firebaseUid = existingUser.uid;
-        const existingRef = db.collection('users').doc(firebaseUid);
-        const existingDoc = await existingRef.get();
-        const linkedDiscordId = existingDoc.exists ? existingDoc.data()!.discordId : null;
-
-        // Never overwrite a different Discord that is already on the account.
-        // Overwriting silently released the old Discord ID for reuse elsewhere
-        // (see discordLink below for why that matters). Logging in still works.
-        if (existingDoc.exists && !linkedDiscordId) {
-          const authLinkUpdate: Record<string, unknown> = { discordId: discordId, discordUsername: username };
-          // Same one-time unlock discordLink grants, so verifying by logging in
-          // with Discord is worth exactly what verifying from the profile page is.
-          if (existingDoc.data()!.startingCashUnlocked === false) {
-            authLinkUpdate.cash = FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
-            authLinkUpdate.startingCashUnlocked = true;
-            Object.assign(authLinkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
-          }
-          const batch = db.batch();
-          batch.update(existingRef, authLinkUpdate);
-          if (authLinkUpdate.startingCashUnlocked) {
-            recordLedger(batch, {
-              uid: firebaseUid,
-              type: 'starting_cash_unlock',
-              amount: STARTING_CASH - UNVERIFIED_STARTING_CASH,
-            });
-          }
-          await batch.commit();
+        // Never overwrites a different Discord already on the account; logging
+        // in still works. No profile yet (a signup that stopped at the name
+        // step): park the Discord so createUser links it, as for a new player.
+        if ((await attachDiscordToAccount(firebaseUid, discordId, username)) === 'missing') {
+          await stashPendingDiscord(firebaseUid, discordId, username);
+          needsName = true;
         }
       } else {
         // Brand new player: create only the AUTH user and stash the Discord
         // details. The Firestore profile is created later by createUser, once
-        // they have chosen a name — see stashPendingDiscord.
+        // they have chosen a name — see stashPendingDiscord. The address counts
+        // as verified because Discord verified it (checked above).
         const newUser = await admin.auth().createUser({
           email: email,
+          emailVerified: true,
           displayName: username,
           photoURL: avatarURL,
         });
@@ -223,20 +218,9 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
     // picker. It is only a prefill — createUser re-validates it server-side, so
     // nothing here is trusted.
     const suggestion = needsName ? `&discord_name=${encodeURIComponent(username)}` : '';
-    // The site sends a one-time code as `state` and only accepts a token that
-    // comes back with the same code, so a crafted link can't sign a player into
-    // someone else's account. The token rides after the "#", which browsers
-    // never send to a server, keeping it out of hosting logs and referrers.
-    const state =
-      typeof req.query.state === 'string' && /^[a-f0-9]{32}$/.test(req.query.state) ? req.query.state : null;
-    if (state) {
-      return void res.redirect(
-        `https://stockism.app/#discord_token=${customToken}&discord_state=${state}${suggestion}`,
-      );
-    }
-    // No code: a tab still running the previous site version. The current site
-    // refuses this form, so it only serves those tabs until they reload.
-    return void res.redirect(`https://stockism.app/?discord_token=${customToken}${suggestion}`);
+    // The token rides after the "#", which browsers never send to a server,
+    // keeping it out of hosting logs and referrers.
+    return void res.redirect(`https://stockism.app/#discord_token=${customToken}&discord_state=${state}${suggestion}`);
   } catch (error) {
     logger.error('Discord auth error:', error);
     return void res.redirect('https://stockism.app/?discord_error=true');
@@ -386,36 +370,12 @@ export const discordLink = cf().https.onRequest(async (req, res) => {
       return void res.redirect('https://stockism.app/profile?discord_link=error&reason=already_linked');
     }
 
-    // Link Discord to the existing account
-    const linkUpdate: Record<string, unknown> = {
-      discordId: discordId,
-      discordUsername: discordUsername,
-    };
-
-    // One-time: unlock full starting cash on first Discord verification (anti-alt gate).
-    // Must be `=== false`, not `!== true`: createUser always writes the flag, so only
-    // accounts that actually started on the unverified $1,000 are owed the difference.
-    // Accounts predating the gate (May 2026) have no flag at all and already started
-    // with the full amount — `!== true` paid them another $2,000 on any relink.
-    if (userDoc.data()!.startingCashUnlocked === false && !currentDiscordId) {
-      linkUpdate.cash = FieldValue.increment(STARTING_CASH - UNVERIFIED_STARTING_CASH);
-      linkUpdate.startingCashUnlocked = true;
-      Object.assign(linkUpdate, grantedValueUpdate(STARTING_CASH - UNVERIFIED_STARTING_CASH));
+    // Link it, with the one-time starting-cash unlock and the achievement.
+    const outcome = await attachDiscordToAccount(uid, discordId, discordUsername);
+    if (outcome !== 'linked') {
+      const reason = outcome === 'other' ? 'already_has_discord' : 'user_not_found';
+      return void res.redirect(`https://stockism.app/profile?discord_link=error&reason=${reason}`);
     }
-
-    // Award DISCORD_LINKED achievement if not already earned
-    const currentAchievements = userDoc.data()!.achievements || [];
-    if (!currentAchievements.includes('DISCORD_LINKED')) {
-      linkUpdate.achievements = FieldValue.arrayUnion('DISCORD_LINKED');
-      linkUpdate['achievementDates.DISCORD_LINKED'] = Date.now();
-    }
-
-    const batch = db.batch();
-    batch.update(db.collection('users').doc(uid), linkUpdate);
-    if (linkUpdate.startingCashUnlocked) {
-      recordLedger(batch, { uid, type: 'starting_cash_unlock', amount: STARTING_CASH - UNVERIFIED_STARTING_CASH });
-    }
-    await batch.commit();
 
     return void res.redirect('https://stockism.app/profile?discord_link=success');
   } catch (error) {

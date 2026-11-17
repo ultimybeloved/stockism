@@ -1,6 +1,6 @@
 // Frontend error monitoring.
 //
-// Deliberately mirrors functions/src/shared/sentry.js so both halves of the codebase report
+// Deliberately mirrors functions/src/shared/sentry.ts so both halves of the codebase report
 // failures the same way:
 //
 //   reportError(err, { where: 'useTradeManagement.handleTrade', ticker, action });
@@ -11,8 +11,8 @@
 // ever read it, becomes something visible on a dashboard.
 //
 // Context is intentionally limited to what diagnoses the bug: what failed, and
-// on which ticker/action/amount. No account IDs, emails, or display names are
-// attached.
+// on which ticker/action/amount. No emails or display names are attached; the
+// only thing tying a report to a player is the account ID useAuthUser sets.
 
 import * as Sentry from '@sentry/react';
 import { isExpectedRejection } from './utils/errors';

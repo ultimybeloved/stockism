@@ -79,7 +79,9 @@ export function useAuthUser({
       }
 
       setUser(firebaseUser);
-      Sentry.setUser(firebaseUser ? { id: firebaseUser.uid, email: firebaseUser.email ?? undefined } : null);
+      // The account ID only, so a report can be matched to a player. Never the
+      // email: the privacy page says it stays with the sign-in service.
+      Sentry.setUser(firebaseUser ? { id: firebaseUser.uid } : null);
       if (firebaseUser) {
         // Check if email is verified (only for email/password providers)
         const isEmailProvider = firebaseUser.providerData.some((p) => p.providerId === 'password');

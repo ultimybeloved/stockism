@@ -320,6 +320,7 @@ Quick reference so you know where to look and where to add things.
 | `functions/src/market/dividends.ts` | Dividend payouts |
 | `functions/src/market/alerts.ts` | Price alerts |
 | `functions/src/discord/discord.ts` | Discord OAuth and account linking (≤352 lines) |
+| `functions/src/discord/discordAttach.ts` | **Internal module.** `attachDiscordToAccount`: the one write that puts a Discord on an existing account (starting-cash unlock, ledger, achievement) in one transaction, used by discordLink and Discord login. `npm run test:discordattach` |
 | `functions/src/discord/discordInteractions.ts` | Discord slash command webhook handler |
 | `functions/src/discord/discordActivityLog.ts` | **Internal module.** `recordDiscordActivity`: one `discordActivity/{discordId}` doc per bot user (commands, buttons, counts), stamped by discordInteractions |
 | `functions/src/admin/admin.ts` | banUser, fixBasePriceCliffs |
