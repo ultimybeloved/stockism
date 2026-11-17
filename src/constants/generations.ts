@@ -22,8 +22,6 @@ export const GENERATIONS = [
 
 export const GENERATION_IDS = GENERATIONS.map((g) => g.id);
 
-export const GENERATION_LABELS = Object.fromEntries(GENERATIONS.map((g) => [g.id, g.label]));
-
 // Filter sentinels, kept here so the hook and the pills agree on the strings.
 export const GENERATION_FILTER_ALL = 'ALL';
 export const GENERATION_FILTER_UNASSIGNED = 'UNASSIGNED';

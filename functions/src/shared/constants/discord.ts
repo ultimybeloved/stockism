@@ -1,14 +1,6 @@
 // Discord: alerts, channels, crew head roles, crew emojis, slash commands.
 
 // ============================================
-// DISCORD ALERTS
-// ============================================
-export const WHALE_ALERT_SHARES_SOFT = 50; // shares threshold (combined with price check) for whale alert
-export const WHALE_ALERT_PRICE_SOFT = 35; // price threshold (combined with shares check) for whale alert
-export const WHALE_ALERT_SHARES_HARD = 100; // shares threshold alone triggers whale alert regardless of price
-export const CREW_MILESTONE_THRESHOLDS = [5, 10, 25, 50, 100]; // crew member counts that trigger Discord alerts
-
-// ============================================
 // DISCORD CHANNELS
 // ============================================
 // Channel the daily free-stock drop posts to. Used by discord.js (dailyFreeStock) and

@@ -58,10 +58,3 @@ export const recordLedger = (writer: Writer, input: LedgerInput) => {
   if (!Number.isFinite(input.amount) || round2(input.amount) === 0) return;
   (writer as admin.firestore.WriteBatch).set(ledgerCol().doc(), buildLedgerEntry(input));
 };
-
-// For the few writers that update cash with a plain doc write, outside any
-// transaction or batch.
-export const addLedgerEntry = async (input: LedgerInput) => {
-  if (!Number.isFinite(input.amount) || round2(input.amount) === 0) return;
-  await ledgerCol().add(buildLedgerEntry(input));
-};

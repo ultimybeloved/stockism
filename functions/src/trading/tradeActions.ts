@@ -11,6 +11,7 @@ import {
   MAX_DAILY_IMPACT,
   SHORT_MARGIN_RATIO,
   SHORT_CONCENTRATION_CAP,
+  MAX_SHORT_EXPOSURE_RATIO,
   MARGIN_SELL_LOCKUP_MS,
   TRADE_HOLD_PERIOD_MS,
 } from '../shared/constants';
@@ -313,7 +314,7 @@ export function computeShort({
     0,
   );
 
-  if (portfolioEquity <= 0 || existingShortMargin + marginRequired > portfolioEquity) {
+  if (portfolioEquity <= 0 || existingShortMargin + marginRequired > portfolioEquity * MAX_SHORT_EXPOSURE_RATIO) {
     throw new functions.https.HttpsError(
       'failed-precondition',
       'Short limit reached. Total short positions cannot exceed your portfolio value.',

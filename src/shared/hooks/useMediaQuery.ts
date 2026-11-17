@@ -20,5 +20,3 @@ export function useMediaQuery(query: string): boolean {
 export const usePhone = () => useMediaQuery('(max-width: 767px)');
 /** Wide desktop: Tailwind's `lg` and up. */
 export const useWideScreen = () => useMediaQuery('(min-width: 1024px)');
-/** A real mouse (hover-capable, fine pointer), so keyboard and hover extras make sense. */
-export const useMousePointer = () => useMediaQuery('(hover: hover) and (pointer: fine)');

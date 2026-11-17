@@ -72,30 +72,6 @@ export const isWeeklyHalt = () => {
   return utcMins >= 780 && utcMins < 1260; // 13:00 (780) to 21:00 (1260)
 };
 
-export const getHaltTimeRemaining = () => {
-  const now = haltNow();
-  const reopenToday = new Date(now);
-  reopenToday.setUTCHours(21, 0, 0, 0);
-  return Math.max(0, reopenToday.getTime() - now.getTime());
-};
-
-export const getNextHaltStart = () => {
-  const now = new Date();
-  const day = now.getUTCDay();
-  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  // If Thursday before halt starts, return today
-  if (day === 4 && utcMins < 780) {
-    const today = new Date(now);
-    today.setUTCHours(13, 0, 0, 0);
-    return today;
-  }
-  const daysUntil = (4 - day + 7) % 7 || 7;
-  const next = new Date(now);
-  next.setUTCDate(next.getUTCDate() + daysUntil);
-  next.setUTCHours(13, 0, 0, 0);
-  return next;
-};
-
 /**
  * Get the most recent Thursday halt window (13:00-21:00 UTC).
  * Returns { start, end } as epoch timestamps.

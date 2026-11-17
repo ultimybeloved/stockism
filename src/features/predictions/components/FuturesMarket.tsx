@@ -1,7 +1,8 @@
 // A futures market: outcome shares priced by the house market maker. A share
 // pays $1 if its outcome is confirmed, so a 27¢ share pays about 3.7x.
 import { useEffect, useState } from 'react';
-import { themeClasses } from '../../../utils/theme';
+import { useSession } from '../../../context/AppContext';
+import { getChangeColors, themeClasses } from '../../../utils/theme';
 import { formatCompactCurrency, formatCurrency, formatMultiplier } from '../../../utils/formatters';
 import { formatCountdown } from '../../../utils/marketHours';
 import { lmsrPrices } from '../../../utils/calculations';
@@ -26,6 +27,7 @@ interface FuturesMarketProps {
 
 const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps) => {
   const { textClass, mutedClass } = themeClasses;
+  const { userData } = useSession();
   const outcomes = m.outcomes || ['Yes', 'No'];
   const prices = futuresPrices(m);
 
@@ -83,7 +85,7 @@ const FuturesMarket = ({ market: m, position, pick, onPick }: FuturesMarketProps
             . You paid {formatCurrency(putIn)}
             {entryCents !== null && ` (${entryCents}¢ a share)`}, worth {formatCurrency(worth)} now{' '}
           </span>
-          <span className={gain >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}>
+          <span className={getChangeColors(gain >= 0, !!userData?.colorBlindMode).text}>
             ({gain >= 0 ? '+' : '-'}
             {formatCurrency(Math.abs(gain))})
           </span>

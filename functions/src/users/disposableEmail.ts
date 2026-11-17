@@ -232,17 +232,6 @@ async function refreshRemoteDomains() {
 
 /**
  * True if an email belongs to a known disposable / temp-mail provider, checked
- * against the bundled lists only (synchronous; used by tests and as the
- * fallback layer).
- */
-export function isDisposableEmail(email: unknown): boolean {
-  const domain = emailDomain(email);
-  if (!domain) return false;
-  return domainInSet(domain, BUNDLED_DOMAINS);
-}
-
-/**
- * True if an email belongs to a known disposable / temp-mail provider, checked
  * against the bundled lists plus the daily-updated live list. Never throws and
  * never blocks signup on a network failure — worst case it degrades to the
  * bundled coverage.

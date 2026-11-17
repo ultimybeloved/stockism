@@ -241,27 +241,3 @@ export const heavySellStamps = (
     ...(action === 'sell' ? { [`lastHeavyExit.${ticker}`]: stamp } : {}),
   };
 };
-
-// What one action may still move a ticker's price, as a fraction, given the
-// history already spent by this user and by their IP. Whichever is further
-// along wins, so alts on one connection share an allowance.
-export const remainingImpactFor = ({
-  action,
-  userActions,
-  ipActions,
-  now,
-  cap,
-}: {
-  action: string;
-  userActions: ActionHistory | null | undefined;
-  ipActions: ActionHistory | null | undefined;
-  now: number;
-  cap: number;
-}) => {
-  const direction = impactDirectionOf(action);
-  const spent = Math.max(
-    sumDirectionalImpact(userActions, now)[direction],
-    sumDirectionalImpact(ipActions, now)[direction],
-  );
-  return Math.max(0, cap - spent);
-};

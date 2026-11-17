@@ -33,13 +33,8 @@ export {
 } from '../rules/economy';
 export const PORTFOLIO_SYNC_MIN_INTERVAL_MS = 5 * 60 * 1000; // floor between passive syncPortfolio calls (backend cost control)
 export { LEADERBOARD_CACHE_TTL as LEADERBOARD_DOC_FRESH_MS } from '../rules/economy'; // how long a precomputed leaderboard/{key} doc counts as fresh
-export const DAILY_BONUS = 300;
-export const PRICE_UPDATE_INTERVAL = 5000; // 5 seconds
-export const HISTORY_RECORD_INTERVAL = 60000; // 1 minute
 
 // IPO System Constants
-export const IPO_HYPE_DURATION = 24 * 60 * 60 * 1000; // 24 hours hype phase
-export const IPO_WINDOW_DURATION = 24 * 60 * 60 * 1000; // 24 hours IPO window
 export const IPO_TOTAL_SHARES = 150; // Total shares available in IPO
 export const IPO_MAX_PER_USER = 10; // Max shares per user during IPO
 
@@ -76,18 +71,11 @@ export const SHORT_MARGIN_REQUIREMENT = 1.0; // 100% margin required (dollar-for
 // functions/src/shared/constants/halt.ts SHORT_CONCENTRATION_CAP.
 export const SHORT_CONCENTRATION_CAP = 0.5;
 export const SHORT_MARGIN_WARNING_THRESHOLD = 0.35; // Show a force-cover warning once equity dips below 35%
-export const SHORT_RATE_LIMIT_HOURS = 8; // 8-hour cooldown after 3rd short on same ticker
 
 // ============================================
 // MARGIN TRADING SYSTEM
 // ============================================
 
-export const MARGIN_TIERS = [
-  { minPeak: 0, maxPeak: 7500, multiplier: 0.25 },
-  { minPeak: 7500, maxPeak: 15000, multiplier: 0.35 },
-  { minPeak: 15000, maxPeak: 30000, multiplier: 0.5 },
-  { minPeak: 30000, maxPeak: Infinity, multiplier: 0.75 },
-];
 export const MARGIN_WARNING_THRESHOLD = 0.65; // Display warning at 65% equity ratio
 export const MARGIN_DANGER_THRESHOLD = 0.4; // Display danger zone at 40% equity ratio
 export const MARGIN_CALL_THRESHOLD = 0.3; // Matches backend threshold — actual margin call fires here

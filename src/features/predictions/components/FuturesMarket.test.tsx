@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 // A Futures position shows what the player paid, not just what it's worth now
 // (the 2026-10-19 redesign dropped it once).
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
 
 expect.extend(matchers);
+
+vi.mock('../../../context/AppContext', () => ({
+  useSession: () => ({ userData: {} }),
+}));
 
 import FuturesMarket from './FuturesMarket';
 import type { EventMarketDoc } from '../../../types';
