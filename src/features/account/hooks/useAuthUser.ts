@@ -8,6 +8,7 @@ import type { Unsubscribe } from 'firebase/firestore';
 import type { AppContextValue } from '../../../context/AppContext';
 import type { UserData } from '../../../types';
 import { consumeDiscordLoginState } from '../discordLoginState';
+import { rememberDarkMode } from '../../../shared/hooks/useDarkMode';
 
 // Auth state, the user-doc subscription, and the auth-adjacent URL flows
 // (Discord OAuth redirect, email verification action codes).
@@ -121,7 +122,9 @@ export function useAuthUser({
           // Sync dark mode from Firestore if user has a saved preference
           if (data.darkMode !== undefined) {
             setDarkMode(data.darkMode);
-            localStorage.setItem('stockism_darkMode', String(data.darkMode));
+            // Guarded: a throw here used to stop the account from loading at all
+            // in a browser with storage blocked.
+            rememberDarkMode(data.darkMode);
           }
 
           // Subscribe to user data changes - store unsubscribe for cleanup

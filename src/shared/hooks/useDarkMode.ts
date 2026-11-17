@@ -5,6 +5,15 @@ import { db } from '../../firebase';
 
 const STORAGE_KEY = 'stockism_darkMode';
 
+/** Remember the theme in this browser. Storage can be blocked; the theme still applies for the visit. */
+export const rememberDarkMode = (dark: boolean): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, String(dark));
+  } catch {
+    // Blocked storage (private mode, some in-app browsers): nothing to do.
+  }
+};
+
 /**
  * The theme, starting from this browser's saved choice. Dark when nothing is
  * saved. Mirrored onto <html> as the `dark` class, which every `dark:` and
@@ -33,7 +42,7 @@ export const useDarkModeToggle = (user: User | null, setDarkMode: Dispatch<SetSt
   useCallback(() => {
     setDarkMode((prev) => {
       const newValue = !prev;
-      localStorage.setItem(STORAGE_KEY, String(newValue));
+      rememberDarkMode(newValue);
       if (user) {
         updateDoc(doc(db, 'users', user.uid), { darkMode: newValue }).catch((err) => {
           console.error('Failed to save dark mode preference:', err);

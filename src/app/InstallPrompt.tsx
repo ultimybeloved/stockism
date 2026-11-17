@@ -14,8 +14,14 @@ export default function InstallPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const dismissed = localStorage.getItem(DISMISS_KEY);
-    if (dismissed && Date.now() - Number(dismissed) < SEVEN_DAYS) return;
+    // Storage can be blocked (private mode, some in-app browsers), and a throw
+    // in here would take the whole page down to the crash screen.
+    try {
+      const dismissed = localStorage.getItem(DISMISS_KEY);
+      if (dismissed && Date.now() - Number(dismissed) < SEVEN_DAYS) return;
+    } catch {
+      // Not remembered: the prompt may simply show again.
+    }
 
     const handler = (e: Event) => {
       e.preventDefault();
@@ -38,7 +44,11 @@ export default function InstallPrompt() {
   };
 
   const handleDismiss = () => {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    try {
+      localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    } catch {
+      // Storage blocked: dismissed for this visit only.
+    }
     setVisible(false);
     setDeferredPrompt(null);
   };
