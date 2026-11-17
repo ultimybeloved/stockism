@@ -74,9 +74,17 @@ export async function claimNetworkForOrder({
   return key;
 }
 
-/** Remember which connection placed a limit order, for its fill. */
-export const recordOrderOrigin = (orderId: string, { uid, key }: { uid: string; key: string | null }) =>
-  key ? originRef(orderId).set({ uid, ipKey: key, createdAt: Date.now() }) : Promise.resolve();
+/**
+ * Remember which connection placed a limit order, for its fill. Written in the
+ * order's own transaction, so no sweep can ever see the order without it.
+ */
+export const recordOrderOrigin = (
+  tx: admin.firestore.Transaction,
+  orderId: string,
+  { uid, key }: { uid: string; key: string | null },
+) => {
+  if (key) tx.set(originRef(orderId), { uid, ipKey: key, createdAt: Date.now() });
+};
 
 /**
  * Inside a fill transaction, READ phase. Returns the order's network state, or

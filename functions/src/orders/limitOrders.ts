@@ -139,9 +139,9 @@ export const createLimitOrder = cf().https.onCall(
         updatedAt: FieldValue.serverTimestamp(),
       });
       tx.update(userRef, { lastLimitOrderAt: Date.now() });
+      // Kept off the order doc on purpose: see orderNetwork.js.
+      recordOrderOrigin(tx, orderRef.id, { uid, key: networkKey });
     });
-    // Kept off the order doc on purpose: see orderNetwork.js.
-    await recordOrderOrigin(orderRef.id, { uid, key: networkKey });
 
     return { success: true, orderId: orderRef.id };
   },

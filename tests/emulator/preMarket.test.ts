@@ -168,8 +168,17 @@ async function main() {
 
   // ── Run the auction ────────────────────────────────────────────────────
   console.log('\nRunning runMarketOpenProcessing...\n');
-  const summary = await runMarketOpenProcessing('test');
-  console.log('Summary:', JSON.stringify(summary), '\n');
+  // Two runs at the same instant (a repeated schedule delivery, or the admin
+  // retry during a slow run). One must stand down, or the open is pushed twice;
+  // the opening-price check below catches a double push.
+  const runs = await Promise.all([runMarketOpenProcessing('test'), runMarketOpenProcessing('test-duplicate')]);
+  const summary = runs.find((r) => !('skipped' in r))!;
+  console.log('Summary:', JSON.stringify(runs), '\n');
+  check(
+    'a second run at the same time stands down',
+    runs.filter((r) => 'skipped' in r).length === 1 && !!summary,
+    JSON.stringify(runs),
+  );
 
   // ── Expected opening price: only fillable demand moves it ──────────────
   // richBuyer 50 + partialBuyer ~10 fillable - seller 30 ≈ net +30. The

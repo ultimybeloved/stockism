@@ -61,17 +61,52 @@ const getSessionPreMarketStart = () => {
  *
  * Shared by the cron schedule and the admin-only manual trigger
  * (triggerMarketOpenOrders) for recovery if a run fails.
+ *
+ * Only one run at a time. Each fill is safe on its own (the order is re-read in
+ * its transaction), but the opening price is not: a second run that starts
+ * after the first has written it computes the open again from the moved price,
+ * so the same demand pushes the stock twice. A repeated schedule delivery or
+ * the admin retry pressed during a slow run did exactly that.
  */
+const auctionLockRef = () => db.collection('botState').doc('openingAuction');
+/** Longer than any caller's timeout (delayedOpenTick's 540s), so a crashed run frees it. */
+const AUCTION_LEASE_MS = 10 * 60 * 1000;
+
 export const runMarketOpenProcessing = async (trigger: string) => {
-  const summary: OpenSummary = {
-    trigger,
-    ipoJumps: 0,
-    pmFilled: 0,
-    pmFailed: 0,
-    pmExpired: 0,
-    stopLossFilled: 0,
-    stopLossSkipped: 0,
-  };
+  const token = `${trigger}:${Date.now()}:${Math.random()}`;
+  const got = await db.runTransaction(async (tx) => {
+    const held = (await tx.get(auctionLockRef())).data();
+    if (held && Date.now() - (held.at || 0) < AUCTION_LEASE_MS) return false;
+    tx.set(auctionLockRef(), { token, at: Date.now() });
+    return true;
+  });
+  if (!got) {
+    logger.warn(`runMarketOpenProcessing(${trigger}): another run is in progress, skipped`);
+    return { ...emptySummary(trigger), skipped: true };
+  }
+  try {
+    return await openingRun(trigger);
+  } finally {
+    await db
+      .runTransaction(async (tx) => {
+        if ((await tx.get(auctionLockRef())).data()?.token === token) tx.delete(auctionLockRef());
+      })
+      .catch((err) => reportError(err, { where: 'runMarketOpenProcessing: release' }));
+  }
+};
+
+const emptySummary = (trigger: string): OpenSummary => ({
+  trigger,
+  ipoJumps: 0,
+  pmFilled: 0,
+  pmFailed: 0,
+  pmExpired: 0,
+  stopLossFilled: 0,
+  stopLossSkipped: 0,
+});
+
+const openingRun = async (trigger: string) => {
+  const summary = emptySummary(trigger);
   const marketRef = db.collection('market').doc('current');
 
   // ── 1. Apply IPO jumps deferred by the halt ──────────────────────────────
