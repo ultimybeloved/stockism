@@ -28,6 +28,13 @@ export const RECRUIT_TRADES_MIN_CHECKINS = 2;
 /** The recruit's account must be at least this old. */
 export const RECRUIT_MIN_AGE_DAYS = 14;
 /**
+ * The recruit's Discord account must be at least this old (Darth YG,
+ * 2026-11-17). A Discord made for the occasion is the cheap part of farming
+ * rewards with throwaway accounts. An honest recruit new to Discord is only
+ * delayed: they are paid once it reaches this age, inside the deadline.
+ */
+export const RECRUIT_MIN_DISCORD_AGE_DAYS = 30;
+/**
  * Recruits a recruiter can be paid for in one week. The rest roll over: they
  * are queued and paid in a later week, and a queued recruit never expires.
  */
@@ -41,6 +48,16 @@ export const RECRUIT_REF_PARAM = 'ref';
 /** The recruiters board: its getLeaderboard sort and its `leaderboard/{key}` doc. One board, never split by crew. */
 export const RECRUITS_SORT = 'recruits';
 const DAY_MS = 24 * 60 * 60 * 1000;
+// A Discord ID carries the moment the account was made: milliseconds since
+// Discord's own epoch (2015-01-01), above its 22 low bits.
+const DISCORD_EPOCH_MS = 1420070400000;
+const DISCORD_ID_TIME_DIVISOR = 2 ** 22;
+
+/** When a Discord account was made, from its ID. Null when it is not a Discord ID. */
+export const discordCreatedMs = (discordId: unknown): number | null =>
+  typeof discordId === 'string' && /^\d{15,20}$/.test(discordId)
+    ? Math.floor(Number(discordId) / DISCORD_ID_TIME_DIVISOR) + DISCORD_EPOCH_MS
+    : null;
 
 /** A name as it may appear in an invite link (same shape as a username). */
 export const isRecruitRef = (ref: unknown): ref is string =>
@@ -94,6 +111,8 @@ export const recruiterAchievements = (paid: number): string[] =>
 export function recruitQualifies(recruit: RecruitProgress, signedUpAt: TimeLike, nowMs: number): boolean {
   if (recruit.isBanned || recruit.isBot || !recruit.discordId) return false;
   if (!recruitPlayedEnough(recruit)) return false;
+  const discordSince = discordCreatedMs(recruit.discordId);
+  if (discordSince === null || nowMs - discordSince < RECRUIT_MIN_DISCORD_AGE_DAYS * DAY_MS) return false;
   return nowMs - toMs(signedUpAt) >= RECRUIT_MIN_AGE_DAYS * DAY_MS;
 }
 

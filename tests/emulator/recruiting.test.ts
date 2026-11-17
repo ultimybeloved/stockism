@@ -23,6 +23,9 @@ const { RECRUITER_REWARD, RECRUIT_BONUS, RECRUIT_WEEKLY_CAP, RECRUIT_EXPIRY_DAYS
   require('../../functions/src/shared/rules/recruiting') as typeof import('../../functions/src/shared/rules/recruiting');
 
 const DAY = 24 * 60 * 60 * 1000;
+// A Discord account made in 2015, and the ID of one made at a given moment.
+const OLD_DISCORD = '100000000000000000';
+const discordMadeAt = (ms: number) => String((BigInt(ms) - 1420070400000n) << 22n);
 const user = (uid: string) => db.collection('users').doc(uid);
 const read = async (uid: string): Promise<Loose> => (await user(uid).get()).data();
 const record = async (uid: string): Promise<Loose> => (await db.collection('recruits').doc(uid).get()).data();
@@ -41,7 +44,7 @@ const signUp = (recruitUid: string, ref: unknown, connection: string | null) =>
 
 /** Makes a recruit look like they have played long enough. */
 async function makeReady(uid: string) {
-  await user(uid).update({ totalCheckins: 7, discordId: `discord_${uid}` });
+  await user(uid).update({ totalCheckins: 7, discordId: OLD_DISCORD });
   await db
     .collection('recruits')
     .doc(uid)
@@ -77,7 +80,11 @@ async function main() {
   await makeReady('newbie');
   await user('newbie').update({ discordId: null });
   check('no Discord link, no payout', (await settleRecruit('newbie')) === 'waiting');
-  await user('newbie').update({ discordId: 'discord_newbie' });
+  await user('newbie').update({ discordId: OLD_DISCORD });
+
+  await user('newbie').update({ discordId: discordMadeAt(Date.now() - 10 * DAY) });
+  check('a Discord account made days ago does not count yet', (await settleRecruit('newbie')) === 'waiting');
+  await user('newbie').update({ discordId: OLD_DISCORD });
 
   check('a qualified recruit pays out', (await settleRecruit('newbie')) === 'paid');
   const boss = await read('boss');
@@ -124,7 +131,7 @@ async function main() {
       .update({ createdAt: Date.now() - days * DAY });
   await addPlayer('grinder', 'Grinder', 'net_h');
   await signUp('grinder', 'Boss_Man', 'net_h');
-  await user('grinder').update({ totalMissionsCompleted: 10, discordId: 'discord_grinder' });
+  await user('grinder').update({ totalMissionsCompleted: 10, discordId: OLD_DISCORD });
   await backdate('grinder', 15);
   check('ten missions count without a single check-in', (await settleRecruit('grinder')) === 'paid');
   check(
@@ -134,7 +141,7 @@ async function main() {
   );
   await addPlayer('trader', 'TraderJoe', 'net_i');
   await signUp('trader', 'Boss_Man', 'net_i');
-  await user('trader').update({ totalTrades: 20, discordId: 'discord_trader' });
+  await user('trader').update({ totalTrades: 20, discordId: OLD_DISCORD });
   await backdate('trader', 15);
   check('twenty trades alone are not enough', (await settleRecruit('trader')) === 'waiting');
   await user('trader').update({ totalCheckins: 2 });
@@ -173,6 +180,38 @@ async function main() {
   check('a recruit past the deadline is closed', (await settleRecruit('slow')) === 'closed');
   check('expired pays nothing', (await read('boss')).cash === before && (await record('slow')).status === 'expired');
   check('expired comes off the pending count', (await read('boss')).recruiting.pending === 0);
+
+  // --- Recruits who never come back ---
+  await addPlayer('gone', 'WalkedAway', 'net_k');
+  await signUp('gone', 'Boss_Man', 'net_k');
+  await backdate('gone', RECRUIT_EXPIRY_DAYS + 1);
+  check('a recruit who walked away still shows as pending', (await read('boss')).recruiting.pending === 1);
+  await settleQueuedRecruits('boss');
+  check(
+    'the recruiter check-in closes them once the deadline passes',
+    (await record('gone')).status === 'expired' && (await read('boss')).recruiting.pending === 0,
+  );
+
+  await addPlayer('quit', 'QuitEarly', 'net_l');
+  await signUp('quit', 'Boss_Man', 'net_l');
+  await makeReady('quit');
+  await addPlayer('stay', 'StayedOn', 'net_m');
+  await signUp('stay', 'Boss_Man', 'net_m');
+  await makeReady('stay');
+  await user('boss').update({ 'recruiting.week': recruitWeek(Date.now()), 'recruiting.weekPaid': RECRUIT_WEEKLY_CAP });
+  await settleRecruit('quit');
+  await settleRecruit('stay');
+  check('both are queued', (await record('quit')).queued === true && (await record('stay')).queued === true);
+  await user('quit').delete();
+  await user('boss').update({ 'recruiting.week': recruitWeek(Date.now()) - 1 });
+  const beforeQuit = (await read('boss')).cash;
+  check('a deleted recruit in the queue does not block the rest', (await settleQueuedRecruits('boss')) === 1);
+  check('only the one who stayed is paid for', (await read('boss')).cash === beforeQuit + RECRUITER_REWARD);
+  check(
+    'the deleted one is closed and off the queue',
+    (await record('quit')).status === 'void' && (await record('quit')).queued === undefined,
+  );
+  check('and nothing is left pending', (await read('boss')).recruiting.pending === 0);
 
   await addPlayer('late', 'LateJoin', 'net_e');
   await signUp('late', 'Boss_Man', 'net_e');

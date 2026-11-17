@@ -80,24 +80,32 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
   const now = Date.now();
   const recruitRef = db.collection('users').doc(recruitUid);
   const result = await db.runTransaction(async (tx) => {
-    const recordSnap = await tx.get(recruits().doc(recruitUid));
+    const [recordSnap, recruitSnap] = await Promise.all([tx.get(recruits().doc(recruitUid)), tx.get(recruitRef)]);
     const record = recordSnap.data();
+    // The recruit's account may be gone (deleted): there is then no flag to clear.
+    const clearFlag = () => {
+      if (recruitSnap.exists) tx.update(recruitRef, { recruitPending: FieldValue.delete() });
+    };
     if (!record || record.status !== 'pending') {
-      tx.update(recruitRef, { recruitPending: FieldValue.delete() });
+      clearFlag();
       return { outcome: 'closed' as const };
     }
     const recruiterRef = db.collection('users').doc(record.recruiterUid as string);
-    const [recruitSnap, recruiterSnap] = await Promise.all([tx.get(recruitRef), tx.get(recruiterRef)]);
+    const recruiterSnap = await tx.get(recruiterRef);
     const recruit = recruitSnap.data() || {};
     const recruiter = recruiterSnap.data();
 
     const close = (status: 'expired' | 'void') => {
-      tx.update(recordSnap.ref, { status, closedAt: now });
-      tx.update(recruitRef, { recruitPending: FieldValue.delete() });
+      // `queued` goes too, so a closed record never sits in the recruiter's queue.
+      tx.update(recordSnap.ref, { status, closedAt: now, queued: FieldValue.delete() });
+      clearFlag();
       if (recruiter) tx.update(recruiterRef, { 'recruiting.pending': FieldValue.increment(-1) });
       return { outcome: 'closed' as const };
     };
-    if (!recruiter || recruiter.isBanned || recruiter.isBot || recruit.isBanned) return close('void');
+    // A recruit who deleted their account did not stick, queued or not.
+    if (!recruitSnap.exists || !recruiter || recruiter.isBanned || recruiter.isBot || recruit.isBanned) {
+      return close('void');
+    }
     // A queued recruit already qualified in time, so the deadline no longer applies.
     if (!record.queued) {
       if (recruitExpired(record.createdAt, now)) return close('expired');
@@ -175,7 +183,8 @@ export async function settleRecruit(recruitUid: string): Promise<Outcome> {
 
 /**
  * Pays a recruiter's queued recruits (the ones held back by the weekly cap) as
- * far as this week's cap allows. Called after the recruiter's own check-in.
+ * far as this week's cap allows, then closes recruits who ran out of time.
+ * Called after the recruiter's own check-in.
  */
 export async function settleQueuedRecruits(recruiterUid: string): Promise<number> {
   const queued = await recruits()
@@ -190,5 +199,29 @@ export async function settleQueuedRecruits(recruiterUid: string): Promise<number
     // Still over the cap: the rest wait for next week.
     else if (outcome === 'waiting') break;
   }
+  await closeLapsedRecruits(recruiterUid);
   return paid;
+}
+
+/** Pending recruits looked at per recruiter check-in when closing lapsed ones. */
+const LAPSED_SWEEP_SIZE = 30;
+
+/**
+ * A recruit who walked away (or deleted their account) never checks in again,
+ * so nothing ever closed their record and the recruiter's "still earning it"
+ * count only went up. This closes the ones past the deadline. A queued recruit
+ * already qualified and is left alone.
+ */
+async function closeLapsedRecruits(recruiterUid: string): Promise<void> {
+  const now = Date.now();
+  const pending = await recruits()
+    .where('recruiterUid', '==', recruiterUid)
+    .where('status', '==', 'pending')
+    .limit(LAPSED_SWEEP_SIZE)
+    .get();
+  for (const doc of pending.docs) {
+    const record = doc.data();
+    if (record.queued || !recruitExpired(record.createdAt, now)) continue;
+    await settleRecruit(doc.id);
+  }
 }

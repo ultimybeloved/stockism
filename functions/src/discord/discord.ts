@@ -181,9 +181,20 @@ export const discordAuth = cf().https.onRequest(async (req, res) => {
         // Never overwrites a different Discord already on the account; logging
         // in still works. No profile yet (a signup that stopped at the name
         // step): park the Discord so createUser links it, as for a new player.
-        if ((await attachDiscordToAccount(firebaseUid, discordId, username)) === 'missing') {
+        // The Discord is reserved to this account first, as discordLink does:
+        // without it, a link finishing on another account at the same moment
+        // put one Discord on both, each with the starting-cash unlock. Held by
+        // another account: they are signed in, and the Discord is left alone.
+        const profile = await db.collection('users').doc(firebaseUid).get();
+        if (!profile.exists) {
           await stashPendingDiscord(firebaseUid, discordId, username);
           needsName = true;
+        } else if (
+          // An account already on a different Discord keeps it and reserves nothing.
+          !profile.data()!.discordId &&
+          (await bindDiscordToUid(discordId, firebaseUid, username)) === firebaseUid
+        ) {
+          await attachDiscordToAccount(firebaseUid, discordId, username);
         }
       } else {
         // Brand new player: create only the AUTH user and stash the Discord

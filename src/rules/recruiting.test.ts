@@ -7,6 +7,8 @@ import {
   recruitWeek,
   RECRUIT_MIN_CHECKINS,
   RECRUIT_MIN_AGE_DAYS,
+  RECRUIT_MIN_DISCORD_AGE_DAYS,
+  discordCreatedMs,
   RECRUIT_EXPIRY_DAYS,
   RECRUIT_MIN_MISSIONS,
   RECRUIT_MIN_TRADES,
@@ -18,7 +20,7 @@ import { ACHIEVEMENTS } from '../constants/achievements';
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 10, 30);
-const ready = { totalCheckins: RECRUIT_MIN_CHECKINS, discordId: '123' };
+const ready = { totalCheckins: RECRUIT_MIN_CHECKINS, discordId: '100000000000000000' };
 const oldEnough = NOW - RECRUIT_MIN_AGE_DAYS * DAY;
 
 describe('recruit invite links', () => {
@@ -46,6 +48,17 @@ describe('recruitQualifies', () => {
     expect(recruitQualifies(ready, oldEnough + DAY, NOW)).toBe(false);
   });
 
+  it('waits for the Discord account itself to be old enough', () => {
+    // 175928847299117063 is the example ID in Discord's own docs (2016-04-30).
+    expect(new Date(discordCreatedMs('175928847299117063')!).toISOString().slice(0, 10)).toBe('2016-04-30');
+    const madeAt = (ms: number) => String((BigInt(ms) - 1420070400000n) << 22n);
+    const tooNew = madeAt(NOW - (RECRUIT_MIN_DISCORD_AGE_DAYS - 1) * DAY);
+    const justOld = madeAt(NOW - (RECRUIT_MIN_DISCORD_AGE_DAYS + 1) * DAY);
+    expect(recruitQualifies({ ...ready, discordId: tooNew }, oldEnough, NOW)).toBe(false);
+    expect(recruitQualifies({ ...ready, discordId: justOld }, oldEnough, NOW)).toBe(true);
+    expect(recruitQualifies({ ...ready, discordId: 'not-a-discord-id' }, oldEnough, NOW)).toBe(false);
+  });
+
   it('never pays for a banned account or a bot', () => {
     expect(recruitQualifies({ ...ready, isBanned: true }, oldEnough, NOW)).toBe(false);
     expect(recruitQualifies({ ...ready, isBot: true }, oldEnough, NOW)).toBe(false);
@@ -53,7 +66,7 @@ describe('recruitQualifies', () => {
 });
 
 describe('ways to show a recruit kept playing', () => {
-  const idle = { discordId: 'd1' };
+  const idle = { discordId: ready.discordId };
   it('takes check-ins, missions, or trades', () => {
     expect(recruitQualifies(idle, oldEnough, NOW)).toBe(false);
     expect(recruitQualifies({ ...idle, totalCheckins: RECRUIT_MIN_CHECKINS }, oldEnough, NOW)).toBe(true);

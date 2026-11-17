@@ -8,6 +8,7 @@ import {
   RECRUIT_BONUS,
   RECRUIT_PLAY_TEXT,
   RECRUIT_MIN_AGE_DAYS,
+  RECRUIT_MIN_DISCORD_AGE_DAYS,
   RECRUIT_WEEKLY_CAP,
   inviteLink,
 } from '../../../rules/recruiting';
@@ -37,10 +38,10 @@ const InviteCard = ({ hideBoardLink = false }: { hideBoardLink?: boolean }) => {
     <div className="p-4 rounded-sm border light:bg-amber-50 light:border-amber-200 dark:bg-zinc-800/50 dark:border-zinc-700">
       <h3 className={`font-semibold ${textClass} mb-1`}>Recruit players</h3>
       <p className={`text-xs ${mutedClass} mb-3`}>
-        Share your link. When someone joins through it, links their Discord, and keeps playing for{' '}
-        {RECRUIT_MIN_AGE_DAYS} days ({RECRUIT_PLAY_TEXT}), you get {formatCurrency(RECRUITER_REWARD)} and they get{' '}
-        {formatCurrency(RECRUIT_BONUS)}. Up to {RECRUIT_WEEKLY_CAP} rewards a week; any extra roll over to the next
-        week.
+        Share your link. When someone joins through it, links a Discord account at least {RECRUIT_MIN_DISCORD_AGE_DAYS}{' '}
+        days old, and keeps playing for {RECRUIT_MIN_AGE_DAYS} days ({RECRUIT_PLAY_TEXT}), you get{' '}
+        {formatCurrency(RECRUITER_REWARD)} and they get {formatCurrency(RECRUIT_BONUS)}. Up to {RECRUIT_WEEKLY_CAP}{' '}
+        rewards a week; any extra roll over to the next week.
       </p>
       <div className="flex gap-2">
         <input
