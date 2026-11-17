@@ -36,7 +36,7 @@ the README).
    reads the changed value at runtime. The script checks every name against the
    real exports before deploying anything.
 
-`npm run deploy:functions` with no arguments deploys **all** 153 functions. Use it
+`npm run deploy:functions` with no arguments deploys **all** 175 functions. Use it
 only when a change genuinely touches every function (for example `fnConfig.ts`,
 App Check settings, or a library upgrade). Each function deploy is a Cloud Build;
 full deploys exceed the free daily build minutes.
