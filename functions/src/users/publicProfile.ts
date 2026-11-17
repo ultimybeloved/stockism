@@ -7,7 +7,6 @@ import { cf, requireAppCheck } from '../shared/fnConfig';
 import { countRankAbove, netWorthOf, snapshotNetWorth } from '../shared/equity';
 import { round2 } from '../shared/money';
 import { cleanTrophyCase, headReign, parseTrophy } from '../shared/rules/trophies';
-import { touchLastActive } from '../shared/activity';
 import { ADMIN_UID, THIRTY_DAYS_MS, PUBLIC_PROFILE_SPARKLINE_MAX_POINTS } from '../shared/constants';
 import { asArray, sanitizeDisplayFields } from './displayFields';
 import { chartShape } from '../shared/rules/cosmetics';
@@ -235,7 +234,6 @@ export const setTrophyCase = cf().https.onCall(async (data, context) => {
   if (trophyCase.length !== ids.length) {
     throw new functions.https.HttpsError('invalid-argument', "Some of those aren't yours to show.");
   }
-  await ref.update({ trophyCase });
-  touchLastActive(uid);
+  await ref.update({ trophyCase, lastActive: Date.now() });
   return { trophyCase };
 });

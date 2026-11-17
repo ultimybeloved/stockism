@@ -74,6 +74,10 @@ export async function sumMarketActivity({ sinceMs, users = [] }: { sinceMs: numb
 // active-user metric reflects all actions, not just trades/check-ins. Never
 // awaited — it must not affect the action's success.
 //
+// Call it at the TOP of the callable, before the real work. The server stops
+// running a function once it returns, so a stamp started right before the
+// return can be dropped; one started first finishes while the work runs.
+//
 // Pass a `feature` to also stamp `lastUsed.<feature>`. That rides along on the
 // write this already performs, so per-feature usage costs nothing extra — which
 // is the whole reason the usage report is built on this instead of its own
