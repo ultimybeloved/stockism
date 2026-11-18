@@ -89,7 +89,7 @@ const FuturesSlip = ({
       </div>
 
       {buying && noInvestment ? (
-        <SlipNote>You can trade up to what you have invested in stocks. Buy some stocks first.</SlipNote>
+        <SlipNote>You can trade up to what your stocks would sell for. Buy some stocks first.</SlipNote>
       ) : (
         <>
           <SlipAmount

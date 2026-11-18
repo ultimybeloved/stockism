@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { sideGameCommitted, sideGameRoom } from './equity';
+import { exitEquityAt, sideGameCommitted, sideGameLimit, sideGameRoom } from './equity';
+import { getLadderChips, getLadderWithdrawable } from './ladder';
 import { checkinRewardFor, streakSaverActive, liveCheckinStreak, canBuyStreakSaver } from './economy';
 
 const user = {
@@ -20,12 +21,44 @@ describe('side-game shared cap', () => {
     // 100 ladder + 200 open bet + 150 event; paid, resolved, deleted and settled don't count
     expect(sideGameCommitted(user, predictions, 100)).toBe(450);
   });
-  it('room is what is invested minus what is committed, never negative', () => {
-    expect(sideGameRoom(user, predictions, 100)).toBe(550);
-    expect(sideGameRoom(user, predictions, 5000)).toBe(0);
+  it('the limit is what the stocks would sell for, not what was paid, and ignores cash', () => {
+    const sell = exitEquityAt({ holdings: { AAA: 10 } }, { AAA: 300 });
+    expect(sell).toBeGreaterThan(1000); // the stock tripled since it was bought at $100
+    expect(sell).toBeLessThan(3000); // selling pushes the price down
+    expect(sideGameLimit({ ...user, cash: 50_000 }, { AAA: 300 })).toBe(sell);
+  });
+  it('margin debt comes off the limit, never below zero', () => {
+    const sell = sideGameLimit(user, { AAA: 300 });
+    expect(sideGameLimit({ ...user, marginUsed: 500 }, { AAA: 300 })).toBeCloseTo(sell - 500, 2);
+    expect(sideGameLimit({ ...user, marginUsed: 1e9 }, { AAA: 300 })).toBe(0);
+  });
+  it('room is the limit minus what is committed, never negative', () => {
+    const limit = sideGameLimit(user, { AAA: 300 });
+    expect(sideGameRoom(user, predictions, 100, { AAA: 300 })).toBeCloseTo(limit - 450, 2);
+    expect(sideGameRoom(user, predictions, 1e7, { AAA: 300 })).toBe(0);
+    expect(sideGameRoom(user, predictions, 0, null)).toBe(0); // no prices, no room
   });
   it('a cancelled prediction stops counting', () => {
     expect(sideGameCommitted(user, [{ id: 'open', cancelled: true }], 0)).toBe(150);
+  });
+});
+
+describe('ladder house chips', () => {
+  it('an old doc with no chip record counts house money as chips, deposits and wins as own', () => {
+    expect(getLadderWithdrawable({ balance: 500, totalDeposited: 0 })).toBe(0); // untouched welcome stake
+    expect(getLadderWithdrawable({ balance: 623, totalDeposited: 123 })).toBe(123); // deposited on top
+    // $500 stake + $100 deposit, $300 lost: losses burn chips first, so $200 chips, $100 own
+    expect(getLadderChips({ balance: 300, totalDeposited: 100, totalLost: 300 })).toBe(200);
+    // $500 stake played up by $50: the win is the player's
+    expect(getLadderWithdrawable({ balance: 550, totalWon: 50 })).toBe(50);
+    // started with a deposit, no welcome stake: nothing is locked
+    expect(getLadderWithdrawable({ balance: 100, totalDeposited: 100 })).toBe(100);
+    // own money already lost: never negative chips
+    expect(getLadderChips({ balance: 100, totalDeposited: 50, totalWon: 156, totalLost: 140 })).toBe(0);
+  });
+  it('a tracked doc keeps its own chip count, zero included', () => {
+    expect(getLadderWithdrawable({ balance: 500, nonWithdrawable: 0, chipsMigrated: true })).toBe(500);
+    expect(getLadderWithdrawable(null)).toBe(0);
   });
 });
 

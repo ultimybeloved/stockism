@@ -66,7 +66,15 @@ const setPredictions = (list: Loose[]) => predictionsRef.set({ list });
 const getPrediction = async (id: string) =>
   ((await predictionsRef.get()).data().list as Loose[]).find((p) => p.id === id);
 
-/** A player with `invested` dollars in stocks at cost, so the bet cap is known. */
+// JAY's price for the suite. The bet cap is what the player's stocks would sell
+// for, so seedUser buys `invested` dollars' worth at this price.
+const JAY_PRICE = 20;
+const { sideGameLimit } =
+  require('../../functions/src/shared/rules/equity') as typeof import('../../functions/src/shared/rules/equity');
+/** What `invested` dollars of JAY sells for at JAY_PRICE: the bet cap before anything is committed. */
+const limitFor = (invested: number) => sideGameLimit({ holdings: { JAY: invested / JAY_PRICE } }, { JAY: JAY_PRICE });
+
+/** A player holding `invested` dollars of stock at today's price, so the bet cap is known. */
 async function seedUser(uid: string, { cash = 5000, invested = 2000, extra = {} as Loose } = {}) {
   await db
     .collection('users')
@@ -74,8 +82,8 @@ async function seedUser(uid: string, { cash = 5000, invested = 2000, extra = {} 
     .set({
       displayName: uid,
       cash,
-      holdings: invested ? { JAY: 100 } : {},
-      costBasis: invested ? { JAY: invested / 100 } : {},
+      holdings: invested ? { JAY: invested / JAY_PRICE } : {},
+      costBasis: invested ? { JAY: JAY_PRICE } : {},
       shorts: {},
       ...extra,
     });
@@ -168,20 +176,31 @@ async function main() {
   console.log('\nB. Bet limits');
 
   await seedUser('b_cap', { cash: 5000, invested: 1000 });
+  const capLimit = limitFor(1000);
+  check('the cap is the sell value, a little under the $1,000 the stock cost', capLimit > 950 && capLimit < 1000);
   check(
-    'a bet over what the player has invested in stocks is refused',
-    (await rejects(() => bet('b_cap', 'p_limits', 'Yes', 1001), /exceeds limit/i)) === true,
+    'a bet over what the player’s stocks would sell for is refused',
+    (await rejects(() => bet('b_cap', 'p_limits', 'Yes', 1000), /exceeds limit/i)) === true,
   );
   await bet('b_cap', 'p_limits', 'Yes', 600);
+  const capLeft = Math.round((capLimit - 600) * 100) / 100;
   check(
     'and the cap counts what is already bet on that question',
-    (await rejects(() => bet('b_cap', 'p_limits', 'Yes', 401), /Max: \$400\.00/)) === true,
+    (await rejects(() => bet('b_cap', 'p_limits', 'Yes', capLeft + 1), new RegExp(`Max: \\$${capLeft.toFixed(2)}`))) ===
+      true,
   );
-  await bet('b_cap', 'p_limits', 'Yes', 400);
-  check('right up to the cap is fine', (await getUser('b_cap')).bets.p_limits.amount === 1000);
+  await bet('b_cap', 'p_limits', 'Yes', capLeft);
+  check('right up to the cap is fine', near((await getUser('b_cap')).bets.p_limits.amount, capLimit));
+
+  // A price rise lifts the cap: cost basis stays $1,000, the stock now sells for about $2,000.
+  await seedUser('b_rise', { cash: 5000, invested: 1000 });
+  await marketRef.set({ prices: { JAY: JAY_PRICE * 2 } });
+  await bet('b_rise', 'p_limits', 'Yes', 1500);
+  check('a stock that has risen raises the cap', (await getUser('b_rise')).bets.p_limits.amount === 1500);
+  await marketRef.set({ prices: { JAY: JAY_PRICE } });
 
   // One limit across the side games: a bet on another open question, own
-  // ladder money and long-term positions all use up the same invested amount.
+  // ladder money and long-term positions all use up the same sell value.
   await seedUser('b_shared', {
     cash: 5000,
     invested: 1000,
@@ -192,13 +211,17 @@ async function main() {
     .doc('b_shared')
     .set({ balance: 400, nonWithdrawable: 100, chipsMigrated: true });
   await bet('b_shared', 'p_shared_a', 'Yes', 100);
-  // 1000 invested - 100 bet - 200 long-term - 300 own ladder money (chips don't count) = 400
+  // sell value - 100 bet - 200 long-term - 300 own ladder money (chips don't count)
+  const sharedLeft = Math.round((limitFor(1000) - 600) * 100) / 100;
   check(
     'bets, long-term markets and ladder money share one limit',
-    (await rejects(() => bet('b_shared', 'p_shared_b', 'Yes', 401), /Max: \$400\.00/)) === true,
+    (await rejects(
+      () => bet('b_shared', 'p_shared_b', 'Yes', sharedLeft + 1),
+      new RegExp(`Max: \\$${sharedLeft.toFixed(2)}`),
+    )) === true,
   );
-  await bet('b_shared', 'p_shared_b', 'Yes', 400);
-  check('right up to the shared limit is fine', (await getUser('b_shared')).bets.p_shared_b.amount === 400);
+  await bet('b_shared', 'p_shared_b', 'Yes', sharedLeft);
+  check('right up to the shared limit is fine', near((await getUser('b_shared')).bets.p_shared_b.amount, sharedLeft));
 
   await seedUser('b_poor', { cash: 100, invested: 5000 });
   check(
@@ -272,7 +295,7 @@ async function main() {
   // p_main: b_first has 500 on Yes. Add a second Yes and a No.
   await seedUser('b_yes2');
   await bet('b_yes2', 'p_main', 'Yes', 1500);
-  await seedUser('b_no');
+  await seedUser('b_no', { invested: 3000 }); // room for a $2,000 bet under the sell-value cap
   await bet('b_no', 'p_main', 'No', 2000);
 
   check(

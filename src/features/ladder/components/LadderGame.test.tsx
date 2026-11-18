@@ -45,6 +45,7 @@ vi.mock('./LadderTutorialModal', () => ({
 }));
 
 import LadderGame from './LadderGame';
+import { sideGameLimit } from '../../../rules/equity';
 import {
   playLadderGameFunction,
   depositToLadderGameFunction,
@@ -63,11 +64,14 @@ describe('LadderGame', () => {
         costBasis: { XIAO: 50 },
         shorts: {},
       },
+      prices: { XIAO: 50 },
       showNotification: vi.fn(),
     };
     h.docs = {
       ladderGameUsers: {
         balance: 100,
+        nonWithdrawable: 0,
+        chipsMigrated: true,
         gamesPlayed: 10,
         wins: 6,
         currentStreak: 2,
@@ -173,14 +177,17 @@ describe('LadderGame', () => {
     });
   });
 
-  it('transfer modal: shows cash, invested-based deposit cap, and deposits', async () => {
+  it('transfer modal: shows cash, sell-value deposit cap, and deposits', async () => {
     render(<LadderGame onClose={vi.fn()} />);
     fireEvent.click(screen.getByText('Transfer'));
     expect(screen.getByText(/Available: \$2,500\.00/)).toBeInTheDocument();
-    // invested = 10 shares * $50 basis = $500; cap = min(10000, 500) - 100 balance = 400
+    // limit = what 10 XIAO would sell for at $50, a little under $500; room = limit - 100 own ladder money
+    const limit = sideGameLimit(h.ctx.userData, { XIAO: 50 });
+    const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    expect(limit).toBeLessThan(500);
     expect(
       screen.getByText(
-        /You can add up to \$400\.00 more\. The ladder, weekly bets, and long-term markets share one limit: your \$500\.00 invested\./,
+        `You can add up to $${fmt(limit - 100)} more. The ladder, weekly bets, and long-term markets share one limit: $${fmt(limit)}, what your stocks would sell for now.`,
       ),
     ).toBeInTheDocument();
 

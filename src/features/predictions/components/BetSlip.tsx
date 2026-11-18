@@ -21,6 +21,9 @@ export interface BetSlipProps {
   position?: EventPosition;
   /** Money available for a bet right now. */
   available: number;
+  /** The shared side-game limit (what the player's stocks would sell for) and how much of it is in use. */
+  limit?: number;
+  committed?: number;
   noInvestment: boolean;
   isGuest: boolean;
   /** Why trading is shut right now, or null when it's open. */
@@ -111,6 +114,12 @@ const BetSlip = (props: BetSlipProps) => {
           <span className={`text-xs tabular-nums ${mutedClass}`}>{formatCurrency(available)} available</span>
         )}
       </div>
+      {!isGuest && !props.noInvestment && props.limit !== undefined && (
+        <p className={`px-4 pt-2 text-[11px] leading-snug tabular-nums ${mutedClass}`}>
+          Limit {formatCurrency(props.limit)}, what your stocks would sell for now.{' '}
+          {formatCurrency(props.committed || 0)} is already in bets, futures, and the ladder.
+        </p>
+      )}
       <div
         className="px-4 pt-3 pb-4"
         onTouchStart={sheet ? onTouchStart : undefined}

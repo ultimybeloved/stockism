@@ -8,7 +8,7 @@ import {
 import { getTotalInvested } from '../../../utils/calculations';
 import { calculateLadderWithdrawTax, getLadderDepositFactor, getLadderWithdrawable } from '../../../utils/ladderTax';
 import { useMarket, useSession } from '../../../context/AppContext';
-import { sideGameRoom } from '../../../rules/equity';
+import { sideGameLimit, sideGameRoom } from '../../../rules/equity';
 import { bgCard, bgCardInner, textDark, textLight } from './ladderStyles';
 import type { useLadderModals } from '../hooks/useLadderModals';
 import type { LadderData } from '../../../utils/ladderTax';
@@ -32,7 +32,7 @@ type LadderTransferModalProps = Pick<
   userStockismCash: number;
 };
 
-// Deposit/withdraw modal, including the invested-based deposit cap and the
+// Deposit/withdraw modal, including the shared sell-value deposit cap and the
 // live withdrawal tax preview (mirrors the server math; server is
 // authoritative). State and the transfer handlers live in useLadderModals.
 const LadderTransferModal = ({
@@ -52,7 +52,7 @@ const LadderTransferModal = ({
 }: LadderTransferModalProps) => {
   const dialogRef = useModalFocus();
   const { userData } = useSession();
-  const { predictions } = useMarket();
+  const { predictions, prices } = useMarket();
 
   const ladderBalance = userLadderData?.balance || 0;
   // Bonus chips (check-in grants, welcome stake) stay in the game. Only what
@@ -62,17 +62,18 @@ const LadderTransferModal = ({
   const bonusChips = Math.max(0, ladderBalance - withdrawable);
   const totalInvested = getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts);
   const noInvestment = totalInvested <= 0;
-  // Deposits can't push the balance past the $10k cap or past what you've invested,
+  // Deposits can't push the balance past the $10k cap or past the shared limit,
   // whichever is lower. capIsInvested tells us which limit is actually binding so the
-  // message names the real reason instead of always blaming the invested amount.
+  // message names the real reason instead of always blaming the shared limit.
   // Accounts under a week old only have part of the cap unlocked, so show them
   // their real ceiling instead of the full $10k the server would reject.
   const rampFactor = getLadderDepositFactor(userData?.createdAt);
   const rampedMax = Math.floor(LADDER_GAME_MAX_BALANCE * rampFactor);
   const isRamping = rampFactor < 1;
-  // The invested cap is shared with weekly bets and long-term markets, and
+  // The sell-value cap is shared with weekly bets and long-term markets, and
   // counts only the player's own ladder money, not bonus chips (rules/equity).
-  const sharedRoom = sideGameRoom(userData, predictions, withdrawable);
+  const sharedRoom = sideGameRoom(userData, predictions, withdrawable, prices);
+  const sharedLimit = sideGameLimit(userData, prices);
   const balanceRoom = Math.max(0, rampedMax - ladderBalance);
   const maxDeposit = Math.min(balanceRoom, sharedRoom);
   const ladderFull = !noInvestment && maxDeposit <= 0;
@@ -174,13 +175,13 @@ const LadderTransferModal = ({
               }}
             >
               {noInvestment
-                ? 'Invest in stocks first. The ladder game is capped at what you have invested.'
+                ? 'Invest in stocks first. The ladder game is capped at what your stocks would sell for.'
                 : ladderFull
                   ? capIsInvested
-                    ? `You are at your limit. The ladder, weekly bets, and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
+                    ? `You are at your limit. The ladder, weekly bets, and long-term markets share one limit: $${fmt(sharedLimit)}, what your stocks would sell for now.`
                     : `Your deposits are maxed out at the $${rampedMax.toLocaleString()} cap.`
                   : capIsInvested
-                    ? `You can add up to $${fmt(maxDeposit)} more. The ladder, weekly bets, and long-term markets share one limit: your $${fmt(totalInvested)} invested.`
+                    ? `You can add up to $${fmt(maxDeposit)} more. The ladder, weekly bets, and long-term markets share one limit: $${fmt(sharedLimit)}, what your stocks would sell for now.`
                     : `You can add up to $${fmt(maxDeposit)} more. Deposits are capped at $${rampedMax.toLocaleString()}.`}
             </p>
             {isRamping && !noInvestment && (

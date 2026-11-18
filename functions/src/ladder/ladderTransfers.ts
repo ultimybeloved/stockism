@@ -10,7 +10,7 @@ import {
   getLadderChips,
   getLadderWithdrawable,
 } from '../shared/ladderMath';
-import { sideGameRoom, type PredictionRef } from '../shared/rules/equity';
+import { sideGameLimit, sideGameRoom, type PredictionRef } from '../shared/rules/equity';
 import { touchLastActive } from '../shared/activity';
 import { reportError } from '../shared/sentry';
 import {
@@ -46,11 +46,16 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
   }
 
   try {
-    // Which weekly predictions are still open, for the shared side-game cap.
-    // Read outside the transaction: the bets themselves sit on the user doc,
-    // which the transaction does read, and this list rarely changes.
-    const predSnap = await db.collection('predictions').doc('current').get();
+    // Which weekly predictions are still open, and stock prices, for the shared
+    // side-game cap. Read outside the transaction: the bets and holdings sit on
+    // the user doc, which the transaction does read, and a price moving a little
+    // mid-deposit doesn't matter to a limit.
+    const [predSnap, marketSnap] = await Promise.all([
+      db.collection('predictions').doc('current').get(),
+      db.collection('market').doc('current').get(),
+    ]);
     const predictions: PredictionRef[] = (predSnap.exists && predSnap.data()!.list) || [];
+    const prices = marketSnap.exists ? marketSnap.data()!.prices : null;
 
     return await db.runTransaction(async (transaction) => {
       const mainUserRef = db.collection('users').doc(uid);
@@ -74,10 +79,8 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('failed-precondition', 'Insufficient Stockism cash.');
       }
 
-      // Cap: ladder balance can't exceed what the user has invested in stocks
-      // (cost basis of holdings + open short margin). Mirrors the prediction market.
-      const totalInvested = getTotalInvested(mainUser);
-      if (totalInvested <= 0) {
+      // Owning stock is the gate; how much is the shared cap further down.
+      if (getTotalInvested(mainUser) <= 0) {
         throw new functions.https.HttpsError(
           'failed-precondition',
           'Invest in stocks before depositing to the ladder game.',
@@ -122,16 +125,17 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
         );
       }
 
-      // Invested-in-stocks cap, shared with weekly bets and long-term markets
+      // Sell-value cap, shared with weekly bets and long-term markets
       // (rules/equity sideGameRoom). Counts the player's own money in the
       // ladder, not the free check-in chips.
-      const room = sideGameRoom(mainUser, predictions, getLadderWithdrawable(ladderUserDoc.data()));
+      const room = sideGameRoom(mainUser, predictions, getLadderWithdrawable(ladderUserDoc.data()), prices);
       if (amount > room) {
+        const limit = sideGameLimit(mainUser, prices).toFixed(2);
         throw new functions.https.HttpsError(
           'failed-precondition',
           room <= 0
-            ? `You're at your limit. Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). Invest more to deposit more.`
-            : `You can only deposit $${room.toFixed(2)} more. Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}).`,
+            ? `You're at your limit. Bets, long-term markets, and the ladder share one limit: what your stocks would sell for right now ($${limit}). Invest more to deposit more.`
+            : `You can only deposit $${room.toFixed(2)} more. Bets, long-term markets, and the ladder share one limit: what your stocks would sell for right now ($${limit}).`,
         );
       }
 
@@ -175,11 +179,15 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
         cashAfter: (ladderData.balance ?? 0) + amount,
       });
 
+      // Pin the chip count before the balance moves, so every doc that sees a
+      // deposit leaves the untracked-doc reading in rules/ladder getLadderChips.
       transaction.set(ladderUserRef, {
         ...ladderData,
         balance: (ladderData.balance ?? 0) + amount,
         totalDeposited: (ladderData.totalDeposited || 0) + amount,
         recentDeposits: recent,
+        nonWithdrawable: getLadderChips(ladderData),
+        chipsMigrated: true,
       });
 
       return {

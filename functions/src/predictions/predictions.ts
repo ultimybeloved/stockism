@@ -94,19 +94,18 @@ export const placeBet = cf().https.onCall(async (data, context) => {
 
     // Bet limit: everything riding on the side games (ladder, long-term
     // markets, open weekly bets, this one included) can't exceed what the
-    // player has invested in stocks (rules/equity sideGameRoom).
-    const totalInvested = getTotalInvested(userData);
-
-    if (totalInvested <= 0) {
+    // player's stocks would sell for (rules/equity sideGameRoom).
+    if (getTotalInvested(userData) <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Must invest in stocks before betting.');
     }
 
-    const room = sideGameRoom(userData, predictionsList, getLadderWithdrawable(ladderDoc.data()));
+    const prices = marketDoc.exists ? marketDoc.data()!.prices : null;
+    const room = sideGameRoom(userData, predictionsList, getLadderWithdrawable(ladderDoc.data()), prices);
     const betLimit = Math.min(room, userData.cash || 0);
     if (amount > betLimit) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Bet exceeds limit. Max: $${Math.max(0, betLimit).toFixed(2)}. Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks.`,
+        `Bet exceeds limit. Max: $${Math.max(0, betLimit).toFixed(2)}. Bets, long-term markets, and the ladder share one limit: what your stocks would sell for right now.`,
       );
     }
 

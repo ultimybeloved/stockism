@@ -45,7 +45,7 @@ const WeeklySlip = ({ prediction: p, option, userBet, limit, onBet, onDone, onSw
       </SlipNote>
     );
   if (!(limit > 0))
-    return <SlipNote>You can bet up to what you have invested in stocks. Buy some stocks first.</SlipNote>;
+    return <SlipNote>You can bet up to what your stocks would sell for. Buy some stocks first.</SlipNote>;
 
   const payout = stake > 0 ? poolPayout(p, option, stake) : 0;
   const place = async () => {

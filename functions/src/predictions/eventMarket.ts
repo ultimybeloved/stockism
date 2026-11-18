@@ -22,7 +22,7 @@ import { round2 } from '../shared/money';
 import { reportError } from '../shared/sentry';
 import { recordEventTrade } from '../shared/eventTradeRecords';
 import { logAdminAction, withAdminLog } from '../shared/adminLog';
-import { sideGameRoom } from '../shared/rules/equity';
+import { sideGameLimit, sideGameRoom } from '../shared/rules/equity';
 import { getLadderWithdrawable } from '../shared/ladderMath';
 import { getWeekId } from '../shared/tradeRecords';
 
@@ -109,19 +109,19 @@ export const buyEventShares = cf().https.onCall(async (data, context) => {
       throw new functions.https.HttpsError('failed-precondition', 'Insufficient funds.');
     }
 
-    // Cap side-game exposure to what the user has invested in stocks. One
+    // Cap side-game exposure to what the user's stocks would sell for. One
     // limit covers the ladder, long-term markets and open weekly bets together
     // (rules/equity sideGameRoom). Without it, a barely-invested player could
     // farm value straight out of the AMM. Settled positions don't count.
-    const totalInvested = getTotalInvested(userData);
-    if (totalInvested <= 0) {
+    if (getTotalInvested(userData) <= 0) {
       throw new functions.https.HttpsError('failed-precondition', 'Invest in stocks before buying prediction shares.');
     }
-    const room = sideGameRoom(userData, list, getLadderWithdrawable(ladderDoc.data()));
+    const prices = marketDoc.exists ? marketDoc.data()!.prices : null;
+    const room = sideGameRoom(userData, list, getLadderWithdrawable(ladderDoc.data()), prices);
     if (cost > room) {
       throw new functions.https.HttpsError(
         'failed-precondition',
-        `Bets, long-term markets, and the ladder share one limit, capped at what you've invested in stocks ($${totalInvested.toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`,
+        `Bets, long-term markets, and the ladder share one limit: what your stocks would sell for right now ($${sideGameLimit(userData, prices).toFixed(2)}). You can put in up to $${room.toFixed(2)} more.`,
       );
     }
 

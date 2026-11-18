@@ -31,6 +31,10 @@ export interface LadderChipFields {
   chipsMigrated?: boolean;
   totalLost?: number;
   balance?: number;
+  totalDeposited?: number;
+  totalWon?: number;
+  principalWithdrawn?: number;
+  profitWithdrawn?: number;
 }
 
 /**
@@ -53,7 +57,22 @@ export const ladderRampFactor = (ageDays: number | null): number => {
 // balance could never clear. Docs written before chipsMigrated still hold that
 // lifetime total; for them, everything lost came out of the chips first, so
 // what is left is (granted - totalLost), never more than the balance itself.
+//
+// Docs from before chips were tracked at all have no nonWithdrawable. Reading
+// that as 0 let 448 old accounts count the $500 welcome stake (and old house
+// refills) as their own money (fixed 2026-11-18). Every dollar in such a doc
+// that isn't a deposit or a win came from the house, and losses burn chips
+// first, so the chips left are whatever of the balance the player's own
+// deposits and wins don't cover. A doc that started with a deposit has none.
+const untrackedChips = (d: LadderChipFields): number => {
+  const balance = d.balance ?? 0;
+  const own =
+    (d.totalDeposited || 0) + (d.totalWon || 0) - (d.principalWithdrawn || 0) - (d.profitWithdrawn || 0);
+  return Math.max(0, Math.min(balance - own, balance));
+};
+
 export const getLadderChips = (ladderData: LadderChipFields | null | undefined): number => {
+  if (ladderData && ladderData.nonWithdrawable === undefined) return untrackedChips(ladderData);
   const granted = ladderData?.nonWithdrawable || 0;
   if (ladderData?.chipsMigrated) return granted;
   const lost = ladderData?.totalLost || 0;

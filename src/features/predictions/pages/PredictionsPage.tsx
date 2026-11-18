@@ -76,8 +76,8 @@ const PredictionsPage = ({
       : null;
 
   // One limit shared by weekly bets, futures and the ladder.
-  const sideRoom = useSideGameRoom();
-  const available = Math.min(sideRoom, userData?.cash || 0);
+  const side = useSideGameRoom();
+  const available = Math.min(side.room, userData?.cash || 0);
   const question = (pick && live.find((p) => p.id === pick.id)) || null;
 
   const slip: BetSlipProps = {
@@ -86,6 +86,8 @@ const PredictionsPage = ({
     userBet: pick ? userData?.bets?.[pick.id] : undefined,
     position: pick ? userData?.eventPositions?.[pick.id] : undefined,
     available,
+    limit: side.limit,
+    committed: side.committed,
     noInvestment: getTotalInvested(userData?.holdings, userData?.costBasis, userData?.shorts) <= 0,
     isGuest,
     closedReason,

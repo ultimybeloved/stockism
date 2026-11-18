@@ -77,8 +77,9 @@ export const exitEquityAt = (userData: EquityFields | null | undefined, prices: 
 
 /**
  * Total a player has "invested" in stocks: cost basis of holdings plus the
- * collateral posted on open shorts. Caps prediction bets, event-market buys and
- * ladder deposits, so a fresh account can't gamble its signup cash.
+ * collateral posted on open shorts. Above zero is the gate for the side games
+ * (a fresh account can't gamble its signup cash); how much they may put in is
+ * sideGameLimit.
  */
 export const getTotalInvested = (userData: EquityFields | null | undefined) => {
   if (!userData) return 0;
@@ -157,9 +158,21 @@ export const sideGameWorth = (
     Math.max(0, ladderOwn || 0) + Math.max(0, eventValue || 0) + (userData ? openWeeklyBets(userData, predictions) : 0),
   );
 
-/** How much more a player may put into any side game: invested minus committed. */
+/**
+ * The side-game limit: what the player's stocks would sell for right now (every
+ * holding sold and short covered at the price that order pushes the stock to,
+ * less any margin loan), cash left out. Since 2026-11-18 (Darth YG); it used to
+ * be the cost basis, which held back players whose stocks had grown and could
+ * be raised anyway by selling and buying straight back. Sell value counts the
+ * exit impact, so a player's own buy into a thin stock doesn't raise it.
+ */
+export const sideGameLimit = (userData: SideGameFields | null | undefined, prices: Prices) =>
+  userData ? Math.max(0, round2(exitEquityAt(userData, prices) - (userData.cash || 0))) : 0;
+
+/** How much more a player may put into any side game: the limit minus what's committed. */
 export const sideGameRoom = (
   userData: SideGameFields | null | undefined,
   predictions: readonly PredictionRef[] | null | undefined,
   ladderOwn: number,
-) => Math.max(0, round2(getTotalInvested(userData) - sideGameCommitted(userData, predictions, ladderOwn)));
+  prices: Prices,
+) => Math.max(0, round2(sideGameLimit(userData, prices) - sideGameCommitted(userData, predictions, ladderOwn)));

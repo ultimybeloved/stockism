@@ -65,7 +65,12 @@ const restoreRandom = () => {
 
 const play = (uid: string, amount: number) => playLadderGame.run({ startSide: 'left', bet: 'odd', amount }, ctx(uid));
 
-/** Seed a main user with enough invested value to clear the side-game cap. */
+// JAY's price for the whole suite. The side-game cap is what a player's stocks
+// would sell for, so seedUser buys `invested` dollars' worth at this price and
+// the cap lands a little under `invested` (the sell pushes the price down).
+const JAY_PRICE = 200;
+
+/** Seed a main user with enough stock to clear the side-game cap. */
 async function seedUser(uid: string, { cash = 50000, invested = 20000, ageDays = 30, extra = {} } = {}) {
   await db
     .collection('users')
@@ -73,8 +78,8 @@ async function seedUser(uid: string, { cash = 50000, invested = 20000, ageDays =
     .set({
       displayName: uid,
       cash,
-      holdings: { JAY: 100 },
-      costBasis: { JAY: invested / 100 },
+      holdings: { JAY: invested / JAY_PRICE },
+      costBasis: { JAY: JAY_PRICE },
       shorts: {},
       createdAt: admin.firestore.Timestamp.fromMillis(Date.now() - ageDays * DAY),
       ...extra,
@@ -103,6 +108,10 @@ const rejects = async (fn: Loose, pattern: RegExp) => {
 
 async function main() {
   console.log('\n=== Ladder money-path suite (emulator) ===');
+  await db
+    .collection('market')
+    .doc('current')
+    .set({ prices: { JAY: JAY_PRICE } });
 
   // ── A. Deposit gating ─────────────────────────────────────────────────────
   console.log('\nA. Deposit gating');
@@ -153,12 +162,31 @@ async function main() {
 
   await seedUser('lad_capped', { cash: 100000, invested: 500 });
   check(
-    'balance is capped at what the player has invested in stocks',
+    'balance is capped at what the player’s stocks would sell for',
     (await rejects(
       () => depositToLadderGame.run({ amount: 600 }, ctx('lad_capped')),
-      /capped at what you've invested/i,
+      /what your stocks would sell for/i,
     )) === true,
   );
+  // $500 of JAY sells for a little under $500, so $499 fits and $500 doesn't.
+  check(
+    'the cap is the sell value, a little under what was paid',
+    (await rejects(() => depositToLadderGame.run({ amount: 500 }, ctx('lad_capped')), /would sell for/i)) === true,
+  );
+  await depositToLadderGame.run({ amount: 499 }, ctx('lad_capped'));
+  check('right up to the sell value is fine', (await getLadder('lad_capped')).balance === 499);
+
+  // A price rise lifts the cap with it: cost basis stays $500, the stock is now worth $1,000.
+  await db
+    .collection('market')
+    .doc('current')
+    .set({ prices: { JAY: JAY_PRICE * 2 } });
+  await depositToLadderGame.run({ amount: 400 }, ctx('lad_capped'));
+  check('a stock that has risen raises the cap', (await getLadder('lad_capped')).balance === 899);
+  await db
+    .collection('market')
+    .doc('current')
+    .set({ prices: { JAY: JAY_PRICE } });
 
   await seedUser('lad_max', { cash: 100000, invested: 100000 });
   check(
@@ -298,6 +326,22 @@ async function main() {
     'and so has something to withdraw again',
     getLadderWithdrawable(legacy) === 500,
     `withdrawable=${getLadderWithdrawable(legacy)}`,
+  );
+  // Older still: docs from before chips were tracked at all have no
+  // nonWithdrawable. What the player's deposits and wins don't cover is house money.
+  check(
+    'a doc with no chip record counts the $500 welcome stake as chips, not own money',
+    getLadderWithdrawable({ balance: 500, totalDeposited: 0, totalLost: 0 }) === 0,
+  );
+  check(
+    'but one that started with a deposit has nothing locked',
+    getLadderWithdrawable({ balance: 100, totalDeposited: 100, totalLost: 0 }) === 100,
+  );
+  await seedUser('lad_oldwelcome');
+  await seedLadder('lad_oldwelcome', { balance: 500, totalDeposited: 0, totalLost: 0, gamesPlayed: 0 });
+  check(
+    'so it cannot be withdrawn as cash',
+    (await rejects(() => withdrawFromLadderGame.run({ amount: 500 }, ctx('lad_oldwelcome')), /./)) === true,
   );
   check(
     'a player who lost more than they were ever granted has zero chips',

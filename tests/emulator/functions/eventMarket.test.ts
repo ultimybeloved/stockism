@@ -121,7 +121,8 @@ async function main() {
   await adb
     .collection('market')
     .doc('current')
-    .set({ marketHalted: false, prices: {}, launchedTickers: [] }, { merge: true });
+    // JAY needs a price: the cap is what a player's stocks would sell for.
+    .set({ marketHalted: false, prices: { JAY: 50 }, launchedTickers: [] }, { merge: true });
 
   // 1) Admin creates the long-term market (same shape the admin panel writes).
   const predRef = adb.collection('predictions').doc('current');
@@ -233,8 +234,8 @@ async function main() {
   }
   openedOk ? pass('buy allowed once opensAt has passed') : fail('buy still blocked after open time');
 
-  // 3c) The invested-value cap. Every value-farming side game is capped at what
-  //      the player has put into stocks, server-side, so the AMM can't be farmed
+  // 3c) The sell-value cap. Every value-farming side game is capped at what
+  //      the player's stocks would sell for, server-side, so the AMM can't be farmed
   //      by a barely-invested account. Both halves of that gate are checked.
   await auth.signOut();
   await signInWithEmailAndPassword(auth, 'nostock@test.local', 'test123456');
@@ -252,10 +253,10 @@ async function main() {
   try {
     await buy({ marketId, outcome: 'Yes', shares: 200 });
   } catch (e) {
-    // ~$100 against $20 invested
-    capped = /capped at what you've invested/i.test(e.message);
+    // ~$100 against one $50 share
+    capped = /what your stocks would sell for/i.test(e.message);
   }
-  capped ? pass('buy rejected when it would exceed the invested-value cap') : fail('cap did not hold');
+  capped ? pass('buy rejected when it would exceed the sell-value cap') : fail('cap did not hold');
 
   let underCap = false;
   try {
