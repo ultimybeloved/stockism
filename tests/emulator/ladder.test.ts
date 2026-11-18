@@ -328,21 +328,9 @@ async function main() {
     `withdrawable=${getLadderWithdrawable(legacy)}`,
   );
   // Older still: docs from before chips were tracked at all have no
-  // nonWithdrawable. What the player's deposits and wins don't cover is house money.
-  check(
-    'a doc with no chip record counts the $500 welcome stake as chips, not own money',
-    getLadderWithdrawable({ balance: 500, totalDeposited: 0, totalLost: 0 }) === 0,
-  );
-  check(
-    'but one that started with a deposit has nothing locked',
-    getLadderWithdrawable({ balance: 100, totalDeposited: 100, totalLost: 0 }) === 100,
-  );
-  await seedUser('lad_oldwelcome');
-  await seedLadder('lad_oldwelcome', { balance: 500, totalDeposited: 0, totalLost: 0, gamesPlayed: 0 });
-  check(
-    'so it cannot be withdrawn as cash',
-    (await rejects(() => withdrawFromLadderGame.run({ amount: 500 }, ctx('lad_oldwelcome')), /./)) === true,
-  );
+  // nonWithdrawable. They have no chips: the old welcome stake is theirs to
+  // keep (Darth YG's call, 2026-11-18).
+  check('a doc with no chip record has no chips', getLadderWithdrawable({ balance: 500, totalLost: 0 }) === 500);
   check(
     'a player who lost more than they were ever granted has zero chips',
     getLadderChips({ balance: 800, nonWithdrawable: 500, totalLost: 900 }) === 0,

@@ -179,15 +179,11 @@ export const depositToLadderGame = cf().https.onCall(async (data, context) => {
         cashAfter: (ladderData.balance ?? 0) + amount,
       });
 
-      // Pin the chip count before the balance moves, so every doc that sees a
-      // deposit leaves the untracked-doc reading in rules/ladder getLadderChips.
       transaction.set(ladderUserRef, {
         ...ladderData,
         balance: (ladderData.balance ?? 0) + amount,
         totalDeposited: (ladderData.totalDeposited || 0) + amount,
         recentDeposits: recent,
-        nonWithdrawable: getLadderChips(ladderData),
-        chipsMigrated: true,
       });
 
       return {

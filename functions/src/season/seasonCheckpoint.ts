@@ -34,17 +34,7 @@ export const BATCH_LIMIT = 400;
 export const readLadderCash = async () => {
   const snap = await db
     .collection('ladderGameUsers')
-    // Every field getLadderChips reads (rules/ladder), or old docs misread.
-    .select(
-      'balance',
-      'nonWithdrawable',
-      'chipsMigrated',
-      'totalLost',
-      'totalDeposited',
-      'totalWon',
-      'principalWithdrawn',
-      'profitWithdrawn',
-    )
+    .select('balance', 'nonWithdrawable', 'chipsMigrated', 'totalLost')
     .get();
   const cash = new Map();
   snap.forEach((doc) => {

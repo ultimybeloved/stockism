@@ -44,17 +44,9 @@ describe('side-game shared cap', () => {
 });
 
 describe('ladder house chips', () => {
-  it('an old doc with no chip record counts house money as chips, deposits and wins as own', () => {
-    expect(getLadderWithdrawable({ balance: 500, totalDeposited: 0 })).toBe(0); // untouched welcome stake
-    expect(getLadderWithdrawable({ balance: 623, totalDeposited: 123 })).toBe(123); // deposited on top
-    // $500 stake + $100 deposit, $300 lost: losses burn chips first, so $200 chips, $100 own
-    expect(getLadderChips({ balance: 300, totalDeposited: 100, totalLost: 300 })).toBe(200);
-    // $500 stake played up by $50: the win is the player's
-    expect(getLadderWithdrawable({ balance: 550, totalWon: 50 })).toBe(50);
-    // started with a deposit, no welcome stake: nothing is locked
-    expect(getLadderWithdrawable({ balance: 100, totalDeposited: 100 })).toBe(100);
-    // own money already lost: never negative chips
-    expect(getLadderChips({ balance: 100, totalDeposited: 50, totalWon: 156, totalLost: 140 })).toBe(0);
+  it("an old doc with no chip record has no chips: the old welcome stake is the player's", () => {
+    expect(getLadderChips({ balance: 500 })).toBe(0);
+    expect(getLadderWithdrawable({ balance: 500 })).toBe(500);
   });
   it('a tracked doc keeps its own chip count, zero included', () => {
     expect(getLadderWithdrawable({ balance: 500, nonWithdrawable: 0, chipsMigrated: true })).toBe(500);

@@ -113,7 +113,7 @@ Two formats run side by side:
 
 **One shared limit** (src/rules/equity.ts `sideGameRoom`, since 2026-10-11): open weekly bets, long-term market positions (at what you paid) and your own money in the ladder (not the free check-in chips) together can't exceed what your stocks would sell for right now (`sideGameLimit`, since 2026-11-18): every holding sold and short covered at the price that order pushes the stock to, less any margin loan. Cash doesn't count, and you still need to own some stock to play at all. Until 2026-11-18 the limit was what you paid for your stocks, which held back players whose stocks had grown and could be raised anyway by selling and buying straight back. Before 2026-10-11, each game had its own limit, so the same stock let you put the full amount into all three. The bet slip shows the limit and how much of it is in use.
 
-Ladder accounts from before free chips were tracked (448 of them) work out their chips from their own record (since 2026-11-18): whatever of the balance the player's deposits and wins don't cover came from the house (the $500 welcome stake, old refills) and is chips, with losses burning chips first. Before, all of it read as the player's own money, so it counted against the limit above and could be withdrawn as cash. The first deposit, play, or withdrawal writes the chip count down for good.
+Ladder accounts from before free chips were tracked (448 of them, no `nonWithdrawable`) have no chips: the $500 welcome stake and old refills in them count as the player's own money, withdrawable and inside the limit above. Darth YG's call (2026-11-18): not worth taking back.
 
 ### Ladder Game
 
