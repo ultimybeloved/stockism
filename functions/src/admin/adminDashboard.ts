@@ -82,8 +82,10 @@ export const adminDashboard = cf({ memory: '512MB' }).https.onCall(async (_data,
   ]);
 
   const jobs = WATCHED_SCHEDULED_JOBS.map((j) => {
-    const last = heartbeats[j.job] || null;
     const watchedSince = (j as { watchedSince?: number }).watchedSince || 0;
+    // Same rule as the watchdog: a beat from before the job was watched doesn't count.
+    const raw = heartbeats[j.job] || null;
+    const last = raw && raw >= watchedSince ? raw : null;
     const late = last ? now - last > j.maxAgeHours * HOUR : now > watchedSince + j.maxAgeHours * HOUR;
     return { job: j.job, label: j.label, last, maxAgeHours: j.maxAgeHours, late };
   });

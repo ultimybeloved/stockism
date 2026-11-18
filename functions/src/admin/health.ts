@@ -133,7 +133,11 @@ export const scheduledJobWatchdog = cf()
     const never: string[] = [];
 
     for (const { job, maxAgeHours, label, watchedSince } of WATCHED_SCHEDULED_JOBS) {
-      const last = beats[job];
+      // A beat from before the job was watched doesn't count: delayedOpenTick
+      // stamped some Thursday steps on a late open long before their own jobs
+      // did, and that old stamp read as weeks stale on day one.
+      const raw = beats[job];
+      const last = typeof raw === 'number' && raw >= (watchedSince || 0) ? raw : undefined;
       if (typeof last !== 'number') {
         // Give it one full cycle from install before calling it missing. A job
         // added to the list later counts from when it was added.
