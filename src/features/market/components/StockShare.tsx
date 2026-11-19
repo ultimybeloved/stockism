@@ -5,7 +5,7 @@ import { useSession } from '../../../context/AppContext';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import { useShareImage } from '../../../shared/hooks/useShareImage';
-import { inviteLink } from '../../../rules/recruiting';
+import { inviteLink, isRecruitRef } from '../../../rules/recruiting';
 import StockShareCard, { SHARE_CARD_HEIGHT, SHARE_CARD_WIDTH, type StockShareCardProps } from './StockShareCard';
 
 // The preview box: the picture as it will be posted, with Copy image, Save
@@ -43,7 +43,7 @@ const ShareModal = ({ card, onClose }: { card: StockShareCardProps; onClose: () 
         <h2 className={`text-base font-semibold ${textClass} mb-1`}>Share ${card.ticker}</h2>
         <p className={`text-xs ${mutedClass} mb-3`}>
           Post the picture anywhere.
-          {userData?.displayName
+          {isRecruitRef(userData?.displayName)
             ? ' The link is your invite link: anyone who joins through it counts as your recruit.'
             : ''}
         </p>

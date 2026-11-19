@@ -58,9 +58,9 @@ export const discordCreatedMs = (discordId: unknown): number | null =>
     ? Math.floor(Number(discordId) / DISCORD_ID_TIME_DIVISOR) + DISCORD_EPOCH_MS
     : null;
 
-/** A name as it may appear in an invite link (same shape as a username). */
+/** A name as it may appear in an invite link. Wider than today's username rules: older names can be short, long, or have dots. */
 export const isRecruitRef = (ref: unknown): ref is string =>
-  typeof ref === 'string' && /^[A-Za-z0-9_]{3,20}$/.test(ref);
+  typeof ref === 'string' && /^[A-Za-z0-9_.]{1,32}$/.test(ref);
 
 /**
  * A link to `path` on the site that credits `displayName` as the recruiter.

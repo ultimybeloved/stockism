@@ -26,8 +26,11 @@ const oldEnough = NOW - RECRUIT_MIN_AGE_DAYS * DAY;
 describe('recruit invite links', () => {
   it('accepts only username-shaped names', () => {
     expect(isRecruitRef('big_deal_fan')).toBe(true);
-    expect(isRecruitRef('ab')).toBe(false);
-    expect(isRecruitRef('a'.repeat(21))).toBe(false);
+    expect(isRecruitRef('YG')).toBe(true);
+    expect(isRecruitRef('')).toBe(false);
+    expect(isRecruitRef('sadako.sasaki')).toBe(true);
+    expect(isRecruitRef('a'.repeat(32))).toBe(true);
+    expect(isRecruitRef('a'.repeat(33))).toBe(false);
     expect(isRecruitRef('gun<script>')).toBe(false);
     expect(isRecruitRef(undefined)).toBe(false);
   });
