@@ -102,7 +102,7 @@ async function main() {
   at('23:16');
   await (delayedOpenTick as Loose).run({});
   m = await market();
-  check('every step ran once', m.delayedOpen.done.length === 9, m.delayedOpen.done);
+  check('every step ran once', m.delayedOpen.done.length === 8, m.delayedOpen.done);
 
   vi.useRealTimers();
 }

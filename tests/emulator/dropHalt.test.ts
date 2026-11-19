@@ -193,8 +193,10 @@ async function main() {
   check('prices moved', open.moved.length > 0, `moved ${open.moved.length} tickers`);
   check('the points are tagged daily_drop', open.newDropPoints > 0, `${open.newDropPoints} tagged points`);
   check(
-    'one point per moved ticker',
-    open.newDropPoints === open.moved.length,
+    // >= not ===: a nudge that rounds to the same cent (often a crew ETF
+    // following one member) still writes a point, at an unchanged price.
+    'a point for every moved ticker',
+    open.newDropPoints >= open.moved.length,
     `${open.newDropPoints} points vs ${open.moved.length} moved`,
   );
 

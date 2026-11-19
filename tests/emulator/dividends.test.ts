@@ -74,6 +74,8 @@ async function seed(uid: string, { holdings, cohorts, drip, extra = {} }: SeedOp
       holdings: holdings || {},
       costBasis: {},
       shorts: {},
+      // Dividends skip accounts unseen for 30+ days, so test players are active by default.
+      lastActive: NOW,
       ...(cohorts ? { holdingCohorts: cohorts } : {}),
       ...(drip ? { drip } : {}),
       ...extra,
@@ -120,6 +122,12 @@ async function main() {
     holdings: { GHOSTTICKER: 500 },
     cohorts: { GHOSTTICKER: { eligible: 500, pending: [] } },
   });
+  // Gone 31 days: same position as div_holder, but paused.
+  await seed('div_away', {
+    holdings: { [T]: 100 },
+    cohorts: { [T]: { eligible: 0, pending: [lot(100, 30)] } },
+    extra: { lastActive: NOW - 31 * DAY },
+  });
 
   const botCashBefore = await cashOf('div_bot');
   await runDividendPayoutNow.run({}, { auth: { uid: ADMIN_UID } });
@@ -128,6 +136,7 @@ async function main() {
   check('an account holding nothing is paid nothing', (await cashOf('div_empty')) === 1000);
   check('a holder is paid', (await cashOf('div_holder')) > 1000);
   check('a holding with no snapshot price pays nothing', (await cashOf('div_unpriced')) === 1000);
+  check('an account unseen for 30+ days is paused', (await cashOf('div_away')) === 1000);
 
   check(
     'a non-admin cannot trigger a payout',
