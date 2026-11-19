@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CREW_SWITCH_PENALTY, hasFreeSwitch } from '../../../crews';
+import { CREW_SWITCH_PENALTY, hasFreeSwitch, switchEventCrewNames } from '../../../crews';
 import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
 import type { Crew } from '../../../crews';
 import type { UserData } from '../../../types';
@@ -70,7 +70,7 @@ const CrewSection = ({ userCrew, crewData, userData, onOpenCrewSelection }: Crew
           >
             Switch Crew (
             {hasFreeSwitch(userData)
-              ? 'free into a crew with flair crews this week'
+              ? `free into ${switchEventCrewNames('or')}`
               : `${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty`}
             )
           </button>

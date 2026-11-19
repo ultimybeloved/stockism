@@ -195,18 +195,6 @@ const icons = {
     for (const o of [0, 1]) line(12 + o, 13, 17 + o, 18, 'E');
     line(12, 12, 17, 17, 'e');
   },
-  // Bans: an upright judge's gavel.
-  hammer: ({ rect, px }) => {
-    rect(2, 3, 17, 8, 'S');
-    rect(2, 7, 17, 8, 's');
-    rect(1, 4, 1, 7, 's');
-    rect(18, 4, 18, 7, 's');
-    rect(6, 3, 6, 8, 's');
-    rect(13, 3, 13, 8, 's');
-    rect(9, 9, 10, 18, 'e');
-    rect(10, 9, 10, 18, 'E');
-    px(9, 18, 'E');
-  },
   // Legendary: a gold star.
   star: ({ px }) => {
     const pts = [];

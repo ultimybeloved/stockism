@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useMarket, useSession, useTheme } from '../../../context/AppContext';
-import { CREWS, CREW_MAP, CREW_SWITCH_PENALTY, hasFreeSwitch } from '../../../crews';
+import { CREWS, CREW_MAP, CREW_SWITCH_PENALTY, hasFreeSwitch, switchEventCrewNames } from '../../../crews';
 import { CREW_HEAD_PIN, PIXELATED, crewPinSrc, pixelatedIfSvg } from '../../../constants/crests';
 import { getReadableCrewColor, themeClasses } from '../../../utils/theme';
 import LeaderboardRow from '../../leaderboard/components/LeaderboardRow';
@@ -78,7 +78,7 @@ const CrewPage = ({ onOpenCrewSelection }: { onOpenCrewSelection?: () => void })
                 >
                   Switch crew (
                   {hasFreeSwitch(userData)
-                    ? 'free into a crew with flair crews this week'
+                    ? `free into ${switchEventCrewNames('or')}`
                     : `${Math.round(CREW_SWITCH_PENALTY * 100)}% penalty`}
                   )
                 </button>

@@ -30,7 +30,6 @@ const SETS = {
   dot_yellow: 'discord',
   fire: 'discord',
   gift: 'discord',
-  hammer: 'discord',
   inspect: 'discord',
   link: 'discord',
   todo: 'discord',

@@ -44,7 +44,6 @@ module.exports = {
   '🛑': ['ui', 'pause'],
   '🛍️': ['discord', 'shop'],
   '🕵️': ['discord', 'inspect'],
-  '🔨': ['discord', 'hammer'],
   '📖': ['ui', 'book'],
   '🏴': ['ui', 'crews'],
   '🎲': ['discord', 'dice'],

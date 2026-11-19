@@ -28,7 +28,6 @@ export const PIXEL_EMOJIS = {
   flat: '<:px_flat:1559893782961594530>',
   gangseo_union: '<:px_gangseo_union:1564764825832267958>',
   gift: '<:px_gift:1559893744822657077>',
-  hammer: '<:px_hammer:1559893789164961844>',
   hostel_a: '<:px_hostel_a:1564764827946065942>',
   hourglass: '<:px_hourglass:1559893783653523482>',
   inspect: '<:px_inspect:1559893788250341377>',

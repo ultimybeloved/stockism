@@ -180,7 +180,7 @@ export const banUser = cf().https.onCall(async (data, context) => {
       if (ADMIN_DISCORD_USER_ID)
         await sendDiscordDM(
           ADMIN_DISCORD_USER_ID,
-          `${pxe('hammer')} **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
+          `${pxe('error')} **User Banned**\nUsername: ${displayName}\nReason: ${reason}\nRolled back from $${(userData.cash || 0).toFixed(2)} to $${rollbackCash}${orderNote}`,
         );
     } catch (err) {
       logger.error('Failed to send Discord alert:', err);

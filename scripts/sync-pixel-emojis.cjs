@@ -6,7 +6,7 @@
 //
 //   node scripts/sync-pixel-emojis.cjs                    # show what's uploaded
 //   node scripts/sync-pixel-emojis.cjs --upload --write   # upload missing ones, write the IDs
-//   node scripts/sync-pixel-emojis.cjs --replace hammer,gift --upload --write
+//   node scripts/sync-pixel-emojis.cjs --replace gift,chart --upload --write
 //                                                         # re-upload redrawn icons
 //
 // Application emojis belong to the bot, not to a server: they render in every

@@ -36,7 +36,7 @@ const UserFieldEditor = ({
   return (
     <div className="p-3 rounded mb-4 light:bg-white dark:bg-slate-600">
       <h4 className={`text-xs font-semibold uppercase ${mutedClass} mb-2`}>
-        <AdminIcon name="hammer" />
+        <AdminIcon name="pencil" />
         Direct Edits
       </h4>
       <div className="space-y-3">

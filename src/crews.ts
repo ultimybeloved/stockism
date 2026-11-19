@@ -783,12 +783,12 @@ export const CREW_SWITCH_EVENT: CrewSwitchEvent | null = {
   endsAt: Date.UTC(2026, 11, 17, 21, 0), // 2026-12-17 21:00 UTC
 };
 
-/** The event's crews as words: "Workers and Hostel". */
-export const switchEventCrewNames = (): string =>
+/** The event's crews as words: "Workers and Hostel" (or "Workers or Hostel"). */
+export const switchEventCrewNames = (joiner: 'and' | 'or' = 'and'): string =>
   (CREW_SWITCH_EVENT?.crewIds || [])
     .map((id) => CREW_MAP[id]?.name || id)
     .join(', ')
-    .replace(/, ([^,]*)$/, (_, last) => ` and ${last}`);
+    .replace(/, ([^,]*)$/, (_, last) => ` ${joiner} ${last}`);
 
 /** True while the event runs and this player hasn't used their free switch yet. */
 export const hasFreeSwitch = (
