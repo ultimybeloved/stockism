@@ -1,9 +1,11 @@
-import { COSMETICS, COSMETIC_MAP } from '../../../../constants/cosmetics';
-import { prizeLabel, totalWinners, type GiveawayPrize } from '../../../../rules/giveaways';
+import { COSMETIC_MAP } from '../../../../constants/cosmetics';
+import { getPinCollection } from '../../../../crews';
+import { prizeLabel, totalWinners } from '../../../../rules/giveaways';
 import { draftEndsAt, useAdminGiveaways } from '../../hooks/useAdminGiveaways';
 import type { AdminCommonProps } from '../types';
 import type { DiscordChannel } from '../../../../api/types';
 import AdminIcon from '../AdminIcon';
+import GiveawayTierRow from './GiveawayTierRow';
 
 // Server roles a giveaway post can ping.
 const ROLES = [
@@ -11,13 +13,13 @@ const ROLES = [
   { id: '1470587257051418838', name: 'Updates' },
   { id: '1534468500620578899', name: 'Event' },
 ];
-const SELLABLE = COSMETICS.filter((c) => !c.earned).sort((a, b) => a.name.localeCompare(b.name));
-const nameOf = (id: string) => COSMETIC_MAP[id]?.name;
+// Names a cosmetic or a pin collection in prize labels.
+const nameOf = (id: string) => COSMETIC_MAP[id]?.name ?? getPinCollection(id)?.name;
 const utc = (ms: number) => new Date(ms).toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
 
 // Start a bot giveaway in Discord and watch it through to the payout. The bot
 // only lets linked accounts enter, draws the prizes top to bottom (nobody wins
-// twice), and pays the winners itself.
+// twice in the same draw), and pays the winners itself.
 export default function GiveawayCard({
   textClass,
   mutedClass,
@@ -30,12 +32,6 @@ export default function GiveawayCard({
   const labelCls = `block text-xs font-semibold mb-1 ${mutedClass}`;
   const endsAt = draftEndsAt(draft);
 
-  const setKind = (i: number, kind: GiveawayPrize['kind']) =>
-    g.patchTier(i, {
-      ...draft.tiers[i]!,
-      prize: kind === 'cosmetic' ? { kind, cosmeticId: SELLABLE[0]!.id } : { kind, amount: 50000 },
-    });
-
   return (
     <div className="p-4 rounded-sm border light:bg-white light:border-slate-200 dark:bg-slate-800 dark:border-slate-700 space-y-4">
       <div>
@@ -44,8 +40,9 @@ export default function GiveawayCard({
           Giveaways
         </h3>
         <p className={`text-xs ${mutedClass}`}>
-          Only players with a linked Discord can enter, one entry each. Prizes are drawn top to bottom, nobody wins
-          twice, and winners are paid automatically when it ends.
+          Only players with a linked Discord can enter, one entry each. Prizes are drawn top to bottom and nobody wins
+          twice in the same draw; put a prize in Draw 2 to let earlier winners win it too. Skip top leaves out that many
+          players from the top of the leaderboard. Winners are paid automatically when it ends.
         </p>
       </div>
 
@@ -129,67 +126,17 @@ export default function GiveawayCard({
       <div className="space-y-2">
         <span className={labelCls}>Prizes, drawn in this order</span>
         {draft.tiers.map((t, i) => (
-          <div key={i} className="flex flex-wrap items-center gap-2">
-            <span className={`text-xs w-5 ${mutedClass}`}>{i + 1}.</span>
-            <input
-              type="number"
-              min={1}
-              aria-label="Winners"
-              className={`${field} w-20`}
-              value={t.winners}
-              onChange={(e) => g.patchTier(i, { ...t, winners: Math.floor(Number(e.target.value)) })}
-            />
-            <span className={`text-xs ${mutedClass}`}>{t.winners === 1 ? 'winner gets' : 'winners each get'}</span>
-            <select
-              aria-label="Prize type"
-              className={field}
-              value={t.prize.kind}
-              onChange={(e) => setKind(i, e.target.value as GiveawayPrize['kind'])}
-            >
-              <option value="credit">Shop credit</option>
-              <option value="cash">Cash</option>
-              <option value="cosmetic">Cosmetic</option>
-            </select>
-            {t.prize.kind === 'cosmetic' ? (
-              <select
-                aria-label="Cosmetic"
-                className={field}
-                value={t.prize.cosmeticId}
-                onChange={(e) => g.patchTier(i, { ...t, prize: { kind: 'cosmetic', cosmeticId: e.target.value } })}
-              >
-                {SELLABLE.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} (${c.price.toLocaleString()})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type="number"
-                min={1}
-                aria-label="Amount"
-                className={`${field} w-32`}
-                value={t.prize.amount}
-                onChange={(e) =>
-                  g.patchTier(i, {
-                    ...t,
-                    prize: { kind: t.prize.kind as 'credit' | 'cash', amount: Math.floor(Number(e.target.value)) },
-                  })
-                }
-              />
-            )}
-            <button className={`text-xs ${mutedClass}`} onClick={() => g.moveTier(i, -1)} aria-label="Move up">
-              Up
-            </button>
-            <button className={`text-xs ${mutedClass}`} onClick={() => g.moveTier(i, 1)} aria-label="Move down">
-              Down
-            </button>
-            {draft.tiers.length > 1 && (
-              <button className="text-xs text-red-500" onClick={() => g.removeTier(i)}>
-                Remove
-              </button>
-            )}
-          </div>
+          <GiveawayTierRow
+            key={i}
+            i={i}
+            tier={t}
+            count={draft.tiers.length}
+            field={field}
+            mutedClass={mutedClass}
+            onChange={(next) => g.patchTier(i, next)}
+            onMove={(by) => g.moveTier(i, by)}
+            onRemove={() => g.removeTier(i)}
+          />
         ))}
         <button className={`text-xs underline ${mutedClass}`} onClick={g.addTier}>
           Add a prize
@@ -227,12 +174,16 @@ export default function GiveawayCard({
             <ul className={`text-xs mt-1 ${mutedClass}`}>
               {x.tiers.map((t, i) => (
                 <li key={i}>
-                  {t.winners} x {prizeLabel(t.prize, nameOf)}
-                  {x.winners?.some((w) => w.tier === i) &&
-                    `: ${x.winners
-                      .filter((w) => w.tier === i)
-                      .map((w) => w.name)
-                      .join(', ')}`}
+                  {t.everyone ? 'Everyone' : `${t.winners} x`} {prizeLabel(t.prize, nameOf)}
+                  {t.draw && t.draw > 1 ? ` (draw ${t.draw})` : ''}
+                  {t.skipTop ? ` (skips top ${t.skipTop})` : ''}
+                  {t.everyone && x.winners?.length
+                    ? `: ${x.winners.filter((w) => w.tier === i).length} players`
+                    : x.winners?.some((w) => w.tier === i) &&
+                      `: ${x.winners
+                        .filter((w) => w.tier === i)
+                        .map((w) => w.name)
+                        .join(', ')}`}
                 </li>
               ))}
             </ul>

@@ -52,6 +52,7 @@ export interface PinCollection {
   name: string;
   active: boolean;
   limited: boolean;
+  /** Last moment it is on sale (ms, UTC). Null = no end date. */
   expiresAt: number | null;
   pins: string[];
 }
@@ -261,6 +262,17 @@ export const PIN_COLLECTIONS: Record<string, PinCollection> = {
     expiresAt: null,
     pins: ['black_card', 'ui_eye', 'mongkol_gold', 'newsboy_cap', 'polycoria', 'shiba', 'mongkol_red'],
   },
+  // Limited: on sale until the end of Thanksgiving weekend (Sunday 2026-11-29,
+  // 23:59 UTC), then gone from the shop. Owners keep theirs. Also the prize
+  // pool for the Thanksgiving giveaway (random pin for every entrant).
+  thanksgiving_2026: {
+    id: 'thanksgiving_2026',
+    name: 'Thanksgiving 2026',
+    active: true,
+    limited: true,
+    expiresAt: Date.UTC(2026, 10, 30) - 1,
+    pins: ['tg26_turkey', 'tg26_pie', 'tg26_drumstick', 'tg26_pilgrim', 'tg26_pumpkin', 'tg26_corn'],
+  },
 };
 
 export const SHOP_PINS: Record<string, ShopPin> = {
@@ -329,11 +341,67 @@ export const SHOP_PINS: Record<string, ShopPin> = {
     price: 5000,
     collection: 'shop_2026',
   },
+  tg26_turkey: {
+    id: 'tg26_turkey',
+    name: 'Turkey',
+    image: 'shop/tg26_turkey.svg',
+    description: 'The guest of honor, feathers out. Thanksgiving 2026.',
+    price: 10000,
+    collection: 'thanksgiving_2026',
+  },
+  tg26_pie: {
+    id: 'tg26_pie',
+    name: 'Pumpkin Pie',
+    image: 'shop/tg26_pie.svg',
+    description: 'A slice with extra cream. Thanksgiving 2026.',
+    price: 7500,
+    collection: 'thanksgiving_2026',
+  },
+  tg26_drumstick: {
+    id: 'tg26_drumstick',
+    name: 'Drumstick',
+    image: 'shop/tg26_drumstick.svg',
+    description: 'First pick at the table. Thanksgiving 2026.',
+    price: 5000,
+    collection: 'thanksgiving_2026',
+  },
+  tg26_pilgrim: {
+    id: 'tg26_pilgrim',
+    name: 'Pilgrim Hat',
+    image: 'shop/tg26_pilgrim.svg',
+    description: 'Tall, black, and buckled. Thanksgiving 2026.',
+    price: 5000,
+    collection: 'thanksgiving_2026',
+  },
+  tg26_pumpkin: {
+    id: 'tg26_pumpkin',
+    name: 'Pumpkin',
+    image: 'shop/tg26_pumpkin.svg',
+    description: 'Fresh from the patch. Thanksgiving 2026.',
+    price: 5000,
+    collection: 'thanksgiving_2026',
+  },
+  tg26_corn: {
+    id: 'tg26_corn',
+    name: 'Corn',
+    image: 'shop/tg26_corn.svg',
+    description: 'Harvest season on the cob. Thanksgiving 2026.',
+    price: 5000,
+    collection: 'thanksgiving_2026',
+  },
 };
 
-export const getActiveShopPins = () => {
+/** A pin collection by id (own keys only, so "constructor" isn't one). */
+export const getPinCollection = (id: string): PinCollection | undefined =>
+  Object.prototype.hasOwnProperty.call(PIN_COLLECTIONS, id) ? PIN_COLLECTIONS[id] : undefined;
+
+/** Whether a collection is on sale right now: switched on and not past its end date. */
+export const isCollectionOnSale = (c: PinCollection | undefined, now = Date.now()) =>
+  !!c && c.active && (c.expiresAt == null || now <= c.expiresAt);
+
+export const getActiveShopPins = (now = Date.now()) => {
   return Object.values(PIN_COLLECTIONS)
-    .filter((c) => c.active)
+    .filter((c) => isCollectionOnSale(c, now))
     .map((c) => ({
       ...c,
       pins: c.pins.map((id) => SHOP_PINS[id]).filter((p): p is ShopPin => !!p),

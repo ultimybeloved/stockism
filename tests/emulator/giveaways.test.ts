@@ -103,4 +103,97 @@ async function main() {
   );
 }
 
+// The Thanksgiving 2026 shape: a credit draw, a separate cash draw whose top
+// prize skips the leaderboard's top 2, and a random pin for every entrant.
+async function stacked() {
+  const SID = 'gw_stack';
+  const uids = Array.from({ length: 6 }, (_, i) => `gs_u${i}`);
+  for (const [i, uid] of uids.entries()) {
+    await db
+      .collection('users')
+      .doc(uid)
+      .set({
+        displayName: `Gs${i}`,
+        cash: 1000,
+        shopCredit: 0,
+        discordId: `2000000000000000${i}0`,
+        // gs_u1 already owns every Thanksgiving pin but one, gs_u2 owns them all.
+        ownedShopPins:
+          i === 1
+            ? ['tg26_turkey', 'tg26_pie', 'tg26_drumstick', 'tg26_pilgrim', 'tg26_pumpkin']
+            : i === 2
+              ? ['tg26_turkey', 'tg26_pie', 'tg26_drumstick', 'tg26_pilgrim', 'tg26_pumpkin', 'tg26_corn']
+              : [],
+      });
+    await db
+      .collection('giveaways')
+      .doc(SID)
+      .collection('entries')
+      .doc(`2000000000000000${i}0`)
+      .set({ uid, at: Date.now() });
+  }
+  // gs_u0 and gs_u1 are the top 2.
+  await db
+    .collection('leaderboard')
+    .doc('global')
+    .set({ generatedAt: Date.now(), entries: [{ userId: 'gs_u0' }, { userId: 'gs_u1' }, { userId: 'someone' }] });
+  await db
+    .collection('giveaways')
+    .doc(SID)
+    .set({
+      title: 'Stacked',
+      channelId: '123456789012345678',
+      endsAt: Date.now() - 1000,
+      status: 'open',
+      entries: 6,
+      tiers: [
+        { prize: { kind: 'credit', amount: 150000 }, winners: 3 },
+        { prize: { kind: 'cash', amount: 75000 }, winners: 2, draw: 2, skipTop: 2 },
+        { prize: { kind: 'cash', amount: 25000 }, winners: 3, draw: 2 },
+        { prize: { kind: 'pin', collection: 'thanksgiving_2026' }, winners: 0, everyone: true },
+      ],
+    });
+
+  const g = await finishGiveaway(SID);
+  const w = g!.winners!;
+  const of = (tier: number) => w.filter((x) => x.tier === tier).map((x) => x.uid);
+  check('credit draw has 3 different winners', new Set(of(0)).size === 3, JSON.stringify(of(0)));
+  const cash = [...of(1), ...of(2)];
+  check('cash draw has 5 different winners', cash.length === 5 && new Set(cash).size === 5, JSON.stringify(cash));
+  check(
+    'the top 2 never win the skip-top prize',
+    !of(1).some((u) => u === 'gs_u0' || u === 'gs_u1'),
+    JSON.stringify(of(1)),
+  );
+  check('everyone gets the pin prize', of(3).length === 6, JSON.stringify(of(3)));
+  check(
+    'someone won in both draws',
+    of(0).some((u) => cash.includes(u)),
+  );
+
+  const get = async (uid: string) => (await db.collection('users').doc(uid).get()).data();
+  const u1 = await get('gs_u1');
+  check('a random pin prefers one they lack', u1.ownedShopPins.includes('tg26_corn'), JSON.stringify(u1.ownedShopPins));
+  const u2 = await get('gs_u2');
+  const u2Credit = (of(0).includes('gs_u2') ? 150000 : 0) + 0;
+  check(
+    'owning the whole set pays a pin price in credit instead',
+    u2.ownedShopPins.length === 6 && u2.shopCredit > u2Credit && u2.shopCredit <= u2Credit + 10000,
+    JSON.stringify(u2),
+  );
+  for (const uid of uids) {
+    const u = await get(uid);
+    const want = 1000 + (of(1).includes(uid) ? 75000 : 0) + (of(2).includes(uid) ? 25000 : 0);
+    check(`${uid} got every cash prize they won`, u.cash === want, JSON.stringify({ cash: u.cash, want }));
+  }
+
+  await db.collection('giveaways').doc(SID).update({ status: 'drawing' });
+  await finishGiveaway(SID);
+  const marks = await db.collection('giveaways').doc(SID).collection('payouts').get();
+  check('one payout mark per prize won, none repeated', marks.size === w.length, String(marks.size));
+  const again = await get(of(1)[0]!);
+  check('running again pays nobody twice', again.cash >= 76000 && again.cash <= 101000, JSON.stringify(again.cash));
+}
+
 it('bot giveaways draw and pay once', main);
+it('stacked draws, skip-top, and everyone pins pay correctly', stacked);

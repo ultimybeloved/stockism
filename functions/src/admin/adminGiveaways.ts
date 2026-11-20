@@ -8,6 +8,7 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { cf, requireAdmin } from '../shared/fnConfig';
 import { COSMETIC_CATALOG } from '../shared/constants';
+import { PIN_COLLECTIONS } from '../shared/crews';
 import { discordApi } from '../shared/discordApi';
 import { logAdminAction } from '../shared/adminLog';
 import { reportError } from '../shared/sentry';
@@ -57,14 +58,24 @@ export const adminCreateGiveaway = cf().https.onCall(async (data, context) => {
   if (!Number.isFinite(endsAt) || endsAt < now + GIVEAWAY_MIN_MS || endsAt > now + GIVEAWAY_MAX_MS) {
     throw bad('The end time must be at least 10 minutes and at most 30 days away.');
   }
-  const problem = tierProblem(tiers, (id) => !!COSMETIC_CATALOG[id] && !COSMETIC_CATALOG[id]!.earned);
+  const problem = tierProblem(
+    tiers,
+    (id) => !!COSMETIC_CATALOG[id] && !COSMETIC_CATALOG[id]!.earned,
+    (id) => Object.hasOwn(PIN_COLLECTIONS, id) && PIN_COLLECTIONS[id]!.pins.length > 0,
+  );
   if (problem) throw bad(problem);
+  // Only the known fields are stored, and the optional ones only when set.
   const cleanTiers: GiveawayTier[] = tiers.map((t) => ({
-    winners: t.winners,
+    winners: t.everyone ? 0 : t.winners,
     prize:
       t.prize.kind === 'cosmetic'
         ? { kind: 'cosmetic', cosmeticId: t.prize.cosmeticId }
-        : { kind: t.prize.kind, amount: t.prize.amount },
+        : t.prize.kind === 'pin'
+          ? { kind: 'pin', collection: t.prize.collection }
+          : { kind: t.prize.kind, amount: t.prize.amount },
+    ...(t.everyone ? { everyone: true } : {}),
+    ...(t.draw && t.draw > 1 ? { draw: t.draw } : {}),
+    ...(t.skipTop ? { skipTop: t.skipTop } : {}),
   }));
 
   const ref = db.collection('giveaways').doc();
@@ -125,7 +136,8 @@ export const adminEndGiveaway = cf().https.onCall(async (data, context) => {
  * left half done, and catch up an entry count a failed edit left behind (each
  * entry refreshes the post itself).
  */
-export const runGiveaways = cf()
+// Long timeout: an everyone prize pays (and messages) every entrant in one run.
+export const runGiveaways = cf({ timeoutSeconds: 540 })
   .pubsub.schedule('every 5 minutes')
   .timeZone('UTC')
   .onRun(async () => {

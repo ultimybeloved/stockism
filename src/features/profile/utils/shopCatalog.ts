@@ -67,6 +67,12 @@ export const shopPins = (): ShopPin[] =>
     .flatMap((c) => c.pins)
     .sort((a, b) => b.price - a.price);
 
+/** Pins on sale grouped by collection: limited-time ones first, each most expensive first. */
+export const shopPinSections = () =>
+  getActiveShopPins()
+    .map((c) => ({ ...c, pins: [...c.pins].sort((a, b) => b.price - a.price) }))
+    .sort((a, b) => Number(b.limited) - Number(a.limited));
+
 export type ShopEntry = { kind: 'cosmetic'; item: Cosmetic } | { kind: 'pin'; item: ShopPin };
 
 /** Everything for sale whose name or kind matches, most expensive first. */

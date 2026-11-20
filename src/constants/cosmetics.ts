@@ -938,7 +938,7 @@ export const COSMETICS: Cosmetic[] = [
 
 // Bump when a new batch of cosmetics lands: everyone gets the NEW! badge on
 // Customization and the Shop tab again until they open them.
-export const SHOP_DROP_ID = '2026-10-marks';
+export const SHOP_DROP_ID = '2026-11-thanksgiving';
 
 export const COSMETIC_MAP: Record<string, Cosmetic> = Object.fromEntries(COSMETICS.map((c) => [c.id, c]));
 

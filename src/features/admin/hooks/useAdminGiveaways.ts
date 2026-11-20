@@ -7,6 +7,7 @@ import {
 import { errorMessage } from '../../../utils/errors';
 import { tierProblem, type GiveawayTier } from '../../../rules/giveaways';
 import { COSMETIC_MAP } from '../../../constants/cosmetics';
+import { getPinCollection } from '../../../crews';
 import type { AdminGiveaway } from '../../../api/adminPanelTypes';
 
 export interface GiveawayDraft {
@@ -77,7 +78,11 @@ export function useAdminGiveaways() {
     (!draft.title.trim() && 'Give it a title.') ||
     (!draft.channelId && 'Pick a channel.') ||
     (!Number.isFinite(draftEndsAt(draft)) && 'Set the end date and time.') ||
-    tierProblem(draft.tiers, (id) => !!COSMETIC_MAP[id] && !COSMETIC_MAP[id]!.earned);
+    tierProblem(
+      draft.tiers,
+      (id) => !!COSMETIC_MAP[id] && !COSMETIC_MAP[id]!.earned,
+      (id) => !!getPinCollection(id),
+    );
 
   const start = async () => {
     if (problem || busy) return;

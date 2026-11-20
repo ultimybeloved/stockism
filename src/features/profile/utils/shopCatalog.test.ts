@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { COSMETICS } from '../../../constants/cosmetics';
 import { BACKDROP_LAYERS, GLOW_LAYERS } from '../../../constants/cosmeticLayers';
 import { BD_MARKUP, FX_MARKUP } from '../../../constants/cosmeticMarkup';
-import { classicsNote, glowTwin, searchShop, shelfOf, shopItems, shopPins } from './shopCatalog';
+import { classicsNote, glowTwin, searchShop, shelfOf, shopItems, shopPinSections, shopPins } from './shopCatalog';
 
 const classics = (type: Parameters<typeof shopItems>[0]) =>
   shopItems(type).filter((c) => shelfOf(c.price) === 'classics');
@@ -50,16 +50,23 @@ describe('shop shelves', () => {
     expect(searchShop('   ')).toEqual([]);
   });
 
-  it('the new pins are on sale, most expensive first', () => {
-    expect(shopPins().map((p) => p.id)).toEqual([
-      'black_card',
-      'ui_eye',
-      'mongkol_gold',
-      'newsboy_cap',
-      'polycoria',
-      'shiba',
-      'mongkol_red',
-    ]);
+  const REGULAR = ['black_card', 'ui_eye', 'mongkol_gold', 'newsboy_cap', 'polycoria', 'shiba', 'mongkol_red'];
+  const THANKSGIVING = ['tg26_turkey', 'tg26_pie', 'tg26_drumstick', 'tg26_pilgrim', 'tg26_pumpkin', 'tg26_corn'];
+  afterEach(() => vi.useRealTimers());
+
+  it('lists the limited Thanksgiving pins first while they are on sale', () => {
+    vi.useFakeTimers({ now: Date.UTC(2026, 10, 29, 23, 59) });
+    const sections = shopPinSections();
+    expect(sections.map((c) => c.id)).toEqual(['thanksgiving_2026', 'shop_2026']);
+    expect(sections[0]!.pins.map((p) => p.id)).toEqual(THANKSGIVING);
+    expect(sections[1]!.pins.map((p) => p.id)).toEqual(REGULAR);
+    expect(shopPins()).toHaveLength(13);
+  });
+
+  it('drops the Thanksgiving pins once the weekend is over', () => {
+    vi.useFakeTimers({ now: Date.UTC(2026, 10, 30) });
+    expect(shopPinSections().map((c) => c.id)).toEqual(['shop_2026']);
+    expect(shopPins().map((p) => p.id)).toEqual(REGULAR);
   });
 });
 

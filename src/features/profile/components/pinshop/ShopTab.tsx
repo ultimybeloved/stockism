@@ -4,7 +4,7 @@ import { themeClasses } from '../../../../utils/theme';
 import { formatCurrency } from '../../../../utils/formatters';
 import { useSession } from '../../../../context/AppContext';
 import { featuredPrice } from '../../../../rules/shop';
-import { searchShop, shopItems, shopPins, type ShopCategory } from '../../utils/shopCatalog';
+import { searchShop, shopItems, shopPinSections, shopPins, type ShopCategory } from '../../utils/shopCatalog';
 import { styleKeyOf, useShopSelection } from '../../hooks/useShopSelection';
 import { useFeaturedId } from './ShopDeals';
 import ShopCategoryTabs from './ShopCategoryTabs';
@@ -182,8 +182,17 @@ const ShopTab = ({
         ) : category === 'perk' ? (
           <ShopPerks budget={budget} onRequestPurchase={onRequestPurchase} onPinAction={onPinAction} />
         ) : category === 'pin' ? (
-          <div className="pt-4">
-            <ShopPinGrid pins={shopPins()} selectedId={sel.pin?.id || null} owned={ownedPins} onPick={sel.pickPin} />
+          <div className="pt-4 space-y-5">
+            {shopPinSections().map((c) => (
+              <ShopPinGrid
+                key={c.id}
+                pins={c.pins}
+                limited={c.limited ? { name: c.name, endsAt: c.expiresAt } : undefined}
+                selectedId={sel.pin?.id || null}
+                owned={ownedPins}
+                onPick={sel.pickPin}
+              />
+            ))}
           </div>
         ) : category === 'holdingMark' || category === 'profileBg' ? (
           <ProfileShopShelf type={category} {...shelfProps} />

@@ -8,13 +8,28 @@ interface ShopPinGridProps {
   selectedId: string | null;
   owned: Set<string>;
   onPick: (pin: ShopPin) => void;
+  /** A limited-time collection: shown under its name with the last day on sale. */
+  limited?: { name: string; endsAt: number | null };
 }
 
+// "Sun, Nov 29, 23:59 UTC"
+const endLabel = (ms: number) =>
+  new Date(ms).toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'UTC',
+  }) + ' UTC';
+
 // Pins for sale, one grid, most expensive first. The Black Card keeps a gold
-// edge. Tapping one tries it on the preview row.
-const ShopPinGrid = ({ pins, selectedId, owned, onPick }: ShopPinGridProps) => {
-  const { textClass } = themeClasses;
-  return (
+// edge. Tapping one tries it on the preview row. A limited collection gets
+// its own grid under a heading that says when it leaves the shop.
+const ShopPinGrid = ({ pins, selectedId, owned, onPick, limited }: ShopPinGridProps) => {
+  const { textClass, mutedClass } = themeClasses;
+  const grid = (
     <div className="grid grid-cols-3 gap-2.5">
       {pins.map((pin) => {
         const selected = pin.id === selectedId;
@@ -49,6 +64,19 @@ const ShopPinGrid = ({ pins, selectedId, owned, onPick }: ShopPinGridProps) => {
         );
       })}
     </div>
+  );
+  if (!limited) return grid;
+  return (
+    <section>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
+        <h3 className={`text-sm font-bold ${textClass}`}>{limited.name}</h3>
+        <span className={`text-xs ${mutedClass}`}>
+          <b className="text-orange-500">Limited.</b>
+          {limited.endsAt != null && ` Leaves the shop ${endLabel(limited.endsAt)}`}
+        </span>
+      </div>
+      {grid}
+    </section>
   );
 };
 

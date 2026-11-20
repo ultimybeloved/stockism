@@ -5,7 +5,8 @@
 // scripts/pixel-discord.cjs). Crew emojis are NOT here: crews keep their
 // full-quality art. `flair:` entries are the flair crew crests
 // (public/pins/crests/flair), used in announcements rather than swapped for
-// a standard emoji.
+// a standard emoji. `pin:` entries are seasonal shop pins (public/pins/shop),
+// for announcements such as the Thanksgiving 2026 giveaway.
 module.exports = {
   '🎁': ['discord', 'gift'],
   '📈': ['ui', 'trade'],
@@ -64,4 +65,10 @@ module.exports = {
   'flair:the_beggars': ['crests/flair', 'the_beggars'],
   'flair:black_workers': ['crests/flair', 'black_workers'],
   'flair:the_cartel': ['crests/flair', 'the_cartel'],
+  'pin:tg26_turkey': ['shop', 'tg26_turkey'],
+  'pin:tg26_pie': ['shop', 'tg26_pie'],
+  'pin:tg26_drumstick': ['shop', 'tg26_drumstick'],
+  'pin:tg26_pilgrim': ['shop', 'tg26_pilgrim'],
+  'pin:tg26_pumpkin': ['shop', 'tg26_pumpkin'],
+  'pin:tg26_corn': ['shop', 'tg26_corn'],
 };

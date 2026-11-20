@@ -13,7 +13,7 @@ import {
   canBuyStreakSaver,
   MISSION_AUTOPILOT_PRICE,
 } from '../shared/rules/economy';
-import { getDailyMissions, getWeeklyMissions, PIN_COLLECTIONS, SHOP_PINS } from '../shared/crews';
+import { getDailyMissions, getWeeklyMissions, isCollectionOnSale, PIN_COLLECTIONS, SHOP_PINS } from '../shared/crews';
 import { checkBanned, checkDiscordWall } from '../shared/accountGuards';
 import { touchLastActive } from '../shared/activity';
 import { grantedValueUpdate } from '../shared/equity';
@@ -172,9 +172,10 @@ export const purchasePin = cf().https.onCall(async (data, context) => {
     checkDiscordWall(userData);
 
     if (action === 'buyPin') {
-      // Only pins in a collection that is on sale (src/crews.ts, synced here).
+      // Only pins in a collection that is on sale right now (src/crews.ts,
+      // synced here); a limited collection stops selling at its end date.
       const shopPin = ownEntry(SHOP_PINS, pinId);
-      const pinInfo = shopPin && PIN_COLLECTIONS[shopPin.collection]?.active ? shopPin : undefined;
+      const pinInfo = shopPin && isCollectionOnSale(PIN_COLLECTIONS[shopPin.collection]) ? shopPin : undefined;
       if (!pinInfo) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid pin.');
       }
