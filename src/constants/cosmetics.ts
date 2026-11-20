@@ -937,8 +937,11 @@ export const COSMETICS: Cosmetic[] = [
 ];
 
 // Bump when a new batch of cosmetics lands: everyone gets the NEW! badge on
-// Customization and the Shop tab again until they open them.
+// Customization again until they open it, and on the Shop tab and each shop
+// category in SHOP_DROP_CATEGORIES until they open that category. Set the
+// categories to wherever the new items went (ShopCategory keys).
 export const SHOP_DROP_ID = '2026-11-thanksgiving';
+export const SHOP_DROP_CATEGORIES: readonly string[] = ['pin'];
 
 export const COSMETIC_MAP: Record<string, Cosmetic> = Object.fromEntries(COSMETICS.map((c) => [c.id, c]));
 

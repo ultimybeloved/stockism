@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { COSMETICS } from '../../../../constants/cosmetics';
 import { themeClasses } from '../../../../utils/theme';
 import { formatCurrency } from '../../../../utils/formatters';
@@ -6,6 +6,7 @@ import { useSession } from '../../../../context/AppContext';
 import { featuredPrice } from '../../../../rules/shop';
 import { searchShop, shopItems, shopPinSections, shopPins, type ShopCategory } from '../../utils/shopCatalog';
 import { styleKeyOf, useShopSelection } from '../../hooks/useShopSelection';
+import { useShopDrop } from '../../hooks/useShopDrop';
 import { useFeaturedId } from './ShopDeals';
 import ShopCategoryTabs from './ShopCategoryTabs';
 import ShopShelves from './ShopShelves';
@@ -64,9 +65,22 @@ const ShopTab = ({
   const { textClass, mutedClass, inputClass } = themeClasses;
   const featuredId = useFeaturedId();
   const sel = useShopSelection({ featuredId, onTryOn, onTryPin, onPreviewStyle });
-  const [category, setCategory] = useState<ShopCategory>('nameColor');
   const [query, setQuery] = useState('');
   const results = useMemo(() => searchShop(query), [query]);
+  // The shop opens on the first category with new items, which keeps its
+  // NEW! tag while it's on screen; leaving it (or closing the shop) clears it.
+  const { isNew, firstNew, open: openDropCategory } = useShopDrop();
+  const [category, setCategory] = useState<ShopCategory>(() => (firstNew as ShopCategory | null) ?? 'nameColor');
+  const viewing = useRef<ShopCategory | null>(category);
+  useEffect(() => {
+    viewing.current = category;
+    return () => {
+      viewing.current = null;
+      // Checked a tick later: React's dev double mount puts the same category
+      // straight back, and that is not leaving it.
+      setTimeout(() => viewing.current !== category && openDropCategory(category), 0);
+    };
+  }, [category, openDropCategory]);
 
   // Free items (the plain holding marks) belong to everyone.
   const ownedCosmetics = useMemo(
@@ -151,7 +165,7 @@ const ShopTab = ({
           className={`w-full rounded-md border py-2 pl-8 pr-3 text-[13px] outline-none ${inputClass}`}
         />
       </label>
-      {!query && <ShopCategoryTabs value={category} counts={COUNTS} onChange={setCategory} />}
+      {!query && <ShopCategoryTabs value={category} counts={COUNTS} isNew={isNew} onChange={setCategory} />}
       <div
         className={`flex-1 min-h-0 overflow-y-auto mx-4 px-3.5 pb-4 border light:border-amber-200 dark:border-zinc-800 ${
           query ? 'mt-2.5 rounded-t-md' : 'border-t-0'
@@ -182,12 +196,12 @@ const ShopTab = ({
         ) : category === 'perk' ? (
           <ShopPerks budget={budget} onRequestPurchase={onRequestPurchase} onPinAction={onPinAction} />
         ) : category === 'pin' ? (
-          <div className="pt-4 space-y-5">
-            {shopPinSections().map((c) => (
+          <div className="pt-4 space-y-6">
+            {shopPinSections().map((c, _, all) => (
               <ShopPinGrid
                 key={c.id}
                 pins={c.pins}
-                limited={c.limited ? { name: c.name, endsAt: c.expiresAt } : undefined}
+                section={all.length > 1 ? { name: c.name, limited: c.limited, endsAt: c.expiresAt } : undefined}
                 selectedId={sel.pin?.id || null}
                 owned={ownedPins}
                 onPick={sel.pickPin}

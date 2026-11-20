@@ -8,8 +8,12 @@ interface ShopPinGridProps {
   selectedId: string | null;
   owned: Set<string>;
   onPick: (pin: ShopPin) => void;
-  /** A limited-time collection: shown under its name with the last day on sale. */
-  limited?: { name: string; endsAt: number | null };
+  /**
+   * A heading for the grid when the shelf has more than one collection. A
+   * limited one sits in its own box with the moment it leaves the shop; the
+   * regular ones say they stay.
+   */
+  section?: { name: string; limited: boolean; endsAt: number | null };
 }
 
 // "Sun, Nov 29, 23:59 UTC"
@@ -25,9 +29,8 @@ const endLabel = (ms: number) =>
   }) + ' UTC';
 
 // Pins for sale, one grid, most expensive first. The Black Card keeps a gold
-// edge. Tapping one tries it on the preview row. A limited collection gets
-// its own grid under a heading that says when it leaves the shop.
-const ShopPinGrid = ({ pins, selectedId, owned, onPick, limited }: ShopPinGridProps) => {
+// edge. Tapping one tries it on the preview row.
+const ShopPinGrid = ({ pins, selectedId, owned, onPick, section }: ShopPinGridProps) => {
   const { textClass, mutedClass } = themeClasses;
   const grid = (
     <div className="grid grid-cols-3 gap-2.5">
@@ -65,15 +68,32 @@ const ShopPinGrid = ({ pins, selectedId, owned, onPick, limited }: ShopPinGridPr
       })}
     </div>
   );
-  if (!limited) return grid;
+  if (!section) return grid;
+  if (!section.limited)
+    return (
+      <section>
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
+          <h3 className={`text-sm font-bold ${textClass}`}>{section.name}</h3>
+          <span className={`text-xs ${mutedClass}`}>Always in the shop</span>
+        </div>
+        {grid}
+      </section>
+    );
   return (
-    <section>
-      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3">
-        <h3 className={`text-sm font-bold ${textClass}`}>{limited.name}</h3>
-        <span className={`text-xs ${mutedClass}`}>
-          <b className="text-orange-500">Limited.</b>
-          {limited.endsAt != null && ` Leaves the shop ${endLabel(limited.endsAt)}`}
-        </span>
+    <section className="rounded-lg border-2 border-orange-400/70 p-3 light:bg-orange-50 dark:bg-orange-500/10">
+      <div className="mb-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className={`text-sm font-bold ${textClass}`}>{section.name}</h3>
+          <span className="rounded-sm bg-orange-500 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-white">
+            Limited time
+          </span>
+        </div>
+        {section.endsAt != null && (
+          <p className={`mt-1 text-xs ${mutedClass}`}>
+            Only these pins leave the shop on <b className="text-orange-500">{endLabel(section.endsAt)}</b>. Owners keep
+            theirs.
+          </p>
+        )}
       </div>
       {grid}
     </section>

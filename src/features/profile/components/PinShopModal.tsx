@@ -19,6 +19,7 @@ import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import { pixelatedIfSvg } from '../../../constants/crests';
 import PixelIcon from '../../../shared/components/PixelIcon';
 import { useSeenFlag } from '../../../shared/hooks/useSeenFlag';
+import { useShopDrop } from '../hooks/useShopDrop';
 import NewBadge from '../../../shared/components/NewBadge';
 import { SHOP_DROP_ID } from '../../../constants/cosmetics';
 import { shopBudget, splitShopPayment } from '../../../rules/shop';
@@ -69,7 +70,8 @@ const PinShopModal = ({
   const dialogRef = useModalFocus();
   const { userData } = useSession();
   const [activeTab, setActiveTab] = useState('look');
-  const [shopTabUnseen, markShopTabSeen] = useSeenFlag(`shop:${SHOP_DROP_ID}`);
+  // NEW! stays on the Shop tab until every category with new items is opened.
+  const { anyNew: shopTabUnseen } = useShopDrop();
   // However it was opened, the Customization buttons' badge has done its job.
   const [, markCustomizeSeen] = useSeenFlag(`customize:${SHOP_DROP_ID}`);
   useEffect(markCustomizeSeen, [markCustomizeSeen]);
@@ -158,7 +160,6 @@ const PinShopModal = ({
               key={tab}
               onClick={() => {
                 setActiveTab(tab);
-                if (tab === 'shop') markShopTabSeen();
                 setTryOn(null);
                 setTryPin(null);
                 setPreviewStyle(null);

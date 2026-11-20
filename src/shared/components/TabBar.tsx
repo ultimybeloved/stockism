@@ -5,6 +5,8 @@ export interface TabItem<V extends string> {
   label: ReactNode;
   /** Small count after the label (desktop only). */
   count?: number;
+  /** Shows a NEW! tag after the label. */
+  isNew?: boolean;
   onHover?: () => void;
 }
 
@@ -42,7 +44,14 @@ const TabBar = <V extends string>({ tabs, value, onChange, label, className = ''
           }`}
         >
           {tab.label}
-          {tab.count ? <span className="hidden sm:inline text-[11px] font-medium opacity-55">{tab.count}</span> : null}
+          {tab.count && !tab.isNew ? (
+            <span className="hidden sm:inline text-[11px] font-medium opacity-55">{tab.count}</span>
+          ) : null}
+          {tab.isNew && (
+            <span className="new-badge ml-0.5 px-1 py-px text-[9px] font-black leading-none tracking-wide text-white bg-orange-500 border border-orange-300 rounded-sm">
+              NEW!
+            </span>
+          )}
         </button>
       );
     })}

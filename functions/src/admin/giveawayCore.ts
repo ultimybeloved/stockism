@@ -83,17 +83,29 @@ const tierLine = (t: GiveawayTier) => {
   return t.skipTop ? `${base} (not open to the top ${t.skipTop} on the leaderboard)` : base;
 };
 
+const KIND_WORDS: Record<GiveawayPrize['kind'], string> = {
+  credit: 'shop credit',
+  cash: 'cash',
+  cosmetic: 'cosmetics',
+  pin: 'pins',
+};
+
 /**
- * The prize lines, grouped under "Draw 1", "Draw 2" headings when there is
- * more than one draw. Everyone tiers come last, outside any draw.
- * `extra(i)` appends to tier i (the winners, once it has ended).
+ * The prize lines, grouped under "Draw 1: shop credit", "Draw 2: cash"
+ * headings when there is more than one draw (the kind is named when every
+ * prize in the draw is the same kind). Everyone tiers come last, outside any
+ * draw. `extra(i)` appends to tier i (the winners, once it has ended).
  */
 const prizeLines = (tiers: GiveawayTier[], extra: (i: number) => string, gap: string) => {
   const drawn = tiers.map((t, i) => ({ t, i })).filter(({ t }) => !t.everyone);
   const draws = [...new Set(drawn.map(({ t }) => drawOf(t)))].sort((a, b) => a - b);
   const blocks = draws.map((d) => {
-    const lines = drawn.filter(({ t }) => drawOf(t) === d).map(({ t, i }) => tierLine(t) + extra(i));
-    return draws.length > 1 ? [`**Draw ${d}**`, ...lines].join('\n') : lines.join(gap);
+    const inDraw = drawn.filter(({ t }) => drawOf(t) === d);
+    const lines = inDraw.map(({ t, i }) => tierLine(t) + extra(i)).join(gap);
+    if (draws.length === 1) return lines;
+    const kinds = new Set(inDraw.map(({ t }) => t.prize.kind));
+    const name = kinds.size === 1 ? `: ${KIND_WORDS[[...kinds][0]!]}` : '';
+    return `**Draw ${d}${name}**\n${lines}`;
   });
   const everyone = tiers.map((t, i) => ({ t, i })).filter(({ t }) => t.everyone);
   if (everyone.length) blocks.push(everyone.map(({ t }) => tierLine(t)).join('\n'));
