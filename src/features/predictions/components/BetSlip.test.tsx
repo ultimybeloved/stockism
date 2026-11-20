@@ -63,6 +63,14 @@ describe('BetSlip', () => {
     expect(onBet).toHaveBeenCalledWith('p1', 'No', 500);
   });
 
+  it('says when cash, not the limit, is what caps the bet', () => {
+    renderSlip({ available: 19_245.24, limit: 67_722.53, committed: 1_904.63 });
+    expect(screen.getByText(/leaving \$65,817\.90\. You have \$19,245\.24 in cash/)).toBeInTheDocument();
+    cleanup();
+    renderSlip({ available: 500, limit: 2_000, committed: 1_500 });
+    expect(screen.getByText(/leaving \$500\.00\.$/)).toBeInTheDocument();
+  });
+
   it('never takes more than the player has available', () => {
     renderSlip({ available: 300 });
     fireEvent.change(screen.getByLabelText('Stake'), { target: { value: '5000' } });

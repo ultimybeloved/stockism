@@ -42,6 +42,8 @@ const SWIPE = 50;
 const BetSlip = (props: BetSlipProps) => {
   const { pick, question: q, available, isGuest, closedReason, onPick, onDone, sheet } = props;
   const { cardClass, textClass, mutedClass } = themeClasses;
+  // Room under the limit; `available` is the smaller of this and cash on hand.
+  const room = Math.max(0, Math.round(((props.limit ?? 0) - (props.committed || 0)) * 100) / 100);
   const futures = pick?.kind === 'futures';
   const options = q ? (futures ? (q as EventMarketDoc).outcomes || ['Yes', 'No'] : optionsOf(q)) : [];
 
@@ -117,7 +119,9 @@ const BetSlip = (props: BetSlipProps) => {
       {!isGuest && !props.noInvestment && props.limit !== undefined && (
         <p className={`px-4 pt-2 text-[11px] leading-snug tabular-nums ${mutedClass}`}>
           Limit {formatCurrency(props.limit)}, what your stocks would sell for now.{' '}
-          {formatCurrency(props.committed || 0)} is already in bets, futures, and the ladder.
+          {formatCurrency(props.committed || 0)} is already in bets, futures, and the ladder, leaving{' '}
+          {formatCurrency(room)}.
+          {available < room && ` You have ${formatCurrency(available)} in cash, so that's the most you can bet.`}
         </p>
       )}
       <div
