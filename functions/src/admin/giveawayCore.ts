@@ -75,13 +75,27 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const listWords = (xs: string[]) =>
   xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')}, and ${xs[xs.length - 1]}`;
 
-/** One prize line for the post: what it is, who can get it. */
-const tierLine = (t: GiveawayTier) => {
-  const base = t.everyone
-    ? `${pxe('gift')} Everyone who enters gets **${label(t.prize)}**`
-    : `${pxe('gift')} **${label(t.prize)}** to ${plural(t.winners, 'winner')}`;
-  return t.skipTop ? `${base} (not open to the top ${t.skipTop} on the leaderboard)` : base;
+const SUPERSCRIPTS = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+
+/**
+ * Footnote marks for prizes closed to the leaderboard's top players: one mark
+ * per distinct top-N, and the small-print notes they point to.
+ */
+const skipTopNotes = (tiers: GiveawayTier[]) => {
+  const tops = [...new Set(tiers.filter((t) => t.skipTop && !t.everyone).map((t) => t.skipTop!))];
+  const markOf = (t: GiveawayTier) => (t.skipTop && !t.everyone ? SUPERSCRIPTS[tops.indexOf(t.skipTop)] || '*' : '');
+  const notes = tops.map((n, k) => {
+    const prizes = tiers.filter((t) => t.skipTop === n && !t.everyone).map((t) => `the ${label(t.prize)}`);
+    return `${SUPERSCRIPTS[k] || '*'} Players in the top ${n} on the leaderboard can't win ${listWords(prizes)}.`;
+  });
+  return { markOf, notes };
 };
+
+/** One prize line for the post: what it is, who can get it, and its footnote mark. */
+const tierLine = (t: GiveawayTier, mark = '') =>
+  t.everyone
+    ? `${pxe('gift')} Everyone who enters gets **${label(t.prize)}**`
+    : `${pxe('gift')} **${label(t.prize)}** to ${plural(t.winners, 'winner')}${mark}`;
 
 const KIND_WORDS: Record<GiveawayPrize['kind'], string> = {
   credit: 'shop credit',
@@ -96,12 +110,17 @@ const KIND_WORDS: Record<GiveawayPrize['kind'], string> = {
  * prize in the draw is the same kind). Everyone tiers come last, outside any
  * draw. `extra(i)` appends to tier i (the winners, once it has ended).
  */
-const prizeLines = (tiers: GiveawayTier[], extra: (i: number) => string, gap: string) => {
+const prizeLines = (
+  tiers: GiveawayTier[],
+  extra: (i: number) => string,
+  gap: string,
+  markOf: (t: GiveawayTier) => string,
+) => {
   const drawn = tiers.map((t, i) => ({ t, i })).filter(({ t }) => !t.everyone);
   const draws = [...new Set(drawn.map(({ t }) => drawOf(t)))].sort((a, b) => a - b);
   const blocks = draws.map((d) => {
     const inDraw = drawn.filter(({ t }) => drawOf(t) === d);
-    const lines = inDraw.map(({ t, i }) => tierLine(t) + extra(i)).join(gap);
+    const lines = inDraw.map(({ t, i }) => tierLine(t, markOf(t)) + extra(i)).join(gap);
     if (draws.length === 1) return lines;
     const kinds = new Set(inDraw.map(({ t }) => t.prize.kind));
     const name = kinds.size === 1 ? `: ${KIND_WORDS[[...kinds][0]!]}` : '';
@@ -116,14 +135,16 @@ const prizeLines = (tiers: GiveawayTier[], extra: (i: number) => string, gap: st
 export function giveawayMessage(id: string, g: Giveaway) {
   const ended = g.status === 'ended';
   const won = (i: number) => (g.winners || []).filter((w) => w.tier === i);
+  const { markOf, notes } = skipTopNotes(g.tiers);
   const prizes = prizeLines(
     g.tiers,
     (i) => (ended && won(i).length ? `\n${won(i).map(winnerTag).join(', ')}` : ''),
     ended ? '\n\n' : '\n',
+    markOf,
   );
   const entries = g.entries || 0;
   const stackRule = winsCanStack(g.tiers)
-    ? 'One entry per person. Nobody wins twice in the same draw, but you can win in more than one.'
+    ? 'One entry per person. Nobody wins twice in the same draw.'
     : 'One entry per person. Nobody wins twice.';
   const footer =
     g.status === 'open'
@@ -135,6 +156,8 @@ export function giveawayMessage(id: string, g: Giveaway) {
     title: g.title,
     description: [g.text, prizes, footer].filter(Boolean).join('\n\n'),
     color: g.status === 'open' ? 0xf97316 : 0x71717a,
+    // The small print under the post (Discord's footer is small grey text).
+    ...(notes.length && g.status !== 'cancelled' ? { footer: { text: notes.join('\n') } } : {}),
   };
   const components =
     g.status === 'open'
