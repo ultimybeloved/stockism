@@ -238,10 +238,12 @@ export const triggerWeeklyMarketSummary = cf().https.onCall(async (data, context
   return runWeeklyMarketSummary();
 });
 
+// 512MB because it holds every user doc at once: 256MB ran out on 2026-11-19 with
+// ~1,000 players, after the crowns and payouts but before the slips and the post.
 // 5 min rather than the 60s default: this scans every user doc and then makes
 // up to 18 Discord round-trips. Billed on actual runtime, so the headroom is
 // free unless something is genuinely slow.
-export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
+export const weeklyCrewRankings = cf({ timeoutSeconds: 300, memory: '512MB' })
   .pubsub.schedule('5 21 * * 4')
   .timeZone('UTC')
   .onRun(async (_context) => {
@@ -265,7 +267,7 @@ export const weeklyCrewRankings = cf({ timeoutSeconds: 300 })
  * Pass { rolesOnly: true } to only re-sync the crew head Discord roles, or
  * { rolesOnly: true, dryRun: true } to just check the Discord setup.
  */
-export const triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300 }).https.onCall(
+export const triggerWeeklyCrewRankings = cf({ timeoutSeconds: 300, memory: '512MB' }).https.onCall(
   withAdminLog('trigger_weekly_crew_rankings', async (data, context) => {
     requireAdmin(context, 'Admin only.');
     if (data && data.rolesOnly) return runCrewRoleSyncOnly({ dryRun: !!data.dryRun });

@@ -131,7 +131,8 @@ const claim = (id: string, now: number) =>
     return d;
   });
 
-export const delayedOpenTick = cf({ timeoutSeconds: 540 })
+// 512MB: a late open runs weeklyCrewRankings in here, which needs it.
+export const delayedOpenTick = cf({ timeoutSeconds: 540, memory: '512MB' })
   .pubsub.schedule('* * * * 4')
   .timeZone('UTC')
   .onRun(async () => {
