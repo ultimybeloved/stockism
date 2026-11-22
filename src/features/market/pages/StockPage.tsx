@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { useTheme, useSession, useMarket } from '../../../context/AppContext';
+import { useSession, useMarket } from '../../../context/AppContext';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
 import { themeClasses } from '../../../utils/theme';
 import PriceChart, { TIME_RANGES } from '../components/PriceChart';
@@ -40,7 +40,6 @@ const StockPage = ({ onTrade }: StockPageProps) => {
   const ticker = useParams().ticker ?? '';
   const navigate = useNavigate();
   const slideIn = (useLocation().state as { dir?: 'next' | 'prev' } | null)?.dir;
-  const { darkMode } = useTheme();
   const { user, userData } = useSession();
   const { marketData, prices } = useMarket();
   const phone = usePhone();
@@ -137,8 +136,6 @@ const StockPage = ({ onTrade }: StockPageProps) => {
           <StockHeader
             ticker={ticker}
             character={character}
-            crews={crews}
-            darkMode={darkMode}
             currentPrice={currentPrice}
             hovered={hoveredChartPoint}
             rangeFirst={priceStats.first}

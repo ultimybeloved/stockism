@@ -1,18 +1,15 @@
 import type { ReactNode } from 'react';
 import type { Character } from '../../../characters';
-import type { Crew } from '../../../crews';
 import type { PricePoint } from '../../../types';
 import { formatCurrency, formatChange } from '../../../utils/formatters';
-import { themeClasses, getReadableCrewColor } from '../../../utils/theme';
+import { themeClasses } from '../../../utils/theme';
 import { statusBadge, STATUS_MAP, statusOf } from '../../../constants/statuses';
 import PixelIcon from '../../../shared/components/PixelIcon';
-import CrewPin from '../../../shared/components/CrewPin';
+import StockTags from './StockTags';
 
 interface StockHeaderProps {
   ticker: string;
   character: Character;
-  crews: Crew[];
-  darkMode: boolean;
   currentPrice: number;
   /** The chart point under the finger or mouse, shown instead of the live price. */
   hovered: PricePoint | null;
@@ -26,14 +23,12 @@ interface StockHeaderProps {
   children?: ReactNode;
 }
 
-// The top of the stock page: ticker, badges, crews and name on the left, the
-// price and its change over the chart's range on the right. Kept short on
-// phones so the chart shows without scrolling.
+// The top of the stock page: ticker and badges, then the name with its crews
+// and funds, on the left; the price and its change over the chart's range on
+// the right. Kept short on phones so the chart shows without scrolling.
 export default function StockHeader({
   ticker,
   character,
-  crews,
-  darkMode,
   currentPrice,
   hovered,
   rangeFirst,
@@ -59,22 +54,11 @@ export default function StockHeader({
                 <PixelIcon name={badge} className="w-5 h-5" />
               </span>
             )}
-            {crews.map((crew) => (
-              <span
-                key={crew.id}
-                className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-semibold"
-                style={{
-                  backgroundColor: crew.color + '22',
-                  border: `1px solid ${crew.color}55`,
-                  color: getReadableCrewColor(crew.color, darkMode),
-                }}
-              >
-                <CrewPin crew={crew} className="w-3 h-3" />
-                {crew.name}
-              </span>
-            ))}
           </div>
-          <p className={`text-sm ${mutedClass} mt-0.5`}>{character.name}</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+            <p className={`text-sm ${mutedClass}`}>{character.name}</p>
+            <StockTags character={character} />
+          </div>
           {character.description && (
             <p className={`hidden md:block text-xs ${mutedClass} mt-0.5`}>{character.description}</p>
           )}

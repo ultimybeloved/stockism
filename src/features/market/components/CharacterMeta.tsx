@@ -3,27 +3,19 @@ import { useMarket } from '../../../context/AppContext';
 
 import { themeClasses } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/formatters';
-import { CREWS } from '../../../crews';
-import { CHARACTERS } from '../../../characters';
-import { fundsContaining } from '../../../utils/marketFilters';
 import type { Character } from '../../../characters';
-import CrewPin from '../../../shared/components/CrewPin';
+import StockTags from './StockTags';
 
-// The metadata under a card's name: crew badge, the funds a character belongs
-// to, the description, and (for a fund) its constituents with a show-more
-// toggle. Split out of CharacterCard when it hit its 400-line limit.
-//
-// It owns the expand state and derives its own crew/fund lookups because
-// nothing else on the card reads them.
+// The metadata under a card's name: crew badges and the funds a character
+// belongs to (StockTags), the description, and (for a fund) its constituents
+// with a show-more toggle. Split out of CharacterCard when it hit its 400-line
+// limit. It owns the expand state because nothing else on the card reads it.
 const CharacterMeta = ({ character }: { character: Character }) => {
   const { prices } = useMarket();
   const { mutedClass } = themeClasses;
   const [etfExpanded, setEtfExpanded] = useState(false);
 
   const isETF = character.isETF;
-  // Every crew, not the first — a character can be in more than one.
-  const characterCrews = !isETF ? Object.values(CREWS).filter((c) => c.members.includes(character.ticker)) : [];
-  const characterEtfs = fundsContaining(CHARACTERS, character.ticker, isETF);
 
   // Constituents read best most-expensive first.
   const sorted =
@@ -34,28 +26,7 @@ const CharacterMeta = ({ character }: { character: Character }) => {
 
   return (
     <>
-      {!isETF && (characterCrews.length > 0 || characterEtfs.length > 0) && (
-        <div className="flex flex-wrap gap-1 mt-0.5">
-          {characterCrews.map((crew) => (
-            <span
-              key={crew.id}
-              className={`flex items-center gap-0.5 text-[10px] px-1 rounded font-semibold ${mutedClass}`}
-              style={{ backgroundColor: crew.color + '22', border: `1px solid ${crew.color}55` }}
-            >
-              <CrewPin crew={crew} className="w-3 h-3" />
-              {crew.name}
-            </span>
-          ))}
-          {characterEtfs.map((etf) => (
-            <span
-              key={etf.ticker}
-              className="text-[10px] font-mono px-1 rounded light:bg-purple-100 light:text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
-            >
-              {etf.ticker}
-            </span>
-          ))}
-        </div>
-      )}
+      <StockTags character={character} size="sm" className="flex mt-0.5" />
       {character.description && (
         <p className={`text-xs ${mutedClass}${isETF ? ' mt-0.5' : ''}`}>{character.description}</p>
       )}

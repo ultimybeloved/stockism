@@ -20,6 +20,7 @@ import type { Character } from '../../../characters';
 import type { PricePoint, TradeAction } from '../../../types';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 import ChapterFlagsToggle from './ChapterFlagsToggle';
+import StockTags from './StockTags';
 import { usePreMarket, tradeLabel } from '../../../shared/hooks/usePreMarket';
 
 interface StockPopupProps {
@@ -110,9 +111,10 @@ const StockPopup = ({
         >
           <div className={`p-5 border-b ${cardEdgeClass} flex items-start justify-between gap-4`}>
             <div className="min-w-0">
-              <div className="flex items-baseline gap-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h2 className="text-orange-500 font-mono text-2xl font-bold">${ticker}</h2>
                 <span className={`text-base truncate ${mutedClass}`}>{character.name}</span>
+                <StockTags character={character} />
               </div>
               <div className="flex items-baseline gap-3 mt-1">
                 <span className={`text-3xl font-bold ${textClass}`}>{formatCurrency(shown)}</span>

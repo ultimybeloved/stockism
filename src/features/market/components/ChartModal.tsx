@@ -13,6 +13,7 @@ import type { PricePoint } from '../../../types';
 import { useModalFocus } from '../../../shared/hooks/useModalFocus';
 import SegmentedSwitch from '../../../shared/components/SegmentedSwitch';
 import ChapterFlagsToggle from './ChapterFlagsToggle';
+import StockTags from './StockTags';
 
 interface ChartModalProps {
   character: Character;
@@ -63,9 +64,10 @@ const ChartModal = ({ character, currentPrice, onClose, defaultTimeRange = '1d' 
         <div className={`p-4 border-b ${cardEdgeClass}`}>
           <div className="flex justify-between items-start">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="text-orange-500 font-mono text-lg font-semibold">${character.ticker}</span>
                 <span className={`text-sm ${mutedClass}`}>{character.name}</span>
+                <StockTags character={character} />
                 <Link
                   to={`/stock/${character.ticker}`}
                   onClick={onClose}
